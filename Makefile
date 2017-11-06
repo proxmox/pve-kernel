@@ -49,7 +49,7 @@ SPLSRC=submodules/spl-module
 ZFSDIR=pkg-zfs
 ZFSSRC=submodules/zfs-module
 ZFS_KO=zfs.ko
-ZFS_KO_REST=zavl.ko znvpair.ko zunicode.ko zcommon.ko zpios.ko
+ZFS_KO_REST=zavl.ko znvpair.ko zunicode.ko zcommon.ko zpios.ko icp.ko
 ZFS_MODULES=$(ZFS_KO) $(ZFS_KO_REST)
 SPL_KO=spl.ko
 SPL_KO_REST=splat.ko
@@ -305,6 +305,7 @@ $(ZFS_KO): .compile_mark ${ZFSSRC}
 	cp ${ZFSDIR}/module/unicode/zunicode.ko zunicode.ko
 	cp ${ZFSDIR}/module/zcommon/zcommon.ko zcommon.ko
 	cp ${ZFSDIR}/module/zpios/zpios.ko zpios.ko
+	cp ${ZFSDIR}/module/icp/icp.ko icp.ko
 
 headers_tmp := $(CURDIR)/tmp-headers
 headers_dir := $(headers_tmp)/usr/src/linux-headers-${KVNAME}
