@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jim Mattson <jmattson@google.com>
+Date: Tue, 30 Oct 2018 12:20:21 -0700
+Subject: [PATCH] kvm: x86: Don't modify MSR_PLATFORM_INFO on vCPU reset
+
+If userspace has provided a different value for this MSR (e.g with the
+turbo bits set), the userspace-provided value should survive a vCPU
+reset. For backwards compatibility, MSR_PLATFORM_INFO is initialized
+in kvm_arch_vcpu_setup.
+
+Signed-off-by: Jim Mattson <jmattson@google.com>
+Reviewed-by: Drew Schmitt <dasch@google.com>
+Cc: Abhiroop Dabral <adabral@paloaltonetworks.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit e53d88af63ab4104e1226b8f9959f1e9903da10b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/x86.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index c578a90f1128..e1f16d02e44f 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -7949,6 +7949,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
+ 
+ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+ {
++	vcpu->arch.msr_platform_info = MSR_PLATFORM_INFO_CPUID_FAULT;
+ 	kvm_vcpu_mtrr_init(vcpu);
+ 	vcpu_load(vcpu);
+ 	kvm_vcpu_reset(vcpu, false);
+@@ -8050,7 +8051,6 @@ void kvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
+ 		kvm_pmu_reset(vcpu);
+ 		vcpu->arch.smbase = 0x30000;
+ 
+-		vcpu->arch.msr_platform_info = MSR_PLATFORM_INFO_CPUID_FAULT;
+ 		vcpu->arch.msr_misc_features_enables = 0;
+ 
+ 		vcpu->arch.xcr0 = XFEATURE_MASK_FP;
