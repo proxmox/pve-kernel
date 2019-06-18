@@ -1,8 +1,8 @@
-From d3e6d6d3a4704bb590b07e54fb831d014cf77ef7 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Mao Wenan <maowenan@huawei.com>
 Date: Thu, 28 Mar 2019 17:10:56 +0800
-Subject: [PATCH 1/1] net: rds: force to destroy connection if t_sock is NULL
- in rds_tcp_kill_sock().
+Subject: [PATCH] net: rds: force to destroy connection if t_sock is NULL in
+ rds_tcp_kill_sock().
 
 When it is to cleanup net namespace, rds_tcp_exit_net() will call
 rds_tcp_kill_sock(), if t_sock is NULL, it will not call
@@ -142,6 +142,3 @@ index 4df21e47d2ab..0a31fa6ef752 100644
  			continue;
  		if (!list_has_conn(&tmp_list, tc->t_cpath->cp_conn)) {
  			list_move_tail(&tc->t_tcp_node, &tmp_list);
--- 
-2.20.1
-

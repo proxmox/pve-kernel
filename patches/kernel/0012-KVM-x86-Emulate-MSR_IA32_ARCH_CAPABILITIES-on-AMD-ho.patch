@@ -95,10 +95,10 @@ index 38e50b40db5a..1911ec5e26c1 100644
  
  	/* 22.2.1, 20.8.1 */
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index e1f16d02e44f..bf76e7cd9837 100644
+index 3d3d6d6548c3..92a8b20b7103 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -2246,6 +2246,11 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+@@ -2247,6 +2247,11 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
  		if (msr_info->host_initiated)
  			vcpu->arch.microcode_version = data;
  		break;
@@ -110,7 +110,7 @@ index e1f16d02e44f..bf76e7cd9837 100644
  	case MSR_EFER:
  		return set_efer(vcpu, data);
  	case MSR_K7_HWCR:
-@@ -2541,6 +2546,12 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+@@ -2543,6 +2548,12 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
  	case MSR_IA32_UCODE_REV:
  		msr_info->data = vcpu->arch.microcode_version;
  		break;
@@ -123,7 +123,7 @@ index e1f16d02e44f..bf76e7cd9837 100644
  	case MSR_IA32_TSC:
  		msr_info->data = kvm_scale_tsc(vcpu, rdtsc()) + vcpu->arch.tsc_offset;
  		break;
-@@ -7949,6 +7960,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
+@@ -7951,6 +7962,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
  
  int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
  {

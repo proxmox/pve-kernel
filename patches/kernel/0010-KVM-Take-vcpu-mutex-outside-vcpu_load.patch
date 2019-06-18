@@ -49,10 +49,10 @@ index bf348fee4bd5..38e50b40db5a 100644
         free_nested(vmx);
         vcpu_put(vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index ac17f53812af..c578a90f1128 100644
+index 1154795459de..3bf992a56e56 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7949,16 +7949,12 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
+@@ -7951,16 +7951,12 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
  
  int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
  {
@@ -71,7 +71,7 @@ index ac17f53812af..c578a90f1128 100644
  }
  
  void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
-@@ -7968,13 +7964,15 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
+@@ -7970,13 +7966,15 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
  
  	kvm_hv_vcpu_postcreate(vcpu);
  
@@ -88,7 +88,7 @@ index ac17f53812af..c578a90f1128 100644
  
  	if (!kvmclock_periodic_sync)
  		return;
-@@ -7985,11 +7983,9 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
+@@ -7987,11 +7985,9 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
  
  void kvm_arch_vcpu_destroy(struct kvm_vcpu *vcpu)
  {
@@ -101,7 +101,7 @@ index ac17f53812af..c578a90f1128 100644
  	kvm_mmu_unload(vcpu);
  	vcpu_put(vcpu);
  
-@@ -8363,9 +8359,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
+@@ -8365,9 +8361,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
  
  static void kvm_unload_vcpu_mmu(struct kvm_vcpu *vcpu)
  {
@@ -126,7 +126,7 @@ index c807eab9c1d3..6684da3f197f 100644
  
  #ifdef __KVM_HAVE_IOAPIC
 diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index 238ddbc127e1..0d2eddfdf785 100644
+index d7a24fd29144..9cb73320866c 100644
 --- a/virt/kvm/kvm_main.c
 +++ b/virt/kvm/kvm_main.c
 @@ -151,17 +151,12 @@ bool kvm_is_reserved_pfn(kvm_pfn_t pfn)
