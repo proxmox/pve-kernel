@@ -1,3 +1,15 @@
+pve-kernel (4.15.18-41) unstable; urgency=medium
+
+  * update sources to Ubuntu-4.15.0-52.56
+
+  * backport: KVM: x86: Emulate MSR_IA32_ARCH_CAPABILITIES on AMD hosts
+
+  * backport: net: rds: force to destroy connection if t_sock is NULL in rds_tcp_kill_sock()
+
+  * bump ABI to 4.15.18-16
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 18 Jun 2019 07:36:54 +0200
+
 pve-kernel (4.15.18-40) unstable; urgency=medium
 
   * update to Ubuntu-4.15.0-51.55
