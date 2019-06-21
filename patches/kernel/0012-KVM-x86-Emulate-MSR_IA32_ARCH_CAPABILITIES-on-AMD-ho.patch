@@ -49,7 +49,7 @@ index e76012ca0ddc..fa57f78dff2d 100644
  	/*
  	 * Paging state of the vcpu
 diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
-index 38e50b40db5a..1911ec5e26c1 100644
+index a4a11751df22..a6c1b23ea9a4 100644
 --- a/arch/x86/kvm/vmx.c
 +++ b/arch/x86/kvm/vmx.c
 @@ -750,7 +750,6 @@ struct vcpu_vmx {

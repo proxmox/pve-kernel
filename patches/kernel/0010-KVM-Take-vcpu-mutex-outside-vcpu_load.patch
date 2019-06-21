@@ -33,10 +33,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 15 insertions(+), 28 deletions(-)
 
 diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
-index bf348fee4bd5..38e50b40db5a 100644
+index 35a212169043..a4a11751df22 100644
 --- a/arch/x86/kvm/vmx.c
 +++ b/arch/x86/kvm/vmx.c
-@@ -9959,10 +9959,8 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
+@@ -9960,10 +9960,8 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
  static void vmx_free_vcpu_nested(struct kvm_vcpu *vcpu)
  {
         struct vcpu_vmx *vmx = to_vmx(vcpu);
