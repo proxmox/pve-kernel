@@ -23,6 +23,7 @@ Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 (cherry picked from commit 63de8bd9328bf2a778fc277503da163ae3defa3c)
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  fs/ocfs2/aops.c | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)

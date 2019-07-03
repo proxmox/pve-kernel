@@ -48,6 +48,7 @@ capability.  Please contact me to have your devices added and save
 your customers the hassle of this boot option.
 
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  .../admin-guide/kernel-parameters.txt         |   9 ++
  drivers/pci/quirks.c                          | 101 ++++++++++++++++++
@@ -74,10 +75,10 @@ index 11bf7af493e1..4c3d21a1b79f 100644
  				Safety option to keep boot IRQs enabled. This
  				should never be necessary.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 2956ebbd83dc..8dceb0838970 100644
+index fb4b0dd22f95..29f7741eafef 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
-@@ -3705,6 +3705,106 @@ static int __init pci_apply_final_quirks(void)
+@@ -3702,6 +3702,106 @@ static int __init pci_apply_final_quirks(void)
  
  fs_initcall_sync(pci_apply_final_quirks);
  
@@ -184,7 +185,7 @@ index 2956ebbd83dc..8dceb0838970 100644
  /*
   * Following are device-specific reset methods which can be used to
   * reset a single function if other methods (e.g. FLR, PM D0->D3) are
-@@ -4558,6 +4658,7 @@ static const struct pci_dev_acs_enabled {
+@@ -4555,6 +4655,7 @@ static const struct pci_dev_acs_enabled {
  	{ PCI_VENDOR_ID_CAVIUM, PCI_ANY_ID, pci_quirk_cavium_acs },
  	/* APM X-Gene */
  	{ PCI_VENDOR_ID_AMCC, 0xE004, pci_quirk_xgene_acs },

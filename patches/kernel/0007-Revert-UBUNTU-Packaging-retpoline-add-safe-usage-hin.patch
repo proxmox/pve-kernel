@@ -14,6 +14,7 @@ we remove before building. it would also be required by any module
 builds afterwards and is not shipped by Ubuntu's kernel packages either.
 
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  scripts/Makefile.build | 10 +---------
  1 file changed, 1 insertion(+), 9 deletions(-)

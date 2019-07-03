@@ -7,6 +7,7 @@ Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  virt/kvm/kvm_main.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
