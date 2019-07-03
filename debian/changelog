@@ -1,3 +1,11 @@
+pve-kernel (4.15.18-44) unstable; urgency=medium
+
+  * update to Ubuntu-4.15.0-55.60
+
+  * bump ABI to 4.15.18-18
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 03 Jul 2019 11:19:13 +0200
+
 pve-kernel (4.15.18-43) unstable; urgency=medium
 
   * backport refinement for TCP SACK mitigations to avoid regressions for some
