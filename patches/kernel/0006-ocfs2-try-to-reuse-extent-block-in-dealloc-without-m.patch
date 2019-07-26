@@ -350,7 +350,7 @@ index 27b75cf32cfa..250bcacdf9e9 100644
  
  /*
 diff --git a/fs/ocfs2/aops.c b/fs/ocfs2/aops.c
-index 256986aca8df..e8e205bf2e41 100644
+index ef8f00a30d62..cab26aa30f63 100644
 --- a/fs/ocfs2/aops.c
 +++ b/fs/ocfs2/aops.c
 @@ -2332,6 +2332,12 @@ static int ocfs2_dio_end_io_write(struct inode *inode,

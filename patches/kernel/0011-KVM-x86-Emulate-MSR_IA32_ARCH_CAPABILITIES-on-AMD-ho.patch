@@ -37,10 +37,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 13 insertions(+), 14 deletions(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index e76012ca0ddc..fa57f78dff2d 100644
+index c2bb7da8e5b4..e238785c22d3 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
-@@ -508,6 +508,7 @@ struct kvm_vcpu_arch {
+@@ -509,6 +509,7 @@ struct kvm_vcpu_arch {
  	bool tpr_access_reporting;
  	u64 ia32_xss;
  	u64 microcode_version;
@@ -49,7 +49,7 @@ index e76012ca0ddc..fa57f78dff2d 100644
  	/*
  	 * Paging state of the vcpu
 diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
-index a4a11751df22..a6c1b23ea9a4 100644
+index 921968c00dde..cddbdd2d615d 100644
 --- a/arch/x86/kvm/vmx.c
 +++ b/arch/x86/kvm/vmx.c
 @@ -750,7 +750,6 @@ struct vcpu_vmx {
@@ -60,7 +60,7 @@ index a4a11751df22..a6c1b23ea9a4 100644
  	u64 		      spec_ctrl;
  
  	u32 vm_entry_controls_shadow;
-@@ -3477,12 +3476,6 @@ static int vmx_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+@@ -3485,12 +3484,6 @@ static int vmx_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
  
  		msr_info->data = to_vmx(vcpu)->spec_ctrl;
  		break;
@@ -73,7 +73,7 @@ index a4a11751df22..a6c1b23ea9a4 100644
  	case MSR_IA32_SYSENTER_CS:
  		msr_info->data = vmcs_read32(GUEST_SYSENTER_CS);
  		break;
-@@ -3644,11 +3637,6 @@ static int vmx_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+@@ -3652,11 +3645,6 @@ static int vmx_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
  		vmx_disable_intercept_for_msr(vmx->vmcs01.msr_bitmap, MSR_IA32_PRED_CMD,
  					      MSR_TYPE_W);
  		break;
@@ -85,7 +85,7 @@ index a4a11751df22..a6c1b23ea9a4 100644
  	case MSR_IA32_CR_PAT:
  		if (vmcs_config.vmentry_ctrl & VM_ENTRY_LOAD_IA32_PAT) {
  			if (!kvm_mtrr_valid(vcpu, MSR_IA32_CR_PAT, data))
-@@ -5906,8 +5894,6 @@ static void vmx_vcpu_setup(struct vcpu_vmx *vmx)
+@@ -5914,8 +5902,6 @@ static void vmx_vcpu_setup(struct vcpu_vmx *vmx)
  		++vmx->nmsrs;
  	}
  
@@ -95,10 +95,10 @@ index a4a11751df22..a6c1b23ea9a4 100644
  
  	/* 22.2.1, 20.8.1 */
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 3d3d6d6548c3..92a8b20b7103 100644
+index be629513de13..88f910046a60 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -2247,6 +2247,11 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+@@ -2248,6 +2248,11 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
  		if (msr_info->host_initiated)
  			vcpu->arch.microcode_version = data;
  		break;
@@ -110,7 +110,7 @@ index 3d3d6d6548c3..92a8b20b7103 100644
  	case MSR_EFER:
  		return set_efer(vcpu, data);
  	case MSR_K7_HWCR:
-@@ -2543,6 +2548,12 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+@@ -2544,6 +2549,12 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
  	case MSR_IA32_UCODE_REV:
  		msr_info->data = vcpu->arch.microcode_version;
  		break;
@@ -123,7 +123,7 @@ index 3d3d6d6548c3..92a8b20b7103 100644
  	case MSR_IA32_TSC:
  		msr_info->data = kvm_scale_tsc(vcpu, rdtsc()) + vcpu->arch.tsc_offset;
  		break;
-@@ -7951,6 +7962,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
+@@ -7957,6 +7968,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
  
  int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
  {

@@ -29,7 +29,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ocfs2/aops.c b/fs/ocfs2/aops.c
-index d1516327b787..256986aca8df 100644
+index 99550f4bd159..ef8f00a30d62 100644
 --- a/fs/ocfs2/aops.c
 +++ b/fs/ocfs2/aops.c
 @@ -797,6 +797,7 @@ struct ocfs2_write_ctxt {
