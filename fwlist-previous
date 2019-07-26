@@ -37,6 +37,7 @@ amdgpu/fiji_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/fiji_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris10_ce_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris10_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/polaris10_k_mc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris10_k_smc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris10_mc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris10_me_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -56,6 +57,7 @@ amdgpu/polaris10_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris10_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_ce_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/polaris11_k_mc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_k_smc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_mc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_me_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -75,6 +77,7 @@ amdgpu/polaris11_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_ce_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/polaris12_k_mc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_mc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_me_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
