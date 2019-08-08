@@ -6618,7 +6618,6 @@ EXPORT_SYMBOL vmlinux 0x07de29e9	__generic_file_write_iter
 EXPORT_SYMBOL vmlinux 0x07e4c747	vga_con
 EXPORT_SYMBOL vmlinux 0x07f1c1e3	devm_kvasprintf
 EXPORT_SYMBOL vmlinux 0x08071424	backlight_device_unregister
-EXPORT_SYMBOL vmlinux 0x0815a8e2	discard_new_inode
 EXPORT_SYMBOL vmlinux 0x08249512	iwe_stream_add_point
 EXPORT_SYMBOL vmlinux 0x08293a5e	__insert_inode_hash
 EXPORT_SYMBOL vmlinux 0x082c3213	pci_root_buses
