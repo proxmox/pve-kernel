@@ -19,18 +19,18 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 0c971dce8915..be629513de13 100644
+index 83cd2c951c49..3118c1ed4642 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7957,6 +7957,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
- 
+@@ -7982,6 +7982,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
  int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
  {
+ 	vcpu->arch.arch_capabilities = kvm_get_arch_capabilities();
 +	vcpu->arch.msr_platform_info = MSR_PLATFORM_INFO_CPUID_FAULT;
  	kvm_vcpu_mtrr_init(vcpu);
  	vcpu_load(vcpu);
  	kvm_vcpu_reset(vcpu, false);
-@@ -8058,7 +8059,6 @@ void kvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
+@@ -8083,7 +8084,6 @@ void kvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
  		kvm_pmu_reset(vcpu);
  		vcpu->arch.smbase = 0x30000;
  

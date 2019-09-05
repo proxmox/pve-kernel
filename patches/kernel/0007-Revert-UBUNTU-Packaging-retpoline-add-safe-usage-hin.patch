@@ -20,7 +20,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 9 deletions(-)
 
 diff --git a/scripts/Makefile.build b/scripts/Makefile.build
-index 1b07341eda2c..419fe6fdad17 100644
+index 5d72aa39d3c1..451546219dfc 100644
 --- a/scripts/Makefile.build
 +++ b/scripts/Makefile.build
 @@ -295,27 +295,19 @@ objtool_dep = $(objtool_obj)					\

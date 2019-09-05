@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Fri, 6 Sep 2019 13:04:30 +0200
+Subject: [PATCH] ntb test: remove unused conflicting SZ_4G define
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/ntb/test/ntb_perf.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/ntb/test/ntb_perf.c b/drivers/ntb/test/ntb_perf.c
+index 427112cf101a..1f8ee33a07a2 100644
+--- a/drivers/ntb/test/ntb_perf.c
++++ b/drivers/ntb/test/ntb_perf.c
+@@ -74,7 +74,6 @@
+ #define MAX_SRCS		32
+ #define DMA_OUT_RESOURCE_TO	msecs_to_jiffies(50)
+ #define DMA_RETRIES		20
+-#define SZ_4G			(1ULL << 32)
+ #define MAX_SEG_ORDER		20 /* no larger than 1M for kmalloc buffer */
+ #define PIDX			NTB_DEF_PEER_IDX
+ 
