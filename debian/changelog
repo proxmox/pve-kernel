@@ -1,3 +1,9 @@
+pve-kernel (4.15.18-48) pve pmg; urgency=medium
+
+  * update to Ubuntu-4.15.0-65.74
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 20 Sep 2019 11:28:30 +0200
+
 pve-kernel (4.15.18-47) pve pmg; urgency=medium
 
   * update to Ubuntu-4.15.0-63.72
