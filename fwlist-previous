@@ -925,8 +925,11 @@ nvidia/gp102/gr/sw_ctx.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp102/gr/sw_method_init.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp102/gr/sw_nonctx.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp102/nvdec/scrubber.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp102/sec2/desc-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp102/sec2/desc.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp102/sec2/image-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp102/sec2/image.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp102/sec2/sig-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp102/sec2/sig.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp104/acr/bl.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp104/acr/ucode_load.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
@@ -945,8 +948,11 @@ nvidia/gp104/gr/sw_ctx.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp104/gr/sw_method_init.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp104/gr/sw_nonctx.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp104/nvdec/scrubber.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp104/sec2/desc-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp104/sec2/desc.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp104/sec2/image-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp104/sec2/image.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp104/sec2/sig-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp104/sec2/sig.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp106/acr/bl.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp106/acr/ucode_load.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
@@ -965,8 +971,11 @@ nvidia/gp106/gr/sw_ctx.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp106/gr/sw_method_init.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp106/gr/sw_nonctx.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp106/nvdec/scrubber.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp106/sec2/desc-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp106/sec2/desc.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp106/sec2/image-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp106/sec2/image.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp106/sec2/sig-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp106/sec2/sig.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp107/acr/bl.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp107/acr/ucode_load.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
@@ -985,8 +994,11 @@ nvidia/gp107/gr/sw_ctx.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp107/gr/sw_method_init.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp107/gr/sw_nonctx.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp107/nvdec/scrubber.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp107/sec2/desc-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp107/sec2/desc.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp107/sec2/image-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp107/sec2/image.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
+nvidia/gp107/sec2/sig-1.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp107/sec2/sig.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp108/acr/bl.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
 nvidia/gp108/acr/ucode_load.bin kernel/drivers/gpu/drm/nouveau/nouveau.ko
