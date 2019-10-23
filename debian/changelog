@@ -1,3 +1,13 @@
+pve-kernel (5.0.21-8) pve pmg; urgency=medium
+
+  * update to Ubuntu-5.0.0-33.35
+
+  * bump ABI to 5.0.21-4
+
+  * update ZFS FPU/SIMD implementation to upstream proposal
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 23 Oct 2019 17:49:13 +0200
+
 pve-kernel (5.0.21-7) pve pmg; urgency=medium
 
   * update ZFS to 0.8.2
