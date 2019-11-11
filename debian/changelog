@@ -1,3 +1,9 @@
+pve-kernel (5.0.21-9) pve pmg; urgency=medium
+
+  * fix #2458: fix issues with Linux KVM guest on old Intel CPUs
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 11 Nov 2019 14:12:37 +0100
+
 pve-kernel (5.0.21-8) pve pmg; urgency=medium
 
   * update to Ubuntu-5.0.0-33.35
