@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Mon, 11 Nov 2019 15:22:38 +0100
+Subject: [PATCH] Revert "KVM: x86: Manually calculate reserved bits when
+ loading PDPTRS"
+
+breaks Linux guest if the host uses very old Intel CPUs
+
+This reverts commit c5d574d63996442c80e886c60278a790230f4d2b.
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/x86.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index cc9ad1aa4790..2c18946970bf 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -566,14 +566,8 @@ static int kvm_read_nested_guest_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+ 				       data, offset, len, access);
+ }
+ 
+-static inline u64 pdptr_rsvd_bits(struct kvm_vcpu *vcpu)
+-{
+-	return rsvd_bits(cpuid_maxphyaddr(vcpu), 63) | rsvd_bits(5, 8) |
+-	       rsvd_bits(1, 2);
+-}
+-
+ /*
+- * Load the pae pdptrs.  Return 1 if they are all valid, 0 otherwise.
++ * Load the pae pdptrs.  Return true is they are all valid.
+  */
+ int load_pdptrs(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu, unsigned long cr3)
+ {
+@@ -592,7 +586,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu, unsigned long cr3)
+ 	}
+ 	for (i = 0; i < ARRAY_SIZE(pdpte); ++i) {
+ 		if ((pdpte[i] & PT_PRESENT_MASK) &&
+-		    (pdpte[i] & pdptr_rsvd_bits(vcpu))) {
++		    (pdpte[i] &
++		     vcpu->arch.mmu.guest_rsvd_check.rsvd_bits_mask[0][2])) {
+ 			ret = 0;
+ 			goto out;
+ 		}
