@@ -1,0 +1,105 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Thu, 6 Jun 2019 18:52:44 +0200
+Subject: [PATCH] KVM: x86: introduce is_pae_paging
+
+Checking for 32-bit PAE is quite common around code that fiddles with
+the PDPTRs.  Add a function to compress all checks into a single
+invocation.
+
+Reviewed-by: Sean Christopherson <sean.j.christopherson@intel.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit bf03d4f9334728bf7c8ffc7de787df48abd6340e)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/vmx/nested.c | 3 +--
+ arch/x86/kvm/vmx/vmx.c    | 4 ++--
+ arch/x86/kvm/x86.c        | 8 ++++----
+ arch/x86/kvm/x86.h        | 5 +++++
+ 4 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index d7c52e748966..7bb5801b5e11 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -944,8 +944,7 @@ static int nested_vmx_load_cr3(struct kvm_vcpu *vcpu, unsigned long cr3, bool ne
+ 		 * If PAE paging and EPT are both on, CR3 is not used by the CPU and
+ 		 * must not be dereferenced.
+ 		 */
+-		if (!is_long_mode(vcpu) && is_pae(vcpu) && is_paging(vcpu) &&
+-		    !nested_ept) {
++		if (is_pae_paging(vcpu) && !nested_ept) {
+ 			if (!load_pdptrs(vcpu, vcpu->arch.walk_mmu, cr3)) {
+ 				*entry_failure_code = ENTRY_FAIL_PDPTE;
+ 				return 1;
+diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
+index d27b75c41982..923d0f1b7a05 100644
+--- a/arch/x86/kvm/vmx/vmx.c
++++ b/arch/x86/kvm/vmx/vmx.c
+@@ -2737,7 +2737,7 @@ static void ept_load_pdptrs(struct kvm_vcpu *vcpu)
+ 		      (unsigned long *)&vcpu->arch.regs_dirty))
+ 		return;
+ 
+-	if (is_paging(vcpu) && is_pae(vcpu) && !is_long_mode(vcpu)) {
++	if (is_pae_paging(vcpu)) {
+ 		vmcs_write64(GUEST_PDPTR0, mmu->pdptrs[0]);
+ 		vmcs_write64(GUEST_PDPTR1, mmu->pdptrs[1]);
+ 		vmcs_write64(GUEST_PDPTR2, mmu->pdptrs[2]);
+@@ -2749,7 +2749,7 @@ void ept_save_pdptrs(struct kvm_vcpu *vcpu)
+ {
+ 	struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
+ 
+-	if (is_paging(vcpu) && is_pae(vcpu) && !is_long_mode(vcpu)) {
++	if (is_pae_paging(vcpu)) {
+ 		mmu->pdptrs[0] = vmcs_read64(GUEST_PDPTR0);
+ 		mmu->pdptrs[1] = vmcs_read64(GUEST_PDPTR1);
+ 		mmu->pdptrs[2] = vmcs_read64(GUEST_PDPTR2);
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index f832fa5011cd..5d2a2ca5b60d 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -724,7 +724,7 @@ bool pdptrs_changed(struct kvm_vcpu *vcpu)
+ 	gfn_t gfn;
+ 	int r;
+ 
+-	if (is_long_mode(vcpu) || !is_pae(vcpu) || !is_paging(vcpu))
++	if (!is_pae_paging(vcpu))
+ 		return false;
+ 
+ 	if (!test_bit(VCPU_EXREG_PDPTR,
+@@ -967,8 +967,8 @@ int kvm_set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
+ 	if (is_long_mode(vcpu) &&
+ 	    (cr3 & rsvd_bits(cpuid_maxphyaddr(vcpu), 63)))
+ 		return 1;
+-	else if (is_pae(vcpu) && is_paging(vcpu) &&
+-		   !load_pdptrs(vcpu, vcpu->arch.walk_mmu, cr3))
++	else if (is_pae_paging(vcpu) &&
++		 !load_pdptrs(vcpu, vcpu->arch.walk_mmu, cr3))
+ 		return 1;
+ 
+ 	kvm_mmu_new_cr3(vcpu, cr3, skip_tlb_flush);
+@@ -8554,7 +8554,7 @@ static int __set_sregs(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs)
+ 		kvm_update_cpuid(vcpu);
+ 
+ 	idx = srcu_read_lock(&vcpu->kvm->srcu);
+-	if (!is_long_mode(vcpu) && is_pae(vcpu) && is_paging(vcpu)) {
++	if (is_pae_paging(vcpu)) {
+ 		load_pdptrs(vcpu, vcpu->arch.walk_mmu, kvm_read_cr3(vcpu));
+ 		mmu_reset_needed = 1;
+ 	}
+diff --git a/arch/x86/kvm/x86.h b/arch/x86/kvm/x86.h
+index 7e89ed889707..03de3f3c830c 100644
+--- a/arch/x86/kvm/x86.h
++++ b/arch/x86/kvm/x86.h
+@@ -139,6 +139,11 @@ static inline int is_paging(struct kvm_vcpu *vcpu)
+ 	return likely(kvm_read_cr0_bits(vcpu, X86_CR0_PG));
+ }
+ 
++static inline bool is_pae_paging(struct kvm_vcpu *vcpu)
++{
++	return !is_long_mode(vcpu) && is_pae(vcpu) && is_paging(vcpu);
++}
++
+ static inline u32 bit(int bitno)
+ {
+ 	return 1 << (bitno & 31);
