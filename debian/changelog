@@ -1,3 +1,13 @@
+pve-kernel (5.0.21-10) pve pmg; urgency=medium
+
+  * update to Ubuntu-5.0.0-35.38
+
+  * bump ABI to 5.0.21-5
+
+  * avoid bouds error message about PC Speaker module being already registered
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 13 Nov 2019 08:27:10 +0100
+
 pve-kernel (5.0.21-9) pve pmg; urgency=medium
 
   * fix #2458: fix issues with Linux KVM guest on old Intel CPUs
