@@ -33,10 +33,10 @@ index d7c52e748966..7bb5801b5e11 100644
  				*entry_failure_code = ENTRY_FAIL_PDPTE;
  				return 1;
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index d27b75c41982..923d0f1b7a05 100644
+index 835edf9b2954..86c5ab3728ac 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -2737,7 +2737,7 @@ static void ept_load_pdptrs(struct kvm_vcpu *vcpu)
+@@ -2729,7 +2729,7 @@ static void ept_load_pdptrs(struct kvm_vcpu *vcpu)
  		      (unsigned long *)&vcpu->arch.regs_dirty))
  		return;
  
@@ -45,7 +45,7 @@ index d27b75c41982..923d0f1b7a05 100644
  		vmcs_write64(GUEST_PDPTR0, mmu->pdptrs[0]);
  		vmcs_write64(GUEST_PDPTR1, mmu->pdptrs[1]);
  		vmcs_write64(GUEST_PDPTR2, mmu->pdptrs[2]);
-@@ -2749,7 +2749,7 @@ void ept_save_pdptrs(struct kvm_vcpu *vcpu)
+@@ -2741,7 +2741,7 @@ void ept_save_pdptrs(struct kvm_vcpu *vcpu)
  {
  	struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
  
@@ -55,10 +55,10 @@ index d27b75c41982..923d0f1b7a05 100644
  		mmu->pdptrs[1] = vmcs_read64(GUEST_PDPTR1);
  		mmu->pdptrs[2] = vmcs_read64(GUEST_PDPTR2);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index f832fa5011cd..5d2a2ca5b60d 100644
+index eed14def2a6b..c69f12af5c01 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -724,7 +724,7 @@ bool pdptrs_changed(struct kvm_vcpu *vcpu)
+@@ -725,7 +725,7 @@ bool pdptrs_changed(struct kvm_vcpu *vcpu)
  	gfn_t gfn;
  	int r;
  
@@ -67,7 +67,7 @@ index f832fa5011cd..5d2a2ca5b60d 100644
  		return false;
  
  	if (!test_bit(VCPU_EXREG_PDPTR,
-@@ -967,8 +967,8 @@ int kvm_set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
+@@ -968,8 +968,8 @@ int kvm_set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
  	if (is_long_mode(vcpu) &&
  	    (cr3 & rsvd_bits(cpuid_maxphyaddr(vcpu), 63)))
  		return 1;
@@ -78,7 +78,7 @@ index f832fa5011cd..5d2a2ca5b60d 100644
  		return 1;
  
  	kvm_mmu_new_cr3(vcpu, cr3, skip_tlb_flush);
-@@ -8554,7 +8554,7 @@ static int __set_sregs(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs)
+@@ -8590,7 +8590,7 @@ static int __set_sregs(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs)
  		kvm_update_cpuid(vcpu);
  
  	idx = srcu_read_lock(&vcpu->kvm->srcu);
