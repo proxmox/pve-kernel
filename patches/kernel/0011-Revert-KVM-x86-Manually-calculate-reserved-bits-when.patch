@@ -14,10 +14,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 3 insertions(+), 8 deletions(-)
 
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index cc9ad1aa4790..2c18946970bf 100644
+index 157e28dbd0ed..f7cd415fe37e 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -566,14 +566,8 @@ static int kvm_read_nested_guest_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+@@ -567,14 +567,8 @@ static int kvm_read_nested_guest_page(struct kvm_vcpu *vcpu, gfn_t gfn,
  				       data, offset, len, access);
  }
  
@@ -33,7 +33,7 @@ index cc9ad1aa4790..2c18946970bf 100644
   */
  int load_pdptrs(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu, unsigned long cr3)
  {
-@@ -592,7 +586,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu, unsigned long cr3)
+@@ -593,7 +587,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu, unsigned long cr3)
  	}
  	for (i = 0; i < ARRAY_SIZE(pdpte); ++i) {
  		if ((pdpte[i] & PT_PRESENT_MASK) &&
