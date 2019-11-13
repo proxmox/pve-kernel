@@ -1,3 +1,14 @@
+pve-kernel (4.15.18-51) pve pmg; urgency=medium
+
+  * update to Ubuntu-4.15.0-69.78
+
+  * avoid bogus error message about PC Speaker module being already registered
+    on boot
+
+  * bump ABI to 4.15.18-23
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 13 Nov 2019 11:20:34 +0100
+
 pve-kernel (4.15.18-50) pve pmg; urgency=medium
 
   * update to Ubuntu-4.15.0-68.77
