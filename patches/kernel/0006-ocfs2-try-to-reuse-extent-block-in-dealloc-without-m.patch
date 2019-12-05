@@ -350,10 +350,10 @@ index 27b75cf32cfa..250bcacdf9e9 100644
  
  /*
 diff --git a/fs/ocfs2/aops.c b/fs/ocfs2/aops.c
-index ef8f00a30d62..cab26aa30f63 100644
+index 209cec7efef4..1cf7ac84b70b 100644
 --- a/fs/ocfs2/aops.c
 +++ b/fs/ocfs2/aops.c
-@@ -2332,6 +2332,12 @@ static int ocfs2_dio_end_io_write(struct inode *inode,
+@@ -2353,6 +2353,12 @@ static int ocfs2_dio_end_io_write(struct inode *inode,
  
  	ocfs2_init_dinode_extent_tree(&et, INODE_CACHE(inode), di_bh);
  

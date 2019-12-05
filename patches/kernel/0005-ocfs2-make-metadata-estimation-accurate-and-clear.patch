@@ -29,7 +29,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ocfs2/aops.c b/fs/ocfs2/aops.c
-index 99550f4bd159..ef8f00a30d62 100644
+index 7de0c9562b70..209cec7efef4 100644
 --- a/fs/ocfs2/aops.c
 +++ b/fs/ocfs2/aops.c
 @@ -797,6 +797,7 @@ struct ocfs2_write_ctxt {
@@ -48,7 +48,7 @@ index 99550f4bd159..ef8f00a30d62 100644
  	new = NULL;
  unlock:
  	spin_unlock(&oi->ip_lock);
-@@ -2256,7 +2258,7 @@ static int ocfs2_dio_wr_get_block(struct inode *inode, sector_t iblock,
+@@ -2277,7 +2279,7 @@ static int ocfs2_dio_wr_get_block(struct inode *inode, sector_t iblock,
  		ue->ue_phys = desc->c_phys;
  
  		list_splice_tail_init(&wc->w_unwritten_list, &dwc->dw_zero_list);

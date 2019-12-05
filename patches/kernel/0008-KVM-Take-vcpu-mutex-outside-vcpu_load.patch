@@ -33,10 +33,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 15 insertions(+), 28 deletions(-)
 
 diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
-index fdd8d2451a6d..69c8ea5dd428 100644
+index fbaae82d3025..521f8d0632fb 100644
 --- a/arch/x86/kvm/vmx.c
 +++ b/arch/x86/kvm/vmx.c
-@@ -10001,10 +10001,8 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
+@@ -10015,10 +10015,8 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
  static void vmx_free_vcpu_nested(struct kvm_vcpu *vcpu)
  {
         struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -49,10 +49,10 @@ index fdd8d2451a6d..69c8ea5dd428 100644
         free_nested(vmx);
         vcpu_put(vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 81eddf386cd3..92dd28e8550e 100644
+index 012bfad459ed..e42319badda3 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -8038,17 +8038,13 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
+@@ -8037,17 +8037,13 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
  
  int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
  {
@@ -72,7 +72,7 @@ index 81eddf386cd3..92dd28e8550e 100644
  }
  
  void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
-@@ -8058,13 +8054,15 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
+@@ -8057,13 +8053,15 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
  
  	kvm_hv_vcpu_postcreate(vcpu);
  
@@ -89,7 +89,7 @@ index 81eddf386cd3..92dd28e8550e 100644
  
  	if (!kvmclock_periodic_sync)
  		return;
-@@ -8075,11 +8073,9 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
+@@ -8074,11 +8072,9 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
  
  void kvm_arch_vcpu_destroy(struct kvm_vcpu *vcpu)
  {
@@ -102,7 +102,7 @@ index 81eddf386cd3..92dd28e8550e 100644
  	kvm_mmu_unload(vcpu);
  	vcpu_put(vcpu);
  
-@@ -8459,9 +8455,7 @@ int kvm_arch_post_init_vm(struct kvm *kvm)
+@@ -8458,9 +8454,7 @@ int kvm_arch_post_init_vm(struct kvm *kvm)
  
  static void kvm_unload_vcpu_mmu(struct kvm_vcpu *vcpu)
  {
