@@ -89,19 +89,6 @@ index 63edcfe5b5a4..971443af5b95 100644
  
  	if (!kvmclock_periodic_sync)
  		return;
-@@ -8095,11 +8093,9 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
- 
- void kvm_arch_vcpu_destroy(struct kvm_vcpu *vcpu)
- {
--	int r;
- 	vcpu->arch.apf.msr_val = 0;
- 
--	r = vcpu_load(vcpu);
--	BUG_ON(r);
-+	vcpu_load(vcpu);
- 	kvm_mmu_unload(vcpu);
- 	vcpu_put(vcpu);
- 
 @@ -8479,9 +8475,7 @@ int kvm_arch_post_init_vm(struct kvm *kvm)
  
  static void kvm_unload_vcpu_mmu(struct kvm_vcpu *vcpu)
