@@ -27,16 +27,16 @@ Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/vmx.c       |  4 +---
- arch/x86/kvm/x86.c       | 20 +++++++-------------
+ arch/x86/kvm/x86.c       | 16 ++++++----------
  include/linux/kvm_host.h |  2 +-
  virt/kvm/kvm_main.c      | 17 ++++++-----------
- 4 files changed, 15 insertions(+), 28 deletions(-)
+ 4 files changed, 14 insertions(+), 25 deletions(-)
 
 diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
-index 7bc1430c6cee..748e90c9b5c6 100644
+index 9f4b2e852be0..cb6bb8893239 100644
 --- a/arch/x86/kvm/vmx.c
 +++ b/arch/x86/kvm/vmx.c
-@@ -10031,10 +10031,8 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
+@@ -10039,10 +10039,8 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
  static void vmx_free_vcpu_nested(struct kvm_vcpu *vcpu)
  {
         struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -49,7 +49,7 @@ index 7bc1430c6cee..748e90c9b5c6 100644
         free_nested(vmx);
         vcpu_put(vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 63edcfe5b5a4..971443af5b95 100644
+index 76e7c2c70e55..7e8f9f6bd370 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -8058,17 +8058,13 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
@@ -89,7 +89,7 @@ index 63edcfe5b5a4..971443af5b95 100644
  
  	if (!kvmclock_periodic_sync)
  		return;
-@@ -8479,9 +8475,7 @@ int kvm_arch_post_init_vm(struct kvm *kvm)
+@@ -8471,9 +8469,7 @@ int kvm_arch_post_init_vm(struct kvm *kvm)
  
  static void kvm_unload_vcpu_mmu(struct kvm_vcpu *vcpu)
  {
@@ -114,7 +114,7 @@ index 254fcf4afc4d..10f4eca3e18b 100644
  
  #ifdef __KVM_HAVE_IOAPIC
 diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index 5e2dbd2500fa..ffac15e6dfe0 100644
+index feea11b227a2..063b84f6cce6 100644
 --- a/virt/kvm/kvm_main.c
 +++ b/virt/kvm/kvm_main.c
 @@ -172,17 +172,12 @@ bool kvm_is_reserved_pfn(kvm_pfn_t pfn)

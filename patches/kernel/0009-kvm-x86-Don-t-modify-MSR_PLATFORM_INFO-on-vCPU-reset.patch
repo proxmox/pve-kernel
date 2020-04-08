@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 971443af5b95..8083fa803a72 100644
+index 7e8f9f6bd370..e5e20658220f 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -8059,6 +8059,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
@@ -30,7 +30,7 @@ index 971443af5b95..8083fa803a72 100644
  	kvm_vcpu_mtrr_init(vcpu);
  	vcpu_load(vcpu);
  	kvm_vcpu_reset(vcpu, false);
-@@ -8160,7 +8161,6 @@ void kvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
+@@ -8154,7 +8155,6 @@ void kvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
  		kvm_pmu_reset(vcpu);
  		vcpu->arch.smbase = 0x30000;
  
