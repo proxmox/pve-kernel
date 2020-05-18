@@ -33,10 +33,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 14 insertions(+), 25 deletions(-)
 
 diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
-index 9f4b2e852be0..cb6bb8893239 100644
+index 6875c8d13052..5dc2144a0991 100644
 --- a/arch/x86/kvm/vmx.c
 +++ b/arch/x86/kvm/vmx.c
-@@ -10039,10 +10039,8 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
+@@ -10017,10 +10017,8 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
  static void vmx_free_vcpu_nested(struct kvm_vcpu *vcpu)
  {
         struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -49,10 +49,10 @@ index 9f4b2e852be0..cb6bb8893239 100644
         free_nested(vmx);
         vcpu_put(vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 76e7c2c70e55..7e8f9f6bd370 100644
+index 960b14ba645e..6b1e434ceaf8 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -8058,17 +8058,13 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
+@@ -8061,17 +8061,13 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
  
  int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
  {
@@ -72,7 +72,7 @@ index 76e7c2c70e55..7e8f9f6bd370 100644
  }
  
  void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
-@@ -8078,13 +8074,15 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
+@@ -8081,13 +8077,15 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
  
  	kvm_hv_vcpu_postcreate(vcpu);
  
@@ -89,7 +89,7 @@ index 76e7c2c70e55..7e8f9f6bd370 100644
  
  	if (!kvmclock_periodic_sync)
  		return;
-@@ -8471,9 +8469,7 @@ int kvm_arch_post_init_vm(struct kvm *kvm)
+@@ -8474,9 +8472,7 @@ int kvm_arch_post_init_vm(struct kvm *kvm)
  
  static void kvm_unload_vcpu_mmu(struct kvm_vcpu *vcpu)
  {
@@ -101,10 +101,10 @@ index 76e7c2c70e55..7e8f9f6bd370 100644
  	vcpu_put(vcpu);
  }
 diff --git a/include/linux/kvm_host.h b/include/linux/kvm_host.h
-index 254fcf4afc4d..10f4eca3e18b 100644
+index f182bbfb0ac5..f8b7ac63219d 100644
 --- a/include/linux/kvm_host.h
 +++ b/include/linux/kvm_host.h
-@@ -534,7 +534,7 @@ static inline int kvm_vcpu_get_idx(struct kvm_vcpu *vcpu)
+@@ -560,7 +560,7 @@ static inline int kvm_vcpu_get_idx(struct kvm_vcpu *vcpu)
  int kvm_vcpu_init(struct kvm_vcpu *vcpu, struct kvm *kvm, unsigned id);
  void kvm_vcpu_uninit(struct kvm_vcpu *vcpu);
  
@@ -114,7 +114,7 @@ index 254fcf4afc4d..10f4eca3e18b 100644
  
  #ifdef __KVM_HAVE_IOAPIC
 diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index feea11b227a2..063b84f6cce6 100644
+index c6749d154ebc..66998264619b 100644
 --- a/virt/kvm/kvm_main.c
 +++ b/virt/kvm/kvm_main.c
 @@ -172,17 +172,12 @@ bool kvm_is_reserved_pfn(kvm_pfn_t pfn)
@@ -145,7 +145,7 @@ index feea11b227a2..063b84f6cce6 100644
  }
  EXPORT_SYMBOL_GPL(vcpu_put);
  
-@@ -2639,9 +2633,9 @@ static long kvm_vcpu_ioctl(struct file *filp,
+@@ -2786,9 +2780,9 @@ static long kvm_vcpu_ioctl(struct file *filp,
  #endif
  
  
@@ -158,7 +158,7 @@ index feea11b227a2..063b84f6cce6 100644
  	switch (ioctl) {
  	case KVM_RUN: {
  		struct pid *oldpid;
-@@ -2814,6 +2808,7 @@ static long kvm_vcpu_ioctl(struct file *filp,
+@@ -2961,6 +2955,7 @@ static long kvm_vcpu_ioctl(struct file *filp,
  	}
  out:
  	vcpu_put(vcpu);

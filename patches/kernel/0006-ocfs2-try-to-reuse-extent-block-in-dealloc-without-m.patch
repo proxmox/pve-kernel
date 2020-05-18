@@ -73,7 +73,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 203 insertions(+), 10 deletions(-)
 
 diff --git a/fs/ocfs2/alloc.c b/fs/ocfs2/alloc.c
-index ab5105f9767e..2f2c76193f54 100644
+index 6b177de324c0..3760888f2e76 100644
 --- a/fs/ocfs2/alloc.c
 +++ b/fs/ocfs2/alloc.c
 @@ -165,6 +165,13 @@ static int ocfs2_dinode_insert_check(struct ocfs2_extent_tree *et,
