@@ -1,3 +1,13 @@
+pve-kernel (5.4.86-1) pve pmg; urgency=medium
+
+  * update sources to Ubuntu-5.4.0-66.74
+
+  * bump ABI to 5.4.86-1
+
+  * update ZFS to 2.0.1
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 28 Jan 2021 14:56:38 +0100
+
 pve-kernel (5.4.78-2) pve pmg; urgency=medium
 
   * revert commit 552b270b5784dc3 "scsi: be2iscsi: Fix a theoretical leak in
