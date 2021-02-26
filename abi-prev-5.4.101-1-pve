@@ -7890,7 +7890,6 @@ EXPORT_SYMBOL	 vmlinux 0x6d5f5b91	radix_tree_tagged
 EXPORT_SYMBOL	 vmlinux 0x6d6163de	__dev_get_by_flags
 EXPORT_SYMBOL	 vmlinux 0x6d70958e	netif_set_real_num_rx_queues
 EXPORT_SYMBOL	 vmlinux 0x6d7abe02	first_ec
-EXPORT_SYMBOL	 vmlinux 0x6d8554e0	follow_pte_pmd
 EXPORT_SYMBOL	 vmlinux 0x6d9f7d28	vfs_ioc_fssetxattr_check
 EXPORT_SYMBOL	 vmlinux 0x6db16da0	dev_pick_tx_cpu_id
 EXPORT_SYMBOL	 vmlinux 0x6dc35b25	radix_tree_iter_delete
@@ -11201,6 +11200,7 @@ EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x2a671fdb	kvm_scale_tsc
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x2b4388a5	kvm_apic_set_eoi_accelerated
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x2bdb9b1b	__gfn_to_pfn_memslot
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x2d002e3f	kvm_queue_exception
+EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x2d82cc24	kvm_spec_ctrl_test_value
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x2dbf4a11	kvm_cpuid
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x306c1546	kvm_inject_realmode_interrupt
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x30a343e6	reprogram_fixed_counter
@@ -11305,7 +11305,6 @@ EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x9cf0eff6	gfn_to_memslot
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0x9f6d78fc	kvm_get_pfn
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xa04ad38e	kvm_get_linear_rip
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xa1c4231f	kvm_set_pfn_dirty
-EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xa330818b	kvm_spec_ctrl_valid_bits
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xa415c6b4	kvm_cpu_get_interrupt
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xa7e7ee5d	reprogram_counter
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xa823ff97	kvm_read_guest_cached
@@ -22583,6 +22582,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xc7b10384	gpiochip_line_is_open_source
 EXPORT_SYMBOL_GPL	 vmlinux 0xc7b16136	user_destroy
 EXPORT_SYMBOL_GPL	 vmlinux 0xc7b16ab6	pci_find_next_ht_capability
 EXPORT_SYMBOL_GPL	 vmlinux 0xc7c23ff0	xenbus_exists
+EXPORT_SYMBOL_GPL	 vmlinux 0xc7cc43d4	follow_pte
 EXPORT_SYMBOL_GPL	 vmlinux 0xc7ccd25d	driver_unregister
 EXPORT_SYMBOL_GPL	 vmlinux 0xc7cdd4ff	dev_pm_opp_is_turbo
 EXPORT_SYMBOL_GPL	 vmlinux 0xc7d6f8f1	nvmem_device_put
