@@ -1,3 +1,9 @@
+pve-kernel (5.4.103-1) pve pmg; urgency=medium
+
+  * update sources to 5.4.103 stable release
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 07 Mar 2021 15:55:09 +0100
+
 pve-kernel (5.4.101-1) pve pmg; urgency=medium
 
   * update sources to 5.4.101 stable release
