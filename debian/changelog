@@ -1,3 +1,9 @@
+pve-kernel (5.11.7-1~bpo10) pve pmg; urgency=medium
+
+  * backport to Debian Buster based releases
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Mar 2021 16:17:24 +0100
+
 pve-kernel (5.11.7-1) pve pmg; urgency=medium
 
   * update sources to Ubuntu-5.11.0-12.13
