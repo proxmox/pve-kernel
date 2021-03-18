@@ -1,3 +1,11 @@
+pve-kernel (5.11.7-1) pve pmg; urgency=medium
+
+  * update sources to Ubuntu-5.11.0-12.13
+
+  * update ZFS to 2.0.4
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Mar 2021 14:07:05 +0100
+
 pve-kernel (5.11.0-1) pve pmg; urgency=medium
 
   * update sources to Ubuntu-5.11.0-11.12
