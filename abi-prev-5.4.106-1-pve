@@ -4053,6 +4053,7 @@ EXPORT_SYMBOL	 drivers/target/target_core_mod 0x43d61e6d	target_undepend_item
 EXPORT_SYMBOL	 drivers/target/target_core_mod 0x450e8a4a	target_lun_is_rdonly
 EXPORT_SYMBOL	 drivers/target/target_core_mod 0x454b315c	target_depend_item
 EXPORT_SYMBOL	 drivers/target/target_core_mod 0x4ba74918	transport_init_se_cmd
+EXPORT_SYMBOL	 drivers/target/target_core_mod 0x4dd36d61	target_set_cmd_data_length
 EXPORT_SYMBOL	 drivers/target/target_core_mod 0x52ea41e3	sbc_dif_verify
 EXPORT_SYMBOL	 drivers/target/target_core_mod 0x56bade10	target_nacl_find_deve
 EXPORT_SYMBOL	 drivers/target/target_core_mod 0x59ee59cc	target_to_linux_sector
