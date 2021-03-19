@@ -1,3 +1,11 @@
+pve-kernel (5.4.106-1) pve pmg; urgency=medium
+
+  * update sources to 5.4.106 stable release
+
+  * update ZFS to 2.0.4
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 19 Mar 2021 11:08:47 +0100
+
 pve-kernel (5.4.103-1) pve pmg; urgency=medium
 
   * update sources to 5.4.103 stable release
