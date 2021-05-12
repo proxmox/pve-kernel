@@ -1,3 +1,9 @@
+pve-kernel (5.11.17-1) bullseye; urgency=medium
+
+  * update sources to stable release 5.11.17 with Ubuntu-5.11.0-18.19
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 12 May 2021 12:45:37 +0200
+
 pve-kernel (5.11.12-1) bullseye; urgency=medium
 
   * update sources to Ubuntu-5.11.0-14.15
