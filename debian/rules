@@ -185,7 +185,6 @@ binary: install
 	        -o -name '*.pl' \
 	    \) \
 	    -print | cpio -pd --preserve-modification-time ${BUILD_DIR}/debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
-	cd ${KERNEL_SRC_COPY}; cp -a include scripts ${BUILD_DIR}/debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
 	cd ${KERNEL_SRC_COPY}; \
 	    ( \
 	        find arch/${KERNEL_HEADER_ARCH} -name include -type d -print | \
@@ -199,8 +198,9 @@ binary: install
 	rm -rf ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG}
 	mkdir -p ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG}
 	cp ${KERNEL_SRC}/.config ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG}/.config
-	${MAKE} -C ${KERNEL_SRC_COPY} O=${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG} -j1 syncconfig prepare scripts
-	find ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG} -name \*.o.ur-\* | xargs rm -f
+	${MAKE} -C ${KERNEL_SRC_COPY} O=${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG} -j1 syncconfig modules_prepare prepare scripts
+	cd ${KERNEL_SRC_COPY}; cp -a include scripts ${BUILD_DIR}/debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
+	find ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG} -name \*.o.ur-\* -o -name '*.cmd' | xargs rm -f
 	rsync --ignore-existing -r -v -a $(addprefix ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG}/,arch include kernel scripts tools) ${BUILD_DIR}/debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}/
 	rm -rf ${BUILD_DIR}/${KERNEL_SRC_COPY}
 	touch $@
