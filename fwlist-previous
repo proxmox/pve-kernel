@@ -259,6 +259,7 @@ amdgpu/polaris11_smc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_smc_sk.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris11_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/polaris12_32_mc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_ce_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_k_mc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
