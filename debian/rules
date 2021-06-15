@@ -14,6 +14,7 @@ include debian/rules.d/${DEB_BUILD_ARCH}.mk
 CHANGELOG_DATE:=$(shell dpkg-parsechangelog -SDate)
 
 PVE_KERNEL_PKG=pve-kernel-${KVNAME}
+PVE_DEBUG_KERNEL_PKG=pve-kernel-${KVNAME}-dbgsym
 PVE_HEADER_PKG=pve-headers-${KVNAME}
 PVE_USR_HEADER_PKG=pve-kernel-libc-dev
 LINUX_TOOLS_PKG=linux-tools-${KERNEL_MAJMIN}
@@ -132,6 +133,16 @@ binary: install
 	install -m 644 $(addprefix ${MODULES}/,zfs.ko zavl.ko znvpair.ko zunicode.ko zcommon.ko icp.ko zlua.ko spl.ko zzstd.ko) debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}/zfs
 	# remove firmware
 	rm -rf debian/${PVE_KERNEL_PKG}/lib/firmware
+
+	# debug package
+	mkdir -p debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}
+	mkdir debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/boot
+	install -m 644 ${KERNEL_SRC}/vmlinux debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/boot/vmlinux-${KVNAME}
+	cp -r debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME} debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/
+	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/source
+	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/build
+	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/modules.*
+
 	# strip debug info
 	find debian/${PVE_KERNEL_PKG}/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
 	# finalize
