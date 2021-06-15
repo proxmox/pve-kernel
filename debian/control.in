@@ -74,7 +74,7 @@ Package: pve-kernel-libc-dev
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-libc-dev,
+Provides: linux-libc-dev (=${binary:Version}),
 Conflicts: linux-libc-dev,
 Replaces: linux-libc-dev,
 Depends: ${misc:Depends}
