@@ -53,7 +53,6 @@ Section: devel
 Priority: optional
 Architecture: any
 Provides: linux-headers,
-          linux-headers-2.6,
 Depends: coreutils | fileutils (>= 4.0),
 Description: The Proxmox PVE Kernel Headers
  This package contains the linux kernel headers
@@ -63,7 +62,6 @@ Section: admin
 Priority: optional
 Architecture: any
 Provides: linux-image,
-          linux-image-2.6,
 Suggests: pve-firmware,
 Depends: busybox,
          initramfs-tools,
