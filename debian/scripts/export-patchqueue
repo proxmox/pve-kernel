@@ -26,8 +26,7 @@ git format-patch \
     --zero-commit \
     --no-signature \
     --diff-algorithm=myers \
-    --output-dir \
-    "${top}/${kernel_patchdir}" \
+    --output-directory="${top}/${kernel_patchdir}" \
     "${base_ref}.."
 
 git checkout "${base_ref}"
