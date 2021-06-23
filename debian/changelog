@@ -1,3 +1,17 @@
+pve-kernel (5.11.22-1) bullseye; urgency=medium
+
+  * update sources to stable release 5.11.22 with Ubuntu-5.11.0-23.24
+
+  * pve-kernel-libc-dev: add version to Provides dependency field for
+    linux-libc-dev to satisfy versioned dependcies from other packages
+
+  * build perf with python3
+
+  * fixes #3465: keep unstripped kernel and module files, allowing one to use
+    kdump-tools
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 23 Jun 2021 08:53:17 +0200
+
 pve-kernel (5.11.21-1) bullseye; urgency=medium
 
   * update sources to stable release 5.11.21 with Ubuntu-5.11.0-19.20
