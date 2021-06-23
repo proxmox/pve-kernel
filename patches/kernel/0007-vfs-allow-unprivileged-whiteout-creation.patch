@@ -104,7 +104,7 @@ index 8557efe096dc..fc989487c273 100644
  		type = DEVCG_DEV_BLOCK;
  	else
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 21f93dfaf9d0..ae31b55fb69c 100644
+index 2bd06577c02a..fc22bade5b21 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -1719,7 +1719,11 @@ extern int vfs_link(struct dentry *, struct inode *, struct dentry *, struct ino
