@@ -3,7 +3,7 @@ pve-kernel (5.11.22-1) bullseye; urgency=medium
   * update sources to stable release 5.11.22 with Ubuntu-5.11.0-23.24
 
   * pve-kernel-libc-dev: add version to Provides dependency field for
-    linux-libc-dev to satisfy versioned dependcies from other packages
+    linux-libc-dev to satisfy versioned dependencies from other packages
 
   * build perf with python3
 
