@@ -103,7 +103,7 @@ ${ZFSDIR}.prepared: ${ZFSONLINUX_SUBMODULE}
 
 .PHONY: upload
 upload: ${DEBS}
-	tar cf - ${DEBS}|ssh -X repoman@repo.proxmox.com -- upload --product pve,pmg --dist buster --arch ${ARCH}
+	tar cf - ${DEBS}|ssh -X repoman@repo.proxmox.com -- upload --product pve,pmg,pbs --dist bullseye --arch ${ARCH}
 
 .PHONY: distclean
 distclean: clean
