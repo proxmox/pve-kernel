@@ -72,7 +72,11 @@ Provides: linux-debug
 Section: devel
 Priority: optional
 Description: The Proxmox PVE Kernel debug image
- This package provides the kernel debug image for version @KVNAME@. The debug kernel image contained in this package is NOT meant to boot from - it is uncompressed, and unstripped, and suitable for use with crash/kdump-tools/.. to analyze kernel crashes. This package also contains the pve-kernel modules in their unstripped version.
+ This package provides the kernel debug image for version @KVNAME@. The debug
+ kernel image contained in this package is NOT meant to boot from - it is
+ uncompressed, and unstripped, and suitable for use with crash/kdump-tools/..
+ to analyze kernel crashes. This package also contains the pve-kernel modules
+ in their unstripped version.
 
 Package: pve-kernel-libc-dev
 Section: devel
