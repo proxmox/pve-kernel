@@ -1,3 +1,9 @@
+pve-kernel (5.11.22-2) bullseye; urgency=medium
+
+  * net: bridge: sync fdb to new unicast-filtering ports
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 02 Jul 2021 16:22:45 +0200
+
 pve-kernel (5.11.22-1) bullseye; urgency=medium
 
   * update sources to stable release 5.11.22 with Ubuntu-5.11.0-23.24
