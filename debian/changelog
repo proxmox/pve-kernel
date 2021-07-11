@@ -1,3 +1,14 @@
+pve-kernel (5.11.22-3) bullseye; urgency=medium
+
+  * update ZFS to 2.0.5
+
+  * pull in upstream stable releases from v5.10.43, v5.12.10
+
+  * ensure 'performance' is the default frequency CPU governor again, as
+    schedutil seems to cause still some issues in with a few VM workloads
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 11 Jul 2021 13:45:15 +0200
+
 pve-kernel (5.11.22-2) bullseye; urgency=medium
 
   * net: bridge: sync fdb to new unicast-filtering ports
