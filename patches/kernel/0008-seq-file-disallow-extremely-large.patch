@@ -1,0 +1,34 @@
+From 8cae8cd89f05f6de223d63e6d15e31c8ba9cf53b Mon Sep 17 00:00:00 2001
+From: Eric Sandeen <sandeen@redhat.com>
+Date: Tue, 13 Jul 2021 17:49:23 +0200
+Subject: seq_file: disallow extremely large seq buffer allocations
+
+There is no reasonable need for a buffer larger than this, and it avoids
+int overflow pitfalls.
+
+Fixes: 058504edd026 ("fs/seq_file: fallback to vmalloc allocation")
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Reported-by: Qualys Security Advisory <qsa@qualys.com>
+Signed-off-by: Eric Sandeen <sandeen@redhat.com>
+Cc: stable@kernel.org
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/seq_file.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/fs/seq_file.c b/fs/seq_file.c
+index b117b212ef288..4a2cda04d3e29 100644
+--- a/fs/seq_file.c
++++ b/fs/seq_file.c
+@@ -32,6 +32,9 @@ static void seq_set_overflow(struct seq_file *m)
+ 
+ static void *seq_buf_alloc(unsigned long size)
+ {
++	if (unlikely(size > MAX_RW_COUNT))
++		return NULL;
++
+ 	return kvmalloc(size, GFP_KERNEL_ACCOUNT);
+ }
+ 
+-- 
+cgit 1.2.3-1.el7
