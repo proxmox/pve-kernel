@@ -1,3 +1,10 @@
+pve-kernel (5.11.22-4) bullseye; urgency=medium
+
+  * fix CVE-2021-33909: seq_file: disallow extremely large seq buffer
+    allocations
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 20 Jul 2021 21:40:02 +0200
+
 pve-kernel (5.11.22-3) bullseye; urgency=medium
 
   * update ZFS to 2.0.5
