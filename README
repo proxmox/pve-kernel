@@ -98,6 +98,18 @@ which device is actually used for /dev/watchdog.
 We ship this list in /lib/modprobe.d/blacklist_pve-kernel-<VERSION>.conf
 The user typically edit /etc/modules to enable a specific watchdog device.
 
+Debug kernel and modules
+------------------------
+
+In order to build a -dbgsym package containing an unstripped copy of the kernel
+image and modules, enable the 'pkg.pve-kernel.debug' build profile (e.g. by
+exporting DEB_BUILD_PROFILES='pkg.pve-kernel.debug'). The resulting package can
+be used together with 'crash'/'kdump-tools' to debug kernel crashes.
+
+Note: the -dbgsym package is only valid for the pve-kernel packages produced by
+the same build. A kernel/module from a different build will likely not match,
+even if both builds are of the same kernel and package version.
+
 Additional information
 ----------------------
 
