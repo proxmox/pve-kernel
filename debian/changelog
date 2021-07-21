@@ -1,3 +1,11 @@
+pve-kernel (5.4.128-1) buster; urgency=medium
+
+  * update sources to 5.4.128 stable release based on Ubuntu-5.4.0-81.91
+
+  * update ZFS to 2.0.5
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 Jul 2021 18:32:02 +0200
+
 pve-kernel (5.4.124-2) buster; urgency=medium
 
   * fix CVE-2021-33909: seq_file: disallow extremely large seq buffer
