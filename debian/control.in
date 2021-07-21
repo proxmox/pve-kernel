@@ -71,6 +71,7 @@ Architecture: any
 Provides: linux-debug
 Section: devel
 Priority: optional
+Build-Profiles: <pkg.pve-kernel.debug>
 Description: The Proxmox PVE Kernel debug image
  This package provides the kernel debug image for version @KVNAME@. The debug
  kernel image contained in this package is NOT meant to boot from - it is

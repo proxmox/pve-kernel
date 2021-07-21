@@ -138,7 +138,10 @@ binary: install
 	# remove firmware
 	rm -rf debian/${PVE_KERNEL_PKG}/lib/firmware
 
-	# debug package
+ifeq ($(filter pkg.pve-kernel.debug,$(DEB_BUILD_PROFILES)),)
+	echo "'pkg.pve-kernel.debug' build profile disabled, skipping -dbgsym creation"
+else
+	echo "'pkg.pve-kernel.debug' build profile enabled, creating -dbgsym contents"
 	mkdir -p debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}
 	mkdir debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/boot
 	install -m 644 ${KERNEL_SRC}/vmlinux debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/boot/vmlinux-${KVNAME}
@@ -146,6 +149,7 @@ binary: install
 	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/source
 	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/build
 	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/modules.*
+endif
 
 	# strip debug info
 	find debian/${PVE_KERNEL_PKG}/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
