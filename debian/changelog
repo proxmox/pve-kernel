@@ -1,3 +1,11 @@
+pve-kernel (5.11.22-5) bullseye; urgency=medium
+
+  * import Ubuntu-5.11.0-26.28
+
+  * pull in upstream stable releases from v5.10.44, v5.12.11
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 Jul 2021 18:25:44 +0200
+
 pve-kernel (5.11.22-4) bullseye; urgency=medium
 
   * fix CVE-2021-33909: seq_file: disallow extremely large seq buffer
