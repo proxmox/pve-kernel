@@ -32,8 +32,8 @@ Build-Depends: asciidoc-base,
                sphinx-common,
                tar,
                xmlto,
-               zlib1g-dev,
-Build-Conflicts: pve-headers-@KVNAME@,
+               zlib1g-dev
+Build-Conflicts: pve-headers-@KVNAME@
 Vcs-Git: git://git.proxmox.com/git/pve-kernel
 Vcs-Browser: https://git.proxmox.com/?p=pve-kernel.git
 
@@ -41,9 +41,7 @@ Package: linux-tools-@KVMAJMIN@
 Architecture: any
 Section: devel
 Priority: optional
-Depends: linux-base,
-         ${misc:Depends},
-         ${shlibs:Depends},
+Depends: linux-base, ${misc:Depends}, ${shlibs:Depends}
 Description: Linux kernel version specific tools for version @KVMAJMIN@
  This package provides the architecture dependent parts for kernel
  version locked tools (such as perf and x86_energy_perf_policy)
@@ -52,9 +50,8 @@ Package: pve-headers-@KVNAME@
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-headers,
-          linux-headers-2.6,
-Depends: coreutils | fileutils (>= 4.0),
+Provides: linux-headers
+Depends: coreutils | fileutils (>= 4.0)
 Description: The Proxmox PVE Kernel Headers
  This package contains the linux kernel headers
 
@@ -62,22 +59,32 @@ Package: pve-kernel-@KVNAME@
 Section: admin
 Priority: optional
 Architecture: any
-Provides: linux-image,
-          linux-image-2.6,
-Suggests: pve-firmware,
-Depends: busybox,
-         initramfs-tools,
-Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub-efi-arm64,
+Provides: linux-image
+Suggests: pve-firmware
+Depends: busybox, initramfs-tools
+Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub-efi-arm64
 Description: The Proxmox PVE Kernel Image
  This package contains the linux kernel and initial ramdisk used for booting
+
+Package: pve-kernel-@KVNAME@-dbgsym
+Architecture: any
+Provides: linux-debug
+Section: devel
+Priority: optional
+Description: The Proxmox PVE Kernel debug image
+ This package provides the kernel debug image for version @KVNAME@. The debug
+ kernel image contained in this package is NOT meant to boot from - it is
+ uncompressed, and unstripped, and suitable for use with crash/kdump-tools/..
+ to analyze kernel crashes. This package also contains the pve-kernel modules
+ in their unstripped version.
 
 Package: pve-kernel-libc-dev
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-libc-dev,
-Conflicts: linux-libc-dev,
-Replaces: linux-libc-dev,
+Provides: linux-libc-dev (=${binary:Version})
+Conflicts: linux-libc-dev
+Replaces: linux-libc-dev
 Depends: ${misc:Depends}
 Description: Linux support headers for userspace development
  This package provides userspaces headers from the Linux kernel.  These headers

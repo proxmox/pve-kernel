@@ -1,12 +1,12 @@
 # also bump pve-kernel-meta if either of MAJ.MIN, PATCHLEVEL or KREL change
 KERNEL_MAJ=5
 KERNEL_MIN=11
-KERNEL_PATCHLEVEL=21
+KERNEL_PATCHLEVEL=22
 # increment KREL if the ABI changes (abicheck target in debian/rules)
 # rebuild packages with new KREL and run 'make abiupdate'
-KREL=1
+KREL=2
 
-PKGREL=1~bpo10
+PKGREL=4~bpo10
 
 KERNEL_MAJMIN=$(KERNEL_MAJ).$(KERNEL_MIN)
 KERNEL_VER=$(KERNEL_MAJMIN).$(KERNEL_PATCHLEVEL)
@@ -46,9 +46,10 @@ DIRS=KERNEL_SRC ZFSDIR MODULES
 
 DST_DEB=${PACKAGE}_${KERNEL_VER}-${PKGREL}_${ARCH}.deb
 HDR_DEB=${HDRPACKAGE}_${KERNEL_VER}-${PKGREL}_${ARCH}.deb
+USR_HDR_DEB=pve-kernel-libc-dev_${KERNEL_VER}-${PKGREL}_${ARCH}.deb
 LINUX_TOOLS_DEB=linux-tools-$(KERNEL_MAJMIN)_${KERNEL_VER}-${PKGREL}_${ARCH}.deb
 
-DEBS=${DST_DEB} ${HDR_DEB} ${LINUX_TOOLS_DEB}
+DEBS=${DST_DEB} ${HDR_DEB} ${USR_HDR_DEB} ${LINUX_TOOLS_DEB}
 
 all: deb
 deb: ${DEBS}
@@ -102,7 +103,7 @@ ${ZFSDIR}.prepared: ${ZFSONLINUX_SUBMODULE}
 
 .PHONY: upload
 upload: ${DEBS}
-	tar cf - ${DEBS}|ssh -X repoman@repo.proxmox.com -- upload --product pve,pmg --dist buster --arch ${ARCH}
+	tar cf - ${DEBS}|ssh -X repoman@repo.proxmox.com -- upload --product pve,pmg,pbs --dist bullseye --arch ${ARCH}
 
 .PHONY: distclean
 distclean: clean

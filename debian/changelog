@@ -1,3 +1,47 @@
+pve-kernel (5.11.22-4~bpo10) bullseye; urgency=medium
+
+  * backport to Debian Buster based releases
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 Jul 2021 17:53:37 +0200
+
+pve-kernel (5.11.22-4) bullseye; urgency=medium
+
+  * fix CVE-2021-33909: seq_file: disallow extremely large seq buffer
+    allocations
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 20 Jul 2021 21:40:02 +0200
+
+pve-kernel (5.11.22-3) bullseye; urgency=medium
+
+  * update ZFS to 2.0.5
+
+  * pull in upstream stable releases from v5.10.43, v5.12.10
+
+  * ensure 'performance' is the default frequency CPU governor again, as
+    schedutil seems to cause still some issues in with a few VM workloads
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 11 Jul 2021 13:45:15 +0200
+
+pve-kernel (5.11.22-2) bullseye; urgency=medium
+
+  * net: bridge: sync fdb to new unicast-filtering ports
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 02 Jul 2021 16:22:45 +0200
+
+pve-kernel (5.11.22-1) bullseye; urgency=medium
+
+  * update sources to stable release 5.11.22 with Ubuntu-5.11.0-23.24
+
+  * pve-kernel-libc-dev: add version to Provides dependency field for
+    linux-libc-dev to satisfy versioned dependencies from other packages
+
+  * build perf with python3
+
+  * fixes #3465: keep unstripped kernel and module files, allowing one to use
+    kdump-tools
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 23 Jun 2021 08:53:17 +0200
+
 pve-kernel (5.11.21-1~bpo10) buster; urgency=medium
 
   * backport to Debian Buster based releases
