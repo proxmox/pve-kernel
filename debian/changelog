@@ -1,3 +1,9 @@
+pve-kernel (5.11.22-6) bullseye; urgency=medium
+
+  * io_uring: don't block level reissue off completion path
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 28 Jul 2021 10:51:12 +0200
+
 pve-kernel (5.11.22-5) bullseye; urgency=medium
 
   * import Ubuntu-5.11.0-26.28
