@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Maxim Levitsky <mlevitsk@redhat.com>
+Date: Thu, 29 Jul 2021 18:37:38 +0300
+Subject: [PATCH] UBUNTU: SAUCE: KVM: nSVM: always intercept VMLOAD/VMSAVE when
+ nested
+
+If L1 disables VMLOAD/VMSAVE intercepts, and doesn't enable
+Virtual VMLOAD/VMSAVE (currently not supported for the nested hypervisor),
+then VMLOAD/VMSAVE must operate on the L1 physical memory, which is only
+possible by making L0 intercept these instructions.
+
+Failure to do so allowed the nested guest to run VMLOAD/VMSAVE unintercepted,
+and thus read/write portions of the host physical memory.
+
+This fixes CVE-2021-3656, which was discovered by Maxim Levitsky and
+Paolo Bonzini.
+
+Fixes: 89c8a4984fc9 ("KVM: SVM: Enable Virtual VMLOAD VMSAVE feature")
+Signed-off-by: Maxim Levitsky <mlevitsk@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+CVE-2021-3656
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@canonical.com>
+Acked-by: Stefan Bader <stefan.bader@canonical.com>
+Acked-by: Ben Romer <benjamin.romer@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit 7e23c00e809c1669676363962e2ef9df1bd2840b)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/x86/kvm/svm/nested.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index 049d3cbbee5a..3bd5c7d6716e 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -147,6 +147,9 @@ void recalc_intercepts(struct vcpu_svm *svm)
+ 
+ 	for (i = 0; i < MAX_INTERCEPT; i++)
+ 		c->intercepts[i] |= g->intercepts[i];
++
++	vmcb_set_intercept(c, INTERCEPT_VMLOAD);
++	vmcb_set_intercept(c, INTERCEPT_VMSAVE);
+ }
+ 
+ static void copy_vmcb_control_area(struct vmcb_control_area *dst,
