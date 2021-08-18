@@ -1,3 +1,9 @@
+pve-kernel (5.11.22-7) bullseye; urgency=medium
+
+  * cherry-pick fixes for CVE-2021-3656 and CVE-2021-3653
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 18 Aug 2021 15:06:12 +0200
+
 pve-kernel (5.11.22-6) bullseye; urgency=medium
 
   * io_uring: don't block level reissue off completion path
