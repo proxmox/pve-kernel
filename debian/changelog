@@ -1,3 +1,9 @@
+pve-kernel (5.4.128-2) buster; urgency=medium
+
+  * cherry-pick fixes for CVE-2021-3656 and CVE-2021-3653
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 18 Aug 2021 16:20:02 +0200
+
 pve-kernel (5.4.128-1) buster; urgency=medium
 
   * update sources to 5.4.128 stable release based on Ubuntu-5.4.0-81.91
