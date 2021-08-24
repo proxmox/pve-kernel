@@ -133,11 +133,6 @@ NOTE: For the exact and current list see debian/rules (PVE_CONFIG_OPTS)
   	 CONFIG_BLK_DEV_SR=y
   	 CONFIG_BLK_DEV_DM=y
 
-- add workaround for Debian bug #807000 (see
-  https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=807000)
-
-  	 CONFIG_BLK_DEV_NVME=y
-
 - compile NBD and RBD modules
 	 CONFIG_BLK_DEV_NBD=m
 	 CONFIG_BLK_DEV_RBD=m
