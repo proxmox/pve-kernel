@@ -27,7 +27,7 @@ Signed-off-by: Fabian Ebner <f.ebner@proxmox.com>
  1 file changed, 7 insertions(+)
 
 diff --git a/fs/io_uring.c b/fs/io_uring.c
-index 2b86b413641a..11f615033c70 100644
+index a0d42aea3aa1..ce5cf51a5667 100644
 --- a/fs/io_uring.c
 +++ b/fs/io_uring.c
 @@ -2731,6 +2731,13 @@ static bool io_rw_reissue(struct io_kiocb *req, long res)
@@ -44,6 +44,3 @@ index 2b86b413641a..11f615033c70 100644
  	lockdep_assert_held(&req->ctx->uring_lock);
  
  	ret = io_sq_thread_acquire_mm_files(req->ctx, req);
--- 
-2.30.2
-
