@@ -1,3 +1,16 @@
+pve-kernel (5.11.22-8) bullseye; urgency=medium
+
+  * update to Ubuntu-5.11.0-34.36
+
+  * fix #3552: cherry-pick PCI probe fixes
+
+  * build nvme as a module again to satisfy some inflexible (mellanox) modules
+    insisting in being able to load the nvme-core module as dependency
+
+  * bump ABI to 5.11.22-4
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 27 Aug 2021 11:51:34 +0200
+
 pve-kernel (5.11.22-7) bullseye; urgency=medium
 
   * cherry-pick fixes for CVE-2021-3656 and CVE-2021-3653
