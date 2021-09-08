@@ -1,3 +1,12 @@
+pve-kernel (5.4.140-1) buster; urgency=medium
+
+  * update sources to 5.4.140 stable release based on Ubuntu-5.4.0-85.95
+
+  * ZFS: cherry-pick revert of "Consolidate arc_buf allocation checks" (ZFS GH
+    issue #11531)
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 08 Sep 2021 16:21:59 +0200
+
 pve-kernel (5.4.128-2) buster; urgency=medium
 
   * cherry-pick fixes for CVE-2021-3656 and CVE-2021-3653
