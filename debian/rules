@@ -40,7 +40,7 @@ PVE_CONFIG_OPTS= \
 -e CONFIG_BLK_DEV_SD \
 -e CONFIG_BLK_DEV_SR \
 -e CONFIG_BLK_DEV_DM \
--e CONFIG_BLK_DEV_NVME \
+-m CONFIG_BLK_DEV_NVME \
 -e CONFIG_NLS_ISO8859_1 \
 -d CONFIG_INPUT_EVBUG \
 -d CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND \
@@ -76,6 +76,7 @@ PVE_CONFIG_OPTS= \
 -d CONFIG_UNWINDER_GUESS \
 -e CONFIG_UNWINDER_FRAME_POINTER \
 --set-str CONFIG_SYSTEM_TRUSTED_KEYS ""\
+--set-str CONFIG_SYSTEM_REVOCATION_KEYS ""\
 -d CONFIG_SECURITY_LOCKDOWN_LSM \
 -d CONFIG_SECURITY_LOCKDOWN_LSM_EARLY \
 --set-str CONFIG_LSM yama,integrity,apparmor \
@@ -138,7 +139,10 @@ binary: install
 	# remove firmware
 	rm -rf debian/${PVE_KERNEL_PKG}/lib/firmware
 
-	# debug package
+ifeq ($(filter pkg.pve-kernel.debug,$(DEB_BUILD_PROFILES)),)
+	echo "'pkg.pve-kernel.debug' build profile disabled, skipping -dbgsym creation"
+else
+	echo "'pkg.pve-kernel.debug' build profile enabled, creating -dbgsym contents"
 	mkdir -p debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}
 	mkdir debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/boot
 	install -m 644 ${KERNEL_SRC}/vmlinux debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/boot/vmlinux-${KVNAME}
@@ -146,6 +150,7 @@ binary: install
 	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/source
 	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/build
 	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/modules.*
+endif
 
 	# strip debug info
 	find debian/${PVE_KERNEL_PKG}/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done

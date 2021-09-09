@@ -1,3 +1,42 @@
+pve-kernel (5.11.22-8~bpo10+1) buster-backports; urgency=medium
+
+  * Rebuild for buster-backports.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 09 Sep 2021 09:55:58 +0200
+
+pve-kernel (5.11.22-8) bullseye; urgency=medium
+
+  * update to Ubuntu-5.11.0-34.36
+
+  * fix #3552: cherry-pick PCI probe fixes
+
+  * build nvme as a module again to satisfy some inflexible (mellanox) modules
+    insisting in being able to load the nvme-core module as dependency
+
+  * bump ABI to 5.11.22-4
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 27 Aug 2021 11:51:34 +0200
+
+pve-kernel (5.11.22-7) bullseye; urgency=medium
+
+  * cherry-pick fixes for CVE-2021-3656 and CVE-2021-3653
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 18 Aug 2021 15:06:12 +0200
+
+pve-kernel (5.11.22-6) bullseye; urgency=medium
+
+  * io_uring: don't block level reissue off completion path
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 28 Jul 2021 10:51:12 +0200
+
+pve-kernel (5.11.22-5) bullseye; urgency=medium
+
+  * import Ubuntu-5.11.0-26.28
+
+  * pull in upstream stable releases from v5.10.44, v5.12.11
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 Jul 2021 18:25:44 +0200
+
 pve-kernel (5.11.22-4~bpo10) bullseye; urgency=medium
 
   * backport to Debian Buster based releases

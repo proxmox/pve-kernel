@@ -10,10 +10,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 76e593a4cc30..c1e9097e7a08 100644
+index b91b76890cbc..cb7ffc3e848b 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -10346,7 +10346,7 @@ static void netdev_wait_allrefs(struct net_device *dev)
+@@ -10365,7 +10365,7 @@ static void netdev_wait_allrefs(struct net_device *dev)
  		refcnt = netdev_refcnt_read(dev);
  
  		if (refcnt && time_after(jiffies, warning_time + 10 * HZ)) {
