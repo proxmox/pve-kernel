@@ -14,6 +14,9 @@ advansys/mcode.bin kernel/drivers/scsi/advansys.ko
 agere_ap_fw.bin kernel/drivers/net/wireless/intersil/orinoco/orinoco.ko
 agere_sta_fw.bin kernel/drivers/net/wireless/intersil/orinoco/orinoco.ko
 aic94xx-seq.fw kernel/drivers/scsi/aic94xx/aic94xx.ko
+amd/amd_sev_fam17h_model0xh.sbin kernel/drivers/crypto/ccp/ccp.ko
+amd/amd_sev_fam17h_model3xh.sbin kernel/drivers/crypto/ccp/ccp.ko
+amd/amd_sev_fam19h_model0xh.sbin kernel/drivers/crypto/ccp/ccp.ko
 amdgpu/banks_k_2_smc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/bonaire_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/bonaire_k_smc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
