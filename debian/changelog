@@ -1,3 +1,13 @@
+pve-kernel (5.11.22-9) bullseye; urgency=medium
+
+  * backport "blk-mq: fix kernel panic during iterating over flush
+    request"
+
+  * d/rules: kconfig: enable SQUASHFS_DECOMP_MULTI_PERCPU to speed up
+    decompression of mounted squashfs images
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 22 Sep 2021 10:11:11 +0200
+
 pve-kernel (5.11.22-8) bullseye; urgency=medium
 
   * update to Ubuntu-5.11.0-34.36
