@@ -13,10 +13,10 @@ diff --git a/net/core/dev.c b/net/core/dev.c
 index b91b76890cbc..cb7ffc3e848b 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -10365,7 +10365,7 @@ static void netdev_wait_allrefs(struct net_device *dev)
- 		refcnt = netdev_refcnt_read(dev);
- 
- 		if (refcnt && time_after(jiffies, warning_time + 10 * HZ)) {
+@@ -10517,7 +10517,7 @@ static void netdev_wait_allrefs(struct net_device *dev)
+ 		if (refcnt != 1 &&
+ 		    time_after(jiffies, warning_time +
+ 			       netdev_unregister_timeout_secs * HZ)) {
 -			pr_emerg("unregister_netdevice: waiting for %s to become free. Usage count = %d\n",
 +			pr_err("unregister_netdevice: waiting for %s to become free. Usage count = %d\n",
  				 dev->name, refcnt);
