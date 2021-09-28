@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Adrian Bunk <bunk@kernel.org>
+Date: Sun, 12 Sep 2021 22:05:23 +0300
+Subject: [PATCH] bnx2x: Fix enabling network interfaces without VFs
+
+This function is called to enable SR-IOV when available,
+not enabling interfaces without VFs was a regression.
+
+Fixes: 65161c35554f ("bnx2x: Fix missing error code in bnx2x_iov_init_one()")
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Reported-by: YunQiang Su <wzssyqa@gmail.com>
+Tested-by: YunQiang Su <wzssyqa@gmail.com>
+Cc: stable@vger.kernel.org
+Acked-by: Shai Malin <smalin@marvell.com>
+Link: https://lore.kernel.org/r/20210912190523.27991-1-bunk@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index f255fd0b16db..6fbf735fca31 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -1224,7 +1224,7 @@ int bnx2x_iov_init_one(struct bnx2x *bp, int int_mode_param,
+ 
+ 	/* SR-IOV capability was enabled but there are no VFs*/
+ 	if (iov->total == 0) {
+-		err = -EINVAL;
++		err = 0;
+ 		goto failed;
+ 	}
+ 
