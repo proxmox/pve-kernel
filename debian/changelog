@@ -1,3 +1,31 @@
+pve-kernel (5.11.22-10~bpo10+1) buster-backports; urgency=medium
+
+  * Rebuild for Debian Buster based releases
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 Sep 2021 10:30:51 +0200
+
+pve-kernel (5.11.22-10) bullseye; urgency=medium
+
+  * update sources to Ubuntu-5.11.0-38.42
+
+  * update ZFS to 2.0.6
+
+  * bump ABI to 5.11.22-5
+
+  * fix #3558: backport "bnx2x: Fix enabling network interfaces without VFs"
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 Sep 2021 08:15:41 +0200
+
+pve-kernel (5.11.22-9) bullseye; urgency=medium
+
+  * backport "blk-mq: fix kernel panic during iterating over flush
+    request"
+
+  * d/rules: kconfig: enable SQUASHFS_DECOMP_MULTI_PERCPU to speed up
+    decompression of mounted squashfs images
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 22 Sep 2021 10:11:11 +0200
+
 pve-kernel (5.11.22-8~bpo10+1) buster-backports; urgency=medium
 
   * Rebuild for buster-backports.
