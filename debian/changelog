@@ -1,3 +1,15 @@
+pve-kernel (5.4.143-1) buster; urgency=medium
+
+  * update Sources to Ubuntu-5.4.0-89.100
+
+  * bump ABI to 5.11.143-1
+
+  * update ZFS to 2.0.6
+
+  * fix #3558: backport "bnx2x: Fix enabling network interfaces without VFs"
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 Sep 2021 09:10:37 +0200
+
 pve-kernel (5.4.140-1) buster; urgency=medium
 
   * update sources to 5.4.140 stable release based on Ubuntu-5.4.0-85.95
