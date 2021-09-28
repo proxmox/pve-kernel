@@ -3,11 +3,15 @@ KERNEL SOURCE:
 
 We currently use the Ubuntu kernel sources, available from:
 
- http://kernel.ubuntu.com/git/ubuntu/ubuntu-hirsute.git/
+ http://kernel.ubuntu.com/git/ubuntu/ubuntu-impish.git/
 
 Ubuntu will maintain those kernels till:
 
  https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
+ or
+ https://pve.proxmox.com/pve-docs/chapter-pve-faq.html#faq-support-table
+
+ whatever happens to be earlier.
 
 
 Additional/Updated Modules:
@@ -31,7 +35,7 @@ get applied with the `patch` tool. From a git point-of-view, the copied
 directory remains clean even with extra patches applied since it does not
 contain a .git directory, but a reference to the (still pristine) submodule:
 
-$ cat build/ubuntu-hirsute/.git
+$ cat build/ubuntu-impish/.git
 
 If you mistakenly cloned the upstream repo as "normal" clone (not via the
 submodule mechanics) this means that you have a real .git directory with its
@@ -60,7 +64,7 @@ pve-kernel-meta
 ---------------
 
 depends on latest kernel and header package within a certain kernel series,
-e.g., pve-kernel-4.15 / pve-headers-4.15
+e.g., pve-kernel-5.11 / pve-headers-5.11
 
 git clone git://git.proxmox.com/git/pve-kernel-meta.git
 
@@ -138,45 +142,34 @@ NOTE: For the exact and current list see debian/rules (PVE_CONFIG_OPTS)
 	 CONFIG_BLK_DEV_RBD=m
 
 - enable IBM JFS file system as module
-
-  enable it as requested by users (bug #64)
+  requested by users (bug #64)
 
 - enable apple HFS and HFSPLUS as module
-
-  enable it as requested by users
+  requested by users
 
 - enable CONFIG_BCACHE=m (requested by user)
 
 - enable CONFIG_BRIDGE=y
-
-  Else we get warnings on boot, that
-  net.bridge.bridge-nf-call-iptables is an unknown key
+  to avoid warnings on boot, e.g. that net.bridge.bridge-nf-call-iptables is an unknown key
 
 - enable CONFIG_DEFAULT_SECURITY_APPARMOR
-
   We need this for lxc
 
 - set CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE=y
-
   because if not set, it can give some dynamic memory or cpu frequencies 
   change, and vms can crash (mainly windows guest).
-
   see http://forum.proxmox.com/threads/18238-Windows-7-x64-VMs-crashing-randomly-during-process-termination?p=93273#post93273
 
 - use 'deadline' as default scheduler
-
-  This is the suggested setting for KVM. We also measure bad fsync
-  performance with ext4 and cfq.
+  This is the suggested setting for KVM. We also measure bad fsync performance with ext4 and cfq.
 
 - disable CONFIG_INPUT_EVBUG
-
-  Module evbug is not blacklisted on debian, so we simply disable it
-  to avoid key-event logs (which is a big security problem)
+  Module evbug is not blacklisted on debian, so we simply disable it to avoid
+  key-event logs (which is a big security problem)
 
 - enable CONFIG_MODVERSIONS (needed for ABI tracking)
 
 - switch default UNWINDER to FRAME_POINTER
-
   the recently introduced ORC_UNWINDER is not 100% stable yet, especially in combination with ZFS
 
 - enable CONFIG_PAGE_TABLE_ISOLATION (Meltdown mitigation)
