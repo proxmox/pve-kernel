@@ -27,10 +27,10 @@ Signed-off-by: Fabian Ebner <f.ebner@proxmox.com>
  1 file changed, 7 insertions(+)
 
 diff --git a/fs/io_uring.c b/fs/io_uring.c
-index a0d42aea3aa1..ce5cf51a5667 100644
+index d24eb8e53c4c..b5192f2f8178 100644
 --- a/fs/io_uring.c
 +++ b/fs/io_uring.c
-@@ -2731,6 +2731,13 @@ static bool io_rw_reissue(struct io_kiocb *req, long res)
+@@ -2743,6 +2743,13 @@ static bool io_rw_reissue(struct io_kiocb *req, long res)
  	if (percpu_ref_is_dying(&req->ctx->refs))
  		return false;
  

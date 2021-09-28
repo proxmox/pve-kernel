@@ -43,7 +43,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  2 files changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/block/blk-core.c b/block/blk-core.c
-index 7663a9b94b80..debdf9b0bf30 100644
+index ce3b75f8b56d..9658caafddc2 100644
 --- a/block/blk-core.c
 +++ b/block/blk-core.c
 @@ -121,7 +121,6 @@ void blk_rq_init(struct request_queue *q, struct request *rq)

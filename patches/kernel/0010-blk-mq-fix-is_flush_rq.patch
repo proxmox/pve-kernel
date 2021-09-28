@@ -60,7 +60,7 @@ index 8b11ab3b3762..705ee6c99020 100644
   * blk_kick_flush - consider issuing flush request
   * @q: request_queue being kicked
 diff --git a/block/blk-mq.c b/block/blk-mq.c
-index cb619ec8aaf2..601e40204d06 100644
+index 82db8595bdaa..7dd1b6973c79 100644
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
 @@ -937,7 +937,7 @@ static bool blk_mq_req_expired(struct request *rq, unsigned long *next)
