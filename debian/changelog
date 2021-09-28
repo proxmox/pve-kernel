@@ -1,8 +1,10 @@
-pve-kernel (5.13.14-1) UNRELEASED; urgency=medium
+pve-kernel (5.13.14-1) bullseye; urgency=medium
 
   * update kernel-base to Ubuntu 21.10 Impish kernel
 
- -- Proxmox Support Team <support@proxmox.com>  Mon, 27 Sep 2021 10:01:54 +0200
+  * update ZFS to 2.1.1
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 Sep 2021 06:16:44 +0200
 
 pve-kernel (5.11.22-9) bullseye; urgency=medium
 
