@@ -1,3 +1,11 @@
+pve-kernel (5.4.148-1) buster; urgency=medium
+
+  * update sources to Ubuntu-5.4.0-90.101
+
+  * bump ABI to 5.11.148-1
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Oct 2021 15:24:06 +0200
+
 pve-kernel (5.4.143-1) buster; urgency=medium
 
   * update Sources to Ubuntu-5.4.0-89.100
