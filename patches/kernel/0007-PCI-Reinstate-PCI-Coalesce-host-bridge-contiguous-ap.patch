@@ -55,7 +55,7 @@ Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
  1 file changed, 27 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index be51670572fa..133f5d2b189d 100644
+index 275204646c68..944c35d87258 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
 @@ -877,11 +877,11 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)
@@ -73,7 +73,7 @@ index be51670572fa..133f5d2b189d 100644
  	char addr[64], *fmt;
  	const char *name;
  	int err;
-@@ -959,11 +959,34 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
+@@ -961,11 +961,34 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
  	if (nr_node_ids > 1 && pcibus_to_node(bus) == NUMA_NO_NODE)
  		dev_warn(&bus->dev, "Unknown NUMA node; performance will be reduced\n");
  

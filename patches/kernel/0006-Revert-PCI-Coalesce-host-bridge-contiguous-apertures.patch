@@ -2,6 +2,9 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Thomas Lamprecht <t.lamprecht@proxmox.com>
 Date: Mon, 27 Sep 2021 11:28:39 +0200
 Subject: [PATCH] Revert "PCI: Coalesce host bridge contiguous apertures"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 This reverts commit ab20e43b20b60f5cc8e2ea3763ffa388158469ac.
 
@@ -12,8 +15,8 @@ Link: https://lore.kernel.org/r/20210709231529.GA3270116@roeck-us.net
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- drivers/pci/probe.c | 52 +++++----------------------------------------
- 1 file changed, 5 insertions(+), 47 deletions(-)
+ drivers/pci/probe.c | 50 ++++-----------------------------------------
+ 1 file changed, 4 insertions(+), 46 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
 index f6046a16dac1..275204646c68 100644
@@ -89,14 +92,13 @@ index f6046a16dac1..275204646c68 100644
 -
  	/* Add initial resources to the bus */
  	resource_list_for_each_entry_safe(window, n, &resources) {
--		offset = window->offset;
--		res = window->res;
++		list_move_tail(&window->node, &bridge->windows);
+ 		offset = window->offset;
+ 		res = window->res;
 -		if (!res->end)
 -			continue;
 -
- 		list_move_tail(&window->node, &bridge->windows);
-+		offset = window->offset;
-+		res = window->res;
+-		list_move_tail(&window->node, &bridge->windows);
  
  		if (res->flags & IORESOURCE_BUS)
  			pci_bus_insert_busn_res(bus, bus->number, res->end);
