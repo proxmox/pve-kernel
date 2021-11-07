@@ -22,15 +22,16 @@ https://lore.kernel.org/io-uring/20210727165811.284510-3-axboe@kernel.dk/T/#u
 Originally-by: Jens Axboe <axboe@kernel.dk>
 [backport]
 Signed-off-by: Fabian Ebner <f.ebner@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  fs/io_uring.c | 7 +++++++
  1 file changed, 7 insertions(+)
 
 diff --git a/fs/io_uring.c b/fs/io_uring.c
-index d43626339a2d..32b9d5a56c8c 100644
+index b9353cf8aab9..50d1920d2536 100644
 --- a/fs/io_uring.c
 +++ b/fs/io_uring.c
-@@ -2744,6 +2744,13 @@ static bool io_rw_reissue(struct io_kiocb *req, long res)
+@@ -2746,6 +2746,13 @@ static bool io_rw_reissue(struct io_kiocb *req, long res)
  	if (percpu_ref_is_dying(&req->ctx->refs))
  		return false;
  

@@ -13,12 +13,13 @@ was reverted upstream because of reports similar to
 Link: https://bugzilla.proxmox.com/show_bug.cgi?id=3552
 Link: https://lore.kernel.org/r/20210709231529.GA3270116@roeck-us.net
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- drivers/pci/probe.c | 49 ++++-----------------------------------------
- 1 file changed, 4 insertions(+), 45 deletions(-)
+ drivers/pci/probe.c | 52 +++++----------------------------------------
+ 1 file changed, 5 insertions(+), 47 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 04664d4fe4be..be51670572fa 100644
+index b5fdf42c4c2a..be51670572fa 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
 @@ -19,7 +19,6 @@
@@ -29,11 +30,12 @@ index 04664d4fe4be..be51670572fa 100644
  #include "pci.h"
  
  #define CARDBUS_LATENCY_TIMER	176	/* secondary latency timer */
-@@ -875,30 +874,14 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)
+@@ -875,31 +874,14 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)
  	dev_set_msi_domain(&bus->dev, d);
  }
  
--static int res_cmp(void *priv, struct list_head *a, struct list_head *b)
+-static int res_cmp(void *priv, const struct list_head *a,
+-		  const struct list_head *b)
 -{
 -	struct resource_entry *entry1, *entry2;
 -
@@ -63,7 +65,7 @@ index 04664d4fe4be..be51670572fa 100644
  	char addr[64], *fmt;
  	const char *name;
  	int err;
-@@ -976,35 +959,11 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
+@@ -977,35 +959,11 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
  	if (nr_node_ids > 1 && pcibus_to_node(bus) == NUMA_NO_NODE)
  		dev_warn(&bus->dev, "Unknown NUMA node; performance will be reduced\n");
  
@@ -90,13 +92,14 @@ index 04664d4fe4be..be51670572fa 100644
 -
  	/* Add initial resources to the bus */
  	resource_list_for_each_entry_safe(window, n, &resources) {
-+		list_move_tail(&window->node, &bridge->windows);
- 		offset = window->offset;
- 		res = window->res;
+-		offset = window->offset;
+-		res = window->res;
 -		if (!res->end)
 -			continue;
 -
--		list_move_tail(&window->node, &bridge->windows);
+ 		list_move_tail(&window->node, &bridge->windows);
++		offset = window->offset;
++		res = window->res;
  
  		if (res->flags & IORESOURCE_BUS)
  			pci_bus_insert_busn_res(bus, bus->number, res->end);
