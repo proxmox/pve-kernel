@@ -1,3 +1,10 @@
+pve-kernel (5.13.19-2) bullseye; urgency=medium
+
+  * re-enable retrying to get a blockdev on ERESTARTSYS to work around
+    ZFS still depending on that
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 09 Nov 2021 12:59:38 +0100
+
 pve-kernel (5.13.19-1) bullseye; urgency=medium
 
   * update sources to Ubuntu-5.13.0-22.22
