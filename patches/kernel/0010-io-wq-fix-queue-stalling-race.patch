@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jens Axboe <axboe@kernel.dk>
+Date: Tue, 31 Aug 2021 13:53:00 -0600
+Subject: [PATCH] io-wq: fix queue stalling race
+
+We need to set the stalled bit early, before we drop the lock for adding
+us to the stall hash queue. If not, then we can race with new work being
+queued between adding us to the stall hash and io_worker_handle_work()
+marking us stalled.
+
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+[backport]
+Signed-off-by: Fabian Ebner <f.ebner@proxmox.com>
+---
+ fs/io-wq.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/fs/io-wq.c b/fs/io-wq.c
+index 6612d0aa497e..33678185f3bc 100644
+--- a/fs/io-wq.c
++++ b/fs/io-wq.c
+@@ -437,8 +437,7 @@ static bool io_worker_can_run_work(struct io_worker *worker,
+ }
+ 
+ static struct io_wq_work *io_get_next_work(struct io_wqe *wqe,
+-					   struct io_worker *worker,
+-					   bool *stalled)
++					   struct io_worker *worker)
+ 	__must_hold(wqe->lock)
+ {
+ 	struct io_wq_work_node *node, *prev;
+@@ -476,10 +475,14 @@ static struct io_wq_work *io_get_next_work(struct io_wqe *wqe,
+ 	}
+ 
+ 	if (stall_hash != -1U) {
++		/*
++		 * Set this before dropping the lock to avoid racing with new
++		 * work being added and clearing the stalled bit.
++		 */
++		wqe->flags |= IO_WQE_FLAG_STALLED;
+ 		raw_spin_unlock(&wqe->lock);
+ 		io_wait_on_hash(wqe, stall_hash);
+ 		raw_spin_lock(&wqe->lock);
+-		*stalled = true;
+ 	}
+ 
+ 	return NULL;
+@@ -519,7 +522,6 @@ static void io_worker_handle_work(struct io_worker *worker)
+ 
+ 	do {
+ 		struct io_wq_work *work;
+-		bool stalled;
+ get_next:
+ 		/*
+ 		 * If we got some work, mark us as busy. If we didn't, but
+@@ -528,12 +530,9 @@ static void io_worker_handle_work(struct io_worker *worker)
+ 		 * can't make progress, any work completion or insertion will
+ 		 * clear the stalled flag.
+ 		 */
+-		stalled = false;
+-		work = io_get_next_work(wqe, worker, &stalled);
++		work = io_get_next_work(wqe, worker);
+ 		if (work)
+ 			__io_worker_busy(wqe, worker, work);
+-		else if (stalled)
+-			wqe->flags |= IO_WQE_FLAG_STALLED;
+ 
+ 		raw_spin_unlock_irq(&wqe->lock);
+ 		if (!work)
+-- 
+2.30.2
+
