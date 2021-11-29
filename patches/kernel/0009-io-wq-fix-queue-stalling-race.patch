@@ -67,6 +67,3 @@ index 6612d0aa497e..33678185f3bc 100644
  
  		raw_spin_unlock_irq(&wqe->lock);
  		if (!work)
--- 
-2.30.2
-

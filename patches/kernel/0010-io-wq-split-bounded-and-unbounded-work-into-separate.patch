@@ -410,6 +410,3 @@ index 33678185f3bc..2496d8781ea1 100644
  		INIT_HLIST_NULLS_HEAD(&wqe->free_list, 0);
  		INIT_LIST_HEAD(&wqe->all_list);
  	}
--- 
-2.30.2
-
