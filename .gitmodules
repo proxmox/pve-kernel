@@ -1,6 +1,6 @@
 [submodule "submodules/zfsonlinux"]
 	path = submodules/zfsonlinux
 	url = ../zfsonlinux
-[submodule "submodules/ubuntu-impish"]
-	path = submodules/ubuntu-impish
-	url = ../mirror_ubuntu-impish-kernel
+[submodule "submodules/ubuntu-jammy"]
+	path = submodules/ubuntu-jammy
+	url = ../mirror_ubuntu-jammy-kernel

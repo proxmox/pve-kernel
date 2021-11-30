@@ -23,9 +23,9 @@ index f6046a16dac1..275204646c68 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
 @@ -19,7 +19,6 @@
- #include <linux/hypervisor.h>
  #include <linux/irqdomain.h>
  #include <linux/pm_runtime.h>
+ #include <linux/bitfield.h>
 -#include <linux/list_sort.h>
  #include "pci.h"
  
