@@ -51,7 +51,7 @@ Package: pve-headers-@KVNAME@
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-headers
+Provides: linux-headers-@KVNAME@-amd64
 Depends: coreutils | fileutils (>= 4.0)
 Description: The Proxmox PVE Kernel Headers
  This package contains the linux kernel headers
@@ -60,7 +60,7 @@ Package: pve-kernel-@KVNAME@
 Section: admin
 Priority: optional
 Architecture: any
-Provides: linux-image
+Provides: linux-image-@KVNAME@-amd64
 Suggests: pve-firmware
 Depends: busybox, initramfs-tools
 Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub-efi-arm64
