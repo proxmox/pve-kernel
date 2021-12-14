@@ -50,15 +50,16 @@ Cc: Guenter Roeck <linux@roeck-us.net>
 Suggested-by: Bjorn Helgaas <bhelgaas@google.com>
 Signed-off-by: Kai-Heng Feng <kai.heng.feng@canonical.com>
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- drivers/pci/probe.c | 31 +++++++++++++++++++++++++++----
- 1 file changed, 27 insertions(+), 4 deletions(-)
+ drivers/pci/probe.c | 33 ++++++++++++++++++++++++++++-----
+ 1 file changed, 28 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 275204646c68..944c35d87258 100644
+index d9fc02a71baa..3459f460dbd8 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -877,11 +877,11 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)
+@@ -883,11 +883,11 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)
  static int pci_register_host_bridge(struct pci_host_bridge *bridge)
  {
  	struct device *parent = bridge->dev.parent;
@@ -73,7 +74,7 @@ index 275204646c68..944c35d87258 100644
  	char addr[64], *fmt;
  	const char *name;
  	int err;
-@@ -961,11 +961,34 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
+@@ -970,11 +970,34 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
  	if (nr_node_ids > 1 && pcibus_to_node(bus) == NUMA_NO_NODE)
  		dev_warn(&bus->dev, "Unknown NUMA node; performance will be reduced\n");
  
@@ -99,13 +100,14 @@ index 275204646c68..944c35d87258 100644
 +
  	/* Add initial resources to the bus */
  	resource_list_for_each_entry_safe(window, n, &resources) {
--		list_move_tail(&window->node, &bridge->windows);
- 		offset = window->offset;
- 		res = window->res;
++		offset = window->offset;
++		res = window->res;
 +		if (!res->end)
 +			continue;
 +
-+		list_move_tail(&window->node, &bridge->windows);
+ 		list_move_tail(&window->node, &bridge->windows);
+-		offset = window->offset;
+-		res = window->res;
  
  		if (res->flags & IORESOURCE_BUS)
  			pci_bus_insert_busn_res(bus, bus->number, res->end);

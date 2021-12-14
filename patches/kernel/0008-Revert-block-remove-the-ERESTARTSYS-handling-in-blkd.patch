@@ -14,11 +14,11 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  block/bdev.c | 6 ++++++
  1 file changed, 6 insertions(+)
 
-diff --git a/fs/block_dev.c b/fs/block_dev.c
-index e4a80bd4ddf1..4a14d28dd923 100644
+diff --git a/block/bdev.c b/block/bdev.c
+index 485a258b0ab3..f93165f05987 100644
 --- a/block/bdev.c
 +++ b/block/bdev.c
-@@ -1436,6 +1436,10 @@ struct block_device *blkdev_get_by_dev(dev_t dev, fmode_t mode, void *holder)
+@@ -800,6 +800,10 @@ struct block_device *blkdev_get_by_dev(dev_t dev, fmode_t mode, void *holder)
  	if (ret)
  		return ERR_PTR(ret);
  
@@ -29,7 +29,7 @@ index e4a80bd4ddf1..4a14d28dd923 100644
  	bdev = blkdev_get_no_open(dev);
  	if (!bdev)
  		return ERR_PTR(-ENXIO);
-@@ -1482,6 +1486,8 @@ struct block_device *blkdev_get_by_dev(dev_t dev, fmode_t mode, void *holder)
+@@ -852,6 +856,8 @@ struct block_device *blkdev_get_by_dev(dev_t dev, fmode_t mode, void *holder)
  	disk_unblock_events(disk);
  put_blkdev:
  	blkdev_put_no_open(bdev);

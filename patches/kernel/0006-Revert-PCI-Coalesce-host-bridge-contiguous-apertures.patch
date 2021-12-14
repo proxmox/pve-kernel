@@ -15,14 +15,14 @@ Link: https://lore.kernel.org/r/20210709231529.GA3270116@roeck-us.net
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- drivers/pci/probe.c | 50 ++++-----------------------------------------
- 1 file changed, 4 insertions(+), 46 deletions(-)
+ drivers/pci/probe.c | 52 +++++----------------------------------------
+ 1 file changed, 5 insertions(+), 47 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index f6046a16dac1..275204646c68 100644
+index e322907d1f3c..d9fc02a71baa 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -19,7 +19,6 @@
+@@ -20,7 +20,6 @@
  #include <linux/irqdomain.h>
  #include <linux/pm_runtime.h>
  #include <linux/bitfield.h>
@@ -30,7 +30,7 @@ index f6046a16dac1..275204646c68 100644
  #include "pci.h"
  
  #define CARDBUS_LATENCY_TIMER	176	/* secondary latency timer */
-@@ -875,31 +874,14 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)
+@@ -881,31 +880,14 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)
  	dev_set_msi_domain(&bus->dev, d);
  }
  
@@ -65,7 +65,7 @@ index f6046a16dac1..275204646c68 100644
  	char addr[64], *fmt;
  	const char *name;
  	int err;
-@@ -979,35 +961,11 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
+@@ -988,35 +970,11 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
  	if (nr_node_ids > 1 && pcibus_to_node(bus) == NUMA_NO_NODE)
  		dev_warn(&bus->dev, "Unknown NUMA node; performance will be reduced\n");
  
@@ -92,13 +92,14 @@ index f6046a16dac1..275204646c68 100644
 -
  	/* Add initial resources to the bus */
  	resource_list_for_each_entry_safe(window, n, &resources) {
-+		list_move_tail(&window->node, &bridge->windows);
- 		offset = window->offset;
- 		res = window->res;
+-		offset = window->offset;
+-		res = window->res;
 -		if (!res->end)
 -			continue;
 -
--		list_move_tail(&window->node, &bridge->windows);
+ 		list_move_tail(&window->node, &bridge->windows);
++		offset = window->offset;
++		res = window->res;
  
  		if (res->flags & IORESOURCE_BUS)
  			pci_bus_insert_busn_res(bus, bus->number, res->end);
