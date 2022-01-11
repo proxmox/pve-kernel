@@ -1,3 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fabian=20Gr=C3=BCnbichler?= <f.gruenbichler@proxmox.com>
+Date: Thu, 14 Sep 2017 11:09:58 +0200
+Subject: do not generate split BTF type info per default
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This reverts commit a8ed1a0607cfa5478ff6009539f44790c4d0956d.
+
+It breaks ZFS sometimes:
+https://github.com/openzfs/zfs/issues/12301#issuecomment-873303739
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
 index 25dc20175bba..7ff51a3f65e6 100644
 --- a/lib/Kconfig.debug
