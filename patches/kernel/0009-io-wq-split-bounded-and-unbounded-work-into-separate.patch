@@ -17,12 +17,13 @@ Fixes: ecc53c48c13d ("io-wq: check max_worker limits if a worker transitions bou
 Signed-off-by: Jens Axboe <axboe@kernel.dk>
 [backport]
 Signed-off-by: Fabian Ebner <f.ebner@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- fs/io-wq.c | 156 +++++++++++++++++++++++------------------------------
- 1 file changed, 68 insertions(+), 88 deletions(-)
+ fs/io-wq.c | 160 +++++++++++++++++++++++------------------------------
+ 1 file changed, 70 insertions(+), 90 deletions(-)
 
 diff --git a/fs/io-wq.c b/fs/io-wq.c
-index 33678185f3bc..2496d8781ea1 100644
+index ba7aaf2b95d0..6710da3d4445 100644
 --- a/fs/io-wq.c
 +++ b/fs/io-wq.c
 @@ -34,7 +34,7 @@ enum {
@@ -34,7 +35,7 @@ index 33678185f3bc..2496d8781ea1 100644
  };
  
  /*
-@@ -73,25 +73,24 @@ struct io_wqe_acct {
+@@ -73,26 +73,25 @@ struct io_wqe_acct {
  	unsigned max_workers;
  	int index;
  	atomic_t nr_running;
@@ -57,14 +58,16 @@ index 33678185f3bc..2496d8781ea1 100644
 -		struct io_wq_work_list work_list;
 -		unsigned flags;
 -	} ____cacheline_aligned_in_smp;
+-
+-	int node;
 +	raw_spinlock_t lock;
-+	struct io_wqe_acct acct[2];
+ 	struct io_wqe_acct acct[2];
  
- 	int node;
--	struct io_wqe_acct acct[2];
- 
++	int node;
++
  	struct hlist_nulls_head free_list;
  	struct list_head all_list;
+ 
 @@ -196,11 +195,10 @@ static void io_worker_exit(struct io_worker *worker)
  	do_exit(0);
  }
@@ -140,8 +143,8 @@ index 33678185f3bc..2496d8781ea1 100644
  }
  
  /*
-@@ -417,44 +401,23 @@ static void io_wait_on_hash(struct io_wqe *wqe, unsigned int hash)
- 	spin_unlock(&wq->hash->wait.lock);
+@@ -420,44 +404,23 @@ static bool io_wait_on_hash(struct io_wqe *wqe, unsigned int hash)
+ 	return ret;
  }
  
 -/*
@@ -189,7 +192,7 @@ index 33678185f3bc..2496d8781ea1 100644
  			return work;
  		}
  
-@@ -465,7 +428,7 @@ static struct io_wq_work *io_get_next_work(struct io_wqe *wqe,
+@@ -468,7 +431,7 @@ static struct io_wq_work *io_get_next_work(struct io_wqe *wqe,
  		/* hashed, can run if not already running */
  		if (!test_and_set_bit(hash, &wqe->wq->hash->map)) {
  			wqe->hash_tail[hash] = NULL;
@@ -198,16 +201,22 @@ index 33678185f3bc..2496d8781ea1 100644
  			return work;
  		}
  		if (stall_hash == -1U)
-@@ -479,7 +442,7 @@ static struct io_wq_work *io_get_next_work(struct io_wqe *wqe,
+@@ -484,12 +447,12 @@ static struct io_wq_work *io_get_next_work(struct io_wqe *wqe,
  		 * Set this before dropping the lock to avoid racing with new
  		 * work being added and clearing the stalled bit.
  		 */
 -		wqe->flags |= IO_WQE_FLAG_STALLED;
 +		set_bit(IO_ACCT_STALLED_BIT, &acct->flags);
  		raw_spin_unlock(&wqe->lock);
- 		io_wait_on_hash(wqe, stall_hash);
+ 		unstalled = io_wait_on_hash(wqe, stall_hash);
  		raw_spin_lock(&wqe->lock);
-@@ -516,6 +479,7 @@ static void io_wqe_enqueue(struct io_wqe *wqe, struct io_wq_work *work);
+ 		if (unstalled) {
+-			wqe->flags &= ~IO_WQE_FLAG_STALLED;
++			clear_bit(IO_ACCT_STALLED_BIT, &acct->flags);
+ 			if (wq_has_sleeper(&wqe->wq->hash->wait))
+ 				wake_up(&wqe->wq->hash->wait);
+ 		}
+@@ -526,6 +489,7 @@ static void io_wqe_enqueue(struct io_wqe *wqe, struct io_wq_work *work);
  static void io_worker_handle_work(struct io_worker *worker)
  	__releases(wqe->lock)
  {
@@ -215,7 +224,7 @@ index 33678185f3bc..2496d8781ea1 100644
  	struct io_wqe *wqe = worker->wqe;
  	struct io_wq *wq = wqe->wq;
  	bool do_kill = test_bit(IO_WQ_BIT_EXIT, &wq->state);
-@@ -530,7 +494,7 @@ static void io_worker_handle_work(struct io_worker *worker)
+@@ -540,7 +504,7 @@ static void io_worker_handle_work(struct io_worker *worker)
  		 * can't make progress, any work completion or insertion will
  		 * clear the stalled flag.
  		 */
@@ -224,19 +233,16 @@ index 33678185f3bc..2496d8781ea1 100644
  		if (work)
  			__io_worker_busy(wqe, worker, work);
  
-@@ -564,10 +528,10 @@ static void io_worker_handle_work(struct io_worker *worker)
- 
- 			if (hash != -1U && !next_hashed) {
+@@ -576,7 +540,7 @@ static void io_worker_handle_work(struct io_worker *worker)
+ 				/* serialize hash clear with wake_up() */
+ 				spin_lock_irq(&wq->hash->wait.lock);
  				clear_bit(hash, &wq->hash->map);
+-				wqe->flags &= ~IO_WQE_FLAG_STALLED;
 +				clear_bit(IO_ACCT_STALLED_BIT, &acct->flags);
+ 				spin_unlock_irq(&wq->hash->wait.lock);
  				if (wq_has_sleeper(&wq->hash->wait))
  					wake_up(&wq->hash->wait);
- 				raw_spin_lock_irq(&wqe->lock);
--				wqe->flags &= ~IO_WQE_FLAG_STALLED;
- 				/* skip unnecessary unlock-lock wqe->lock */
- 				if (!work)
- 					goto get_next;
-@@ -582,6 +546,7 @@ static void io_worker_handle_work(struct io_worker *worker)
+@@ -595,6 +559,7 @@ static void io_worker_handle_work(struct io_worker *worker)
  static int io_wqe_worker(void *data)
  {
  	struct io_worker *worker = data;
@@ -244,7 +250,7 @@ index 33678185f3bc..2496d8781ea1 100644
  	struct io_wqe *wqe = worker->wqe;
  	struct io_wq *wq = wqe->wq;
  	char buf[TASK_COMM_LEN];
-@@ -597,7 +562,7 @@ static int io_wqe_worker(void *data)
+@@ -610,7 +575,7 @@ static int io_wqe_worker(void *data)
  		set_current_state(TASK_INTERRUPTIBLE);
  loop:
  		raw_spin_lock_irq(&wqe->lock);
@@ -253,7 +259,7 @@ index 33678185f3bc..2496d8781ea1 100644
  			io_worker_handle_work(worker);
  			goto loop;
  		}
-@@ -623,7 +588,7 @@ static int io_wqe_worker(void *data)
+@@ -636,7 +601,7 @@ static int io_wqe_worker(void *data)
  
  	if (test_bit(IO_WQ_BIT_EXIT, &wq->state)) {
  		raw_spin_lock_irq(&wqe->lock);
@@ -262,7 +268,7 @@ index 33678185f3bc..2496d8781ea1 100644
  			io_worker_handle_work(worker);
  		else
  			raw_spin_unlock_irq(&wqe->lock);
-@@ -769,12 +734,13 @@ static void io_run_cancel(struct io_wq_work *work, struct io_wqe *wqe)
+@@ -782,12 +747,13 @@ static void io_run_cancel(struct io_wq_work *work, struct io_wqe *wqe)
  
  static void io_wqe_insert_work(struct io_wqe *wqe, struct io_wq_work *work)
  {
@@ -277,7 +283,7 @@ index 33678185f3bc..2496d8781ea1 100644
  		return;
  	}
  
-@@ -784,7 +750,7 @@ static void io_wqe_insert_work(struct io_wqe *wqe, struct io_wq_work *work)
+@@ -797,7 +763,7 @@ static void io_wqe_insert_work(struct io_wqe *wqe, struct io_wq_work *work)
  	if (!tail)
  		goto append;
  
@@ -286,7 +292,7 @@ index 33678185f3bc..2496d8781ea1 100644
  }
  
  static void io_wqe_enqueue(struct io_wqe *wqe, struct io_wq_work *work)
-@@ -806,10 +772,10 @@ static void io_wqe_enqueue(struct io_wqe *wqe, struct io_wq_work *work)
+@@ -819,10 +785,10 @@ static void io_wqe_enqueue(struct io_wqe *wqe, struct io_wq_work *work)
  
  	raw_spin_lock_irqsave(&wqe->lock, flags);
  	io_wqe_insert_work(wqe, work);
@@ -299,7 +305,7 @@ index 33678185f3bc..2496d8781ea1 100644
  	rcu_read_unlock();
  
  	raw_spin_unlock_irqrestore(&wqe->lock, flags);
-@@ -862,6 +828,7 @@ static inline void io_wqe_remove_pending(struct io_wqe *wqe,
+@@ -875,6 +841,7 @@ static inline void io_wqe_remove_pending(struct io_wqe *wqe,
  					 struct io_wq_work *work,
  					 struct io_wq_work_node *prev)
  {
@@ -307,7 +313,7 @@ index 33678185f3bc..2496d8781ea1 100644
  	unsigned int hash = io_get_work_hash(work);
  	struct io_wq_work *prev_work = NULL;
  
-@@ -873,7 +840,7 @@ static inline void io_wqe_remove_pending(struct io_wqe *wqe,
+@@ -886,7 +853,7 @@ static inline void io_wqe_remove_pending(struct io_wqe *wqe,
  		else
  			wqe->hash_tail[hash] = NULL;
  	}
@@ -316,7 +322,7 @@ index 33678185f3bc..2496d8781ea1 100644
  }
  
  static void io_wqe_cancel_pending_work(struct io_wqe *wqe,
-@@ -882,22 +849,27 @@ static void io_wqe_cancel_pending_work(struct io_wqe *wqe,
+@@ -895,22 +862,27 @@ static void io_wqe_cancel_pending_work(struct io_wqe *wqe,
  	struct io_wq_work_node *node, *prev;
  	struct io_wq_work *work;
  	unsigned long flags;
@@ -356,7 +362,7 @@ index 33678185f3bc..2496d8781ea1 100644
  	}
  	raw_spin_unlock_irqrestore(&wqe->lock, flags);
  }
-@@ -958,18 +930,24 @@ static int io_wqe_hash_wake(struct wait_queue_entry *wait, unsigned mode,
+@@ -971,18 +943,24 @@ static int io_wqe_hash_wake(struct wait_queue_entry *wait, unsigned mode,
  			    int sync, void *key)
  {
  	struct io_wqe *wqe = container_of(wait, struct io_wqe, wait);
@@ -383,7 +389,7 @@ index 33678185f3bc..2496d8781ea1 100644
  	struct io_wq *wq;
  
  	if (WARN_ON_ONCE(!data->free_work || !data->do_work))
-@@ -1006,18 +984,20 @@ struct io_wq *io_wq_create(unsigned bounded, struct io_wq_data *data)
+@@ -1019,18 +997,20 @@ struct io_wq *io_wq_create(unsigned bounded, struct io_wq_data *data)
  			goto err;
  		wq->wqes[node] = wqe;
  		wqe->node = alloc_node;
