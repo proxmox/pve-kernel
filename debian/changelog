@@ -1,12 +1,14 @@
-pve-kernel (5.15.12-1) bullseye; urgency=medium
+pve-kernel (5.15.12-2) bullseye; urgency=medium
 
   * update sources to Ubuntu-5.15.0-16.16 based on 5.15.12
 
   * update ZFS to 2.1.2
 
+  * ZFS: cherry-pick lock-inversion patch for zvol_open
+
   * cherry-pick "blk-cgroup: always terminate io.stat lines"
 
- -- Proxmox Support Team <support@proxmox.com>  Tue, 11 Jan 2022 11:49:01 +0100
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 11 Jan 2022 16:43:18 +0100
 
 pve-kernel (5.15.7-1) bullseye; urgency=medium
 
