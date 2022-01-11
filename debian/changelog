@@ -1,4 +1,4 @@
-pve-kernel (5.13.19-5) bullseye; urgency=medium
+pve-kernel (5.13.19-6) bullseye; urgency=medium
 
   * update sources to Ubuntu-5.13.0-24.24
 
@@ -6,7 +6,9 @@ pve-kernel (5.13.19-5) bullseye; urgency=medium
 
   * update ZFS to 2.1.2
 
- -- Proxmox Support Team <support@proxmox.com>  Tue, 11 Jan 2022 11:54:51 +0100
+  * ZFS: cherry-pick lock-inversion patch for zvol_open
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 11 Jan 2022 16:44:47 +0100
 
 pve-kernel (5.13.19-4) bullseye; urgency=medium
 
