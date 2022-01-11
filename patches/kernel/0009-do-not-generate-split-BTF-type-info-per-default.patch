@@ -1,10 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Fabian=20Gr=C3=BCnbichler?= <f.gruenbichler@proxmox.com>
 Date: Thu, 14 Sep 2017 11:09:58 +0200
-Subject: do not generate split BTF type info per default
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH] do not generate split BTF type info per default
 
 This reverts commit a8ed1a0607cfa5478ff6009539f44790c4d0956d.
 
@@ -13,11 +10,14 @@ https://github.com/openzfs/zfs/issues/12301#issuecomment-873303739
 
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
+ lib/Kconfig.debug | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index 25dc20175bba..7ff51a3f65e6 100644
+index 2a9b6dcdac4f..ecc18910a6b2 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -314,7 +314,7 @@ config PAHOLE_HAS_SPLIT_BTF
+@@ -325,7 +325,7 @@ config PAHOLE_HAS_SPLIT_BTF
  	def_bool $(success, test `$(PAHOLE) --version | sed -E 's/v([0-9]+)\.([0-9]+)/\1\2/'` -ge "119")
  
  config DEBUG_INFO_BTF_MODULES
