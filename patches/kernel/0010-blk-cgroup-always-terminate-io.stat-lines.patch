@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Wolfgang Bumiller <w.bumiller@proxmox.com>
-Date: Mon, 10 Jan 2022 16:34:57 +0100
+Date: Tue, 11 Jan 2022 09:31:59 +0100
 Subject: [PATCH] blk-cgroup: always terminate io.stat lines
 
 With the removal of seq_get_buf in blkcg_print_one_stat, we
@@ -17,9 +17,9 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  block/blk-cgroup.c         | 9 ++-------
  block/blk-iocost.c         | 5 ++---
- block/blk-iolatency.c      | 6 ++----
+ block/blk-iolatency.c      | 8 +++-----
  include/linux/blk-cgroup.h | 2 +-
- 4 files changed, 7 insertions(+), 15 deletions(-)
+ 4 files changed, 8 insertions(+), 16 deletions(-)
 
 diff --git a/block/blk-cgroup.c b/block/blk-cgroup.c
 index 0eec59e4df65..38c62a44905a 100644
@@ -92,9 +92,18 @@ index eb7b0d6bd11f..381c28f9561e 100644
  
  static u64 ioc_weight_prfill(struct seq_file *sf, struct blkg_policy_data *pd,
 diff --git a/block/blk-iolatency.c b/block/blk-iolatency.c
-index c0545f9da549..9e0c83223e04 100644
+index c0545f9da549..d33460f3d43d 100644
 --- a/block/blk-iolatency.c
 +++ b/block/blk-iolatency.c
+@@ -890,7 +890,7 @@ static int iolatency_print_limit(struct seq_file *sf, void *v)
+ 	return 0;
+ }
+ 
+-static bool iolatency_ssd_stat(struct iolatency_grp *iolat, struct seq_file *s)
++static void iolatency_ssd_stat(struct iolatency_grp *iolat, struct seq_file *s)
+ {
+ 	struct latency_stat stat;
+ 	int cpu;
 @@ -913,17 +913,16 @@ static bool iolatency_ssd_stat(struct iolatency_grp *iolat, struct seq_file *s)
  			(unsigned long long)stat.ps.missed,
  			(unsigned long long)stat.ps.total,
