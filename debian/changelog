@@ -1,3 +1,10 @@
+pve-kernel (5.4.162-2) buster; urgency=medium
+
+  * backport "vfs: fs_context: fix up param length parsing in
+    legacy_parse_param"
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 20 Jan 2022 16:38:53 +0100
+
 pve-kernel (5.4.162-1) buster; urgency=medium
 
   * update sources to Ubuntu-5.4.0-95.107
