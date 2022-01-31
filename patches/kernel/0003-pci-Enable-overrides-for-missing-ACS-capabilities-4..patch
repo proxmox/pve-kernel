@@ -55,10 +55,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 111 insertions(+)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 0a6c12e3fd4a..51e9b9efdd34 100644
+index 21575acb6a20..fad011895cde 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -3906,6 +3906,15 @@
+@@ -3908,6 +3908,15 @@
  				Also, it enforces the PCI Local Bus spec
  				rule that those bits should be 0 in system reset
  				events (useful for kexec/kdump cases).
@@ -75,7 +75,7 @@ index 0a6c12e3fd4a..51e9b9efdd34 100644
  				Safety option to keep boot IRQs enabled. This
  				should never be necessary.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 993eff5d2e39..e76bfd054dba 100644
+index 8e352736734f..0d5b4fd01aae 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -193,6 +193,106 @@ static int __init pci_apply_final_quirks(void)
@@ -185,7 +185,7 @@ index 993eff5d2e39..e76bfd054dba 100644
  /*
   * Decoding should be disabled for a PCI device during BAR sizing to avoid
   * conflict. But doing so may cause problems on host bridge and perhaps other
-@@ -4912,6 +5012,8 @@ static const struct pci_dev_acs_enabled {
+@@ -4915,6 +5015,8 @@ static const struct pci_dev_acs_enabled {
  	{ PCI_VENDOR_ID_CAVIUM, 0xA060, pci_quirk_mf_endpoint_acs },
  	/* APM X-Gene */
  	{ PCI_VENDOR_ID_AMCC, 0xE004, pci_quirk_xgene_acs },
