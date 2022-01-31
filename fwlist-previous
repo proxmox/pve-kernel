@@ -990,7 +990,9 @@ mediatek/mt7668pr2h.bin kernel/drivers/bluetooth/btusb.ko
 mediatek/mt7915_rom_patch.bin kernel/drivers/net/wireless/mediatek/mt76/mt7915/mt7915e.ko
 mediatek/mt7915_wa.bin kernel/drivers/net/wireless/mediatek/mt76/mt7915/mt7915e.ko
 mediatek/mt7915_wm.bin kernel/drivers/net/wireless/mediatek/mt76/mt7915/mt7915e.ko
+mediatek/WIFI_MT7922_patch_mcu_1_1_hdr.bin kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921e.ko
 mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921e.ko
+mediatek/WIFI_RAM_CODE_MT7922_1.bin kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921e.ko
 mediatek/WIFI_RAM_CODE_MT7961_1.bin kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921e.ko
 mellanox/mlxsw_spectrum-13.2008.2406.mfa2 kernel/drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko
 mellanox/mlxsw_spectrum2-29.2008.2406.mfa2 kernel/drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko
