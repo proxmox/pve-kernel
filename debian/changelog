@@ -1,3 +1,9 @@
+pve-kernel (5.15.17-1) bullseye; urgency=medium
+
+  * update sources to Ubuntu-5.15.0-19.19 based on 5.15.17
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 31 Jan 2022 09:41:30 +0100
+
 pve-kernel (5.15.12-3) bullseye; urgency=medium
 
   * backport "vfs: fs_context: fix up param length parsing in
