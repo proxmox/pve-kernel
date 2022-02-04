@@ -1,3 +1,9 @@
+pve-kernel (5.15.19-1) bullseye; urgency=medium
+
+  * update sources to Ubuntu-5.15.0-20.20 based on 5.15.19
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 04 Feb 2022 06:09:14 +0100
+
 pve-kernel (5.15.17-1) bullseye; urgency=medium
 
   * update sources to Ubuntu-5.15.0-19.19 based on 5.15.17
