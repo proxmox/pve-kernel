@@ -1,3 +1,10 @@
+pve-kernel (5.13.19-9) bullseye; urgency=medium
+
+  * update to Ubuntu-5.13.0-30.33
+    revert a problematic patch causing issues with releasing block devices
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 07 Feb 2022 11:01:14 +0100
+
 pve-kernel (5.13.19-8) bullseye; urgency=medium
 
   * update sources to Ubuntu-5.13.0-29.32
