@@ -52,8 +52,8 @@ Signed-off-by: Kai-Heng Feng <kai.heng.feng@canonical.com>
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- drivers/pci/probe.c | 33 ++++++++++++++++++++++++++++-----
- 1 file changed, 28 insertions(+), 5 deletions(-)
+ drivers/pci/probe.c | 31 +++++++++++++++++++++++++++----
+ 1 file changed, 27 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
 index b38a345c5df6..485167ca62a1 100644
@@ -100,14 +100,13 @@ index b38a345c5df6..485167ca62a1 100644
 +
  	/* Add initial resources to the bus */
  	resource_list_for_each_entry_safe(window, n, &resources) {
-+		offset = window->offset;
-+		res = window->res;
+-		list_move_tail(&window->node, &bridge->windows);
+ 		offset = window->offset;
+ 		res = window->res;
 +		if (!res->end)
 +			continue;
 +
- 		list_move_tail(&window->node, &bridge->windows);
--		offset = window->offset;
--		res = window->res;
++		list_move_tail(&window->node, &bridge->windows);
  
  		if (res->flags & IORESOURCE_BUS)
  			pci_bus_insert_busn_res(bus, bus->number, res->end);
