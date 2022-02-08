@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Tue, 25 Jan 2022 10:12:18 +0100
+Subject: [PATCH] fbdev: Hot-unplug firmware fb devices on forced removal
+
+Hot-unplug all firmware-framebuffer devices as part of removing
+them via remove_conflicting_framebuffers() et al. Releases all
+memory regions to be acquired by native drivers.
+
+Firmware, such as EFI, install a framebuffer while posting the
+computer. After removing the firmware-framebuffer device from fbdev,
+a native driver takes over the hardware and the firmware framebuffer
+becomes invalid.
+
+Firmware-framebuffer drivers, specifically simplefb, don't release
+their device from Linux' device hierarchy. It still owns the firmware
+framebuffer and blocks the native drivers from loading. This has been
+observed in the vmwgfx driver. [1]
+
+Initiating a device removal (i.e., hot unplug) as part of
+remove_conflicting_framebuffers() removes the underlying device and
+returns the memory range to the system.
+
+[1] https://lore.kernel.org/dri-devel/20220117180359.18114-1-zack@kde.org/
+
+v2:
+	* rename variable 'dev' to 'device' (Javier)
+
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Reported-by: Zack Rusin <zackr@vmware.com>
+Reviewed-by: Javier Martinez Canillas <javierm@redhat.com>
+Reviewed-by: Zack Rusin <zackr@vmware.com>
+CC: stable@vger.kernel.org # v5.11+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/video/fbdev/core/fbmem.c | 29 ++++++++++++++++++++++++++---
+ include/linux/fb.h               |  1 +
+ 2 files changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/video/fbdev/core/fbmem.c b/drivers/video/fbdev/core/fbmem.c
+index 7bd5e2a4a9da..91145d93990a 100644
+--- a/drivers/video/fbdev/core/fbmem.c
++++ b/drivers/video/fbdev/core/fbmem.c
+@@ -25,6 +25,7 @@
+ #include <linux/init.h>
+ #include <linux/linux_logo.h>
+ #include <linux/proc_fs.h>
++#include <linux/platform_device.h>
+ #include <linux/seq_file.h>
+ #include <linux/console.h>
+ #include <linux/kmod.h>
+@@ -1557,18 +1558,36 @@ static void do_remove_conflicting_framebuffers(struct apertures_struct *a,
+ 	/* check all firmware fbs and kick off if the base addr overlaps */
+ 	for_each_registered_fb(i) {
+ 		struct apertures_struct *gen_aper;
++		struct device *device;
+ 
+ 		if (!(registered_fb[i]->flags & FBINFO_MISC_FIRMWARE))
+ 			continue;
+ 
+ 		gen_aper = registered_fb[i]->apertures;
++		device = registered_fb[i]->device;
+ 		if (fb_do_apertures_overlap(gen_aper, a) ||
+ 			(primary && gen_aper && gen_aper->count &&
+ 			 gen_aper->ranges[0].base == VGA_FB_PHYS)) {
+ 
+ 			printk(KERN_INFO "fb%d: switching to %s from %s\n",
+ 			       i, name, registered_fb[i]->fix.id);
+-			do_unregister_framebuffer(registered_fb[i]);
++
++			/*
++			 * If we kick-out a firmware driver, we also want to remove
++			 * the underlying platform device, such as simple-framebuffer,
++			 * VESA, EFI, etc. A native driver will then be able to
++			 * allocate the memory range.
++			 *
++			 * If it's not a platform device, at least print a warning. A
++			 * fix would add code to remove the device from the system.
++			 */
++			if (dev_is_platform(device)) {
++				registered_fb[i]->forced_out = true;
++				platform_device_unregister(to_platform_device(device));
++			} else {
++				pr_warn("fb%d: cannot remove device\n", i);
++				do_unregister_framebuffer(registered_fb[i]);
++			}
+ 		}
+ 	}
+ }
+@@ -1895,9 +1914,13 @@ EXPORT_SYMBOL(register_framebuffer);
+ void
+ unregister_framebuffer(struct fb_info *fb_info)
+ {
+-	mutex_lock(&registration_lock);
++	bool forced_out = fb_info->forced_out;
++
++	if (!forced_out)
++		mutex_lock(&registration_lock);
+ 	do_unregister_framebuffer(fb_info);
+-	mutex_unlock(&registration_lock);
++	if (!forced_out)
++		mutex_unlock(&registration_lock);
+ }
+ EXPORT_SYMBOL(unregister_framebuffer);
+ 
+diff --git a/include/linux/fb.h b/include/linux/fb.h
+index 02f362c661c8..3d7306c9a706 100644
+--- a/include/linux/fb.h
++++ b/include/linux/fb.h
+@@ -502,6 +502,7 @@ struct fb_info {
+ 	} *apertures;
+ 
+ 	bool skip_vt_switch; /* no VT switch on suspend/resume required */
++	bool forced_out; /* set when being removed by another driver */
+ };
+ 
+ static inline struct apertures_struct *alloc_apertures(unsigned int max_num) {
