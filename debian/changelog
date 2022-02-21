@@ -1,3 +1,9 @@
+pve-kernel (5.4.174-1) buster; urgency=medium
+
+  * update sources to Ubuntu-5.4.0-101.114
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 21 Feb 2022 08:21:31 +0100
+
 pve-kernel (5.4.166-1) buster; urgency=medium
 
   * update sources to Ubuntu-5.4.0-98.111
