@@ -1,3 +1,10 @@
+pve-kernel (5.13.19-13) bullseye; urgency=medium
+
+  * backport "KVM: VMX: prepare sync_pir_to_irr for running with APICv
+    disabled" to avoid breaking some Windows VMs startup
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 08 Mar 2022 07:32:25 +0100
+
 pve-kernel (5.13.19-12) bullseye; urgency=medium
 
   * Revert "PCI/MSI: Mask MSI-X vectors only on success" as it's causing PCI-E
