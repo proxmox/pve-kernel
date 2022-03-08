@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Mon, 22 Nov 2021 19:43:09 -0500
+Subject: [PATCH] KVM: VMX: prepare sync_pir_to_irr for running with APICv
+ disabled
+
+If APICv is disabled for this vCPU, assigned devices may still attempt to
+post interrupts.  In that case, we need to cancel the vmentry and deliver
+the interrupt with KVM_REQ_EVENT.  Extend the existing code that handles
+injection of L1 interrupts into L2 to cover this case as well.
+
+vmx_hwapic_irr_update is only called when APICv is active so it would be
+confusing to add a check for vcpu->arch.apicv_active in there.  Instead,
+just use vmx_set_rvi directly in vmx_sync_pir_to_irr.
+
+Cc: stable@vger.kernel.org
+Reviewed-by: Maxim Levitsky <mlevitsk@redhat.com>
+Reviewed-by: David Matlack <dmatlack@google.com>
+Reviewed-by: Sean Christopherson <seanjc@google.com>
+Message-Id: <20211123004311.2954158-3-pbonzini@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 7e1901f6c86c896acff6609e0176f93f756d8b2a)
+[ T: reused WARN instead of newer KVM_BUG_ON for minimal change ]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/vmx/vmx.c | 39 +++++++++++++++++++++++++--------------
+ 1 file changed, 25 insertions(+), 14 deletions(-)
+
+diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
+index fc6fbaba1cb5..2f6db087e243 100644
+--- a/arch/x86/kvm/vmx/vmx.c
++++ b/arch/x86/kvm/vmx/vmx.c
+@@ -6331,9 +6331,9 @@ static int vmx_sync_pir_to_irr(struct kvm_vcpu *vcpu)
+ {
+ 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+ 	int max_irr;
+-	bool max_irr_updated;
++	bool got_posted_interrupt;
+ 
+-	WARN_ON(!vcpu->arch.apicv_active);
++	WARN_ON(!enable_apicv);
+ 	if (pi_test_on(&vmx->pi_desc)) {
+ 		pi_clear_on(&vmx->pi_desc);
+ 		/*
+@@ -6341,22 +6341,33 @@ static int vmx_sync_pir_to_irr(struct kvm_vcpu *vcpu)
+ 		 * But on x86 this is just a compiler barrier anyway.
+ 		 */
+ 		smp_mb__after_atomic();
+-		max_irr_updated =
++		got_posted_interrupt =
+ 			kvm_apic_update_irr(vcpu, vmx->pi_desc.pir, &max_irr);
+-
+-		/*
+-		 * If we are running L2 and L1 has a new pending interrupt
+-		 * which can be injected, this may cause a vmexit or it may
+-		 * be injected into L2.  Either way, this interrupt will be
+-		 * processed via KVM_REQ_EVENT, not RVI, because we do not use
+-		 * virtual interrupt delivery to inject L1 interrupts into L2.
+-		 */
+-		if (is_guest_mode(vcpu) && max_irr_updated)
+-			kvm_make_request(KVM_REQ_EVENT, vcpu);
+ 	} else {
+ 		max_irr = kvm_lapic_find_highest_irr(vcpu);
++		got_posted_interrupt = false;
+ 	}
+-	vmx_hwapic_irr_update(vcpu, max_irr);
++
++	/*
++	 * Newly recognized interrupts are injected via either virtual interrupt
++	 * delivery (RVI) or KVM_REQ_EVENT.  Virtual interrupt delivery is
++	 * disabled in two cases:
++	 *
++	 * 1) If L2 is running and the vCPU has a new pending interrupt.  If L1
++	 * wants to exit on interrupts, KVM_REQ_EVENT is needed to synthesize a
++	 * VM-Exit to L1.  If L1 doesn't want to exit, the interrupt is injected
++	 * into L2, but KVM doesn't use virtual interrupt delivery to inject
++	 * interrupts into L2, and so KVM_REQ_EVENT is again needed.
++	 *
++	 * 2) If APICv is disabled for this vCPU, assigned devices may still
++	 * attempt to post interrupts.  The posted interrupt vector will cause
++	 * a VM-Exit and the subsequent entry will call sync_pir_to_irr.
++	 */
++	if (!is_guest_mode(vcpu) && kvm_vcpu_apicv_active(vcpu))
++		vmx_set_rvi(max_irr);
++	else if (got_posted_interrupt)
++		kvm_make_request(KVM_REQ_EVENT, vcpu);
++
+ 	return max_irr;
+ }
+ 
