@@ -1,3 +1,11 @@
+pve-kernel (5.13.19-14) bullseye; urgency=medium
+
+  * update to Ubuntu-5.13.0-36.41
+
+  * bump ABI to 5.13.19-6
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 10 Mar 2022 16:24:52 +0100
+
 pve-kernel (5.13.19-13) bullseye; urgency=medium
 
   * backport "KVM: VMX: prepare sync_pir_to_irr for running with APICv
