@@ -19,8 +19,8 @@ Signed-off-by: Jens Axboe <axboe@kernel.dk>
 Signed-off-by: Fabian Ebner <f.ebner@proxmox.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- fs/io-wq.c | 158 +++++++++++++++++++++++------------------------------
- 1 file changed, 69 insertions(+), 89 deletions(-)
+ fs/io-wq.c | 160 +++++++++++++++++++++++------------------------------
+ 1 file changed, 70 insertions(+), 90 deletions(-)
 
 diff --git a/fs/io-wq.c b/fs/io-wq.c
 index ba7aaf2b95d0..6710da3d4445 100644
@@ -35,7 +35,7 @@ index ba7aaf2b95d0..6710da3d4445 100644
  };
  
  /*
-@@ -73,25 +73,24 @@ struct io_wqe_acct {
+@@ -73,26 +73,25 @@ struct io_wqe_acct {
  	unsigned max_workers;
  	int index;
  	atomic_t nr_running;
@@ -58,14 +58,16 @@ index ba7aaf2b95d0..6710da3d4445 100644
 -		struct io_wq_work_list work_list;
 -		unsigned flags;
 -	} ____cacheline_aligned_in_smp;
+-
+-	int node;
 +	raw_spinlock_t lock;
-+	struct io_wqe_acct acct[2];
+ 	struct io_wqe_acct acct[2];
  
- 	int node;
--	struct io_wqe_acct acct[2];
- 
++	int node;
++
  	struct hlist_nulls_head free_list;
  	struct list_head all_list;
+ 
 @@ -196,11 +195,10 @@ static void io_worker_exit(struct io_worker *worker)
  	do_exit(0);
  }

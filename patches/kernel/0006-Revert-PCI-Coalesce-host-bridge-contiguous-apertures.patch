@@ -15,8 +15,8 @@ Link: https://lore.kernel.org/r/20210709231529.GA3270116@roeck-us.net
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- drivers/pci/probe.c | 50 ++++-----------------------------------------
- 1 file changed, 4 insertions(+), 46 deletions(-)
+ drivers/pci/probe.c | 52 +++++----------------------------------------
+ 1 file changed, 5 insertions(+), 47 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
 index 59ef93f1d953..b38a345c5df6 100644
@@ -92,13 +92,14 @@ index 59ef93f1d953..b38a345c5df6 100644
 -
  	/* Add initial resources to the bus */
  	resource_list_for_each_entry_safe(window, n, &resources) {
-+		list_move_tail(&window->node, &bridge->windows);
- 		offset = window->offset;
- 		res = window->res;
+-		offset = window->offset;
+-		res = window->res;
 -		if (!res->end)
 -			continue;
 -
--		list_move_tail(&window->node, &bridge->windows);
+ 		list_move_tail(&window->node, &bridge->windows);
++		offset = window->offset;
++		res = window->res;
  
  		if (res->flags & IORESOURCE_BUS)
  			pci_bus_insert_busn_res(bus, bus->number, res->end);
