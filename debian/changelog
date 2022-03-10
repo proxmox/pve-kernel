@@ -1,3 +1,11 @@
+pve-kernel (5.4.174-2) buster; urgency=medium
+
+  * update sources to Ubuntu-5.4.0-105.119
+
+  * bump ABI to 5.4.174-2
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 10 Mar 2022 15:58:44 +0100
+
 pve-kernel (5.4.174-1) buster; urgency=medium
 
   * update sources to Ubuntu-5.4.0-101.114
@@ -21,7 +29,7 @@ pve-kernel (5.4.162-1) buster; urgency=medium
 
   * update sources to Ubuntu-5.4.0-95.107
 
-  * bump ABI to 5.11.162-1
+  * bump ABI to 5.4.162-1
 
   * update ZFS to 2.0.7
 
@@ -31,7 +39,7 @@ pve-kernel (5.4.157-1) buster; urgency=medium
 
   * update sources to Ubuntu-5.4.0-92.103
 
-  * bump ABI to 5.11.157-1
+  * bump ABI to 5.4.157-1
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 29 Nov 2021 12:01:44 +0100
 
@@ -39,7 +47,7 @@ pve-kernel (5.4.151-1) buster; urgency=medium
 
   * update sources to Ubuntu-5.4.0-91.102
 
-  * bump ABI to 5.11.151-1
+  * bump ABI to 5.4.151-1
 
  -- Proxmox Support Team <support@proxmox.com>  Sat, 06 Nov 2021 16:10:09 +0100
 
@@ -47,7 +55,7 @@ pve-kernel (5.4.148-1) buster; urgency=medium
 
   * update sources to Ubuntu-5.4.0-90.101
 
-  * bump ABI to 5.11.148-1
+  * bump ABI to 5.4.148-1
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Oct 2021 15:24:06 +0200
 
@@ -55,7 +63,7 @@ pve-kernel (5.4.143-1) buster; urgency=medium
 
   * update Sources to Ubuntu-5.4.0-89.100
 
-  * bump ABI to 5.11.143-1
+  * bump ABI to 5.4.143-1
 
   * update ZFS to 2.0.6
 
