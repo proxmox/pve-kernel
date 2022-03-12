@@ -14,11 +14,11 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index 2a9b6dcdac4f..ecc18910a6b2 100644
+index 12649e4c2b29..7c2d1c272c9d 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
 @@ -325,7 +325,7 @@ config PAHOLE_HAS_SPLIT_BTF
- 	def_bool $(success, test `$(PAHOLE) --version | sed -E 's/v([0-9]+)\.([0-9]+)/\1\2/'` -ge "119")
+ 	def_bool PAHOLE_VERSION >= 119
  
  config DEBUG_INFO_BTF_MODULES
 -	def_bool y
