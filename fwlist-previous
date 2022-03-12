@@ -609,8 +609,11 @@ bnx2/bnx2-mips-09-6.2.1b.fw kernel/drivers/net/ethernet/broadcom/bnx2.ko
 bnx2/bnx2-rv2p-06-6.0.15.fw kernel/drivers/net/ethernet/broadcom/bnx2.ko
 bnx2/bnx2-rv2p-09-6.0.17.fw kernel/drivers/net/ethernet/broadcom/bnx2.ko
 bnx2/bnx2-rv2p-09ax-6.0.17.fw kernel/drivers/net/ethernet/broadcom/bnx2.ko
+bnx2x/bnx2x-e1-7.13.15.0.fw kernel/drivers/net/ethernet/broadcom/bnx2x/bnx2x.ko
 bnx2x/bnx2x-e1-7.13.21.0.fw kernel/drivers/net/ethernet/broadcom/bnx2x/bnx2x.ko
+bnx2x/bnx2x-e1h-7.13.15.0.fw kernel/drivers/net/ethernet/broadcom/bnx2x/bnx2x.ko
 bnx2x/bnx2x-e1h-7.13.21.0.fw kernel/drivers/net/ethernet/broadcom/bnx2x/bnx2x.ko
+bnx2x/bnx2x-e2-7.13.15.0.fw kernel/drivers/net/ethernet/broadcom/bnx2x/bnx2x.ko
 bnx2x/bnx2x-e2-7.13.21.0.fw kernel/drivers/net/ethernet/broadcom/bnx2x/bnx2x.ko
 brcm/bcm43xx-0.fw kernel/drivers/net/wireless/broadcom/brcm80211/brcmsmac/brcmsmac.ko
 brcm/bcm43xx_hdr-0.fw kernel/drivers/net/wireless/broadcom/brcm80211/brcmsmac/brcmsmac.ko
@@ -855,7 +858,7 @@ hfi1_dc8051.fw kernel/drivers/infiniband/hw/hfi1/hfi1.ko
 hfi1_fabric.fw kernel/drivers/infiniband/hw/hfi1/hfi1.ko
 hfi1_pcie.fw kernel/drivers/infiniband/hw/hfi1/hfi1.ko
 hfi1_sbus.fw kernel/drivers/infiniband/hw/hfi1/hfi1.ko
-i915/adlp_dmc_ver2_10.bin kernel/drivers/gpu/drm/i915/i915.ko
+i915/adlp_dmc_ver2_12.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/adlp_guc_62.0.3.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/adls_dmc_ver2_01.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/bxt_dmc_ver1_07.bin kernel/drivers/gpu/drm/i915/i915.ko
@@ -1045,7 +1048,9 @@ mediatek/mt7668pr2h.bin kernel/drivers/bluetooth/btusb.ko
 mediatek/mt7915_rom_patch.bin kernel/drivers/net/wireless/mediatek/mt76/mt7915/mt7915e.ko
 mediatek/mt7915_wa.bin kernel/drivers/net/wireless/mediatek/mt76/mt7915/mt7915e.ko
 mediatek/mt7915_wm.bin kernel/drivers/net/wireless/mediatek/mt76/mt7915/mt7915e.ko
+mediatek/WIFI_MT7922_patch_mcu_1_1_hdr.bin kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921e.ko
 mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921e.ko
+mediatek/WIFI_RAM_CODE_MT7922_1.bin kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921e.ko
 mediatek/WIFI_RAM_CODE_MT7961_1.bin kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921e.ko
 mellanox/mlxsw_spectrum-13.2008.2406.mfa2 kernel/drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko
 mellanox/mlxsw_spectrum2-29.2008.2406.mfa2 kernel/drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko
