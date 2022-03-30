@@ -39,7 +39,7 @@ index c5e6eff5a381..ba0ded7842a7 100644
  			 exact_match, exact_lock, p);
  	if (error)
 diff --git a/fs/namei.c b/fs/namei.c
-index 311da290a58d..4d46e093c4ea 100644
+index f9c46c7abd80..a5e907558b88 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -3690,12 +3690,14 @@ EXPORT_SYMBOL(user_path_create);
