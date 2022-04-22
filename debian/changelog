@@ -1,3 +1,9 @@
+pve-kernel (5.15.30-3) bullseye; urgency=medium
+
+  * backport "io_uring: fix race between timeout flush and removal"
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 22 Apr 2022 18:08:27 +0200
+
 pve-kernel (5.15.30-2) bullseye; urgency=medium
 
   * update sources to Ubuntu-5.15.0-27.28
