@@ -666,7 +666,9 @@ brcm/brcmfmac4373-sdio.bin kernel/drivers/net/wireless/broadcom/brcm80211/brcmfm
 brcm/brcmfmac4373-sdio.clm_blob kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko
 brcm/brcmfmac43752-sdio.bin kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko
 brcm/brcmfmac43752-sdio.clm_blob kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko
+brcm/brcmfmac*-pcie.*.bin kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko
 brcm/brcmfmac*-pcie.*.txt kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko
+brcm/brcmfmac*-pcie.txt kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko
 brcm/brcmfmac*-sdio.*.bin kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko
 brcm/brcmfmac*-sdio.*.txt kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko
 BT3CPCC.bin kernel/drivers/bluetooth/bt3c_cs.ko
@@ -1055,6 +1057,8 @@ mediatek/WIFI_RAM_CODE_MT7961_1.bin kernel/drivers/net/wireless/mediatek/mt76/mt
 mellanox/mlxsw_spectrum-13.2008.2406.mfa2 kernel/drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko
 mellanox/mlxsw_spectrum2-29.2008.2406.mfa2 kernel/drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko
 mellanox/mlxsw_spectrum3-30.2008.2406.mfa2 kernel/drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko
+microchip/mscc_vsc8574_revb_int8051_29e8.bin kernel/drivers/net/phy/mscc/mscc.ko
+microchip/mscc_vsc8584_revb_int8051_fb48.bin kernel/drivers/net/phy/mscc/mscc.ko
 mixart/miXart8AES.xlx kernel/sound/pci/mixart/snd-mixart.ko
 mixart/miXart8.elf kernel/sound/pci/mixart/snd-mixart.ko
 mixart/miXart8.xlx kernel/sound/pci/mixart/snd-mixart.ko
