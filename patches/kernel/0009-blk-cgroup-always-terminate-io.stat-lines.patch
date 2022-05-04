@@ -22,7 +22,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 8 insertions(+), 16 deletions(-)
 
 diff --git a/block/blk-cgroup.c b/block/blk-cgroup.c
-index 0eec59e4df65..38c62a44905a 100644
+index 07a2524e6efd..fd09c20a5543 100644
 --- a/block/blk-cgroup.c
 +++ b/block/blk-cgroup.c
 @@ -887,7 +887,6 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
@@ -133,10 +133,10 @@ index c0545f9da549..d33460f3d43d 100644
  
  static struct blkg_policy_data *iolatency_pd_alloc(gfp_t gfp,
 diff --git a/include/linux/blk-cgroup.h b/include/linux/blk-cgroup.h
-index b4de2010fba5..132e05ed6935 100644
+index bc5c04d711bb..618359e3beca 100644
 --- a/include/linux/blk-cgroup.h
 +++ b/include/linux/blk-cgroup.h
-@@ -152,7 +152,7 @@ typedef void (blkcg_pol_online_pd_fn)(struct blkg_policy_data *pd);
+@@ -153,7 +153,7 @@ typedef void (blkcg_pol_online_pd_fn)(struct blkg_policy_data *pd);
  typedef void (blkcg_pol_offline_pd_fn)(struct blkg_policy_data *pd);
  typedef void (blkcg_pol_free_pd_fn)(struct blkg_policy_data *pd);
  typedef void (blkcg_pol_reset_pd_stats_fn)(struct blkg_policy_data *pd);
