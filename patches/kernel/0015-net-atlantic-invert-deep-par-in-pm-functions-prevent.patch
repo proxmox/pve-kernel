@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Manuel Ullmann <labre@posteo.de>
+Date: Mon, 18 Apr 2022 00:20:01 +0200
+Subject: [PATCH] net: atlantic: invert deep par in pm functions, preventing
+ null derefs
+
+commit cbe6c3a8f8f4315b96e46e1a1c70393c06d95a4c upstream.
+
+This will reset deeply on freeze and thaw instead of suspend and
+resume and prevent null pointer dereferences of the uninitialized ring
+0 buffer while thawing.
+
+The impact is an indefinitely hanging kernel. You can't switch
+consoles after this and the only possible user interaction is SysRq.
+
+BUG: kernel NULL pointer dereference
+RIP: 0010:aq_ring_rx_fill+0xcf/0x210 [atlantic]
+aq_vec_init+0x85/0xe0 [atlantic]
+aq_nic_init+0xf7/0x1d0 [atlantic]
+atl_resume_common+0x4f/0x100 [atlantic]
+pci_pm_thaw+0x42/0xa0
+
+resolves in aq_ring.o to
+
+```
+0000000000000ae0 <aq_ring_rx_fill>:
+{
+/* ... */
+ baf:	48 8b 43 08          	mov    0x8(%rbx),%rax
+ 		buff->flags = 0U; /* buff is NULL */
+```
+
+The bug has been present since the introduction of the new pm code in
+8aaa112a57c1 ("net: atlantic: refactoring pm logic") and was hidden
+until 8ce84271697a ("net: atlantic: changes for multi-TC support"),
+which refactored the aq_vec_{free,alloc} functions into
+aq_vec_{,ring}_{free,alloc}, but is technically not wrong. The
+original functions just always reinitialized the buffers on S3/S4. If
+the interface is down before freezing, the bug does not occur. It does
+not matter, whether the initrd contains and loads the module before
+thawing.
+
+So the fix is to invert the boolean parameter deep in all pm function
+calls, which was clearly intended to be set like that.
+
+First report was on Github [1], which you have to guess from the
+resume logs in the posted dmesg snippet. Recently I posted one on
+Bugzilla [2], since I did not have an AQC device so far.
+
+#regzbot introduced: 8ce84271697a
+#regzbot from: koo5 <kolman.jindrich@gmail.com>
+#regzbot monitor: https://github.com/Aquantia/AQtion/issues/32
+
+Fixes: 8aaa112a57c1 ("net: atlantic: refactoring pm logic")
+Link: https://github.com/Aquantia/AQtion/issues/32 [1]
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=215798 [2]
+Cc: stable@vger.kernel.org
+Reported-by: koo5 <kolman.jindrich@gmail.com>
+Signed-off-by: Manuel Ullmann <labre@posteo.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ .../ethernet/aquantia/atlantic/aq_pci_func.c  | 20 +++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c b/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
+index 797a95142d1f..3a529ee8c834 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
+@@ -443,25 +443,25 @@ static int atl_resume_common(struct device *dev, bool deep)
+ }
+ 
+ static int aq_pm_freeze(struct device *dev)
+-{
+-	return aq_suspend_common(dev, false);
+-}
+-
+-static int aq_pm_suspend_poweroff(struct device *dev)
+ {
+ 	return aq_suspend_common(dev, true);
+ }
+ 
++static int aq_pm_suspend_poweroff(struct device *dev)
++{
++	return aq_suspend_common(dev, false);
++}
++
+ static int aq_pm_thaw(struct device *dev)
+-{
+-	return atl_resume_common(dev, false);
+-}
+-
+-static int aq_pm_resume_restore(struct device *dev)
+ {
+ 	return atl_resume_common(dev, true);
+ }
+ 
++static int aq_pm_resume_restore(struct device *dev)
++{
++	return atl_resume_common(dev, false);
++}
++
+ static const struct dev_pm_ops aq_pm_ops = {
+ 	.suspend = aq_pm_suspend_poweroff,
+ 	.poweroff = aq_pm_suspend_poweroff,
