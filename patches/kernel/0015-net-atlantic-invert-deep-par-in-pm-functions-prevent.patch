@@ -61,46 +61,37 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- .../ethernet/aquantia/atlantic/aq_pci_func.c  | 20 +++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c b/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
 index 797a95142d1f..3a529ee8c834 100644
 --- a/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
 +++ b/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
-@@ -443,25 +443,25 @@ static int atl_resume_common(struct device *dev, bool deep)
- }
+@@ -444,22 +444,22 @@ static int atl_resume_common(struct device *dev, bool deep)
  
  static int aq_pm_freeze(struct device *dev)
--{
+ {
 -	return aq_suspend_common(dev, false);
--}
--
--static int aq_pm_suspend_poweroff(struct device *dev)
- {
- 	return aq_suspend_common(dev, true);
++	return aq_suspend_common(dev, true);
  }
  
-+static int aq_pm_suspend_poweroff(struct device *dev)
-+{
+ static int aq_pm_suspend_poweroff(struct device *dev)
+ {
+-	return aq_suspend_common(dev, true);
 +	return aq_suspend_common(dev, false);
-+}
-+
- static int aq_pm_thaw(struct device *dev)
--{
--	return atl_resume_common(dev, false);
--}
--
--static int aq_pm_resume_restore(struct device *dev)
- {
- 	return atl_resume_common(dev, true);
  }
  
-+static int aq_pm_resume_restore(struct device *dev)
-+{
+ static int aq_pm_thaw(struct device *dev)
+ {
+-	return atl_resume_common(dev, false);
++	return atl_resume_common(dev, true);
+ }
+ 
+ static int aq_pm_resume_restore(struct device *dev)
+ {
+-	return atl_resume_common(dev, true);
 +	return atl_resume_common(dev, false);
-+}
-+
+ }
+ 
  static const struct dev_pm_ops aq_pm_ops = {
- 	.suspend = aq_pm_suspend_poweroff,
- 	.poweroff = aq_pm_suspend_poweroff,
