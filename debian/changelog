@@ -1,3 +1,12 @@
+pve-kernel (5.15.35-4) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-36.37
+
+  * fix #4083: backport "EDAC/amd64: Add PCI device IDs for family 19h
+    model 50h"
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 02 Jun 2022 13:48:41 +0200
+
 pve-kernel (5.15.35-3) bullseye; urgency=medium
 
   * fix #4039: backport aquantia atlantic NIC fixes
