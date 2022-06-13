@@ -5906,7 +5906,6 @@ EXPORT_SYMBOL	 vmlinux 0x0c892c0d	input_unregister_device
 EXPORT_SYMBOL	 vmlinux 0x0c9b5e37	__skb_gro_checksum_complete
 EXPORT_SYMBOL	 vmlinux 0x0c9ca7b4	unregister_netdevice_queue
 EXPORT_SYMBOL	 vmlinux 0x0c9e48ac	scsi_print_sense
-EXPORT_SYMBOL	 vmlinux 0x0cb264a1	security_lock_kernel_down
 EXPORT_SYMBOL	 vmlinux 0x0cbce9ca	lookup_one_len_unlocked
 EXPORT_SYMBOL	 vmlinux 0x0cbd2301	blk_limits_io_min
 EXPORT_SYMBOL	 vmlinux 0x0cc4b4b6	crc_ccitt_false
@@ -7239,6 +7238,7 @@ EXPORT_SYMBOL	 vmlinux 0x4b08e2ea	_dev_crit
 EXPORT_SYMBOL	 vmlinux 0x4b0bf6d0	cfb_fillrect
 EXPORT_SYMBOL	 vmlinux 0x4b18227d	tty_hangup
 EXPORT_SYMBOL	 vmlinux 0x4b4037a1	dma_dummy_ops
+EXPORT_SYMBOL	 vmlinux 0x4b4ad68c	security_locked_down
 EXPORT_SYMBOL	 vmlinux 0x4b56ac48	mdiobus_setup_mdiodev_from_board_info
 EXPORT_SYMBOL	 vmlinux 0x4b5fd49e	dm_kcopyd_do_callback
 EXPORT_SYMBOL	 vmlinux 0x4b6828b3	pagecache_write_begin
@@ -10298,7 +10298,6 @@ EXPORT_SYMBOL	 vmlinux 0xda3bfe63	file_modified
 EXPORT_SYMBOL	 vmlinux 0xda3d10a8	security_tun_dev_open
 EXPORT_SYMBOL	 vmlinux 0xda72a7ec	ZSTD_nextInputType
 EXPORT_SYMBOL	 vmlinux 0xda8647f7	blk_alloc_queue
-EXPORT_SYMBOL	 vmlinux 0xda872864	security_locked_down
 EXPORT_SYMBOL	 vmlinux 0xda89ea3b	ip_idents_reserve
 EXPORT_SYMBOL	 vmlinux 0xda8fb248	phy_modify_paged
 EXPORT_SYMBOL	 vmlinux 0xda9bc9b9	__ip_mc_dec_group
@@ -10650,6 +10649,7 @@ EXPORT_SYMBOL	 vmlinux 0xeac73847	irq_regs
 EXPORT_SYMBOL	 vmlinux 0xead254f4	pci_fixup_device
 EXPORT_SYMBOL	 vmlinux 0xeae3dfd6	__const_udelay
 EXPORT_SYMBOL	 vmlinux 0xeae8a0da	logfc
+EXPORT_SYMBOL	 vmlinux 0xeaee256f	security_lock_kernel_down
 EXPORT_SYMBOL	 vmlinux 0xeb011426	vme_dma_list_add
 EXPORT_SYMBOL	 vmlinux 0xeb02f499	dmaengine_get_unmap_data
 EXPORT_SYMBOL	 vmlinux 0xeb04c40b	scsi_device_get
