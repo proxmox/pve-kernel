@@ -1,3 +1,14 @@
+pve-kernel (5.4.189-2) buster; urgency=medium
+
+  * update sources to Ubuntu-5.4.0-117.132
+
+  * fixes: CVE-2022-1966, CVE-2022-21499, CVE-2022-28390, CVE-2022-29581,
+    CVE-2022-1116
+
+  * bump ABI to 5.4.189-2
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 13 Jun 2022 09:39:53 +0200
+
 pve-kernel (5.4.189-1) buster; urgency=medium
 
   * update sources to Ubuntu-5.4.0-112.126
