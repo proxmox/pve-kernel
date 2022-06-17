@@ -23774,6 +23774,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xa2af54b3	irq_from_evtchn
 EXPORT_SYMBOL_GPL	 vmlinux 0xa2b99209	alarm_start
 EXPORT_SYMBOL_GPL	 vmlinux 0xa2c0ab69	usb_control_msg
 EXPORT_SYMBOL_GPL	 vmlinux 0xa2c3ffd0	__SCK__tp_func_wbc_writepage
+EXPORT_SYMBOL_GPL	 vmlinux 0xa2d0b59d	mmio_stale_data_clear
 EXPORT_SYMBOL_GPL	 vmlinux 0xa2d27c82	pci_pasid_features
 EXPORT_SYMBOL_GPL	 vmlinux 0xa2dfab70	__pci_hp_register
 EXPORT_SYMBOL_GPL	 vmlinux 0xa2e1b3ef	trace_printk_init_buffers
