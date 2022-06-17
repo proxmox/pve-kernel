@@ -1,11 +1,8 @@
 This is a prepackaged version of the Linux kernel binary image.
 
-This package was put together by Proxmox Server
-Solutions GmbH <support@proxmox.com>.
-
-We use the RHEL7 kernel sources, available from:
-
-ftp://ftp.redhat.com/redhat/rhel/
+For the packaging and all files in the debian/ folder consider:
+ Copyright (C) 2007-2022 Proxmox Server Solutions GmbH
+ Licensed under the AGPL-3.0-or-later
 
 Linux is copyrighted by Linus Torvalds and others.
 

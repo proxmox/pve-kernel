@@ -53,7 +53,7 @@ Priority: optional
 Architecture: any
 Provides: linux-headers-@KVNAME@-amd64
 Depends: coreutils | fileutils (>= 4.0)
-Description: The Proxmox PVE Kernel Headers
+Description: Proxmox Kernel Headers
  This package contains the linux kernel headers
 
 Package: pve-kernel-@KVNAME@
@@ -64,7 +64,7 @@ Provides: linux-image-@KVNAME@-amd64
 Suggests: pve-firmware
 Depends: busybox, initramfs-tools
 Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub-efi-arm64
-Description: The Proxmox PVE Kernel Image
+Description: Proxmox Kernel Image
  This package contains the linux kernel and initial ramdisk used for booting
 
 Package: pve-kernel-@KVNAME@-dbgsym
@@ -73,7 +73,7 @@ Provides: linux-debug
 Section: devel
 Priority: optional
 Build-Profiles: <pkg.pve-kernel.debug>
-Description: The Proxmox PVE Kernel debug image
+Description: Proxmox Kernel debug image
  This package provides the kernel debug image for version @KVNAME@. The debug
  kernel image contained in this package is NOT meant to boot from - it is
  uncompressed, and unstripped, and suitable for use with crash/kdump-tools/..
