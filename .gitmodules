@@ -1,6 +1,6 @@
 [submodule "submodules/zfsonlinux"]
 	path = submodules/zfsonlinux
 	url = ../zfsonlinux
-[submodule "submodules/ubuntu-jammy"]
-	path = submodules/ubuntu-jammy
-	url = ../mirror_ubuntu-jammy-kernel
+[submodule "submodules/ubuntu-kinetic"]
+	path = submodules/ubuntu-kinetic
+	url = git://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/kinetic
