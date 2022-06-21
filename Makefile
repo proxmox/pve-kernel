@@ -1,7 +1,7 @@
 # also bump pve-kernel-meta if either of MAJ.MIN, PATCHLEVEL or KREL change
 KERNEL_MAJ=5
-KERNEL_MIN=15
-KERNEL_PATCHLEVEL=53
+KERNEL_MIN=18
+KERNEL_PATCHLEVEL=0
 # increment KREL if the ABI changes (abicheck target in debian/rules)
 # rebuild packages with new KREL and run 'make abiupdate'
 KREL=1
@@ -31,7 +31,7 @@ SKIPABI=0
 
 BUILD_DIR=build
 
-KERNEL_SRC=ubuntu-jammy
+KERNEL_SRC=ubuntu-kinetic
 KERNEL_SRC_SUBMODULE=submodules/$(KERNEL_SRC)
 KERNEL_CFG_ORG=config-${KERNEL_VER}.org
 

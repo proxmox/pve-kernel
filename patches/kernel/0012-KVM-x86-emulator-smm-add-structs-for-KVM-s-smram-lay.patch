@@ -17,10 +17,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 225 insertions(+)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 89f035fc52e7..bfaf5d24bf1e 100644
+index 874d124438d1..bf1238152318 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
-@@ -5825,3 +5825,9 @@ bool emulator_can_use_gpa(struct x86_emulate_ctxt *ctxt)
+@@ -5850,3 +5850,9 @@ bool emulator_can_use_gpa(struct x86_emulate_ctxt *ctxt)
  
  	return true;
  }
@@ -31,7 +31,7 @@ index 89f035fc52e7..bfaf5d24bf1e 100644
 +	__check_smram64_offsets();
 +}
 diff --git a/arch/x86/kvm/kvm_emulate.h b/arch/x86/kvm/kvm_emulate.h
-index fb09cd22cb7f..0b2bbcce321a 100644
+index 8dff25d267b7..0eb13204bbc2 100644
 --- a/arch/x86/kvm/kvm_emulate.h
 +++ b/arch/x86/kvm/kvm_emulate.h
 @@ -13,6 +13,7 @@
@@ -42,7 +42,7 @@ index fb09cd22cb7f..0b2bbcce321a 100644
  #include "fpu.h"
  
  struct x86_emulate_ctxt;
-@@ -482,6 +483,223 @@ enum x86_intercept {
+@@ -481,6 +482,223 @@ enum x86_intercept {
  	nr_x86_intercepts
  };
  
@@ -267,10 +267,10 @@ index fb09cd22cb7f..0b2bbcce321a 100644
  #if defined(CONFIG_X86_32)
  #define X86EMUL_MODE_HOST X86EMUL_MODE_PROT32
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 604716996c5d..673262228f3e 100644
+index dbaff0c7c8c2..aec63cebe0b7 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -12449,6 +12449,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_msr_protocol_exit);
+@@ -13009,6 +13009,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_msr_protocol_exit);
  static int __init kvm_x86_init(void)
  {
  	kvm_mmu_x86_module_init();

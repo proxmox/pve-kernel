@@ -21,10 +21,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/scripts/mkcompile_h b/scripts/mkcompile_h
-index 6a2a04d92f42..6c9430ee1a09 100755
+index ca40a5258c87..6ae930a732f0 100755
 --- a/scripts/mkcompile_h
 +++ b/scripts/mkcompile_h
-@@ -22,10 +22,14 @@ else
+@@ -23,10 +23,14 @@ else
  	VERSION=$KBUILD_BUILD_VERSION
  fi
  

@@ -21,10 +21,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 57 insertions(+), 28 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 35b12692739c..6a597d68d456 100644
+index 93349b54ef56..61b38c03606a 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
-@@ -795,8 +795,7 @@ static int linearize(struct x86_emulate_ctxt *ctxt,
+@@ -792,8 +792,7 @@ static int linearize(struct x86_emulate_ctxt *ctxt,
  			   ctxt->mode, linear);
  }
  
@@ -34,7 +34,7 @@ index 35b12692739c..6a597d68d456 100644
  {
  	ulong linear;
  	int rc;
-@@ -806,41 +805,71 @@ static inline int assign_eip(struct x86_emulate_ctxt *ctxt, ulong dst,
+@@ -803,41 +802,71 @@ static inline int assign_eip(struct x86_emulate_ctxt *ctxt, ulong dst,
  
  	if (ctxt->op_bytes != sizeof(unsigned long))
  		addr.ea = dst & ((1UL << (ctxt->op_bytes << 3)) - 1);
@@ -129,7 +129,7 @@ index 35b12692739c..6a597d68d456 100644
  }
  
  static inline int jmp_rel(struct x86_emulate_ctxt *ctxt, int rel)
-@@ -2154,7 +2183,7 @@ static int em_jmp_far(struct x86_emulate_ctxt *ctxt)
+@@ -2171,7 +2200,7 @@ static int em_jmp_far(struct x86_emulate_ctxt *ctxt)
  	if (rc != X86EMUL_CONTINUE)
  		return rc;
  
@@ -138,7 +138,7 @@ index 35b12692739c..6a597d68d456 100644
  	/* Error handling is not implemented. */
  	if (rc != X86EMUL_CONTINUE)
  		return X86EMUL_UNHANDLEABLE;
-@@ -2235,7 +2264,7 @@ static int em_ret_far(struct x86_emulate_ctxt *ctxt)
+@@ -2249,7 +2278,7 @@ static int em_ret_far(struct x86_emulate_ctxt *ctxt)
  				       &new_desc);
  	if (rc != X86EMUL_CONTINUE)
  		return rc;
@@ -147,7 +147,7 @@ index 35b12692739c..6a597d68d456 100644
  	/* Error handling is not implemented. */
  	if (rc != X86EMUL_CONTINUE)
  		return X86EMUL_UNHANDLEABLE;
-@@ -3459,7 +3488,7 @@ static int em_call_far(struct x86_emulate_ctxt *ctxt)
+@@ -3469,7 +3498,7 @@ static int em_call_far(struct x86_emulate_ctxt *ctxt)
  	if (rc != X86EMUL_CONTINUE)
  		return rc;
  

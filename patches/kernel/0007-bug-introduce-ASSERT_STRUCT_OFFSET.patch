@@ -18,7 +18,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/arch/x86/kvm/vmx/vmcs12.h b/arch/x86/kvm/vmx/vmcs12.h
-index 2a45f026ee11..ba8617964982 100644
+index 746129ddd5ae..01936013428b 100644
 --- a/arch/x86/kvm/vmx/vmcs12.h
 +++ b/arch/x86/kvm/vmx/vmcs12.h
 @@ -208,9 +208,8 @@ struct __packed vmcs12 {

@@ -26,10 +26,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 2 insertions(+)
 
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index b46677baf396..48aaff0ce3b9 100644
+index a99eec435652..a088f5e76966 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -4370,6 +4370,7 @@ static void kvm_steal_time_set_preempted(struct kvm_vcpu *vcpu)
+@@ -4603,6 +4603,7 @@ static void kvm_steal_time_set_preempted(struct kvm_vcpu *vcpu)
  	struct kvm_steal_time __user *st;
  	struct kvm_memslots *slots;
  	static const u8 preempted = KVM_VCPU_PREEMPTED;
@@ -37,7 +37,7 @@ index b46677baf396..48aaff0ce3b9 100644
  
  	if (!(vcpu->arch.st.msr_val & KVM_MSR_ENABLED))
  		return;
-@@ -4384,6 +4385,7 @@ static void kvm_steal_time_set_preempted(struct kvm_vcpu *vcpu)
+@@ -4617,6 +4618,7 @@ static void kvm_steal_time_set_preempted(struct kvm_vcpu *vcpu)
  	slots = kvm_memslots(vcpu->kvm);
  
  	if (unlikely(slots->generation != ghc->generation ||
