@@ -1,3 +1,11 @@
+pve-kernel (5.15.39-2) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-45.48
+
+  * update ZFS to 2.1.5
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 20 Jul 2022 17:22:19 +0200
+
 pve-kernel (5.15.39-1) bullseye; urgency=medium
 
   * update to Ubuntu-5.15.0-41.44
