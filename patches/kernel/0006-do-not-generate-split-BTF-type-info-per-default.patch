@@ -14,7 +14,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index 075cd25363ac..8d55eb706a52 100644
+index 2e24db4bff19..7766a24d0f19 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
 @@ -357,7 +357,7 @@ config PAHOLE_HAS_BTF_TAG
