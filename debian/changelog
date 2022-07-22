@@ -1,8 +1,8 @@
-pve-kernel (5.18.0-1~WIP1) UNRELEASED; urgency=medium
+pve-kernel (5.19.0-1~rc8+1) bullseye; urgency=medium
 
-  * update to 5.18.0 based from Ubuntu-5.18.0-6.6
+  * update to 5.19.0-rc8 based from Ubuntu-5.19.0-11.11
 
- -- Proxmox Support Team <support@proxmox.com>  Tue, 21 Jun 2022 07:53:01 +0200
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 26 Jul 2022 11:47:30 +0200
 
 pve-kernel (5.15.53-1) bullseye; urgency=medium
 
