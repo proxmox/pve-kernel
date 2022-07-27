@@ -8,7 +8,7 @@ die "no directory to scan" if !$dir;
 
 die "no such directory" if ! -d $dir;
 
-die "strange directory name: $dir" if $dir !~ m|^(.*/)?(\d+.\d+.\d+\-\d+\-pve)(/+)?$|;
+warn "\n\nNOTE: strange directory name: $dir\n\n" if $dir !~ m|^(.*/)?(\d+.\d+.\d+\-\d+\-pve)(/+)?$|;
 
 my $apiver = $2;
 
