@@ -4,14 +4,14 @@ KERNEL_MIN=19
 KERNEL_PATCHLEVEL=0
 # increment KREL if the ABI changes (abicheck target in debian/rules)
 # rebuild packages with new KREL and run 'make abiupdate'
-KREL=1
+KREL=2
 
-PKGREL=1~rc8+1
+PKGREL=1~rc8+2
 
 KERNEL_MAJMIN=$(KERNEL_MAJ).$(KERNEL_MIN)
 KERNEL_VER=$(KERNEL_MAJMIN).$(KERNEL_PATCHLEVEL)
 
-EXTRAVERSION=-${KREL}-pve
+EXTRAVERSION=-${KREL}-pve-smm-fix
 KVNAME=${KERNEL_VER}${EXTRAVERSION}
 PACKAGE=pve-kernel-${KVNAME}
 HDRPACKAGE=pve-headers-${KVNAME}
