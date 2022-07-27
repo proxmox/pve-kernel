@@ -1,0 +1,166 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Maxim Levitsky <mlevitsk@redhat.com>
+Date: Tue, 21 Jun 2022 18:08:58 +0300
+Subject: [PATCH] KVM: x86: emulator/smm: add structs for KVM's smram layout
+
+Those structs will be used to read/write the smram state image.
+
+Also document the differences between KVM's SMRAM layout and SMRAM
+layout that is used by real Intel/AMD cpus.
+
+Signed-off-by: Maxim Levitsky <mlevitsk@redhat.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/kvm_emulate.h | 139 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 139 insertions(+)
+
+diff --git a/arch/x86/kvm/kvm_emulate.h b/arch/x86/kvm/kvm_emulate.h
+index 8dff25d267b7..3bbf7c1c5b18 100644
+--- a/arch/x86/kvm/kvm_emulate.h
++++ b/arch/x86/kvm/kvm_emulate.h
+@@ -481,6 +481,145 @@ enum x86_intercept {
+ 	nr_x86_intercepts
+ };
+ 
++
++/*
++ * 32 bit KVM's emulated SMM layout
++ * Loosely based on Intel's layout
++ */
++
++struct kvm_smm_seg_state_32 {
++	u32 flags;
++	u32 limit;
++	u32 base;
++} __packed;
++
++struct kvm_smram_state_32 {
++
++	u32 reserved1[62];			/* FE00 - FEF7 */
++	u32 smbase;				/* FEF8 */
++	u32 smm_revision;			/* FEFC */
++	u32 reserved2[5];			/* FF00-FF13 */
++	/* CR4 is not present in Intel/AMD SMRAM image*/
++	u32 cr4;				/* FF14 */
++	u32 reserved3[5];			/* FF18 */
++
++	/*
++	 * Segment state is not present/documented in the
++	 * Intel/AMD SMRAM image
++	 */
++	struct kvm_smm_seg_state_32 ds;		/* FF2C */
++	struct kvm_smm_seg_state_32 fs;		/* FF38 */
++	struct kvm_smm_seg_state_32 gs;		/* FF44 */
++	/* idtr has only base and limit*/
++	struct kvm_smm_seg_state_32 idtr;	/* FF50 */
++	struct kvm_smm_seg_state_32 tr;		/* FF5C */
++	u32 reserved;				/* FF68 */
++	/* gdtr has only base and limit*/
++	struct kvm_smm_seg_state_32 gdtr;	/* FF6C */
++	struct kvm_smm_seg_state_32 ldtr;	/* FF78 */
++	struct kvm_smm_seg_state_32 es;		/* FF84 */
++	struct kvm_smm_seg_state_32 cs;		/* FF90 */
++	struct kvm_smm_seg_state_32 ss;		/* FF9C */
++
++	u32 es_sel;				/* FFA8 */
++	u32 cs_sel;				/* FFAC */
++	u32 ss_sel;				/* FFB0 */
++	u32 ds_sel;				/* FFB4 */
++	u32 fs_sel;				/* FFB8 */
++	u32 gs_sel;				/* FFBC */
++	u32 ldtr_sel;				/* FFC0 */
++	u32 tr_sel;				/* FFC4 */
++
++	u32 dr7;				/* FFC8 */
++	u32 dr6;				/* FFCC */
++
++	/* GPRS in the "natural" X86 order (RAX/RCX/RDX.../RDI)*/
++	u32 gprs[8];				/* FFD0-FFEC */
++
++	u32 eip;				/* FFF0 */
++	u32 eflags;				/* FFF4 */
++	u32 cr3;				/* FFF8 */
++	u32 cr0;				/* FFFC */
++} __packed;
++
++/*
++ * 64 bit KVM's emulated SMM layout
++ * Based on AMD64 layout
++ */
++
++struct kvm_smm_seg_state_64 {
++	u16 selector;
++	u16 attributes;
++	u32 limit;
++	u64 base;
++};
++
++struct kvm_smram_state_64 {
++	struct kvm_smm_seg_state_64 es;		/* FE00 (R/O) */
++	struct kvm_smm_seg_state_64 cs;		/* FE10 (R/O) */
++	struct kvm_smm_seg_state_64 ss;		/* FE20 (R/O) */
++	struct kvm_smm_seg_state_64 ds;		/* FE30 (R/O) */
++	struct kvm_smm_seg_state_64 fs;		/* FE40 (R/O) */
++	struct kvm_smm_seg_state_64 gs;		/* FE50 (R/O) */
++
++	/* gdtr has only base and limit*/
++	struct kvm_smm_seg_state_64 gdtr;	/* FE60 (R/O) */
++	struct kvm_smm_seg_state_64 ldtr;	/* FE70 (R/O) */
++
++	/* idtr has only base and limit*/
++	struct kvm_smm_seg_state_64 idtr;	/* FE80 (R/O) */
++	struct kvm_smm_seg_state_64 tr;		/* FE90 (R/O) */
++
++	/* I/O restart and auto halt restart are not implemented by KVM */
++	u64 io_restart_rip;			/* FEA0 (R/O) */
++	u64 io_restart_rcx;			/* FEA8 (R/O) */
++	u64 io_restart_rsi;			/* FEB0 (R/O) */
++	u64 io_restart_rdi;			/* FEB8 (R/O) */
++	u32 io_restart_dword;			/* FEC0 (R/O) */
++	u32 reserved1;				/* FEC4 */
++	u8 io_instruction_restart;		/* FEC8 (R/W) */
++	u8 auto_halt_restart;			/* FEC9 (R/W) */
++	u8 reserved2[6];			/* FECA-FECF */
++
++	u64 efer;				/* FED0 (R/O) */
++
++	/*
++	 * Implemented on AMD only, to store current SVM guest address.
++	 * svm_guest_virtual_int has unknown purpose, not implemented.
++	 */
++
++	u64 svm_guest_flag;			/* FED8 (R/O) */
++	u64 svm_guest_vmcb_gpa;			/* FEE0 (R/O) */
++	u64 svm_guest_virtual_int;		/* FEE8 (R/O) */
++
++	u32 reserved3[3];			/* FEF0-FEFB */
++	u32 smm_revison;			/* FEFC (R/O) */
++	u32 smbase;				/* FFF0 (R/W) */
++	u32 reserved4[5];			/* FF04-FF17 */
++
++	/* SSP and SVM fields below are not implemented by KVM */
++	u64 ssp;				/* FF18 (R/W) */
++	u64 svm_guest_pat;			/* FF20 (R/O) */
++	u64 svm_host_efer;			/* FF28 (R/O) */
++	u64 svm_host_cr4;			/* FF30 (R/O) */
++	u64 svm_host_cr3;			/* FF38 (R/O) */
++	u64 svm_host_cr0;			/* FF40 (R/O) */
++
++	u64 cr4;				/* FF48 (R/O) */
++	u64 cr3;				/* FF50 (R/O) */
++	u64 cr0;				/* FF58 (R/O) */
++
++	u64 dr7;				/* FF60 (R/O) */
++	u64 dr6;				/* FF68 (R/O) */
++
++	u64 rflags;				/* FF70 (R/W) */
++	u64 rip;				/* FF78 (R/W) */
++
++	/* GPRS in a reversed "natural" X86 order (R15/R14/../RCX/RAX.) */
++	u64 gprs[16];				/* FF80-FFFF (R/W) */
++};
++
++
+ /* Host execution mode. */
+ #if defined(CONFIG_X86_32)
+ #define X86EMUL_MODE_HOST X86EMUL_MODE_PROT32
