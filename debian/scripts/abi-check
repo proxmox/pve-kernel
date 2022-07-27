@@ -5,8 +5,7 @@ my $abiold = shift;
 my $skipabi = shift;
 
 # to catch multiple abi-prev-* files being passed in
-die "invalid value for skipabi parameter\n"
-	if (defined($skipabi) && $skipabi !~ /^[01]$/);
+die "invalid value '$skipabi' for skipabi parameter\n" if defined($skipabi) && $skipabi !~ /^[01]$/;
 
 $abinew =~ /abi-(.*)/;
 my $abistr = $1;
