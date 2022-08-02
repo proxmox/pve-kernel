@@ -1,3 +1,9 @@
+pve-kernel (5.19.0-1) bullseye; urgency=medium
+
+  * update to 5.19.0 based from Ubuntu-5.19.0-14.14
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 02 Aug 2022 09:18:39 +0200
+
 pve-kernel (5.19.0-1~rc8+2) bullseye; urgency=medium
 
   * backport smm fixes
