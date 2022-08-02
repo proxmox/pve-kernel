@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Maxim Levitsky <mlevitsk@redhat.com>
-Date: Tue, 21 Jun 2022 18:08:59 +0300
+Date: Wed, 3 Aug 2022 18:50:07 +0300
 Subject: [PATCH] KVM: x86: emulator/smm: use smram struct for 32 bit smram
  load/restore
 
@@ -15,16 +15,16 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 60 insertions(+), 96 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 76c407167449..1442e5090d10 100644
+index 05c4d9dfbced..47bb09f02304 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
-@@ -2355,25 +2355,17 @@ static void rsm_set_desc_flags(struct desc_struct *desc, u32 flags)
+@@ -2359,25 +2359,17 @@ static void rsm_set_desc_flags(struct desc_struct *desc, u32 flags)
  	desc->type = (flags >>  8) & 15;
  }
  
 -static int rsm_load_seg_32(struct x86_emulate_ctxt *ctxt, const char *smstate,
 +static void rsm_load_seg_32(struct x86_emulate_ctxt *ctxt,
-+			   struct kvm_smm_seg_state_32 *state,
++			   const struct kvm_smm_seg_state_32 *state,
 +			   u16 selector,
  			   int n)
  {
@@ -50,12 +50,12 @@ index 76c407167449..1442e5090d10 100644
  }
  
  #ifdef CONFIG_X86_64
-@@ -2444,63 +2436,46 @@ static int rsm_enter_protected_mode(struct x86_emulate_ctxt *ctxt,
+@@ -2448,63 +2440,46 @@ static int rsm_enter_protected_mode(struct x86_emulate_ctxt *ctxt,
  }
  
  static int rsm_load_state_32(struct x86_emulate_ctxt *ctxt,
 -			     const char *smstate)
-+			     struct kvm_smram_state_32 *smstate)
++			     const struct kvm_smram_state_32 *smstate)
  {
 -	struct desc_struct desc;
  	struct desc_ptr dt;
@@ -135,17 +135,17 @@ index 76c407167449..1442e5090d10 100644
  }
  
  #ifdef CONFIG_X86_64
-@@ -2645,7 +2620,7 @@ static int em_rsm(struct x86_emulate_ctxt *ctxt)
- 		ret = rsm_load_state_64(ctxt, buf);
+@@ -2651,7 +2626,7 @@ static int em_rsm(struct x86_emulate_ctxt *ctxt)
+ 		ret = rsm_load_state_64(ctxt, (const char *)&smram);
  	else
  #endif
--		ret = rsm_load_state_32(ctxt, buf);
-+		ret = rsm_load_state_32(ctxt, (struct kvm_smram_state_32 *)buf);
+-		ret = rsm_load_state_32(ctxt, (const char *)&smram);
++		ret = rsm_load_state_32(ctxt, &smram.smram32);
  
  	if (ret != X86EMUL_CONTINUE)
  		goto emulate_shutdown;
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index c48fed8ac5b1..077abd7c0771 100644
+index e48e7b7b8dde..eb029c131d0d 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -9618,22 +9618,18 @@ static u32 enter_smm_get_segment_flags(struct kvm_segment *seg)
@@ -258,11 +258,11 @@ index c48fed8ac5b1..077abd7c0771 100644
  
  #ifdef CONFIG_X86_64
 @@ -9772,7 +9761,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
- 		enter_smm_save_state_64(vcpu, buf);
+ 		enter_smm_save_state_64(vcpu, (char *)&smram);
  	else
  #endif
--		enter_smm_save_state_32(vcpu, buf);
-+		enter_smm_save_state_32(vcpu, (struct kvm_smram_state_32 *)buf);
+-		enter_smm_save_state_32(vcpu, (char *)&smram);
++		enter_smm_save_state_32(vcpu, &smram.smram32);
  
  	/*
  	 * Give enter_smm() a chance to make ISA-specific changes to the vCPU

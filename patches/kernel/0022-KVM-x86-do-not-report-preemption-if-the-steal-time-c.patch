@@ -26,18 +26,18 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 2 insertions(+)
 
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index a99eec435652..a088f5e76966 100644
+index 12b6dde48d03..d915dc8a964a 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -4603,6 +4603,7 @@ static void kvm_steal_time_set_preempted(struct kvm_vcpu *vcpu)
+@@ -4629,6 +4629,7 @@ static void kvm_steal_time_set_preempted(struct kvm_vcpu *vcpu)
  	struct kvm_steal_time __user *st;
  	struct kvm_memslots *slots;
  	static const u8 preempted = KVM_VCPU_PREEMPTED;
 +	gpa_t gpa = vcpu->arch.st.msr_val & KVM_STEAL_VALID_BITS;
  
- 	if (!(vcpu->arch.st.msr_val & KVM_MSR_ENABLED))
- 		return;
-@@ -4617,6 +4618,7 @@ static void kvm_steal_time_set_preempted(struct kvm_vcpu *vcpu)
+ 	/*
+ 	 * The vCPU can be marked preempted if and only if the VM-Exit was on
+@@ -4656,6 +4657,7 @@ static void kvm_steal_time_set_preempted(struct kvm_vcpu *vcpu)
  	slots = kvm_memslots(vcpu->kvm);
  
  	if (unlikely(slots->generation != ghc->generation ||

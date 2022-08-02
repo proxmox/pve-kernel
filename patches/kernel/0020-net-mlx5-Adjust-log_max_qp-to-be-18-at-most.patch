@@ -23,10 +23,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index ef196cb764e2..2ad8027cb745 100644
+index c9b4e50a593e..95f26624b57c 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -526,7 +526,7 @@ static int handle_hca_cap(struct mlx5_core_dev *dev, void *set_ctx)
+@@ -524,7 +524,7 @@ static int handle_hca_cap(struct mlx5_core_dev *dev, void *set_ctx)
  
  	/* Check log_max_qp from HCA caps to set in current profile */
  	if (prof->log_max_qp == LOG_MAX_SUPPORTED_QPS) {

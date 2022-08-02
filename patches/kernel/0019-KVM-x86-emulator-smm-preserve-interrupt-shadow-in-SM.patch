@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Maxim Levitsky <mlevitsk@redhat.com>
-Date: Tue, 21 Jun 2022 18:09:02 +0300
+Date: Wed, 3 Aug 2022 18:50:11 +0300
 Subject: [PATCH] KVM: x86: emulator/smm: preserve interrupt shadow in SMRAM
 
 When #SMI is asserted, the CPU can be in interrupt shadow
@@ -25,16 +25,16 @@ Signed-off-by: Maxim Levitsky <mlevitsk@redhat.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/emulate.c     | 17 ++++++++++++++---
- arch/x86/kvm/kvm_emulate.h | 13 ++++++++++---
+ arch/x86/kvm/kvm_emulate.h | 10 ++++++----
  arch/x86/kvm/x86.c         | 12 ++++++++++++
- 3 files changed, 36 insertions(+), 6 deletions(-)
+ 3 files changed, 32 insertions(+), 7 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index d34ed0475128..f4373213bef8 100644
+index 265535d167a5..3fb0518121db 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
-@@ -2431,7 +2431,7 @@ static int rsm_load_state_32(struct x86_emulate_ctxt *ctxt,
- 			     struct kvm_smram_state_32 *smstate)
+@@ -2435,7 +2435,7 @@ static int rsm_load_state_32(struct x86_emulate_ctxt *ctxt,
+ 			     const struct kvm_smram_state_32 *smstate)
  {
  	struct desc_ptr dt;
 -	int i;
@@ -42,7 +42,7 @@ index d34ed0475128..f4373213bef8 100644
  
  	ctxt->eflags =  smstate->eflags | X86_EFLAGS_FIXED;
  	ctxt->_eip =  smstate->eip;
-@@ -2466,8 +2466,16 @@ static int rsm_load_state_32(struct x86_emulate_ctxt *ctxt,
+@@ -2470,8 +2470,16 @@ static int rsm_load_state_32(struct x86_emulate_ctxt *ctxt,
  
  	ctxt->ops->set_smbase(ctxt, smstate->smbase);
  
@@ -61,7 +61,7 @@ index d34ed0475128..f4373213bef8 100644
  }
  
  #ifdef CONFIG_X86_64
-@@ -2516,6 +2524,9 @@ static int rsm_load_state_64(struct x86_emulate_ctxt *ctxt,
+@@ -2520,6 +2528,9 @@ static int rsm_load_state_64(struct x86_emulate_ctxt *ctxt,
  	rsm_load_seg_64(ctxt, &smstate->fs, VCPU_SREG_FS);
  	rsm_load_seg_64(ctxt, &smstate->gs, VCPU_SREG_GS);
  
@@ -72,10 +72,10 @@ index d34ed0475128..f4373213bef8 100644
  }
  #endif
 diff --git a/arch/x86/kvm/kvm_emulate.h b/arch/x86/kvm/kvm_emulate.h
-index 3bbf7c1c5b18..e7acf0052389 100644
+index 04ac0cef8b57..d5707b3f254c 100644
 --- a/arch/x86/kvm/kvm_emulate.h
 +++ b/arch/x86/kvm/kvm_emulate.h
-@@ -231,6 +231,7 @@ struct x86_emulate_ops {
+@@ -233,6 +233,7 @@ struct x86_emulate_ops {
  	bool (*guest_has_rdpid)(struct x86_emulate_ctxt *ctxt);
  
  	void (*set_nmi_mask)(struct x86_emulate_ctxt *ctxt, bool masked);
@@ -83,39 +83,52 @@ index 3bbf7c1c5b18..e7acf0052389 100644
  
  	unsigned (*get_hflags)(struct x86_emulate_ctxt *ctxt);
  	void (*exiting_smm)(struct x86_emulate_ctxt *ctxt);
-@@ -498,7 +499,9 @@ struct kvm_smram_state_32 {
- 	u32 reserved1[62];			/* FE00 - FEF7 */
- 	u32 smbase;				/* FEF8 */
- 	u32 smm_revision;			/* FEFC */
--	u32 reserved2[5];			/* FF00-FF13 */
-+	u32 reserved2[4];			/* FF00-FF0F*/
-+	/* int_shadow is KVM extension*/
-+	u32 int_shadow;				/* FF10 */
- 	/* CR4 is not present in Intel/AMD SMRAM image*/
- 	u32 cr4;				/* FF14 */
- 	u32 reserved3[5];			/* FF18 */
-@@ -570,13 +573,17 @@ struct kvm_smram_state_64 {
- 	struct kvm_smm_seg_state_64 idtr;	/* FE80 (R/O) */
- 	struct kvm_smm_seg_state_64 tr;		/* FE90 (R/O) */
+@@ -496,7 +497,8 @@ struct kvm_smram_state_32 {
+ 	u32 reserved1[62];
+ 	u32 smbase;
+ 	u32 smm_revision;
+-	u32 reserved2[5];
++	u32 reserved2[4];
++	u32 int_shadow; /* KVM extension */
+ 	u32 cr4; /* CR4 is not present in Intel/AMD SMRAM image */
+ 	u32 reserved3[5];
  
--	/* I/O restart and auto halt restart are not implemented by KVM */
-+	/*
-+	 * I/O restart and auto halt restart are not implemented by KVM
-+	 * int_shadow is KVM's extension
-+	 */
-+
- 	u64 io_restart_rip;			/* FEA0 (R/O) */
- 	u64 io_restart_rcx;			/* FEA8 (R/O) */
- 	u64 io_restart_rsi;			/* FEB0 (R/O) */
- 	u64 io_restart_rdi;			/* FEB8 (R/O) */
- 	u32 io_restart_dword;			/* FEC0 (R/O) */
--	u32 reserved1;				/* FEC4 */
-+	u32 int_shadow;				/* FEC4 (R/O) */
- 	u8 io_instruction_restart;		/* FEC8 (R/W) */
- 	u8 auto_halt_restart;			/* FEC9 (R/W) */
- 	u8 reserved2[6];			/* FECA-FECF */
+@@ -544,6 +546,7 @@ static inline void __check_smram32_offsets(void)
+ 	__CHECK_SMRAM32_OFFSET(smbase,		0xFEF8);
+ 	__CHECK_SMRAM32_OFFSET(smm_revision,	0xFEFC);
+ 	__CHECK_SMRAM32_OFFSET(reserved2,	0xFF00);
++	__CHECK_SMRAM32_OFFSET(int_shadow,	0xFF10);
+ 	__CHECK_SMRAM32_OFFSET(cr4,		0xFF14);
+ 	__CHECK_SMRAM32_OFFSET(reserved3,	0xFF18);
+ 	__CHECK_SMRAM32_OFFSET(ds,		0xFF2C);
+@@ -603,7 +606,7 @@ struct kvm_smram_state_64 {
+ 	u64 io_restart_rsi;
+ 	u64 io_restart_rdi;
+ 	u32 io_restart_dword;
+-	u32 reserved1;
++	u32 int_shadow;
+ 	u8 io_inst_restart;
+ 	u8 auto_hlt_restart;
+ 	u8 reserved2[6];
+@@ -641,7 +644,6 @@ struct kvm_smram_state_64 {
+ 	u64 gprs[16]; /* GPRS in a reversed "natural" X86 order (R15/R14/../RCX/RAX.) */
+ };
+ 
+-
+ static inline void __check_smram64_offsets(void)
+ {
+ #define __CHECK_SMRAM64_OFFSET(field, offset) \
+@@ -662,7 +664,7 @@ static inline void __check_smram64_offsets(void)
+ 	__CHECK_SMRAM64_OFFSET(io_restart_rsi,		0xFEB0);
+ 	__CHECK_SMRAM64_OFFSET(io_restart_rdi,		0xFEB8);
+ 	__CHECK_SMRAM64_OFFSET(io_restart_dword,	0xFEC0);
+-	__CHECK_SMRAM64_OFFSET(reserved1,		0xFEC4);
++	__CHECK_SMRAM64_OFFSET(int_shadow,		0xFEC4);
+ 	__CHECK_SMRAM64_OFFSET(io_inst_restart,		0xFEC8);
+ 	__CHECK_SMRAM64_OFFSET(auto_hlt_restart,	0xFEC9);
+ 	__CHECK_SMRAM64_OFFSET(reserved2,		0xFECA);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index f7b2fe174574..2072d994b06f 100644
+index 0cd48992f619..424ea7ce3a96 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -7840,6 +7840,11 @@ static void emulator_set_nmi_mask(struct x86_emulate_ctxt *ctxt, bool masked)

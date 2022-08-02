@@ -18,10 +18,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 89b11e7dca8a..93349b54ef56 100644
+index f8382abe22ff..13181819d52c 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
-@@ -2875,6 +2875,7 @@ static int em_sysexit(struct x86_emulate_ctxt *ctxt)
+@@ -2876,6 +2876,7 @@ static int em_sysexit(struct x86_emulate_ctxt *ctxt)
  	ops->set_segment(ctxt, ss_sel, &ss, 0, VCPU_SREG_SS);
  
  	ctxt->_eip = rdx;
