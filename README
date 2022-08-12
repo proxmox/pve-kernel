@@ -3,7 +3,7 @@ KERNEL SOURCE:
 
 We currently use the Ubuntu kernel sources, available from:
 
- http://kernel.ubuntu.com/git/ubuntu/ubuntu-jammy.git/
+ https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/jammy/
 
 Ubuntu will maintain those kernels till:
 
