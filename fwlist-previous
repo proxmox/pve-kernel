@@ -1702,6 +1702,8 @@ radeon/verde_rlc.bin kernel/drivers/gpu/drm/radeon/radeon.ko
 radeon/VERDE_rlc.bin kernel/drivers/gpu/drm/radeon/radeon.ko
 radeon/verde_smc.bin kernel/drivers/gpu/drm/radeon/radeon.ko
 radeon/VERDE_smc.bin kernel/drivers/gpu/drm/radeon/radeon.ko
+regulatory.db kernel/net/wireless/cfg80211.ko
+regulatory.db.p7s kernel/net/wireless/cfg80211.ko
 renesas_usb_fw.mem kernel/drivers/usb/host/xhci-pci.ko
 riptide.hex kernel/sound/pci/riptide/snd-riptide.ko
 rp2.fw kernel/drivers/tty/serial/rp2.ko
