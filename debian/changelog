@@ -1,3 +1,9 @@
+pve-kernel (5.15.53-1) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-48.54
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 26 Aug 2022 16:53:52 +0200
+
 pve-kernel (5.15.39-4) bullseye; urgency=medium
 
   * update "SMM emulation and interrupt shadow fixes" to v3
