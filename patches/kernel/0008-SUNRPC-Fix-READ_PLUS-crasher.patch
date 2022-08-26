@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chuck Lever <chuck.lever@oracle.com>
+Date: Thu, 30 Jun 2022 16:48:18 -0400
+Subject: [PATCH] SUNRPC: Fix READ_PLUS crasher
+
+commit a23dd544debcda4ee4a549ec7de59e85c3c8345c upstream.
+
+Looks like there are still cases when "space_left - frag1bytes" can
+legitimately exceed PAGE_SIZE. Ensure that xdr->end always remains
+within the current encode buffer.
+
+Reported-by: Bruce Fields <bfields@fieldses.org>
+Reported-by: Zorro Lang <zlang@redhat.com>
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=216151
+Fixes: 6c254bf3b637 ("SUNRPC: Fix the calculation of xdr->end in xdr_get_next_encode_buffer()")
+Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sunrpc/xdr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sunrpc/xdr.c b/net/sunrpc/xdr.c
+index cb8740d15633..daa4165f1179 100644
+--- a/net/sunrpc/xdr.c
++++ b/net/sunrpc/xdr.c
+@@ -608,7 +608,7 @@ static __be32 *xdr_get_next_encode_buffer(struct xdr_stream *xdr,
+ 	 */
+ 	xdr->p = (void *)p + frag2bytes;
+ 	space_left = xdr->buf->buflen - xdr->buf->len;
+-	if (space_left - nbytes >= PAGE_SIZE)
++	if (space_left - frag1bytes >= PAGE_SIZE)
+ 		xdr->end = (void *)p + PAGE_SIZE;
+ 	else
+ 		xdr->end = (void *)p + space_left - frag1bytes;

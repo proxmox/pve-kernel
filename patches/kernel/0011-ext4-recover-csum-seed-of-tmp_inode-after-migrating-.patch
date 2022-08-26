@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Li Lingfeng <lilingfeng3@huawei.com>
+Date: Fri, 17 Jun 2022 14:25:15 +0800
+Subject: [PATCH] ext4: recover csum seed of tmp_inode after migrating to
+ extents
+
+[ Upstream commit 07ea7a617d6b278fb7acedb5cbe1a81ce2de7d0c ]
+
+When migrating to extents, the checksum seed of temporary inode
+need to be replaced by inode's, otherwise the inode checksums
+will be incorrect when swapping the inodes data.
+
+However, the temporary inode can not match it's checksum to
+itself since it has lost it's own checksum seed.
+
+mkfs.ext4 -F /dev/sdc
+mount /dev/sdc /mnt/sdc
+xfs_io -fc "pwrite 4k 4k" -c "fsync" /mnt/sdc/testfile
+chattr -e /mnt/sdc/testfile
+chattr +e /mnt/sdc/testfile
+umount /dev/sdc
+fsck -fn /dev/sdc
+
+========
+...
+Pass 1: Checking inodes, blocks, and sizes
+Inode 13 passes checks, but checksum does not match inode.  Fix? no
+...
+========
+
+The fix is simple, save the checksum seed of temporary inode, and
+recover it after migrating to extents.
+
+Fixes: e81c9302a6c3 ("ext4: set csum seed in tmp inode while migrating to extents")
+Signed-off-by: Li Lingfeng <lilingfeng3@huawei.com>
+Reviewed-by: Jan Kara <jack@suse.cz>
+Link: https://lore.kernel.org/r/20220617062515.2113438-1-lilingfeng3@huawei.com
+Signed-off-by: Theodore Ts'o <tytso@mit.edu>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/ext4/migrate.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/fs/ext4/migrate.c b/fs/ext4/migrate.c
+index c5b2ea1a9372..1faa8e4ffb9d 100644
+--- a/fs/ext4/migrate.c
++++ b/fs/ext4/migrate.c
+@@ -435,7 +435,7 @@ int ext4_ext_migrate(struct inode *inode)
+ 	struct inode *tmp_inode = NULL;
+ 	struct migrate_struct lb;
+ 	unsigned long max_entries;
+-	__u32 goal;
++	__u32 goal, tmp_csum_seed;
+ 	uid_t owner[2];
+ 
+ 	/*
+@@ -483,6 +483,7 @@ int ext4_ext_migrate(struct inode *inode)
+ 	 * the migration.
+ 	 */
+ 	ei = EXT4_I(inode);
++	tmp_csum_seed = EXT4_I(tmp_inode)->i_csum_seed;
+ 	EXT4_I(tmp_inode)->i_csum_seed = ei->i_csum_seed;
+ 	i_size_write(tmp_inode, i_size_read(inode));
+ 	/*
+@@ -593,6 +594,7 @@ int ext4_ext_migrate(struct inode *inode)
+ 	 * the inode is not visible to user space.
+ 	 */
+ 	tmp_inode->i_blocks = 0;
++	EXT4_I(tmp_inode)->i_csum_seed = tmp_csum_seed;
+ 
+ 	/* Reset the extent details */
+ 	ext4_ext_tree_init(handle, tmp_inode);
