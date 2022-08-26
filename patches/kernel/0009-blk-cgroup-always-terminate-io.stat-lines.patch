@@ -22,7 +22,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 8 insertions(+), 16 deletions(-)
 
 diff --git a/block/blk-cgroup.c b/block/blk-cgroup.c
-index 07a2524e6efd..fd09c20a5543 100644
+index ce5858dadca5..aa43ed94deb6 100644
 --- a/block/blk-cgroup.c
 +++ b/block/blk-cgroup.c
 @@ -887,7 +887,6 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
@@ -92,10 +92,10 @@ index 10851493940c..21db328c0bcc 100644
  
  static u64 ioc_weight_prfill(struct seq_file *sf, struct blkg_policy_data *pd,
 diff --git a/block/blk-iolatency.c b/block/blk-iolatency.c
-index c0545f9da549..d33460f3d43d 100644
+index ce3847499d85..0bac2c9ebb4a 100644
 --- a/block/blk-iolatency.c
 +++ b/block/blk-iolatency.c
-@@ -890,7 +890,7 @@ static int iolatency_print_limit(struct seq_file *sf, void *v)
+@@ -902,7 +902,7 @@ static int iolatency_print_limit(struct seq_file *sf, void *v)
  	return 0;
  }
  
@@ -104,7 +104,7 @@ index c0545f9da549..d33460f3d43d 100644
  {
  	struct latency_stat stat;
  	int cpu;
-@@ -913,17 +913,16 @@ static bool iolatency_ssd_stat(struct iolatency_grp *iolat, struct seq_file *s)
+@@ -925,17 +925,16 @@ static bool iolatency_ssd_stat(struct iolatency_grp *iolat, struct seq_file *s)
  			(unsigned long long)stat.ps.missed,
  			(unsigned long long)stat.ps.total,
  			iolat->rq_depth.max_depth);
@@ -124,7 +124,7 @@ index c0545f9da549..d33460f3d43d 100644
  
  	if (iolat->ssd)
  		return iolatency_ssd_stat(iolat, s);
-@@ -936,7 +935,6 @@ static bool iolatency_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
+@@ -948,7 +947,6 @@ static bool iolatency_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
  	else
  		seq_printf(s, " depth=%u avg_lat=%llu win=%llu",
  			iolat->rq_depth.max_depth, avg_lat, cur_win);

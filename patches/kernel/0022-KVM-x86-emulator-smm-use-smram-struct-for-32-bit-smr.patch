@@ -145,10 +145,10 @@ index 730c3e2662d6..ad5d2ab9ab84 100644
  	if (ret != X86EMUL_CONTINUE)
  		goto emulate_shutdown;
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 2ebbb441880c..8a6b9bffc770 100644
+index 37edf00584f8..11e62b1f1764 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -9018,22 +9018,18 @@ static u32 enter_smm_get_segment_flags(struct kvm_segment *seg)
+@@ -9025,22 +9025,18 @@ static u32 enter_smm_get_segment_flags(struct kvm_segment *seg)
  	return flags;
  }
  
@@ -179,7 +179,7 @@ index 2ebbb441880c..8a6b9bffc770 100644
  }
  
  #ifdef CONFIG_X86_64
-@@ -9054,54 +9050,47 @@ static void enter_smm_save_seg_64(struct kvm_vcpu *vcpu, char *buf, int n)
+@@ -9061,54 +9057,47 @@ static void enter_smm_save_seg_64(struct kvm_vcpu *vcpu, char *buf, int n)
  }
  #endif
  
@@ -257,7 +257,7 @@ index 2ebbb441880c..8a6b9bffc770 100644
  }
  
  #ifdef CONFIG_X86_64
-@@ -9172,7 +9161,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9179,7 +9168,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  		enter_smm_save_state_64(vcpu, (char *)&smram);
  	else
  #endif

@@ -165,7 +165,7 @@ index 417176817d80..a45a43bcc844 100644
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  	int ret;
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 07575e5eb254..2ebbb441880c 100644
+index 673262228f3e..37edf00584f8 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -7312,9 +7312,9 @@ static void emulator_exiting_smm(struct x86_emulate_ctxt *ctxt)
@@ -180,7 +180,7 @@ index 07575e5eb254..2ebbb441880c 100644
  }
  
  static void emulator_triple_fault(struct x86_emulate_ctxt *ctxt)
-@@ -9164,25 +9164,25 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9171,25 +9171,25 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  	struct kvm_segment cs, ds;
  	struct desc_ptr dt;
  	unsigned long cr0;

@@ -35,7 +35,7 @@ index 090b16890e3d..f303e96ce165 100644
  		if (error < 0)
  			return error;
 diff --git a/fs/nfs/fs_context.c b/fs/nfs/fs_context.c
-index 0d444a90f513..da5217abc2e5 100644
+index fb3cad38b149..0166370f088e 100644
 --- a/fs/nfs/fs_context.c
 +++ b/fs/nfs/fs_context.c
 @@ -79,6 +79,7 @@ enum nfs_param {
@@ -68,7 +68,7 @@ index 0d444a90f513..da5217abc2e5 100644
  		if (result.negated)
  			ctx->flags |= NFS_MOUNT_NOAC;
 diff --git a/include/linux/nfs_fs_sb.h b/include/linux/nfs_fs_sb.h
-index 9a6e70ccde56..10c347416dd2 100644
+index da9ef0ab9b4b..5336e494703b 100644
 --- a/include/linux/nfs_fs_sb.h
 +++ b/include/linux/nfs_fs_sb.h
 @@ -156,6 +156,7 @@ struct nfs_server {

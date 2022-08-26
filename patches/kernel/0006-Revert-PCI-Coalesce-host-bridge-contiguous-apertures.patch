@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 4 insertions(+), 46 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index cb70d2605e97..258350f80f6c 100644
+index 4f26c222f5f2..c0abe906b84e 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
 @@ -20,7 +20,6 @@

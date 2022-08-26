@@ -154,10 +154,10 @@ index ad5d2ab9ab84..4eb35a0a33a5 100644
  #endif
  		ret = rsm_load_state_32(ctxt, &smram.smram32);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 8a6b9bffc770..d00b82ee6ca4 100644
+index 11e62b1f1764..5c4be3873c0d 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -9033,20 +9033,17 @@ static void enter_smm_save_seg_32(struct kvm_vcpu *vcpu,
+@@ -9040,20 +9040,17 @@ static void enter_smm_save_seg_32(struct kvm_vcpu *vcpu,
  }
  
  #ifdef CONFIG_X86_64
@@ -185,7 +185,7 @@ index 8a6b9bffc770..d00b82ee6ca4 100644
  }
  #endif
  
-@@ -9094,57 +9091,51 @@ static void enter_smm_save_state_32(struct kvm_vcpu *vcpu, struct kvm_smram_stat
+@@ -9101,57 +9098,51 @@ static void enter_smm_save_state_32(struct kvm_vcpu *vcpu, struct kvm_smram_stat
  }
  
  #ifdef CONFIG_X86_64
@@ -268,7 +268,7 @@ index 8a6b9bffc770..d00b82ee6ca4 100644
  }
  #endif
  
-@@ -9158,7 +9149,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9165,7 +9156,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  	memset(smram.bytes, 0, sizeof(smram.bytes));
  #ifdef CONFIG_X86_64
  	if (guest_cpuid_has(vcpu, X86_FEATURE_LM))
