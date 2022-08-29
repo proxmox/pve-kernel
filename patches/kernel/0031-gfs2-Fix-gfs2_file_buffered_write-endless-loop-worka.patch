@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andreas Gruenbacher <agruenba@redhat.com>
+Date: Thu, 17 Mar 2022 14:47:24 +0100
+Subject: [PATCH] gfs2: Fix gfs2_file_buffered_write endless loop workaround
+
+[ Upstream commit 46f3e0421ccb5474b5c006b0089b9dfd42534bb6 ]
+
+Since commit 554c577cee95b, gfs2_file_buffered_write() can accidentally
+return a truncated iov_iter, which might confuse callers.  Fix that.
+
+Fixes: 554c577cee95b ("gfs2: Prevent endless loops in gfs2_file_buffered_write")
+Signed-off-by: Andreas Gruenbacher <agruenba@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/gfs2/file.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/gfs2/file.c b/fs/gfs2/file.c
+index 60390f9dc31f..e93185d804e0 100644
+--- a/fs/gfs2/file.c
++++ b/fs/gfs2/file.c
+@@ -1086,6 +1086,7 @@ static ssize_t gfs2_file_buffered_write(struct kiocb *iocb,
+ 	gfs2_holder_uninit(gh);
+ 	if (statfs_gh)
+ 		kfree(statfs_gh);
++	from->count = orig_count - read;
+ 	return read ? read : ret;
+ }
+ 
