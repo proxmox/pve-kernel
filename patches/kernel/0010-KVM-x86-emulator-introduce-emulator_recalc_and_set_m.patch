@@ -21,10 +21,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 57 insertions(+), 28 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 13181819d52c..9411046e9ee0 100644
+index d888223ef820..529b9e052564 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
-@@ -793,8 +793,7 @@ static int linearize(struct x86_emulate_ctxt *ctxt,
+@@ -794,8 +794,7 @@ static int linearize(struct x86_emulate_ctxt *ctxt,
  			   ctxt->mode, linear);
  }
  
@@ -34,7 +34,7 @@ index 13181819d52c..9411046e9ee0 100644
  {
  	ulong linear;
  	int rc;
-@@ -804,41 +803,71 @@ static inline int assign_eip(struct x86_emulate_ctxt *ctxt, ulong dst,
+@@ -805,41 +804,71 @@ static inline int assign_eip(struct x86_emulate_ctxt *ctxt, ulong dst,
  
  	if (ctxt->op_bytes != sizeof(unsigned long))
  		addr.ea = dst & ((1UL << (ctxt->op_bytes << 3)) - 1);
