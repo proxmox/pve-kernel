@@ -23,7 +23,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 2 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/scsi/qla2xxx/qla_init.c b/drivers/scsi/qla2xxx/qla_init.c
-index af8df5a800c6..7caf573af58e 100644
+index c3ba2995209b..b538d65efe29 100644
 --- a/drivers/scsi/qla2xxx/qla_init.c
 +++ b/drivers/scsi/qla2xxx/qla_init.c
 @@ -5749,8 +5749,6 @@ qla2x00_reg_remote_port(scsi_qla_host_t *vha, fc_port_t *fcport)
@@ -53,7 +53,7 @@ index af8df5a800c6..7caf573af58e 100644
  		if (fcport->id_changed) {
  			fcport->id_changed = 0;
 diff --git a/drivers/scsi/qla2xxx/qla_nvme.c b/drivers/scsi/qla2xxx/qla_nvme.c
-index 42b29f4fd937..e63272487788 100644
+index 1bf3ab10846a..3e167dc4eec7 100644
 --- a/drivers/scsi/qla2xxx/qla_nvme.c
 +++ b/drivers/scsi/qla2xxx/qla_nvme.c
 @@ -35,11 +35,6 @@ int qla_nvme_register_remote(struct scsi_qla_host *vha, struct fc_port *fcport)

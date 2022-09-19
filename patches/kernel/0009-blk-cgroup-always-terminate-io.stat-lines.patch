@@ -92,7 +92,7 @@ index 10851493940c..21db328c0bcc 100644
  
  static u64 ioc_weight_prfill(struct seq_file *sf, struct blkg_policy_data *pd,
 diff --git a/block/blk-iolatency.c b/block/blk-iolatency.c
-index ce3847499d85..0bac2c9ebb4a 100644
+index d85f30a85ee7..ca25e0bc1269 100644
 --- a/block/blk-iolatency.c
 +++ b/block/blk-iolatency.c
 @@ -902,7 +902,7 @@ static int iolatency_print_limit(struct seq_file *sf, void *v)

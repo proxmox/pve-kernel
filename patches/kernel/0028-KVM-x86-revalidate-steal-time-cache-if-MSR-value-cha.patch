@@ -31,10 +31,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 461c9d815d6c..b46677baf396 100644
+index c6802f4e3b16..feb9336d97a7 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -3236,6 +3236,7 @@ static void record_steal_time(struct kvm_vcpu *vcpu)
+@@ -3238,6 +3238,7 @@ static void record_steal_time(struct kvm_vcpu *vcpu)
  	struct gfn_to_hva_cache *ghc = &vcpu->arch.st.cache;
  	struct kvm_steal_time __user *st;
  	struct kvm_memslots *slots;
@@ -42,7 +42,7 @@ index 461c9d815d6c..b46677baf396 100644
  	u64 steal;
  	u32 version;
  
-@@ -3253,13 +3254,12 @@ static void record_steal_time(struct kvm_vcpu *vcpu)
+@@ -3255,13 +3256,12 @@ static void record_steal_time(struct kvm_vcpu *vcpu)
  	slots = kvm_memslots(vcpu->kvm);
  
  	if (unlikely(slots->generation != ghc->generation ||
