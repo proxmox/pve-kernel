@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 30 Aug 2022 10:59:49 -0400
+Subject: [PATCH] drm/amdgpu: make sure to init common IP before gmc
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit a8671493d2074950553da3cf07d1be43185ef6c6 ]
+
+Move common IP init before GMC init so that HDP gets
+remapped before GMC init which uses it.
+
+This fixes the Unsupported Request error reported through
+AER during driver load. The error happens as a write happens
+to the remap offset before real remapping is done.
+
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=216373
+
+The error was unnoticed before and got visible because of the commit
+referenced below. This doesn't fix anything in the commit below, rather
+fixes the issue in amdgpu exposed by the commit. The reference is only
+to associate this commit with below one so that both go together.
+
+Fixes: 8795e182b02d ("PCI/portdrv: Don't disable AER reporting in get_port_device_capability()")
+
+Acked-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Lijo Lazar <lijo.lazar@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index f443b4630f9d..7450773821f4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2388,8 +2388,16 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
+ 		}
+ 		adev->ip_blocks[i].status.sw = true;
+ 
+-		/* need to do gmc hw init early so we can allocate gpu mem */
+-		if (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_GMC) {
++		if (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_COMMON) {
++			/* need to do common hw init early so everything is set up for gmc */
++			r = adev->ip_blocks[i].version->funcs->hw_init((void *)adev);
++			if (r) {
++				DRM_ERROR("hw_init %d failed %d\n", i, r);
++				goto init_failed;
++			}
++			adev->ip_blocks[i].status.hw = true;
++		} else if (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_GMC) {
++			/* need to do gmc hw init early so we can allocate gpu mem */
+ 			/* Try to reserve bad pages early */
+ 			if (amdgpu_sriov_vf(adev))
+ 				amdgpu_virt_exchange_data(adev);
+@@ -3037,8 +3045,8 @@ static int amdgpu_device_ip_reinit_early_sriov(struct amdgpu_device *adev)
+ 	int i, r;
+ 
+ 	static enum amd_ip_block_type ip_order[] = {
+-		AMD_IP_BLOCK_TYPE_GMC,
+ 		AMD_IP_BLOCK_TYPE_COMMON,
++		AMD_IP_BLOCK_TYPE_GMC,
+ 		AMD_IP_BLOCK_TYPE_PSP,
+ 		AMD_IP_BLOCK_TYPE_IH,
+ 	};
