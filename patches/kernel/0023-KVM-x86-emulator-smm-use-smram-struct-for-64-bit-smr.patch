@@ -16,10 +16,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 62 insertions(+), 101 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index ad5d2ab9ab84..4eb35a0a33a5 100644
+index 63e9c9ef25a2..2677a342fb10 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
-@@ -2358,24 +2358,16 @@ static void rsm_load_seg_32(struct x86_emulate_ctxt *ctxt,
+@@ -2357,24 +2357,16 @@ static void rsm_load_seg_32(struct x86_emulate_ctxt *ctxt,
  }
  
  #ifdef CONFIG_X86_64
@@ -51,7 +51,7 @@ index ad5d2ab9ab84..4eb35a0a33a5 100644
  }
  #endif
  
-@@ -2469,71 +2461,49 @@ static int rsm_load_state_32(struct x86_emulate_ctxt *ctxt,
+@@ -2468,71 +2460,49 @@ static int rsm_load_state_32(struct x86_emulate_ctxt *ctxt,
  
  #ifdef CONFIG_X86_64
  static int rsm_load_state_64(struct x86_emulate_ctxt *ctxt,
@@ -144,7 +144,7 @@ index ad5d2ab9ab84..4eb35a0a33a5 100644
  
  	return X86EMUL_CONTINUE;
  }
-@@ -2608,7 +2578,7 @@ static int em_rsm(struct x86_emulate_ctxt *ctxt)
+@@ -2607,7 +2577,7 @@ static int em_rsm(struct x86_emulate_ctxt *ctxt)
  
  #ifdef CONFIG_X86_64
  	if (emulator_has_longmode(ctxt))
@@ -154,10 +154,10 @@ index ad5d2ab9ab84..4eb35a0a33a5 100644
  #endif
  		ret = rsm_load_state_32(ctxt, &smram.smram32);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index ea10c080c15c..e43bc36a0aa1 100644
+index 13e457996477..6aa50ec9b2a9 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -9052,20 +9052,17 @@ static void enter_smm_save_seg_32(struct kvm_vcpu *vcpu,
+@@ -9063,20 +9063,17 @@ static void enter_smm_save_seg_32(struct kvm_vcpu *vcpu,
  }
  
  #ifdef CONFIG_X86_64
@@ -185,7 +185,7 @@ index ea10c080c15c..e43bc36a0aa1 100644
  }
  #endif
  
-@@ -9113,57 +9110,51 @@ static void enter_smm_save_state_32(struct kvm_vcpu *vcpu, struct kvm_smram_stat
+@@ -9124,57 +9121,51 @@ static void enter_smm_save_state_32(struct kvm_vcpu *vcpu, struct kvm_smram_stat
  }
  
  #ifdef CONFIG_X86_64
@@ -268,7 +268,7 @@ index ea10c080c15c..e43bc36a0aa1 100644
  }
  #endif
  
-@@ -9177,7 +9168,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9188,7 +9179,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  	memset(smram.bytes, 0, sizeof(smram.bytes));
  #ifdef CONFIG_X86_64
  	if (guest_cpuid_has(vcpu, X86_FEATURE_LM))

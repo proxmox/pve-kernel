@@ -17,10 +17,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 225 insertions(+)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 89f035fc52e7..bfaf5d24bf1e 100644
+index 8e8975496a2d..58bc09040b3b 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
-@@ -5825,3 +5825,9 @@ bool emulator_can_use_gpa(struct x86_emulate_ctxt *ctxt)
+@@ -5824,3 +5824,9 @@ bool emulator_can_use_gpa(struct x86_emulate_ctxt *ctxt)
  
  	return true;
  }
@@ -267,10 +267,10 @@ index fb09cd22cb7f..0b2bbcce321a 100644
  #if defined(CONFIG_X86_32)
  #define X86EMUL_MODE_HOST X86EMUL_MODE_PROT32
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 70250d7ca0d7..3d9ddc2ca808 100644
+index 7a06f7599c8f..1a6dde98d521 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -12468,6 +12468,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_msr_protocol_exit);
+@@ -12479,6 +12479,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_msr_protocol_exit);
  static int __init kvm_x86_init(void)
  {
  	kvm_mmu_x86_module_init();

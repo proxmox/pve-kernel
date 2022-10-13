@@ -64,10 +64,10 @@ index ce5858dadca5..aa43ed94deb6 100644
  
  static int blkcg_print_stat(struct seq_file *sf, void *v)
 diff --git a/block/blk-iocost.c b/block/blk-iocost.c
-index 10851493940c..21db328c0bcc 100644
+index 069193dee95b..352c43ab95e5 100644
 --- a/block/blk-iocost.c
 +++ b/block/blk-iocost.c
-@@ -3005,13 +3005,13 @@ static void ioc_pd_free(struct blkg_policy_data *pd)
+@@ -3011,13 +3011,13 @@ static void ioc_pd_free(struct blkg_policy_data *pd)
  	kfree(iocg);
  }
  
@@ -83,7 +83,7 @@ index 10851493940c..21db328c0bcc 100644
  
  	if (iocg->level == 0) {
  		unsigned vp10k = DIV64_U64_ROUND_CLOSEST(
-@@ -3027,7 +3027,6 @@ static bool ioc_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
+@@ -3033,7 +3033,6 @@ static bool ioc_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
  			iocg->last_stat.wait_us,
  			iocg->last_stat.indebt_us,
  			iocg->last_stat.indelay_us);
@@ -92,10 +92,10 @@ index 10851493940c..21db328c0bcc 100644
  
  static u64 ioc_weight_prfill(struct seq_file *sf, struct blkg_policy_data *pd,
 diff --git a/block/blk-iolatency.c b/block/blk-iolatency.c
-index d85f30a85ee7..ca25e0bc1269 100644
+index bdef8395af6e..a5f13743a280 100644
 --- a/block/blk-iolatency.c
 +++ b/block/blk-iolatency.c
-@@ -902,7 +902,7 @@ static int iolatency_print_limit(struct seq_file *sf, void *v)
+@@ -906,7 +906,7 @@ static int iolatency_print_limit(struct seq_file *sf, void *v)
  	return 0;
  }
  
@@ -104,7 +104,7 @@ index d85f30a85ee7..ca25e0bc1269 100644
  {
  	struct latency_stat stat;
  	int cpu;
-@@ -925,17 +925,16 @@ static bool iolatency_ssd_stat(struct iolatency_grp *iolat, struct seq_file *s)
+@@ -929,17 +929,16 @@ static bool iolatency_ssd_stat(struct iolatency_grp *iolat, struct seq_file *s)
  			(unsigned long long)stat.ps.missed,
  			(unsigned long long)stat.ps.total,
  			iolat->rq_depth.max_depth);
@@ -124,7 +124,7 @@ index d85f30a85ee7..ca25e0bc1269 100644
  
  	if (iolat->ssd)
  		return iolatency_ssd_stat(iolat, s);
-@@ -948,7 +947,6 @@ static bool iolatency_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
+@@ -952,7 +951,6 @@ static bool iolatency_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
  	else
  		seq_printf(s, " depth=%u avg_lat=%llu win=%llu",
  			iolat->rq_depth.max_depth, avg_lat, cur_win);
