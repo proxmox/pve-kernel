@@ -1,3 +1,11 @@
+pve-kernel (5.19.17-1) bullseye; urgency=medium
+
+  * update to Ubuntu-5.19.0-24.25
+
+  * bump ABI to 5.19.17-1
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 14 Nov 2022 20:25:12 +0100
+
 pve-kernel (5.19.7-2) bullseye; urgency=medium
 
   * update ZFS to 2.1.6
