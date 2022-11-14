@@ -1767,6 +1767,7 @@ rtl_nic/rtl8402-1.fw kernel/drivers/net/ethernet/realtek/r8169.ko
 rtl_nic/rtl8411-1.fw kernel/drivers/net/ethernet/realtek/r8169.ko
 rtl_nic/rtl8411-2.fw kernel/drivers/net/ethernet/realtek/r8169.ko
 rtlwifi/rtl8188efw.bin kernel/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/rtl8188ee.ko
+rtlwifi/rtl8188eufw.bin kernel/drivers/staging/r8188eu/r8188eu.ko
 rtlwifi/rtl8192cfw.bin kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/rtl8192ce.ko
 rtlwifi/rtl8192cfwU_B.bin kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/rtl8192ce.ko
 rtlwifi/rtl8192cfwU.bin kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/rtl8192ce.ko
