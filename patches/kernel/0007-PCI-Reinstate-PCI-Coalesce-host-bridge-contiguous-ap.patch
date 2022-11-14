@@ -56,7 +56,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 27 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index c0abe906b84e..8b7c58dec9e4 100644
+index 6b73e9179111..50eef5b211f4 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
 @@ -883,11 +883,11 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)

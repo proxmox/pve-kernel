@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 5be4b9927221..8e8975496a2d 100644
+index 9dc100399c94..70ed6c458084 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
 @@ -3634,11 +3634,23 @@ static int em_movbe(struct x86_emulate_ctxt *ctxt)

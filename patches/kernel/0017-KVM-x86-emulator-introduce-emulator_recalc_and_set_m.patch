@@ -21,7 +21,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 57 insertions(+), 28 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 1856de48be6b..7cf3cd26748d 100644
+index ad58eb751b4f..e095debb7022 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
 @@ -795,8 +795,7 @@ static int linearize(struct x86_emulate_ctxt *ctxt,

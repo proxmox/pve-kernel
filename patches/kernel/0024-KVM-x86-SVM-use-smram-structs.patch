@@ -17,10 +17,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 6 insertions(+), 21 deletions(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index 0669a533451d..5673d08daa67 100644
+index c4e382af1853..932c0f659468 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
-@@ -1936,12 +1936,6 @@ static inline int kvm_cpu_get_apicid(int mps_cpu)
+@@ -1937,12 +1937,6 @@ static inline int kvm_cpu_get_apicid(int mps_cpu)
  #endif
  }
  
@@ -34,7 +34,7 @@ index 0669a533451d..5673d08daa67 100644
  
  int alloc_all_memslots_rmaps(struct kvm *kvm);
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index dee4d66ff5b5..423a32287357 100644
+index de82175f0aad..399a7f2e0d1f 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
 @@ -4319,15 +4319,11 @@ static int svm_enter_smm(struct kvm_vcpu *vcpu, union kvm_smram *smram)
