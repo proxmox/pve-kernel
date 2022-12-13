@@ -2,5 +2,5 @@
 	path = submodules/zfsonlinux
 	url = ../zfsonlinux
 [submodule "submodules/ubuntu-kinetic"]
-	path = submodules/ubuntu-kinetic
+	path = submodules/ubuntu-kernel
 	url = ../mirror_ubuntu-kernels
