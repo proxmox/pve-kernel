@@ -3,4 +3,4 @@
 	url = ../zfsonlinux
 [submodule "submodules/ubuntu-kinetic"]
 	path = submodules/ubuntu-kinetic
-	url = git://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/kinetic
+	url = ../mirror_ubuntu-kernels
