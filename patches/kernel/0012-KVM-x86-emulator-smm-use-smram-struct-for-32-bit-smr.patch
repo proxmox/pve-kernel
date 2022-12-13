@@ -15,7 +15,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 60 insertions(+), 96 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index d0a70517e042..9aef34e5053b 100644
+index 7294dffa794a..65d82292ccec 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
 @@ -2359,25 +2359,17 @@ static void rsm_set_desc_flags(struct desc_struct *desc, u32 flags)
@@ -145,10 +145,10 @@ index d0a70517e042..9aef34e5053b 100644
  	if (ret != X86EMUL_CONTINUE)
  		goto emulate_shutdown;
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index e4cffaeddc2c..0169f80e880e 100644
+index 94c29391b065..579a1cb6a7c8 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -9642,22 +9642,18 @@ static u32 enter_smm_get_segment_flags(struct kvm_segment *seg)
+@@ -10100,22 +10100,18 @@ static u32 enter_smm_get_segment_flags(struct kvm_segment *seg)
  	return flags;
  }
  
@@ -179,7 +179,7 @@ index e4cffaeddc2c..0169f80e880e 100644
  }
  
  #ifdef CONFIG_X86_64
-@@ -9678,54 +9674,47 @@ static void enter_smm_save_seg_64(struct kvm_vcpu *vcpu, char *buf, int n)
+@@ -10136,54 +10132,47 @@ static void enter_smm_save_seg_64(struct kvm_vcpu *vcpu, char *buf, int n)
  }
  #endif
  
@@ -257,7 +257,7 @@ index e4cffaeddc2c..0169f80e880e 100644
  }
  
  #ifdef CONFIG_X86_64
-@@ -9796,7 +9785,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -10254,7 +10243,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  		enter_smm_save_state_64(vcpu, (char *)&smram);
  	else
  #endif

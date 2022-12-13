@@ -17,7 +17,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 5 insertions(+)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 9d0268879590..2e064461c236 100644
+index 4a43261d25a2..4f7f5117ec7a 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
 @@ -2654,6 +2654,11 @@ static int em_rsm(struct x86_emulate_ctxt *ctxt)

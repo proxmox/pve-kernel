@@ -17,10 +17,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 6 insertions(+), 21 deletions(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index cff765545738..143cd0b5d593 100644
+index 6885f3839e25..f5b82b6f4f84 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
-@@ -2044,12 +2044,6 @@ static inline int kvm_cpu_get_apicid(int mps_cpu)
+@@ -2090,12 +2090,6 @@ static inline int kvm_cpu_get_apicid(int mps_cpu)
  #endif
  }
  
@@ -34,10 +34,10 @@ index cff765545738..143cd0b5d593 100644
  
  int memslot_rmap_alloc(struct kvm_memory_slot *slot, unsigned long npages);
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index f7f58c4cf341..20f90c596d6a 100644
+index 45c4def86cd3..bfacbef667d7 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -4314,15 +4314,11 @@ static int svm_enter_smm(struct kvm_vcpu *vcpu, union kvm_smram *smram)
+@@ -4391,15 +4391,11 @@ static int svm_enter_smm(struct kvm_vcpu *vcpu, union kvm_smram *smram)
  	struct kvm_host_map map_save;
  	int ret;
  
@@ -55,7 +55,7 @@ index f7f58c4cf341..20f90c596d6a 100644
  
  	svm->vmcb->save.rax = vcpu->arch.regs[VCPU_REGS_RAX];
  	svm->vmcb->save.rsp = vcpu->arch.regs[VCPU_REGS_RSP];
-@@ -4361,28 +4357,23 @@ static int svm_leave_smm(struct kvm_vcpu *vcpu, const union kvm_smram *smram)
+@@ -4438,28 +4434,23 @@ static int svm_leave_smm(struct kvm_vcpu *vcpu, const union kvm_smram *smram)
  {
  	struct vcpu_svm *svm = to_svm(vcpu);
  	struct kvm_host_map map, map_save;
@@ -87,7 +87,7 @@ index f7f58c4cf341..20f90c596d6a 100644
  		return 1;
  
  	ret = 1;
-@@ -4408,7 +4399,7 @@ static int svm_leave_smm(struct kvm_vcpu *vcpu, const union kvm_smram *smram)
+@@ -4485,7 +4476,7 @@ static int svm_leave_smm(struct kvm_vcpu *vcpu, const union kvm_smram *smram)
  	vmcb12 = map.hva;
  	nested_copy_vmcb_control_to_cache(svm, &vmcb12->control);
  	nested_copy_vmcb_save_to_cache(svm, &vmcb12->save);
