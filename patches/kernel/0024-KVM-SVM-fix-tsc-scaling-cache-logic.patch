@@ -42,10 +42,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 19 insertions(+), 11 deletions(-)
 
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index cbfd9b23c32b..14d6cad2afdc 100644
+index b11f03673d07..11a9d3aef354 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -472,11 +472,24 @@ static int has_svm(void)
+@@ -466,11 +466,24 @@ static int has_svm(void)
  	return 1;
  }
  
@@ -71,7 +71,7 @@ index cbfd9b23c32b..14d6cad2afdc 100644
  
  	cpu_svm_disable();
  
-@@ -518,8 +531,7 @@ static int svm_hardware_enable(void)
+@@ -512,8 +525,7 @@ static int svm_hardware_enable(void)
  	wrmsrl(MSR_VM_HSAVE_PA, __sme_page_pa(sd->save_area));
  
  	if (static_cpu_has(X86_FEATURE_TSCRATEMSR)) {
@@ -81,7 +81,7 @@ index cbfd9b23c32b..14d6cad2afdc 100644
  	}
  
  
-@@ -1132,9 +1144,10 @@ static void svm_write_tsc_offset(struct kvm_vcpu *vcpu, u64 offset)
+@@ -1126,9 +1138,10 @@ static void svm_write_tsc_offset(struct kvm_vcpu *vcpu, u64 offset)
  
  static void svm_write_tsc_multiplier(struct kvm_vcpu *vcpu, u64 multiplier)
  {
@@ -93,7 +93,7 @@ index cbfd9b23c32b..14d6cad2afdc 100644
  /* Evaluate instruction intercepts that depend on guest CPUID features. */
  static void svm_recalc_instruction_intercepts(struct kvm_vcpu *vcpu,
  					      struct vcpu_svm *svm)
-@@ -1457,13 +1470,8 @@ static void svm_prepare_guest_switch(struct kvm_vcpu *vcpu)
+@@ -1452,13 +1465,8 @@ static void svm_prepare_guest_switch(struct kvm_vcpu *vcpu)
  		vmsave(__sme_page_pa(sd->save_area));
  	}
  
