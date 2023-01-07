@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vlastimil Babka <vbabka@suse.cz>
+Date: Fri, 16 Dec 2022 17:32:27 +0100
+Subject: [PATCH] mm, mremap: fix mremap() expanding vma with addr inside vma
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 6f12be792fde994ed934168f93c2a0d2a0cf0bc5 upstream.
+
+Since 6.1 we have noticed random rpm install failures that were tracked to
+mremap() returning -ENOMEM and to commit ca3d76b0aa80 ("mm: add merging
+after mremap resize").
+
+The problem occurs when mremap() expands a VMA in place, but using an
+starting address that's not vma->vm_start, but somewhere in the middle.
+The extension_pgoff calculation introduced by the commit is wrong in that
+case, so vma_merge() fails due to pgoffs not being compatible.  Fix the
+calculation.
+
+By the way it seems that the situations, where rpm now expands a vma from
+the middle, were made possible also due to that commit, thanks to the
+improved vma merging.  Yet it should work just fine, except for the buggy
+calculation.
+
+Link: https://lkml.kernel.org/r/20221216163227.24648-1-vbabka@suse.cz
+Reported-by: Jiri Slaby <jirislaby@kernel.org>
+  Link: https://bugzilla.suse.com/show_bug.cgi?id=1206359
+Fixes: ca3d76b0aa80 ("mm: add merging after mremap resize")
+Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
+Cc: Jakub Matěna <matenajakub@gmail.com>
+Cc: "Kirill A . Shutemov" <kirill@shutemov.name>
+Cc: Liam Howlett <liam.howlett@oracle.com>
+Cc: Matthew Wilcox <willy@infradead.org>
+Cc: Mel Gorman <mgorman@techsingularity.net>
+Cc: Michal Hocko <mhocko@kernel.org>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 4d528dab403ba45db24769f5e5a9514ab0890351)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/mremap.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/mm/mremap.c b/mm/mremap.c
+index e465ffe279bb..fe587c5d6591 100644
+--- a/mm/mremap.c
++++ b/mm/mremap.c
+@@ -1016,7 +1016,8 @@ SYSCALL_DEFINE5(mremap, unsigned long, addr, unsigned long, old_len,
+ 			long pages = (new_len - old_len) >> PAGE_SHIFT;
+ 			unsigned long extension_start = addr + old_len;
+ 			unsigned long extension_end = addr + new_len;
+-			pgoff_t extension_pgoff = vma->vm_pgoff + (old_len >> PAGE_SHIFT);
++			pgoff_t extension_pgoff = vma->vm_pgoff +
++				((extension_start - vma->vm_start) >> PAGE_SHIFT);
+ 
+ 			if (vma->vm_flags & VM_ACCOUNT) {
+ 				if (security_vm_enough_memory_mm(mm, pages)) {

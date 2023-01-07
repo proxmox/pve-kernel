@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jocelyn Falempe <jfalempe@redhat.com>
+Date: Thu, 13 Oct 2022 15:28:10 +0200
+Subject: [PATCH] drm/mgag200: Fix PLL setup for G200_SE_A rev >=4
+
+commit b389286d0234e1edbaf62ed8bc0892a568c33662 upstream.
+
+For G200_SE_A, PLL M setting is wrong, which leads to blank screen,
+or "signal out of range" on VGA display.
+previous code had "m |= 0x80" which was changed to
+m |= ((pixpllcn & BIT(8)) >> 1);
+
+Tested on G200_SE_A rev 42
+
+This line of code was moved to another file with
+commit 877507bb954e ("drm/mgag200: Provide per-device callbacks for
+PIXPLLC") but can be easily backported before this commit.
+
+v2: * put BIT(7) First to respect MSB-to-LSB (Thomas)
+    * Add a comment to explain that this bit must be set (Thomas)
+
+Fixes: 2dd040946ecf ("drm/mgag200: Store values (not bits) in struct mgag200_pll_values")
+Cc: stable@vger.kernel.org
+Signed-off-by: Jocelyn Falempe <jfalempe@redhat.com>
+Reviewed-by: Thomas Zimmermann <tzimmermann@suse.de>
+Link: https://patchwork.freedesktop.org/patch/msgid/20221013132810.521945-1-jfalempe@redhat.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 3650c063f22d03795026bd6f3d473e5bbdabb442)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/mgag200/mgag200_g200se.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/mgag200/mgag200_g200se.c b/drivers/gpu/drm/mgag200/mgag200_g200se.c
+index be389ed91cbd..bd6e573c9a1a 100644
+--- a/drivers/gpu/drm/mgag200/mgag200_g200se.c
++++ b/drivers/gpu/drm/mgag200/mgag200_g200se.c
+@@ -284,7 +284,8 @@ static void mgag200_g200se_04_pixpllc_atomic_update(struct drm_crtc *crtc,
+ 	pixpllcp = pixpllc->p - 1;
+ 	pixpllcs = pixpllc->s;
+ 
+-	xpixpllcm = pixpllcm | ((pixpllcn & BIT(8)) >> 1);
++	// For G200SE A, BIT(7) should be set unconditionally.
++	xpixpllcm = BIT(7) | pixpllcm;
+ 	xpixpllcn = pixpllcn;
+ 	xpixpllcp = (pixpllcs << 3) | pixpllcp;
+ 

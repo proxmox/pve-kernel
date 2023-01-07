@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Date: Thu, 15 Dec 2022 14:46:21 -0500
+Subject: [PATCH] mm/mempolicy: fix memory leak in set_mempolicy_home_node
+ system call
+
+commit 38ce7c9bdfc228c14d7621ba36d3eebedd9d4f76 upstream.
+
+When encountering any vma in the range with policy other than MPOL_BIND or
+MPOL_PREFERRED_MANY, an error is returned without issuing a mpol_put on
+the policy just allocated with mpol_dup().
+
+This allows arbitrary users to leak kernel memory.
+
+Link: https://lkml.kernel.org/r/20221215194621.202816-1-mathieu.desnoyers@efficios.com
+Fixes: c6018b4b2549 ("mm/mempolicy: add set_mempolicy_home_node syscall")
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Reviewed-by: Randy Dunlap <rdunlap@infradead.org>
+Reviewed-by: "Huang, Ying" <ying.huang@intel.com>
+Reviewed-by: Aneesh Kumar K.V <aneesh.kumar@linux.ibm.com>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Cc: Aneesh Kumar K.V <aneesh.kumar@linux.ibm.com>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Feng Tang <feng.tang@intel.com>
+Cc: Michal Hocko <mhocko@kernel.org>
+Cc: Andrea Arcangeli <aarcange@redhat.com>
+Cc: Mel Gorman <mgorman@techsingularity.net>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>
+Cc: Randy Dunlap <rdunlap@infradead.org>
+Cc: Vlastimil Babka <vbabka@suse.cz>
+Cc: Andi Kleen <ak@linux.intel.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Huang Ying <ying.huang@intel.com>
+Cc: <stable@vger.kernel.org>	[5.17+]
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 0ce4cc6d269ddc448a825955b495f662f5d9e153)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/mempolicy.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/mm/mempolicy.c b/mm/mempolicy.c
+index 61aa9aedb728..02c8a712282f 100644
+--- a/mm/mempolicy.c
++++ b/mm/mempolicy.c
+@@ -1540,6 +1540,7 @@ SYSCALL_DEFINE4(set_mempolicy_home_node, unsigned long, start, unsigned long, le
+ 		 * the home node for vmas we already updated before.
+ 		 */
+ 		if (new->mode != MPOL_BIND && new->mode != MPOL_PREFERRED_MANY) {
++			mpol_put(new);
+ 			err = -EOPNOTSUPP;
+ 			break;
+ 		}
