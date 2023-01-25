@@ -2,5 +2,5 @@
 	path = submodules/zfsonlinux
 	url = ../zfsonlinux
 [submodule "submodules/ubuntu-jammy"]
-	path = submodules/ubuntu-jammy
+	path = submodules/ubuntu-kernel
 	url = ../mirror_ubuntu-jammy-kernel
