@@ -1,3 +1,11 @@
+pve-kernel (6.1.6-1) bullseye; urgency=medium
+
+  * update ZFS to 2.1.9
+
+  * update to Ubuntu-6.1.0-14.14 based on upstream 6.1.6
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 28 Jan 2023 15:05:09 +0100
+
 pve-kernel (6.1.2-1) bullseye; urgency=medium
 
   * backport ZFS compat fixes for Linux 6.1 w.r.t. a OTMPFILE open syscall
