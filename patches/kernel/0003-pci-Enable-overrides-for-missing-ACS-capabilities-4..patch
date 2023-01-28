@@ -55,10 +55,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 111 insertions(+)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index ff56a4fe3f95..100342e59f45 100644
+index 7ab595b21b24..87caff8d4561 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4155,6 +4155,15 @@
+@@ -4172,6 +4172,15 @@
  				Also, it enforces the PCI Local Bus spec
  				rule that those bits should be 0 in system reset
  				events (useful for kexec/kdump cases).
