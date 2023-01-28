@@ -40,7 +40,7 @@ index 19c04412f6e1..cff765545738 100644
  
  	int (*mem_enc_ioctl)(struct kvm *kvm, void __user *argp);
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 497cf9e08cc7..d0a70517e042 100644
+index 48173cb63f7a..66fb9420842c 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
 @@ -2582,16 +2582,18 @@ static int rsm_load_state_64(struct x86_emulate_ctxt *ctxt,
@@ -143,10 +143,10 @@ index 92b30b4937fc..f7f58c4cf341 100644
  		return 0;
  
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index 98526e708f32..f3a0b4f0b9d5 100644
+index eecf8a45446d..017fe8873620 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -7734,7 +7734,7 @@ static int vmx_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
+@@ -7738,7 +7738,7 @@ static int vmx_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
  	return !is_smm(vcpu);
  }
  
@@ -155,7 +155,7 @@ index 98526e708f32..f3a0b4f0b9d5 100644
  {
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  
-@@ -7748,7 +7748,7 @@ static int vmx_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
+@@ -7752,7 +7752,7 @@ static int vmx_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
  	return 0;
  }
  
@@ -165,10 +165,10 @@ index 98526e708f32..f3a0b4f0b9d5 100644
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  	int ret;
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 6a22f8933b23..e4cffaeddc2c 100644
+index 8e6e85720242..ebd4315080cd 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7877,9 +7877,9 @@ static void emulator_exiting_smm(struct x86_emulate_ctxt *ctxt)
+@@ -7943,9 +7943,9 @@ static void emulator_exiting_smm(struct x86_emulate_ctxt *ctxt)
  }
  
  static int emulator_leave_smm(struct x86_emulate_ctxt *ctxt,
@@ -180,7 +180,7 @@ index 6a22f8933b23..e4cffaeddc2c 100644
  }
  
  static void emulator_triple_fault(struct x86_emulate_ctxt *ctxt)
-@@ -9788,25 +9788,25 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9872,25 +9872,25 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  	struct kvm_segment cs, ds;
  	struct desc_ptr dt;
  	unsigned long cr0;
