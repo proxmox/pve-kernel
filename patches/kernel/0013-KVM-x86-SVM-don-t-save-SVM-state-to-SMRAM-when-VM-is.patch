@@ -3,6 +3,9 @@ From: Maxim Levitsky <mlevitsk@redhat.com>
 Date: Wed, 3 Aug 2022 18:50:10 +0300
 Subject: [PATCH] KVM: x86: SVM: don't save SVM state to SMRAM when VM is not
  long mode capable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 When the guest CPUID doesn't have support for long mode, 32 bit SMRAM
 layout is used and it has no support for preserving EFER and/or SVM
@@ -14,6 +17,7 @@ mode.
 
 Signed-off-by: Maxim Levitsky <mlevitsk@redhat.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  arch/x86/kvm/svm/svm.c | 9 +++++++++
  1 file changed, 9 insertions(+)

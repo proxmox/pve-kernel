@@ -2,6 +2,9 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Maxim Levitsky <mlevitsk@redhat.com>
 Date: Wed, 3 Aug 2022 18:50:02 +0300
 Subject: [PATCH] KVM: x86: emulator: update the emulation mode after rsm
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 This ensures that RIP will be correctly written back,
 because the RSM instruction can switch the CPU mode from
@@ -12,6 +15,7 @@ while the guest runs a code from an address > 32 bit.
 
 Signed-off-by: Maxim Levitsky <mlevitsk@redhat.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  arch/x86/kvm/emulate.c | 5 +++++
  1 file changed, 5 insertions(+)

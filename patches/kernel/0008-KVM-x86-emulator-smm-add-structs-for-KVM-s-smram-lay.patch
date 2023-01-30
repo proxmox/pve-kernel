@@ -2,6 +2,9 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Maxim Levitsky <mlevitsk@redhat.com>
 Date: Wed, 3 Aug 2022 18:50:05 +0300
 Subject: [PATCH] KVM: x86: emulator/smm: add structs for KVM's smram layout
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 Those structs will be used to read/write the smram state image.
 
@@ -10,6 +13,7 @@ layout that is used by real Intel/AMD cpus.
 
 Signed-off-by: Maxim Levitsky <mlevitsk@redhat.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  arch/x86/kvm/emulate.c     |   6 +
  arch/x86/kvm/kvm_emulate.h | 218 +++++++++++++++++++++++++++++++++++++

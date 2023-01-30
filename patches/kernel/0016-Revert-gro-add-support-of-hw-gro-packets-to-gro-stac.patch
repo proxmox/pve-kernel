@@ -2,6 +2,9 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Thomas Lamprecht <t.lamprecht@proxmox.com>
 Date: Sat, 7 Jan 2023 13:50:22 +0100
 Subject: [PATCH] Revert "gro: add support of (hw)gro packets to gro stack"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 Seems to be the cause of a regression in network performance:
 https://lore.kernel.org/netdev/CAK8fFZ5pzMaw3U1KXgC_OK4shKGsN=HDcR62cfPOuL0umXE1Ww@mail.gmail.com/
@@ -9,6 +12,7 @@ https://lore.kernel.org/netdev/CAK8fFZ5pzMaw3U1KXgC_OK4shKGsN=HDcR62cfPOuL0umXE1
 This reverts commit 5eddb24901ee49eee23c0bfce6af2e83fd5679bd.
 
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  net/core/gro.c         | 18 ++++--------------
  net/ipv4/tcp_offload.c | 17 ++---------------

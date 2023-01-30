@@ -3,6 +3,9 @@ From: Maxim Levitsky <mlevitsk@redhat.com>
 Date: Wed, 3 Aug 2022 18:50:08 +0300
 Subject: [PATCH] KVM: x86: emulator/smm: use smram struct for 64 bit smram
  load/restore
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 Use kvm_smram_state_64 struct to save/restore the 64 bit SMM state
 (used when X86_FEATURE_LM is present in the guest CPUID,
@@ -10,6 +13,7 @@ regardless of 32-bitness of the guest).
 
 Signed-off-by: Maxim Levitsky <mlevitsk@redhat.com>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  arch/x86/kvm/emulate.c | 88 ++++++++++++++----------------------------
  arch/x86/kvm/x86.c     | 75 ++++++++++++++++-------------------

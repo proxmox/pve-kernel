@@ -2,10 +2,14 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Thomas Lamprecht <t.lamprecht@proxmox.com>
 Date: Tue, 10 Jan 2023 08:52:40 +0100
 Subject: [PATCH] Revert "fortify: Do not cast to "unsigned char""
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 This reverts commit 106b7a61c488d2022f44e3531ce33461c7c0685f.
 
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  include/linux/fortify-string.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

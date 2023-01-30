@@ -2,6 +2,9 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Thomas Lamprecht <t.lamprecht@proxmox.com>
 Date: Sat, 7 Jan 2023 13:48:41 +0100
 Subject: [PATCH] Revert "RDMA/irdma: Report the correct link speed"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 seem to cause a regression with some NICs:
 https://lore.kernel.org/netdev/CAK8fFZ6A_Gphw_3-QMGKEFQk=sfCw1Qmq0TVZK3rtAi7vb621A@mail.gmail.com/
@@ -9,6 +12,7 @@ https://lore.kernel.org/netdev/CAK8fFZ6A_Gphw_3-QMGKEFQk=sfCw1Qmq0TVZK3rtAi7vb62
 This reverts commit e8553504e366c8a47d1f6156c30d6eb9778cda13.
 
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  drivers/infiniband/hw/irdma/verbs.c | 35 ++++++++++++++++++++++++++---
  1 file changed, 32 insertions(+), 3 deletions(-)
