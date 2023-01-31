@@ -1,0 +1,58 @@
+From 025cbf4866306fe4823e8c316c20bdaddc6a0340 Mon Sep 17 00:00:00 2001
+From: Vlastimil Babka <vbabka@suse.cz>
+Date: Fri, 13 Jan 2023 18:33:45 +0100
+Subject: Revert "mm/compaction: fix set skip in fast_find_migrateblock"
+
+commit 95e7a450b8190673675836bfef236262ceff084a upstream.
+
+This reverts commit 7efc3b7261030da79001c00d92bc3392fd6c664c.
+
+We have got openSUSE reports (Link 1) for 6.1 kernel with khugepaged
+stalling CPU for long periods of time.  Investigation of tracepoint data
+shows that compaction is stuck in repeating fast_find_migrateblock()
+based migrate page isolation, and then fails to migrate all isolated
+pages.
+
+Commit 7efc3b726103 ("mm/compaction: fix set skip in fast_find_migrateblock")
+was suspected as it was merged in 6.1 and in theory can indeed remove a
+termination condition for fast_find_migrateblock() under certain
+conditions, as it removes a place that always marks a scanned pageblock
+from being re-scanned.  There are other such places, but those can be
+skipped under certain conditions, which seems to match the tracepoint
+data.
+
+Testing of revert also appears to have resolved the issue, thus revert
+the commit until a more robust solution for the original problem is
+developed.
+
+It's also likely this will fix qemu stalls with 6.1 kernel reported in
+Link 2, but that is not yet confirmed.
+
+Link: https://bugzilla.suse.com/show_bug.cgi?id=1206848
+Link: https://lore.kernel.org/kvm/b8017e09-f336-3035-8344-c549086c2340@kernel.org/
+Link: https://lore.kernel.org/lkml/20230125134434.18017-1-mgorman@techsingularity.net/
+Fixes: 7efc3b726103 ("mm/compaction: fix set skip in fast_find_migrateblock")
+Cc: <stable@vger.kernel.org>
+Tested-by: Pedro Falcato <pedro.falcato@gmail.com>
+Acked-by: Mel Gorman <mgorman@techsingularity.net>
+Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ mm/compaction.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/mm/compaction.c b/mm/compaction.c
+index ca1603524bbe0..8238e83385a79 100644
+--- a/mm/compaction.c
++++ b/mm/compaction.c
+@@ -1839,6 +1839,7 @@ static unsigned long fast_find_migrateblock(struct compact_control *cc)
+ 					pfn = cc->zone->zone_start_pfn;
+ 				cc->fast_search_fail = 0;
+ 				found_block = true;
++				set_pageblock_skip(freepage);
+ 				break;
+ 			}
+ 		}
+-- 
+cgit 
