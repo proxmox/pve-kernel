@@ -1,3 +1,9 @@
+pve-kernel (6.1.10-1) bullseye; urgency=medium
+
+  * update to Proxmox-6.1.10-1
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 07 Feb 2023 14:10:10 +0100
+
 pve-kernel (6.1.6-1) bullseye; urgency=medium
 
   * update ZFS to 2.1.9
