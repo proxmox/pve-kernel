@@ -149,6 +149,10 @@ amdgpu/gc_11_0_3_mes1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_mes.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_4_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_4_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_4_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_4_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/green_sardine_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/green_sardine_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/green_sardine_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -362,6 +366,8 @@ amdgpu/psp_13_0_0_sos.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_0_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_10_sos.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_10_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/psp_13_0_11_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/psp_13_0_11_toc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_4_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_4_toc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_5_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -611,13 +617,9 @@ ath6k/AR6004/hw1.1/bdata.DB132.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl
 ath6k/AR6004/hw1.1/bdata.DB132.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
 ath6k/AR6004/hw1.1/fw.ram.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_sdio.ko
 ath6k/AR6004/hw1.2/bdata.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_sdio.ko
-ath6k/AR6004/hw1.2/bdata.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_sdio.ko
-ath6k/AR6004/hw1.2/bdata.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
 ath6k/AR6004/hw1.2/bdata.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
 ath6k/AR6004/hw1.2/fw.ram.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_sdio.ko
 ath6k/AR6004/hw1.3/bdata.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_sdio.ko
-ath6k/AR6004/hw1.3/bdata.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_sdio.ko
-ath6k/AR6004/hw1.3/bdata.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
 ath6k/AR6004/hw1.3/bdata.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
 ath6k/AR6004/hw1.3/fw.ram.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_sdio.ko
 ath6k/AR6004/hw1.3/fw.ram.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
@@ -929,8 +931,6 @@ f2255usb.bin kernel/drivers/media/usb/s2255/s2255drv.ko
 fm_radio.inp kernel/drivers/media/common/siano/smsmdtv.ko
 fm_radio_rio.inp kernel/drivers/media/common/siano/smsmdtv.ko
 fw.ram.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
-fw.ram.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
-fw.ram.bin kernel/drivers/net/wireless/ath/ath6kl/ath6kl_usb.ko
 go7007/go7007fw.bin kernel/drivers/media/usb/go7007/go7007.ko
 go7007/go7007tv.bin kernel/drivers/media/pci/saa7134/saa7134-go7007.ko
 go7007/go7007tv.bin kernel/drivers/media/usb/go7007/go7007.ko
@@ -960,8 +960,6 @@ i915/dg1_huc.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/dg2_dmc_ver2_07.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/dg2_guc_70.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/ehl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/ehl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/ehl_huc_9.0.0.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/ehl_huc_9.0.0.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/glk_dmc_ver1_04.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/glk_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
@@ -971,10 +969,6 @@ i915/icl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/icl_huc_9.0.0.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/kbl_dmc_ver1_04.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/kbl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/kbl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/kbl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/kbl_huc_4.0.0.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/kbl_huc_4.0.0.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/kbl_huc_4.0.0.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/rkl_dmc_ver2_03.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/skl_dmc_ver1_27.bin kernel/drivers/gpu/drm/i915/i915.ko
@@ -983,14 +977,8 @@ i915/skl_huc_2.0.0.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/tgl_dmc_ver2_12.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/tgl_guc_69.0.3.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/tgl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/tgl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/tgl_guc_70.1.1.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/tgl_guc_70.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/tgl_huc_7.9.3.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/tgl_huc_7.9.3.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/tgl_huc_7.9.3.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/tgl_huc_7.9.3.bin kernel/drivers/gpu/drm/i915/i915.ko
-i915/tgl_huc.bin kernel/drivers/gpu/drm/i915/i915.ko
 i915/tgl_huc.bin kernel/drivers/gpu/drm/i915/i915.ko
 idt82p33xxx.bin kernel/drivers/ptp/ptp_idt82p33.ko
 ifpp.bin kernel/drivers/crypto/inside-secure/crypto_safexcel.ko
@@ -2022,7 +2010,6 @@ v4l-cx23885-enc.fw kernel/drivers/media/usb/cx231xx/cx231xx.ko
 v4l-cx25840.fw kernel/drivers/media/i2c/cx25840/cx25840.ko
 v4l-pvrusb2-24xxx-01.fw kernel/drivers/media/usb/pvrusb2/pvrusb2.ko
 v4l-pvrusb2-29xxx-01.fw kernel/drivers/media/usb/pvrusb2/pvrusb2.ko
-v4l-pvrusb2-73xxx-01.fw kernel/drivers/media/usb/pvrusb2/pvrusb2.ko
 v4l-pvrusb2-73xxx-01.fw kernel/drivers/media/usb/pvrusb2/pvrusb2.ko
 vicam/firmware.fw kernel/drivers/media/usb/gspca/gspca_vicam.ko
 vntwusb.fw kernel/drivers/staging/vt6656/vt6656_stage.ko
