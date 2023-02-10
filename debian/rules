@@ -12,7 +12,7 @@ include debian/rules.d/env.mk
 include debian/rules.d/${DEB_BUILD_ARCH}.mk
 
 CHANGELOG_DATE:=$(shell dpkg-parsechangelog -SDate)
-CHANGELOG_DATE_UTC_ISO := $(shell date -u -d '$(SOURCE_DATE)' +%Y-%m-%dT%H:%MZ)
+CHANGELOG_DATE_UTC_ISO := $(shell date -u -d '$(CHANGELOG_DATE)' +%Y-%m-%dT%H:%MZ)
 
 PVE_KERNEL_PKG=pve-kernel-${KVNAME}
 PVE_DEBUG_KERNEL_PKG=pve-kernel-${KVNAME}-dbgsym
