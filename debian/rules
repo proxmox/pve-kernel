@@ -51,7 +51,13 @@ PVE_CONFIG_OPTS= \
 -e CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE \
 -e CONFIG_SYSFB_SIMPLEFB \
 -e CONFIG_DRM_SIMPLEDRM \
--d CONFIG_MODULE_SIG \
+-e CONFIG_MODULE_SIG \
+-e CONFIG_MODULE_SIG_ALL \
+-e CONFIG_MODULE_SIG_FORMAT \
+--set-str CONFIG_MODULE_SIG_HASH sha512 \
+--set-str CONFIG_MODULE_SIG_KEY certs/signing_key.pem \
+-e CONFIG_MODULE_SIG_KEY_TYPE_RSA \
+-e CONFIG_MODULE_SIG_SHA512 \
 -d CONFIG_MEMCG_DISABLED \
 -e CONFIG_MEMCG_SWAP_ENABLED \
 -e CONFIG_HYPERV \
@@ -82,11 +88,11 @@ PVE_CONFIG_OPTS= \
 -d CONFIG_UNWINDER_ORC \
 -d CONFIG_UNWINDER_GUESS \
 -e CONFIG_UNWINDER_FRAME_POINTER \
---set-str CONFIG_SYSTEM_TRUSTED_KEYS ""\
+--set-str CONFIG_SYSTEM_TRUSTED_KEYS "../debian/certs/combined.pem"\
 --set-str CONFIG_SYSTEM_REVOCATION_KEYS ""\
--d CONFIG_SECURITY_LOCKDOWN_LSM \
--d CONFIG_SECURITY_LOCKDOWN_LSM_EARLY \
---set-str CONFIG_LSM yama,integrity,apparmor \
+-e CONFIG_SECURITY_LOCKDOWN_LSM \
+-e CONFIG_SECURITY_LOCKDOWN_LSM_EARLY \
+--set-str CONFIG_LSM lockdown,yama,integrity,apparmor \
 -e CONFIG_PAGE_TABLE_ISOLATION
 
 debian/control: $(wildcard debian/*.in)
@@ -99,6 +105,9 @@ debian/control: $(wildcard debian/*.in)
 	chmod +x debian/${PVE_KERNEL_PKG}.postinst
 	chmod +x debian/${PVE_HEADER_PKG}.postinst
 	sed -e 's/@KVNAME@/${KVNAME}/g' -e 's/@KVMAJMIN@/${KERNEL_MAJMIN}/g' < debian/control.in > debian/control
+
+	# combine trusted certificates
+	cat debian/certs/*.pem > debian/certs/combined.pem
 
 build: .compile_mark .tools_compile_mark .modules_compile_mark
 
@@ -161,6 +170,14 @@ endif
 
 	# strip debug info
 	find debian/${PVE_KERNEL_PKG}/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
+
+	# sign modules using ephemeral, embedded key
+	if grep -q CONFIG_MODULE_SIG=y ubuntu-kernel/.config ; then \
+		find debian/${PVE_KERNEL_PKG}/lib/modules -name \*.ko -print | while read f ; do \
+			./ubuntu-kernel/scripts/sign-file sha512 ./ubuntu-kernel/certs/signing_key.pem ubuntu-kernel/certs/signing_key.x509 "$$f" ; \
+		done; \
+		rm ./ubuntu-kernel/certs/signing_key.pem ; \
+	fi
 	# finalize
 	/sbin/depmod -b debian/${PVE_KERNEL_PKG}/ ${KVNAME}
 	# Autogenerate blacklist for watchdog devices (see README)
