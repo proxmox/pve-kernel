@@ -15,7 +15,7 @@ Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/linux/fortify-string.h b/include/linux/fortify-string.h
-index 5001a11258e4..1067a8450826 100644
+index 7cad8bb031e9..acc24887db3e 100644
 --- a/include/linux/fortify-string.h
 +++ b/include/linux/fortify-string.h
 @@ -18,7 +18,7 @@ void __write_overflow_field(size_t avail, size_t wanted) __compiletime_warning("

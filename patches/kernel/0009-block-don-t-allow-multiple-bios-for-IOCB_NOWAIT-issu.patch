@@ -24,12 +24,13 @@ Reported-and-tested-by: Michael Kelley <mikelley@microsoft.com>
 Signed-off-by: Jens Axboe <axboe@kernel.dk>
 (commit 67d59247d4b52c917e373f05a807027756ab216f upstream)
 Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  block/fops.c | 21 ++++++++++++++++++---
  1 file changed, 18 insertions(+), 3 deletions(-)
 
 diff --git a/block/fops.c b/block/fops.c
-index b90742595317..e406aa605327 100644
+index 50d245e8c913..d2e6be4e3d1c 100644
 --- a/block/fops.c
 +++ b/block/fops.c
 @@ -221,6 +221,24 @@ static ssize_t __blkdev_direct_IO(struct kiocb *iocb, struct iov_iter *iter,
