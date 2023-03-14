@@ -143,10 +143,10 @@ index 6deb0553ff01..703d63ea1398 100644
  		return 0;
  
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index cbf61741d39f..7ee57827710a 100644
+index f22a8c24de83..6e858effb3e4 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -7604,7 +7604,7 @@ static int vmx_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
+@@ -7606,7 +7606,7 @@ static int vmx_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
  	return !is_smm(vcpu);
  }
  
@@ -155,7 +155,7 @@ index cbf61741d39f..7ee57827710a 100644
  {
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  
-@@ -7618,7 +7618,7 @@ static int vmx_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
+@@ -7620,7 +7620,7 @@ static int vmx_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
  	return 0;
  }
  
