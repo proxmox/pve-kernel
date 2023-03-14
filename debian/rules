@@ -85,6 +85,7 @@ PVE_CONFIG_OPTS= \
 -d CONFIG_SECURITY_LOCKDOWN_LSM \
 -d CONFIG_SECURITY_LOCKDOWN_LSM_EARLY \
 --set-str CONFIG_LSM yama,integrity,apparmor \
+-d MICROCODE_LATE_LOADING \
 -e CONFIG_PAGE_TABLE_ISOLATION
 
 debian/control: $(wildcard debian/*.in)

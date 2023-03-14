@@ -22,7 +22,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 8 insertions(+), 16 deletions(-)
 
 diff --git a/block/blk-cgroup.c b/block/blk-cgroup.c
-index ce5858dadca5..aa43ed94deb6 100644
+index 3ee4c1217b63..0e15a9345966 100644
 --- a/block/blk-cgroup.c
 +++ b/block/blk-cgroup.c
 @@ -887,7 +887,6 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
@@ -64,10 +64,10 @@ index ce5858dadca5..aa43ed94deb6 100644
  
  static int blkcg_print_stat(struct seq_file *sf, void *v)
 diff --git a/block/blk-iocost.c b/block/blk-iocost.c
-index 069193dee95b..352c43ab95e5 100644
+index bd7e9ffa5d40..66d68390e882 100644
 --- a/block/blk-iocost.c
 +++ b/block/blk-iocost.c
-@@ -3011,13 +3011,13 @@ static void ioc_pd_free(struct blkg_policy_data *pd)
+@@ -3016,13 +3016,13 @@ static void ioc_pd_free(struct blkg_policy_data *pd)
  	kfree(iocg);
  }
  
@@ -83,7 +83,7 @@ index 069193dee95b..352c43ab95e5 100644
  
  	if (iocg->level == 0) {
  		unsigned vp10k = DIV64_U64_ROUND_CLOSEST(
-@@ -3033,7 +3033,6 @@ static bool ioc_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
+@@ -3038,7 +3038,6 @@ static bool ioc_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
  			iocg->last_stat.wait_us,
  			iocg->last_stat.indebt_us,
  			iocg->last_stat.indelay_us);

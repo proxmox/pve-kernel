@@ -105,10 +105,10 @@ index 0b2bbcce321a..3b37b3e17379 100644
  	int (*set_xcr)(struct x86_emulate_ctxt *ctxt, u32 index, u64 xcr);
  };
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 6deb0553ff01..703d63ea1398 100644
+index b0b87c36be3d..545e321998d3 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -4299,12 +4299,14 @@ static int svm_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
+@@ -4317,12 +4317,14 @@ static int svm_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
  	return !svm_smi_blocked(vcpu);
  }
  
@@ -124,7 +124,7 @@ index 6deb0553ff01..703d63ea1398 100644
  	if (!is_guest_mode(vcpu))
  		return 0;
  
-@@ -4346,7 +4348,7 @@ static int svm_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
+@@ -4364,7 +4366,7 @@ static int svm_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
  	return 0;
  }
  
@@ -133,7 +133,7 @@ index 6deb0553ff01..703d63ea1398 100644
  {
  	struct vcpu_svm *svm = to_svm(vcpu);
  	struct kvm_host_map map, map_save;
-@@ -4354,6 +4356,8 @@ static int svm_leave_smm(struct kvm_vcpu *vcpu, const char *smstate)
+@@ -4372,6 +4374,8 @@ static int svm_leave_smm(struct kvm_vcpu *vcpu, const char *smstate)
  	struct vmcb *vmcb12;
  	int ret;
  
@@ -143,10 +143,10 @@ index 6deb0553ff01..703d63ea1398 100644
  		return 0;
  
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index f22a8c24de83..6e858effb3e4 100644
+index 61da2d9fa01f..4faac9fea269 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -7606,7 +7606,7 @@ static int vmx_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
+@@ -7603,7 +7603,7 @@ static int vmx_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
  	return !is_smm(vcpu);
  }
  
@@ -155,7 +155,7 @@ index f22a8c24de83..6e858effb3e4 100644
  {
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  
-@@ -7620,7 +7620,7 @@ static int vmx_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
+@@ -7617,7 +7617,7 @@ static int vmx_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
  	return 0;
  }
  
@@ -165,10 +165,10 @@ index f22a8c24de83..6e858effb3e4 100644
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  	int ret;
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 6b3c5e4df3e8..dd496c99d984 100644
+index aba497add3d3..714ebf2c3125 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7421,9 +7421,9 @@ static void emulator_exiting_smm(struct x86_emulate_ctxt *ctxt)
+@@ -7440,9 +7440,9 @@ static void emulator_exiting_smm(struct x86_emulate_ctxt *ctxt)
  }
  
  static int emulator_leave_smm(struct x86_emulate_ctxt *ctxt,
@@ -180,7 +180,7 @@ index 6b3c5e4df3e8..dd496c99d984 100644
  }
  
  static void emulator_triple_fault(struct x86_emulate_ctxt *ctxt)
-@@ -9300,25 +9300,25 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9321,25 +9321,25 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  	struct kvm_segment cs, ds;
  	struct desc_ptr dt;
  	unsigned long cr0;
