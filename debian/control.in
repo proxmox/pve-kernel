@@ -79,6 +79,13 @@ Description: Proxmox Kernel debug image
  to analyze kernel crashes. This package also contains the proxmox-kernel modules
  in their unstripped version.
 
+Package: proxmox-kernel-@KVNAME@-signed-template
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}, make | build-essential | dpkg-dev
+Description: Template for signed kernel package
+ This package is used to control code signing by the Proxmox signing
+ service.
+
 Package: proxmox-kernel-libc-dev
 Section: devel
 Priority: optional
