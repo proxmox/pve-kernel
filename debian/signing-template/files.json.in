@@ -1,0 +1,13 @@
+{
+	"packages": {
+		"pve-kernel-@KVNAME@": {
+			"trusted_certs": [],
+			"files": [
+				{
+					"sig_type": "efi",
+					"file": "boot/vmlinuz-@KVNAME@"
+				}
+			]
+		}
+	}
+}

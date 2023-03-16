@@ -1,0 +1,25 @@
+Source: pve-kernel-signed
+Section: kernel
+Priority: optional
+Maintainer: Proxmox Support Team <support@proxmox.com>
+Standards-Version: 4.2.0
+Build-Depends: debhelper-compat (= 12), dh-exec, python3:any, rsync, sbsigntool, pve-kernel-@KVNAME@ (= @UNSIGNED_VERSION@)
+Rules-Requires-Root: no
+Vcs-Git: git://git.proxmox.com/git/pve-kernel
+Vcs-Browser: https://git.proxmox.com/?p=pve-kernel.git
+
+Package: pve-kernel-@KVNAME@-signed
+Section: admin
+Priority: optional
+Architecture: any
+Provides: linux-image-@KVNAME@-amd64, pve-kernel-@KVNAME@
+Depends: ${unsigned:Depends}, ${misc:Depends}
+Recommends: ${unsigned:Recommends}
+Suggests: ${unsigned:Suggests}
+Breaks: ${unsigned:Breaks}
+Conflicts: pve-kernel-@KVNAME@
+Replaces: pve-kernel-@KVNAME@
+Description: ${unsigned:DescriptionShort} (signed)
+ ${unsigned:DescriptionLong}
+ .
+ This package contains the kernel image signed by the Proxmox Secure Boot CA.

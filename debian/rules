@@ -18,6 +18,8 @@ PVE_KERNEL_PKG=pve-kernel-${KVNAME}
 PVE_DEBUG_KERNEL_PKG=pve-kernel-${KVNAME}-dbgsym
 PVE_HEADER_PKG=pve-headers-${KVNAME}
 PVE_USR_HEADER_PKG=pve-kernel-libc-dev
+PVE_KERNEL_SIGNING_TEMPLATE_PKG=pve-kernel-${KVNAME}-signed-template
+PVE_KERNEL_SIGNED_VERSION := $(shell echo ${DEB_VERSION} | sed -e 's/-/+/')
 LINUX_TOOLS_PKG=linux-tools-${KERNEL_MAJMIN}
 KERNEL_SRC_COPY=${KERNEL_SRC}_tmp
 
@@ -109,6 +111,17 @@ debian/control: $(wildcard debian/*.in)
 	# combine trusted certificates
 	cat debian/certs/*.pem > debian/certs/combined.pem
 
+	# signing-template
+	sed -e '1 s/pve-kernel/pve-kernel-signed/' -e '1 s/${DEB_VERSION}/${PVE_KERNEL_SIGNED_VERSION}/' < debian/changelog > debian/signing-template/changelog
+	sed -e 's/@KVNAME@/${KVNAME}/g' -e 's/@UNSIGNED_VERSION@/${DEB_VERSION}/g' < debian/signing-template/control.in > debian/signing-template/control
+	sed -e 's/@KVNAME@/${KVNAME}/g' < debian/signing-template/files.json.in > debian/signing-template/files.json
+	sed -e 's/@KVNAME@/${KVNAME}/g' -e 's/@PKG_VERSION@/${DEB_VERSION}/' < debian/signing-template/rules.in > debian/signing-template/rules
+	sed -e 's/@@KVNAME@@/${KVNAME}/g' < debian/pve-kernel.prerm.in > debian/signing-template/prerm
+	sed -e 's/@@KVNAME@@/${KVNAME}/g' < debian/pve-kernel.postrm.in > debian/signing-template/postrm
+	sed -e 's/@@KVNAME@@/${KVNAME}/g' < debian/pve-kernel.postinst.in > debian/signing-template/postinst
+	rm debian/signing-template/*.in
+	cp debian/SOURCE debian/signing-template/
+
 build: .compile_mark .tools_compile_mark .modules_compile_mark
 
 install: .install_mark .tools_install_mark .headers_install_mark .usr_headers_install_mark
@@ -187,6 +200,22 @@ endif
 	cat watchdog-blacklist.tmp|sed -e 's/^/blacklist /' -e 's/.ko$$//'|sort -u > debian/${PVE_KERNEL_PKG}/lib/modprobe.d/blacklist_${PVE_KERNEL_PKG}.conf
 	rm -f debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}/source
 	rm -f debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}/build
+
+	# copy signing template contents
+	rm -rf debian/${PVE_KERNEL_SIGNING_TEMPLATE_PKG}
+	mkdir -p debian/${PVE_KERNEL_SIGNING_TEMPLATE_PKG}/usr/share/code-signing/${PVE_KERNEL_SIGNING_TEMPLATE_PKG}/source-template/debian
+	cp -R debian/copyright \
+		debian/signing-template/rules \
+		debian/signing-template/control \
+		debian/signing-template/source \
+		debian/signing-template/changelog \
+		debian/signing-template/prerm \
+		debian/signing-template/postrm \
+		debian/signing-template/postinst \
+		debian/signing-template/SOURCE \
+		debian/${PVE_KERNEL_SIGNING_TEMPLATE_PKG}/usr/share/code-signing/${PVE_KERNEL_SIGNING_TEMPLATE_PKG}/source-template/debian
+	cp debian/signing-template/files.json debian/${PVE_KERNEL_SIGNING_TEMPLATE_PKG}/usr/share/code-signing/${PVE_KERNEL_SIGNING_TEMPLATE_PKG}/
+
 	touch $@
 
 .tools_compile_mark: .compile_mark
