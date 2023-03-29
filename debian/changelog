@@ -1,3 +1,9 @@
+pve-kernel (5.15.104-1) UNRELEASED; urgency=medium
+
+  * update to upstream ubuntu and stable tree's v5.15.104
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 29 Mar 2023 17:51:33 +0200
+
 pve-kernel (5.15.102-1) bullseye; urgency=medium
 
   * update to upstream ubuntu and stable tree's v5.15.102
