@@ -7120,7 +7120,6 @@ EXPORT_SYMBOL	 vmlinux 0x2ef24351	sk_alloc
 EXPORT_SYMBOL	 vmlinux 0x2efb7e7b	current_in_userns
 EXPORT_SYMBOL	 vmlinux 0x2efe00cc	dcbnl_cee_notify
 EXPORT_SYMBOL	 vmlinux 0x2f031ad3	page_zero_new_buffers
-EXPORT_SYMBOL	 vmlinux 0x2f03508e	should_remove_suid
 EXPORT_SYMBOL	 vmlinux 0x2f03fc4b	security_secmark_refcount_inc
 EXPORT_SYMBOL	 vmlinux 0x2f10dae4	pcim_iomap_table
 EXPORT_SYMBOL	 vmlinux 0x2f2e91b2	security_ib_alloc_security
@@ -8386,6 +8385,7 @@ EXPORT_SYMBOL	 vmlinux 0x6836abc8	seq_escape
 EXPORT_SYMBOL	 vmlinux 0x683a9560	__gnet_stats_copy_basic
 EXPORT_SYMBOL	 vmlinux 0x6845480f	inet6_del_offload
 EXPORT_SYMBOL	 vmlinux 0x684b2267	logfc
+EXPORT_SYMBOL	 vmlinux 0x684ff63d	mode_strip_sgid
 EXPORT_SYMBOL	 vmlinux 0x6851664e	wrmsrl_safe_on_cpu
 EXPORT_SYMBOL	 vmlinux 0x687b6a16	kdbgetsymval
 EXPORT_SYMBOL	 vmlinux 0x687bfb75	skb_abort_seq_read
@@ -9372,6 +9372,7 @@ EXPORT_SYMBOL	 vmlinux 0x944375db	_totalram_pages
 EXPORT_SYMBOL	 vmlinux 0x944a564d	is_console_locked
 EXPORT_SYMBOL	 vmlinux 0x944fec90	vmalloc_to_page
 EXPORT_SYMBOL	 vmlinux 0x9452b8f7	bdi_set_max_ratio
+EXPORT_SYMBOL	 vmlinux 0x94540e24	setattr_should_drop_suidgid
 EXPORT_SYMBOL	 vmlinux 0x945763fe	block_page_mkwrite
 EXPORT_SYMBOL	 vmlinux 0x945d6843	tcf_em_tree_destroy
 EXPORT_SYMBOL	 vmlinux 0x945dcb1b	tty_devnum
@@ -12139,6 +12140,7 @@ EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf3decdec	kvm_write_guest_offset_cached
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf4668dfb	__traceiter_kvm_vmgexit_enter
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf4a479ef	kvm_is_linear_rip
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf54e2886	__SCT__tp_func_kvm_vmgexit_msr_protocol_enter
+EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf5653b5f	kvm_apic_send_ipi
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf58cd640	__SCK__tp_func_kvm_exit
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf63fc27b	kvm_irq_has_notifier
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf936d402	kvm_msr_allowed
@@ -12951,83 +12953,83 @@ EXPORT_SYMBOL_GPL	 drivers/greybus/greybus 0xf85631d3	__traceiter_gb_hd_in
 EXPORT_SYMBOL_GPL	 drivers/greybus/greybus 0xf877302c	__SCK__tp_func_gb_hd_add
 EXPORT_SYMBOL_GPL	 drivers/greybus/greybus 0xfa087828	gb_hd_cport_reserve
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x05495392	hid_debug
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x05fa576d	hidinput_count_leds
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x0aafca6c	hidinput_disconnect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x0e897517	hid_hw_close
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x0625105f	__hid_register_driver
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x064f00c4	hid_destroy_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x0796950b	hidinput_calc_abs_res
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x09dc8d90	hid_hw_open
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x19d52f1f	hid_quirks_exit
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x1a2bf2cf	hid_register_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x1acae9ea	hidinput_calc_abs_res
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x1bbf6a25	hid_hw_open
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x1e3140ef	hid_open_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x20a7da82	hid_add_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x22bfab1b	hidraw_connect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x260f6bf5	hid_unregister_driver
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x2641893c	hid_resolv_usage
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x2a438667	hid_report_raw_event
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x2aa2836d	hid_parse_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3242ad43	hid_setup_resolution_multiplier
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3aee8846	hid_destroy_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3d5d038f	hid_debug_event
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3f3f1f5f	hid_connect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x455b7c4a	__hid_register_driver
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x47c569a6	hid_dump_input
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x4b03fbe3	hid_input_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x52f90ae3	hid_compare_device_paths
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x578f9266	hid_match_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x67c78de8	hid_lookup_quirk
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x6c040fa7	hidraw_report_event
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x6f449184	hid_output_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x7c5caabc	hidinput_connect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x32df60e2	hid_debug_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x33652e55	hidinput_disconnect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x385189a6	hid_dump_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x390a0323	hid_report_raw_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3cb51b5b	hid_output_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3d7accce	hid_ignore
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x44ce74a1	hidinput_count_leds
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x45d59ce3	hid_dump_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x4996c14d	hid_field_extract
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x4b298e5d	hid_lookup_quirk
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x4bdca187	hid_allocate_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x4c0135af	hid_input_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x4c49fbbf	hidraw_report_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x5acf88ed	hid_register_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x70647342	__hid_request
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x81355ebc	hidinput_connect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x8262b445	hid_compare_device_paths
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x8315fcc3	hid_connect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x897bbddf	hid_disconnect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x89b62102	hid_parse_report
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x8b13a8b8	hid_snto32
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x8d91ff2c	hidinput_find_field
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x93777478	hid_disconnect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x9537b330	hid_open_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x9ac63f23	hidinput_get_led_field
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x9dcfd83d	hid_check_keys_pressed
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xab55c422	hid_ignore
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xabb775bf	hid_dump_field
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xac18c8b9	hid_validate_values
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb11405dd	hid_add_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb4eb9a9e	hid_hw_start
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb7af7cb7	__hid_request
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xbc0b3054	hidraw_disconnect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xbf8f2b81	hidinput_report_event
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xc1800fd9	hid_allocate_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xc656fa19	hid_dump_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xcb52c801	hid_unregister_driver
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xdb940a2f	hid_hw_stop
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xdfe5b262	hid_dump_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xe154ceb2	hidraw_connect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xe82e16d1	hid_field_extract
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xf90bc99c	hid_alloc_report_buf
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xa949a9c3	hidinput_find_field
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb0fd0ba8	hid_alloc_report_buf
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb13007db	hid_check_keys_pressed
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xcb278eea	hidraw_disconnect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xcb6537fe	hid_match_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xcbea88ad	hid_dump_input
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xd0937203	hid_setup_resolution_multiplier
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xd7990952	hidinput_report_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xdd2ddf16	hid_hw_close
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xe8fafffb	hidinput_get_led_field
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xea400c47	hid_validate_values
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xece5b837	hid_dump_field
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xf080efb2	hid_hw_stop
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xfa355613	hid_quirks_init
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xfcc2bdaa	hid_set_field
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xfbfbb233	hid_set_field
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xff40130c	hid_hw_start
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat 0x2f622ea1	roccat_disconnect
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat 0x3e4427c8	roccat_report_event
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat 0x44dce950	roccat_connect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat 0xbe584582	roccat_connect
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x0285c910	roccat_common2_sysfs_read
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x052382ce	roccat_common2_receive
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x160c4d33	roccat_common2_device_init_struct
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x633520e9	roccat_common2_send
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x70b5d458	roccat_common2_send_with_status
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x87c8db2a	roccat_common2_sysfs_write
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x10c8dd65	sensor_hub_input_get_attribute_info
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x38aa511e	sensor_hub_set_feature
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x600305f6	sensor_hub_device_open
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x809eb1df	sensor_hub_remove_callback
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xa263c876	sensor_hub_input_attr_get_raw_value
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xa2667b46	hid_sensor_get_usage_index
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xc11bf156	sensor_hub_device_close
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xcd11f86e	sensor_hub_get_feature
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xdc399c7b	sensor_hub_register_callback
-EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0x26ede14c	i2c_hid_ll_driver
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x01c03d33	sensor_hub_set_feature
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x18fa0de8	sensor_hub_get_feature
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x20e8750c	hid_sensor_get_usage_index
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x5daaa59a	sensor_hub_remove_callback
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x77ff42d2	sensor_hub_device_close
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xa694e4c1	sensor_hub_register_callback
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xc3288b4c	sensor_hub_input_get_attribute_info
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xe2566550	sensor_hub_device_open
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xecf5445f	sensor_hub_input_attr_get_raw_value
 EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0x2b7bc6fa	i2c_hid_core_pm
 EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0x67201add	i2c_hid_core_shutdown
+EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0xde420668	i2c_hid_ll_driver
 EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0xef74ea68	i2c_hid_core_remove
 EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0xf439d564	i2c_hid_core_probe
 EXPORT_SYMBOL_GPL	 drivers/hid/intel-ish-hid/intel-ishtp 0x3ea69f0e	ishtp_wait_resume
-EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0x82c75203	surface_hid_device_destroy
-EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0x99b34d7b	surface_hid_device_add
+EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0x06c4b53a	surface_hid_device_add
+EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0x0f70226d	surface_hid_device_destroy
 EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0xb4ec52c2	surface_hid_pm_ops
-EXPORT_SYMBOL_GPL	 drivers/hid/uhid 0x9ab0c8a0	uhid_hid_driver
-EXPORT_SYMBOL_GPL	 drivers/hid/usbhid/usbhid 0x2ac7ca34	usb_hid_driver
-EXPORT_SYMBOL_GPL	 drivers/hid/usbhid/usbhid 0xb0ead72e	hiddev_hid_event
+EXPORT_SYMBOL_GPL	 drivers/hid/uhid 0x04684c2f	uhid_hid_driver
+EXPORT_SYMBOL_GPL	 drivers/hid/usbhid/usbhid 0x51bd3e62	hiddev_hid_event
+EXPORT_SYMBOL_GPL	 drivers/hid/usbhid/usbhid 0xbcfd81b9	usb_hid_driver
 EXPORT_SYMBOL_GPL	 drivers/hsi/hsi 0x07207dd0	hsi_claim_port
 EXPORT_SYMBOL_GPL	 drivers/hsi/hsi 0x208022f4	hsi_release_port
 EXPORT_SYMBOL_GPL	 drivers/hsi/hsi 0x20d1e93e	hsi_register_client_driver
@@ -14891,11 +14893,11 @@ EXPORT_SYMBOL_GPL	 drivers/net/dsa/realtek-smi 0xd8ffdf87	rtl8366_set_vlan
 EXPORT_SYMBOL_GPL	 drivers/net/dsa/realtek-smi 0xfcab073a	rtl8366_enable_vlan
 EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/i40e/i40e 0x1aa02ece	i40e_client_device_unregister
 EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/i40e/i40e 0xfa78da2a	i40e_client_device_register
-EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0x23483b29	ice_add_rdma_qset
-EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0x36fda31b	ice_rdma_request_reset
-EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0x47ab75a7	ice_del_rdma_qset
-EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0x5e57be0d	ice_rdma_update_vsi_filter
-EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0xc4366eca	ice_get_qos_params
+EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0x04b715b1	ice_add_rdma_qset
+EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0x543f07ec	ice_rdma_request_reset
+EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0x5546a028	ice_rdma_update_vsi_filter
+EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0x60545b3f	ice_del_rdma_qset
+EXPORT_SYMBOL_GPL	 drivers/net/ethernet/intel/ice/ice 0xe4c2cb3f	ice_get_qos_params
 EXPORT_SYMBOL_GPL	 drivers/net/ethernet/mellanox/mlx4/mlx4_core 0x03409e0b	mlx4_set_vf_mac
 EXPORT_SYMBOL_GPL	 drivers/net/ethernet/mellanox/mlx4/mlx4_core 0x04822a85	mlx4_mw_free
 EXPORT_SYMBOL_GPL	 drivers/net/ethernet/mellanox/mlx4/mlx4_core 0x0592c145	mlx4_wol_write
@@ -17761,7 +17763,7 @@ EXPORT_SYMBOL_GPL	 net/bluetooth/bluetooth 0xa5d3e3ef	l2cap_chan_create
 EXPORT_SYMBOL_GPL	 net/bluetooth/bluetooth 0xaec15448	l2cap_chan_put
 EXPORT_SYMBOL_GPL	 net/bluetooth/bluetooth 0xc4e2ee68	l2cap_chan_set_defaults
 EXPORT_SYMBOL_GPL	 net/bluetooth/bluetooth 0xcb4b162e	l2cap_chan_list
-EXPORT_SYMBOL_GPL	 net/bluetooth/hidp/hidp 0x3ac6259a	hidp_hid_driver
+EXPORT_SYMBOL_GPL	 net/bluetooth/hidp/hidp 0xfb2fea75	hidp_hid_driver
 EXPORT_SYMBOL_GPL	 net/core/failover 0x12b89260	failover_unregister
 EXPORT_SYMBOL_GPL	 net/core/failover 0x473f9a7d	failover_slave_unregister
 EXPORT_SYMBOL_GPL	 net/core/failover 0x4c90f362	failover_register
@@ -26168,23 +26170,23 @@ IIO_ADISLIB EXPORT_SYMBOL_GPL 0xb01d97ef	__adis_initial_startup	drivers/iio/imu/
 IIO_ADISLIB EXPORT_SYMBOL_GPL 0xe77b0487	__adis_read_reg	drivers/iio/imu/adis_lib
 IIO_ADISLIB EXPORT_SYMBOL_GPL 0xfa42854f	__adis_update_bits_base	drivers/iio/imu/adis_lib
 IIO_ADIS_LIB EXPORT_SYMBOL_GPL 0x8b7a6424	__adis_reset	drivers/iio/imu/adis_lib
-IIO_HID EXPORT_SYMBOL 0x0560e21b	hid_sensor_read_raw_hyst_rel_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0x0732e353	hid_sensor_write_samp_freq_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0x0fbae3f5	hid_sensor_write_raw_hyst_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0x14655ee7	hid_sensor_remove_trigger	drivers/iio/common/hid-sensors/hid-sensor-trigger
-IIO_HID EXPORT_SYMBOL 0x29d318f7	hid_sensor_parse_common_attributes	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0x34f166e5	hid_sensor_write_raw_hyst_rel_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0x5779c5cb	hid_sensor_power_state	drivers/iio/common/hid-sensors/hid-sensor-trigger
+IIO_HID EXPORT_SYMBOL 0x37c8bbc3	hid_sensor_setup_trigger	drivers/iio/common/hid-sensors/hid-sensor-trigger
+IIO_HID EXPORT_SYMBOL 0x3e6df965	hid_sensor_remove_trigger	drivers/iio/common/hid-sensors/hid-sensor-trigger
+IIO_HID EXPORT_SYMBOL 0x5ca63ce5	hid_sensor_convert_timestamp	drivers/iio/common/hid-sensors/hid-sensor-iio-common
 IIO_HID EXPORT_SYMBOL 0x7f7621ec	hid_sensor_format_scale	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0x8e9936b6	hid_sensor_write_raw_hyst_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
 IIO_HID EXPORT_SYMBOL 0x92148d67	hid_sensor_pm_ops	drivers/iio/common/hid-sensors/hid-sensor-trigger
-IIO_HID EXPORT_SYMBOL 0xb9471d4f	hid_sensor_read_raw_hyst_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0xbe3fd241	hid_sensor_read_samp_freq_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0xdddf3ffb	hid_sensor_setup_trigger	drivers/iio/common/hid-sensors/hid-sensor-trigger
-IIO_HID EXPORT_SYMBOL 0xe0bdfb06	hid_sensor_convert_timestamp	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x0cb64419	hid_sensor_read_poll_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x41b47286	hid_sensor_set_report_latency	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x8da9031c	hid_sensor_batch_mode_supported	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0xefe3df91	hid_sensor_get_report_latency	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0x9e661328	hid_sensor_read_raw_hyst_rel_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xa95d19c0	hid_sensor_read_raw_hyst_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xc37335ba	hid_sensor_write_raw_hyst_rel_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xc751c504	hid_sensor_power_state	drivers/iio/common/hid-sensors/hid-sensor-trigger
+IIO_HID EXPORT_SYMBOL 0xc76164e6	hid_sensor_parse_common_attributes	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xd0681924	hid_sensor_read_samp_freq_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xff647951	hid_sensor_write_samp_freq_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x62c01fda	hid_sensor_batch_mode_supported	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0xb6c01010	hid_sensor_set_report_latency	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0xe825805c	hid_sensor_get_report_latency	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0xfb6239b9	hid_sensor_read_poll_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
 INT340X_THERMAL EXPORT_SYMBOL_GPL 0x966d3894	processor_thermal_send_mbox_read_cmd	drivers/thermal/intel/int340x_thermal/processor_thermal_mbox
 INT340X_THERMAL EXPORT_SYMBOL_GPL 0xd8209da6	processor_thermal_send_mbox_write_cmd	drivers/thermal/intel/int340x_thermal/processor_thermal_mbox
 LTC2497 EXPORT_SYMBOL 0x05dc5c09	ltc2497core_remove	drivers/iio/adc/ltc2497-core
