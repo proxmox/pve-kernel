@@ -1,4 +1,10 @@
-pve-kernel (5.15.104-1) UNRELEASED; urgency=medium
+pve-kernel (5.15.104-2) bullseye; urgency=medium
+
+  * backport "igb: revert rtnl_lock() that causes deadlock"
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 12 Apr 2023 13:23:09 +0200
+
+pve-kernel (5.15.104-1) bullseye; urgency=medium
 
   * update to upstream ubuntu and stable tree's v5.15.104
 
