@@ -128,7 +128,7 @@ index 3b37b3e17379..a64c190abf28 100644
  	__CHECK_SMRAM64_OFFSET(auto_hlt_restart,	0xFEC9);
  	__CHECK_SMRAM64_OFFSET(reserved2,		0xFECA);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index d59a78f6b607..5a38e73a80de 100644
+index de1b88836442..e95c254b450f 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -7427,6 +7427,11 @@ static void emulator_set_nmi_mask(struct x86_emulate_ctxt *ctxt, bool masked)
