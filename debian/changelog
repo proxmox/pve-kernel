@@ -1,3 +1,11 @@
+pve-kernel (5.15.107-1) bullseye; urgency=medium
+
+  * update to Proxmox-5.15.107-1
+
+  * update ZFS to 2.1.11
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 20 Apr 2023 12:05:46 +0200
+
 pve-kernel (5.15.104-2) bullseye; urgency=medium
 
   * backport "igb: revert rtnl_lock() that causes deadlock"
