@@ -1,3 +1,11 @@
+pve-kernel (6.2.11-1) bullseye; urgency=medium
+
+  * update kernel to Proxmox-6.2.11-1
+
+  * update ZFS to 2.1.11
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 20 Apr 2023 11:59:36 +0200
+
 pve-kernel (6.2.9-1) bullseye; urgency=medium
 
   * update to Ubuntu-6.2.0-19.19 and cherry-pick patches up to 6.2.9
