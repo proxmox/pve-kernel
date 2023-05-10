@@ -1,3 +1,12 @@
+pve-kernel (6.2.11-2) bullseye; urgency=medium
+
+  * backport "netfilter: nf_tables: deactivate anonymous set from preparation
+    phase"
+
+  * bump ABI to 6.2.11-2
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 10 May 2023 11:13:34 +0200
+
 pve-kernel (6.2.11-1) bullseye; urgency=medium
 
   * update kernel to Proxmox-6.2.11-1
