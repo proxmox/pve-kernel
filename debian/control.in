@@ -33,6 +33,7 @@ Build-Depends: asciidoc-base,
                zlib1g-dev,
                zstd,
 Build-Conflicts: pve-headers-@KVNAME@,
+Standards-Version: 4.6.2
 Vcs-Git: git://git.proxmox.com/git/pve-kernel
 Vcs-Browser: https://git.proxmox.com/?p=pve-kernel.git
 
