@@ -1,3 +1,5 @@
+include /usr/share/dpkg/pkg-info.mk
+
 # also bump pve-kernel-meta if either of MAJ.MIN, PATCHLEVEL or KREL change
 KERNEL_MAJ=6
 KERNEL_MIN=2
@@ -116,8 +118,9 @@ $(ZFSDIR).prepared: $(ZFSONLINUX_SUBMODULE)
 	touch $(ZFSDIR).prepared
 
 .PHONY: upload
+upload: UPLOAD_DIST ?= $(DEB_DISTRIBUTION)
 upload: $(DEBS)
-	tar cf - $(DEBS)|ssh -X repoman@repo.proxmox.com -- upload --product pve,pmg,pbs --dist bullseye --arch $(ARCH)
+	tar cf - $(DEBS)|ssh -X repoman@repo.proxmox.com -- upload --product pve,pmg,pbs --dist $(UPLOAD_DIST) --arch $(ARCH)
 
 .PHONY: distclean
 distclean: clean
