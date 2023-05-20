@@ -32,7 +32,7 @@ Build-Depends: asciidoc-base,
                xmlto,
                zlib1g-dev,
                zstd,
-Build-Conflicts: pve-headers-@KVNAME@
+Build-Conflicts: pve-headers-@KVNAME@,
 Vcs-Git: git://git.proxmox.com/git/pve-kernel
 Vcs-Browser: https://git.proxmox.com/?p=pve-kernel.git
 
@@ -40,7 +40,7 @@ Package: linux-tools-@KVMAJMIN@
 Architecture: any
 Section: devel
 Priority: optional
-Depends: linux-base, ${misc:Depends}, ${shlibs:Depends}
+Depends: linux-base, ${misc:Depends}, ${shlibs:Depends},
 Description: Linux kernel version specific tools for version @KVMAJMIN@
  This package provides the architecture dependent parts for kernel
  version locked tools (such as perf and x86_energy_perf_policy)
@@ -49,8 +49,8 @@ Package: pve-headers-@KVNAME@
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-headers-@KVNAME@-amd64
-Depends: coreutils | fileutils (>= 4.0)
+Provides: linux-headers-@KVNAME@-amd64,
+Depends: coreutils | fileutils (>= 4.0),
 Description: Proxmox Kernel Headers
  This package contains the linux kernel headers
 
@@ -58,16 +58,16 @@ Package: pve-kernel-@KVNAME@
 Section: admin
 Priority: optional
 Architecture: any
-Provides: linux-image-@KVNAME@-amd64
-Suggests: pve-firmware
-Depends: busybox, initramfs-tools
-Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub-efi-arm64
+Provides: linux-image-@KVNAME@-amd64,
+Suggests: pve-firmware,
+Depends: busybox, initramfs-tools,
+Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub-efi-arm64,
 Description: Proxmox Kernel Image
  This package contains the linux kernel and initial ramdisk used for booting
 
 Package: pve-kernel-@KVNAME@-dbgsym
 Architecture: any
-Provides: linux-debug
+Provides: linux-debug,
 Section: devel
 Priority: optional
 Build-Profiles: <pkg.pve-kernel.debug>
@@ -82,10 +82,10 @@ Package: pve-kernel-libc-dev
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-libc-dev (=${binary:Version})
-Conflicts: linux-libc-dev
-Replaces: linux-libc-dev
-Depends: ${misc:Depends}
+Provides: linux-libc-dev (=${binary:Version}),
+Conflicts: linux-libc-dev,
+Replaces: linux-libc-dev,
+Depends: ${misc:Depends},
 Description: Linux support headers for userspace development
  This package provides userspaces headers from the Linux kernel.  These headers
  are used by the installed headers for GNU libc and other system libraries.
