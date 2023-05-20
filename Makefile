@@ -29,7 +29,7 @@ GITVERSION:=$(shell git rev-parse HEAD)
 
 SKIPABI=0
 
-BUILD_DIR=build
+BUILD_DIR=pve-kernel-$(KERNEL_VER)
 
 KERNEL_SRC=ubuntu-kernel
 KERNEL_SRC_SUBMODULE=submodules/$(KERNEL_SRC)
@@ -143,5 +143,5 @@ abi-tmp-$(KVNAME):
 
 .PHONY: clean
 clean:
-	rm -rf *~ build *.prepared $(KERNEL_CFG_ORG)
+	rm -rf *~ $(PACKAGE)*/ *.prepared $(KERNEL_CFG_ORG)
 	rm -f *.deb *.changes *.buildinfo
