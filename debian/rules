@@ -11,6 +11,8 @@ include /usr/share/dpkg/default.mk
 include debian/rules.d/env.mk
 include debian/rules.d/$(DEB_BUILD_ARCH).mk
 
+MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
+
 CHANGELOG_DATE:=$(shell dpkg-parsechangelog -SDate)
 CHANGELOG_DATE_UTC_ISO := $(shell date -u -d '$(CHANGELOG_DATE)' +%Y-%m-%dT%H:%MZ)
 
