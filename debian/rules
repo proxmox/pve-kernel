@@ -9,17 +9,17 @@ BUILD_DIR=$(shell pwd)
 
 include /usr/share/dpkg/default.mk
 include debian/rules.d/env.mk
-include debian/rules.d/${DEB_BUILD_ARCH}.mk
+include debian/rules.d/$(DEB_BUILD_ARCH).mk
 
 CHANGELOG_DATE:=$(shell dpkg-parsechangelog -SDate)
 CHANGELOG_DATE_UTC_ISO := $(shell date -u -d '$(CHANGELOG_DATE)' +%Y-%m-%dT%H:%MZ)
 
-PVE_KERNEL_PKG=pve-kernel-${KVNAME}
-PVE_DEBUG_KERNEL_PKG=pve-kernel-${KVNAME}-dbgsym
-PVE_HEADER_PKG=pve-headers-${KVNAME}
+PVE_KERNEL_PKG=pve-kernel-$(KVNAME)
+PVE_DEBUG_KERNEL_PKG=pve-kernel-$(KVNAME)-dbgsym
+PVE_HEADER_PKG=pve-headers-$(KVNAME)
 PVE_USR_HEADER_PKG=pve-kernel-libc-dev
-LINUX_TOOLS_PKG=linux-tools-${KERNEL_MAJMIN}
-KERNEL_SRC_COPY=${KERNEL_SRC}_tmp
+LINUX_TOOLS_PKG=linux-tools-$(KERNEL_MAJMIN)
+KERNEL_SRC_COPY=$(KERNEL_SRC)_tmp
 
 # TODO: split for archs, move to files?
 PVE_CONFIG_OPTS= \
@@ -89,15 +89,15 @@ PVE_CONFIG_OPTS= \
 -e CONFIG_PAGE_TABLE_ISOLATION
 
 debian/control: $(wildcard debian/*.in)
-	sed -e 's/@@KVNAME@@/${KVNAME}/g' < debian/pve-kernel.prerm.in > debian/${PVE_KERNEL_PKG}.prerm
-	sed -e 's/@@KVNAME@@/${KVNAME}/g' < debian/pve-kernel.postrm.in > debian/${PVE_KERNEL_PKG}.postrm
-	sed -e 's/@@KVNAME@@/${KVNAME}/g' < debian/pve-kernel.postinst.in > debian/${PVE_KERNEL_PKG}.postinst
-	sed -e 's/@@KVNAME@@/${KVNAME}/g' < debian/pve-headers.postinst.in > debian/${PVE_HEADER_PKG}.postinst
-	chmod +x debian/${PVE_KERNEL_PKG}.prerm
-	chmod +x debian/${PVE_KERNEL_PKG}.postrm
-	chmod +x debian/${PVE_KERNEL_PKG}.postinst
-	chmod +x debian/${PVE_HEADER_PKG}.postinst
-	sed -e 's/@KVNAME@/${KVNAME}/g' -e 's/@KVMAJMIN@/${KERNEL_MAJMIN}/g' < debian/control.in > debian/control
+	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/pve-kernel.prerm.in > debian/$(PVE_KERNEL_PKG).prerm
+	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/pve-kernel.postrm.in > debian/$(PVE_KERNEL_PKG).postrm
+	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/pve-kernel.postinst.in > debian/$(PVE_KERNEL_PKG).postinst
+	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/pve-headers.postinst.in > debian/$(PVE_HEADER_PKG).postinst
+	chmod +x debian/$(PVE_KERNEL_PKG).prerm
+	chmod +x debian/$(PVE_KERNEL_PKG).postrm
+	chmod +x debian/$(PVE_KERNEL_PKG).postinst
+	chmod +x debian/$(PVE_HEADER_PKG).postinst
+	sed -e 's/@KVNAME@/$(KVNAME)/g' -e 's/@KVMAJMIN@/$(KERNEL_MAJMIN)/g' < debian/control.in > debian/control
 
 build: .compile_mark .tools_compile_mark .modules_compile_mark
 
@@ -111,7 +111,7 @@ install: .install_mark .tools_install_mark .headers_install_mark .usr_headers_in
 
 binary: install
 	debian/rules fwcheck abicheck
-	dh_strip -N${PVE_HEADER_PKG} -N${PVE_USR_HEADER_PKG}
+	dh_strip -N$(PVE_HEADER_PKG) -N$(PVE_USR_HEADER_PKG)
 	dh_makeshlibs
 	dh_shlibdeps
 	dh_installdeb
@@ -120,82 +120,82 @@ binary: install
 	dh_builddeb
 
 .config_mark:
-	cd ${KERNEL_SRC}; scripts/config ${PVE_CONFIG_OPTS}
-	${MAKE} -C ${KERNEL_SRC} oldconfig
+	cd $(KERNEL_SRC); scripts/config $(PVE_CONFIG_OPTS)
+	$(MAKE) -C $(KERNEL_SRC) oldconfig
 	# copy to allow building in parallel to kernel/module compilation without interference
-	rm -rf ${KERNEL_SRC_COPY}
-	cp -ar ${KERNEL_SRC} ${KERNEL_SRC_COPY}
+	rm -rf $(KERNEL_SRC_COPY)
+	cp -ar $(KERNEL_SRC) $(KERNEL_SRC_COPY)
 	touch $@
 
 .compile_mark: .config_mark
-	${MAKE} -C ${KERNEL_SRC} KBUILD_BUILD_VERSION_TIMESTAMP="PVE ${DEB_VERSION} (${CHANGELOG_DATE_UTC_ISO})"
+	$(MAKE) -C $(KERNEL_SRC) KBUILD_BUILD_VERSION_TIMESTAMP="PVE $(DEB_VERSION) ($(CHANGELOG_DATE_UTC_ISO))"
 	touch $@
 
 .install_mark: .compile_mark .modules_compile_mark
-	rm -rf debian/${PVE_KERNEL_PKG}
-	mkdir -p debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}
-	mkdir debian/${PVE_KERNEL_PKG}/boot
-	install -m 644 ${KERNEL_SRC}/.config debian/${PVE_KERNEL_PKG}/boot/config-${KVNAME}
-	install -m 644 ${KERNEL_SRC}/System.map debian/${PVE_KERNEL_PKG}/boot/System.map-${KVNAME}
-	install -m 644 ${KERNEL_SRC}/${KERNEL_IMAGE_PATH} debian/${PVE_KERNEL_PKG}/boot/${KERNEL_INSTALL_FILE}-${KVNAME}
-	${MAKE} -C ${KERNEL_SRC} INSTALL_MOD_PATH=${BUILD_DIR}/debian/${PVE_KERNEL_PKG}/ modules_install
+	rm -rf debian/$(PVE_KERNEL_PKG)
+	mkdir -p debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)
+	mkdir debian/$(PVE_KERNEL_PKG)/boot
+	install -m 644 $(KERNEL_SRC)/.config debian/$(PVE_KERNEL_PKG)/boot/config-$(KVNAME)
+	install -m 644 $(KERNEL_SRC)/System.map debian/$(PVE_KERNEL_PKG)/boot/System.map-$(KVNAME)
+	install -m 644 $(KERNEL_SRC)/$(KERNEL_IMAGE_PATH) debian/$(PVE_KERNEL_PKG)/boot/$(KERNEL_INSTALL_FILE)-$(KVNAME)
+	$(MAKE) -C $(KERNEL_SRC) INSTALL_MOD_PATH=$(BUILD_DIR)/debian/$(PVE_KERNEL_PKG)/ modules_install
 	# install zfs drivers
-	install -d -m 0755 debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}/zfs
-	install -m 644 $(addprefix ${MODULES}/,zfs.ko zavl.ko znvpair.ko zunicode.ko zcommon.ko icp.ko zlua.ko spl.ko zzstd.ko) debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}/zfs
+	install -d -m 0755 debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/zfs
+	install -m 644 $(addprefix $(MODULES)/,zfs.ko zavl.ko znvpair.ko zunicode.ko zcommon.ko icp.ko zlua.ko spl.ko zzstd.ko) debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/zfs
 	# remove firmware
-	rm -rf debian/${PVE_KERNEL_PKG}/lib/firmware
+	rm -rf debian/$(PVE_KERNEL_PKG)/lib/firmware
 
 ifeq ($(filter pkg.pve-kernel.debug,$(DEB_BUILD_PROFILES)),)
 	echo "'pkg.pve-kernel.debug' build profile disabled, skipping -dbgsym creation"
 else
 	echo "'pkg.pve-kernel.debug' build profile enabled, creating -dbgsym contents"
-	mkdir -p debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}
-	mkdir debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/boot
-	install -m 644 ${KERNEL_SRC}/vmlinux debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/boot/vmlinux-${KVNAME}
-	cp -r debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME} debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/
-	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/source
-	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/build
-	rm -f debian/${PVE_DEBUG_KERNEL_PKG}/usr/lib/debug/lib/modules/${KVNAME}/modules.*
+	mkdir -p debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)
+	mkdir debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/boot
+	install -m 644 $(KERNEL_SRC)/vmlinux debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/boot/vmlinux-$(KVNAME)
+	cp -r debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME) debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/
+	rm -f debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/source
+	rm -f debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/build
+	rm -f debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/modules.*
 endif
 
 	# strip debug info
-	find debian/${PVE_KERNEL_PKG}/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
+	find debian/$(PVE_KERNEL_PKG)/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
 	# finalize
-	/sbin/depmod -b debian/${PVE_KERNEL_PKG}/ ${KVNAME}
+	/sbin/depmod -b debian/$(PVE_KERNEL_PKG)/ $(KVNAME)
 	# Autogenerate blacklist for watchdog devices (see README)
-	install -m 0755 -d debian/${PVE_KERNEL_PKG}/lib/modprobe.d
-	ls debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}/kernel/drivers/watchdog/ > watchdog-blacklist.tmp
+	install -m 0755 -d debian/$(PVE_KERNEL_PKG)/lib/modprobe.d
+	ls debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/kernel/drivers/watchdog/ > watchdog-blacklist.tmp
 	echo ipmi_watchdog.ko >> watchdog-blacklist.tmp
-	cat watchdog-blacklist.tmp|sed -e 's/^/blacklist /' -e 's/.ko$$//'|sort -u > debian/${PVE_KERNEL_PKG}/lib/modprobe.d/blacklist_${PVE_KERNEL_PKG}.conf
-	rm -f debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}/source
-	rm -f debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME}/build
+	cat watchdog-blacklist.tmp|sed -e 's/^/blacklist /' -e 's/.ko$$//'|sort -u > debian/$(PVE_KERNEL_PKG)/lib/modprobe.d/blacklist_$(PVE_KERNEL_PKG).conf
+	rm -f debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/source
+	rm -f debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/build
 	touch $@
 
 .tools_compile_mark: .compile_mark
-	${MAKE} -C ${KERNEL_SRC}/tools/perf prefix=/usr HAVE_NO_LIBBFD=1 HAVE_CPLUS_DEMANGLE_SUPPORT=1 NO_LIBPYTHON=1 NO_LIBPERL=1 NO_LIBCRYPTO=1 PYTHON=python3
+	$(MAKE) -C $(KERNEL_SRC)/tools/perf prefix=/usr HAVE_NO_LIBBFD=1 HAVE_CPLUS_DEMANGLE_SUPPORT=1 NO_LIBPYTHON=1 NO_LIBPERL=1 NO_LIBCRYPTO=1 PYTHON=python3
 	echo "checking GPL-2 only perf binary for library linkage with incompatible licenses.."
-	! ldd ${KERNEL_SRC}/tools/perf/perf | grep -q -E '\blibbfd'
-	! ldd ${KERNEL_SRC}/tools/perf/perf | grep -q -E '\blibcrypto'
-	${MAKE} -C ${KERNEL_SRC}/tools/perf man
+	! ldd $(KERNEL_SRC)/tools/perf/perf | grep -q -E '\blibbfd'
+	! ldd $(KERNEL_SRC)/tools/perf/perf | grep -q -E '\blibcrypto'
+	$(MAKE) -C $(KERNEL_SRC)/tools/perf man
 	touch $@
 
 .tools_install_mark: .tools_compile_mark
-	rm -rf debian/${LINUX_TOOLS_PKG}
-	mkdir -p debian/${LINUX_TOOLS_PKG}/usr/bin
-	mkdir -p debian/${LINUX_TOOLS_PKG}/usr/share/man/man1
-	install -m 755 ${BUILD_DIR}/${KERNEL_SRC}/tools/perf/perf debian/${LINUX_TOOLS_PKG}/usr/bin/perf_$(KERNEL_MAJMIN)
-	for i in ${BUILD_DIR}/${KERNEL_SRC}/tools/perf/Documentation/*.1; do \
+	rm -rf debian/$(LINUX_TOOLS_PKG)
+	mkdir -p debian/$(LINUX_TOOLS_PKG)/usr/bin
+	mkdir -p debian/$(LINUX_TOOLS_PKG)/usr/share/man/man1
+	install -m 755 $(BUILD_DIR)/$(KERNEL_SRC)/tools/perf/perf debian/$(LINUX_TOOLS_PKG)/usr/bin/perf_$(KERNEL_MAJMIN)
+	for i in $(BUILD_DIR)/$(KERNEL_SRC)/tools/perf/Documentation/*.1; do \
 	    fname="$${i##*/}"; manname="$${fname%.1}"; \
-	    install -m644 "$$i" "debian/${LINUX_TOOLS_PKG}/usr/share/man/man1/$${manname}_$(KERNEL_MAJMIN).1"; \
+	    install -m644 "$$i" "debian/$(LINUX_TOOLS_PKG)/usr/share/man/man1/$${manname}_$(KERNEL_MAJMIN).1"; \
 	done
 	touch $@
 
 .headers_prepare_mark: .config_mark
-	rm -rf debian/${PVE_HEADER_PKG}
-	mkdir -p debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
-	install -m 0644 ${KERNEL_SRC}/.config debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
-	make -C ${KERNEL_SRC_COPY} mrproper
-	cd ${KERNEL_SRC_COPY}; find . -path './debian/*' -prune \
+	rm -rf debian/$(PVE_HEADER_PKG)
+	mkdir -p debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	install -m 0644 $(KERNEL_SRC)/.config debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	make -C $(KERNEL_SRC_COPY) mrproper
+	cd $(KERNEL_SRC_COPY); find . -path './debian/*' -prune \
 	    -o -path './include/*' -prune \
 	    -o -path './Documentation' -prune \
 	    -o -path './scripts' -prune \
@@ -207,40 +207,40 @@ endif
 	        -o -name '*.sh' \
 	        -o -name '*.pl' \
 	    \) \
-	    -print | cpio -pd --preserve-modification-time ${BUILD_DIR}/debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
-	cd ${KERNEL_SRC_COPY}; \
+	    -print | cpio -pd --preserve-modification-time $(BUILD_DIR)/debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	cd $(KERNEL_SRC_COPY); \
 	    ( \
-	        find arch/${KERNEL_HEADER_ARCH} -name include -type d -print | \
+	        find arch/$(KERNEL_HEADER_ARCH) -name include -type d -print | \
 	        xargs -n1 -i: find : -type f \
 	    ) | \
-	    cpio -pd --preserve-modification-time ${BUILD_DIR}/debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
+	    cpio -pd --preserve-modification-time $(BUILD_DIR)/debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
 	touch $@
 
 .headers_compile_mark: .headers_prepare_mark
 	# set output to subdir of source to reduce number of hardcoded paths in output files
-	rm -rf ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG}
-	mkdir -p ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG}
-	cp ${KERNEL_SRC}/.config ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG}/.config
-	${MAKE} -C ${KERNEL_SRC_COPY} O=${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG} -j1 syncconfig modules_prepare prepare scripts
-	cd ${KERNEL_SRC_COPY}; cp -a include scripts ${BUILD_DIR}/debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
-	find ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG} -name \*.o.ur-\* -o -name '*.cmd' | xargs rm -f
-	rsync --ignore-existing -r -v -a $(addprefix ${BUILD_DIR}/${KERNEL_SRC_COPY}/${PVE_HEADER_PKG}/,arch include kernel scripts tools) ${BUILD_DIR}/debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}/
-	rm -rf ${BUILD_DIR}/${KERNEL_SRC_COPY}
+	rm -rf $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG)
+	mkdir -p $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG)
+	cp $(KERNEL_SRC)/.config $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG)/.config
+	$(MAKE) -C $(KERNEL_SRC_COPY) O=$(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG) -j1 syncconfig modules_prepare prepare scripts
+	cd $(KERNEL_SRC_COPY); cp -a include scripts $(BUILD_DIR)/debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	find $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG) -name \*.o.ur-\* -o -name '*.cmd' | xargs rm -f
+	rsync --ignore-existing -r -v -a $(addprefix $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG)/,arch include kernel scripts tools) $(BUILD_DIR)/debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/
+	rm -rf $(BUILD_DIR)/$(KERNEL_SRC_COPY)
 	touch $@
 
 .headers_install_mark: .compile_mark .modules_compile_mark .headers_compile_mark
-	cp ${KERNEL_SRC}/include/generated/compile.h debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}/include/generated/compile.h
-	install -m 0644 ${KERNEL_SRC}/Module.symvers debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}
-	mkdir -p debian/${PVE_HEADER_PKG}/lib/modules/${KVNAME}
-	ln -sf /usr/src/linux-headers-${KVNAME} debian/${PVE_HEADER_PKG}/lib/modules/${KVNAME}/build
+	cp $(KERNEL_SRC)/include/generated/compile.h debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/include/generated/compile.h
+	install -m 0644 $(KERNEL_SRC)/Module.symvers debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	mkdir -p debian/$(PVE_HEADER_PKG)/lib/modules/$(KVNAME)
+	ln -sf /usr/src/linux-headers-$(KVNAME) debian/$(PVE_HEADER_PKG)/lib/modules/$(KVNAME)/build
 	touch $@
 
-.usr_headers_install_mark: PKG_DIR = debian/${PVE_USR_HEADER_PKG}
-.usr_headers_install_mark: OUT_DIR = ${PKG_DIR}/usr
+.usr_headers_install_mark: PKG_DIR = debian/$(PVE_USR_HEADER_PKG)
+.usr_headers_install_mark: OUT_DIR = $(PKG_DIR)/usr
 .usr_headers_install_mark: .config_mark
-	rm -rf '${PKG_DIR}'
-	mkdir -p  '${PKG_DIR}'
-	$(MAKE) -C ${KERNEL_SRC} headers_install ARCH=$(KERNEL_HEADER_ARCH) INSTALL_HDR_PATH='$(CURDIR)'/$(OUT_DIR)
+	rm -rf '$(PKG_DIR)'
+	mkdir -p  '$(PKG_DIR)'
+	$(MAKE) -C $(KERNEL_SRC) headers_install ARCH=$(KERNEL_HEADER_ARCH) INSTALL_HDR_PATH='$(CURDIR)'/$(OUT_DIR)
 	rm -rf $(OUT_DIR)/include/drm $(OUT_DIR)/include/scsi
 	find $(OUT_DIR)/include \( -name .install -o -name ..install.cmd \) -execdir rm {} +
 
@@ -251,43 +251,43 @@ endif
 		mv $(OUT_DIR)/include/arch $(OUT_DIR)/include/$(DEB_HOST_MULTIARCH)/
 	touch $@
 
-.modules_compile_mark: ${MODULES}/zfs.ko
+.modules_compile_mark: $(MODULES)/zfs.ko
 	touch $@
 
-${MODULES}/zfs.ko: .compile_mark
-	cd ${MODULES}/${ZFSDIR}; ./autogen.sh
-	cd ${MODULES}/${ZFSDIR}; ./configure --with-config=kernel --with-linux=${BUILD_DIR}/${KERNEL_SRC} --with-linux-obj=${BUILD_DIR}/${KERNEL_SRC}
-	${MAKE} -C ${MODULES}/${ZFSDIR}
-	cp ${MODULES}/${ZFSDIR}/module/avl/zavl.ko ${MODULES}/
-	cp ${MODULES}/${ZFSDIR}/module/nvpair/znvpair.ko ${MODULES}/
-	cp ${MODULES}/${ZFSDIR}/module/unicode/zunicode.ko ${MODULES}/
-	cp ${MODULES}/${ZFSDIR}/module/zcommon/zcommon.ko ${MODULES}/
-	cp ${MODULES}/${ZFSDIR}/module/icp/icp.ko ${MODULES}/
-	cp ${MODULES}/${ZFSDIR}/module/zfs/zfs.ko ${MODULES}/
-	cp ${MODULES}/${ZFSDIR}/module/lua/zlua.ko ${MODULES}/
-	cp ${MODULES}/${ZFSDIR}/module/spl/spl.ko ${MODULES}/
-	cp ${MODULES}/${ZFSDIR}/module/zstd/zzstd.ko ${MODULES}/
+$(MODULES)/zfs.ko: .compile_mark
+	cd $(MODULES)/$(ZFSDIR); ./autogen.sh
+	cd $(MODULES)/$(ZFSDIR); ./configure --with-config=kernel --with-linux=$(BUILD_DIR)/$(KERNEL_SRC) --with-linux-obj=$(BUILD_DIR)/$(KERNEL_SRC)
+	$(MAKE) -C $(MODULES)/$(ZFSDIR)
+	cp $(MODULES)/$(ZFSDIR)/module/avl/zavl.ko $(MODULES)/
+	cp $(MODULES)/$(ZFSDIR)/module/nvpair/znvpair.ko $(MODULES)/
+	cp $(MODULES)/$(ZFSDIR)/module/unicode/zunicode.ko $(MODULES)/
+	cp $(MODULES)/$(ZFSDIR)/module/zcommon/zcommon.ko $(MODULES)/
+	cp $(MODULES)/$(ZFSDIR)/module/icp/icp.ko $(MODULES)/
+	cp $(MODULES)/$(ZFSDIR)/module/zfs/zfs.ko $(MODULES)/
+	cp $(MODULES)/$(ZFSDIR)/module/lua/zlua.ko $(MODULES)/
+	cp $(MODULES)/$(ZFSDIR)/module/spl/spl.ko $(MODULES)/
+	cp $(MODULES)/$(ZFSDIR)/module/zstd/zzstd.ko $(MODULES)/
 
-fwlist-${KVNAME}: .compile_mark .modules_compile_mark
-	debian/scripts/find-firmware.pl debian/${PVE_KERNEL_PKG}/lib/modules/${KVNAME} >fwlist.tmp
+fwlist-$(KVNAME): .compile_mark .modules_compile_mark
+	debian/scripts/find-firmware.pl debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME) >fwlist.tmp
 	mv fwlist.tmp $@
 
 .PHONY: fwcheck
-fwcheck: fwlist-${KVNAME} fwlist-previous
+fwcheck: fwlist-$(KVNAME) fwlist-previous
 	@echo "checking fwlist for changes since last built firmware package.."
-	@echo "if this check fails, add fwlist-${KVNAME} to the pve-firmware repository and upload a new firmware package together with the ${KVNAME} kernel"
+	@echo "if this check fails, add fwlist-$(KVNAME) to the pve-firmware repository and upload a new firmware package together with the $(KVNAME) kernel"
 	sort fwlist-previous | uniq > fwlist-previous.sorted
-	sort fwlist-${KVNAME} | uniq > fwlist-${KVNAME}.sorted
-	diff -up -N fwlist-previous.sorted fwlist-${KVNAME}.sorted > fwlist.diff
-	rm fwlist.diff fwlist-previous.sorted fwlist-${KVNAME}.sorted
+	sort fwlist-$(KVNAME) | uniq > fwlist-$(KVNAME).sorted
+	diff -up -N fwlist-previous.sorted fwlist-$(KVNAME).sorted > fwlist.diff
+	rm fwlist.diff fwlist-previous.sorted fwlist-$(KVNAME).sorted
 	@echo "done, no need to rebuild pve-firmware"
 
 
-abi-${KVNAME}: .compile_mark
-	debian/scripts/abi-generate debian/${PVE_HEADER_PKG}/usr/src/linux-headers-${KVNAME}/Module.symvers abi-${KVNAME} ${KVNAME}
+abi-$(KVNAME): .compile_mark
+	debian/scripts/abi-generate debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/Module.symvers abi-$(KVNAME) $(KVNAME)
 
 .PHONY: abicheck
-abicheck: debian/scripts/abi-check abi-${KVNAME} abi-prev-* abi-blacklist
-	debian/scripts/abi-check abi-${KVNAME} abi-prev-* ${SKIPABI}
+abicheck: debian/scripts/abi-check abi-$(KVNAME) abi-prev-* abi-blacklist
+	debian/scripts/abi-check abi-$(KVNAME) abi-prev-* $(SKIPABI)
 
 .PHONY: clean
