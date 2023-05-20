@@ -1,3 +1,11 @@
+pve-kernel (6.2.16-1) bookworm; urgency=medium
+
+  * update to Ubuntu-6.2.0-23.23 and pull in stable fixes up to v6.2.16
+
+  * build for Debian 12 Bookworm based releases
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 20 May 2023 19:23:34 +0200
+
 pve-kernel (6.2.11-2) bullseye; urgency=medium
 
   * backport "netfilter: nf_tables: deactivate anonymous set from preparation
