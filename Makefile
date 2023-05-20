@@ -44,6 +44,7 @@ MODULE_DIRS=$(ZFSDIR)
 # exported to debian/rules via debian/rules.d/dirs.mk
 DIRS=KERNEL_SRC ZFSDIR MODULES
 
+DSC=pve-kernel_$(KERNEL_VER)-$(PKGREL).dsc
 DST_DEB=$(PACKAGE)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
 HDR_DEB=$(HDRPACKAGE)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
 USR_HDR_DEB=pve-kernel-libc-dev_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
@@ -61,6 +62,11 @@ $(DST_DEB): $(BUILD_DIR).prepared
 	lintian $(DST_DEB)
 	#lintian $(HDR_DEB)
 	lintian $(LINUX_TOOLS_DEB)
+
+dsc: $(DSC)
+$(DSC): $(BUILD_DIR).prepared
+	cd $(BUILD_DIR); dpkg-buildpackage -S -uc -us -d
+	lintian $(DSC)
 
 $(BUILD_DIR).prepared: $(addsuffix .prepared,$(KERNEL_SRC) $(MODULES) debian)
 	cp -a fwlist-previous $(BUILD_DIR)/
@@ -147,5 +153,5 @@ abi-tmp-$(KVNAME):
 
 .PHONY: clean
 clean:
-	rm -rf *~ $(PACKAGE)*/ *.prepared $(KERNEL_CFG_ORG)
-	rm -f *.deb *.changes *.buildinfo
+	rm -rf *~ pve-kernel-[0-9]*/ *.prepared $(KERNEL_CFG_ORG)
+	rm -f *.deb *.dsc *.changes *.buildinfo *.build pve-kernel*.tar.*
