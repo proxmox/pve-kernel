@@ -50,7 +50,7 @@ Section: devel
 Priority: optional
 Architecture: any
 Provides: linux-headers-@KVNAME@-amd64,
-Depends: coreutils | fileutils (>= 4.0), ${misc:Depends},
+Depends: ${misc:Depends},
 Description: Proxmox Kernel Headers
  This package contains the linux kernel headers
 
