@@ -68,6 +68,9 @@ $(DSC): $(BUILD_DIR).prepared
 	cd $(BUILD_DIR); dpkg-buildpackage -S -uc -us -d
 	lintian $(DSC)
 
+sbuild: $(DSC)
+	sbuild $(DSC)
+
 $(BUILD_DIR).prepared: $(addsuffix .prepared,$(KERNEL_SRC) $(MODULES) debian)
 	cp -a fwlist-previous $(BUILD_DIR)/
 	cp -a abi-prev-* $(BUILD_DIR)/
