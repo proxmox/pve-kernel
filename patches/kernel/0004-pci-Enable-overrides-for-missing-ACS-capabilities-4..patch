@@ -78,7 +78,7 @@ diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
 index e84378684643..0bfa7199c974 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
-@@ -194,6 +194,106 @@ static int __init pci_apply_final_quirks(void)
+@@ -194,6 +194,105 @@ static int __init pci_apply_final_quirks(void)
  }
  fs_initcall_sync(pci_apply_final_quirks);
  
@@ -156,8 +156,7 @@ index e84378684643..0bfa7199c974 100644
 +	int i;
 +
 +	/* Never override ACS for legacy devices or devices with ACS caps */
-+	if (!pci_is_pcie(dev) ||
-+		pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ACS))
++	if (!pci_is_pcie(dev))
 +			return -ENOTTY;
 +
 +	for (i = 0; i < max_acs_id; i++)
