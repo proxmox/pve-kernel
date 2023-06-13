@@ -1,3 +1,16 @@
+pve-kernel (6.2.16-2) bookworm; urgency=medium
+
+  * update ZFS to 2.1.12
+
+  * bump ABI to 6.2.16-2
+
+  * backport "net/sched: flower: fix possible OOB write in fl_set_geneve_opt()"
+
+  * backport re-adding mdev_set_iommu_device() kABI for support of SRIOV based
+    Nvidia vGPU
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 13 Jun 2023 15:30:53 +0200
+
 pve-kernel (6.2.16-1) bookworm; urgency=medium
 
   * update to Ubuntu-6.2.0-23.23 and pull in stable fixes up to v6.2.16
