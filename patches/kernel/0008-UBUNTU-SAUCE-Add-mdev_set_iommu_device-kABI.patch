@@ -1,0 +1,354 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Tarun Gupta <targupta@nvidia.com>
+Date: Thu, 18 May 2023 16:48:09 +0530
+Subject: [PATCH] UBUNTU: SAUCE: Add mdev_set_iommu_device() kABI.
+
+With below commit present from 5.16+ upstream kernel onwards, support
+mdev_set_iommu_device() kABI has been removed from kernel due to lack of
+in-tree vendor drivers using the kABI.
+
+fda49d97f2c4 ("vfio: remove the unused mdev iommu hook")
+
+This patch partially reverts the above commit so that
+mdev_set_iommu_device() kABI is still supported with HWE kernels for
+Ubuntu 22.04. In this partial revert, have not added back the code for
+"aux" variants (IOMMU_DEV_FEAT_AUX) present in
+vfio_mdev_[attach|detach]_domain as this support was never added by any
+in-tree driver or known out-of-tree driver. Nvidia vGPU doesn't make use
+of IOMMU_DEV_FEAT_AUX feature.
+
+Also, it adds back the vfio_bus_is_mdev() function which was reverted in
+below patch as there were no users of it. This patch adds it back to
+detect if this is an mdev device.
+
+c3c0fa9d94f7 ("vfio: clean up the check for mediated device in
+vfio_iommu_type1")
+
+Also, in v6.2 kernel, "mdev_bus_type" struct has been unexported as
+part of below commit because it was used only in mdev.ko. But, for
+vGPU, as mentioned above, since we use vfio_bus_is_mdev() fn
+in vfio_iommu_type1.ko, we need to again export "mdev_bus_type" struct.
+
+2815fe149ffa ("vfio/mdev: unexport mdev_bus_type")
+
+It is not a clean revert in vfio_iommu_type1_attach_group() fn as it is
+changed in v6.2 upstream kernel compared to when
+mdev_set_iommu_device() kABI was removed in 5.16 kernel.
+In 5.19 kernel, VFIO_EMULATED_IOMMU handling is introduced in
+vfio_iommu_type1_attach_group() fn which was not present when the patch
+was reverted in 5.16 kernel.
+
+But, the logic remains the same. The logic here is if this is an
+vfio-mdev device, then check by calling vfio_mdev_iommu_device() if this
+mdev device already has an backed IOMMU device (which will be provided
+by mdev_set_iommu_device kABI from vendor driver). If the mdev device
+has backed iommu device, then use that device's IOMMU domain.
+
+This kABI is used by SRIOV based Nvidia vGPU to pin all guest sysmem on
+VF during vGPU VM boot. With this patch, SRIOV based Nvidia vGPU will
+continue to work with upstream kernels. Nvidia vGPU driver calls
+mdev_set_iommu_device() for mdev device with VF as the backing IOMMU.
+
+Separately, to fix this in upstream kernels, vGPU is planning to adopt
+vfio-pci-core framework instead of using MDEV framework.
+Currently, vfio-pci-core framework works with SRIOV vGPU but lacks
+libvirt support to assign VFs using vfio-pci-core framework.
+Will work with upstream libvirt community to get libvirt support for
+vfio-pci-core devices. Post that, don't need this custom mdev patch
+and vGPU can work out-of-box on Ubuntu with vfio-pci-core frameowrk
+
+BugLink : https://bugs.launchpad.net/bugs/1988806
+
+Signed-off-by: Tarun Gupta <targupta@nvidia.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/vfio/mdev/mdev_driver.c  |   1 +
+ drivers/vfio/mdev/mdev_private.h |   1 -
+ drivers/vfio/vfio_iommu_type1.c  | 126 ++++++++++++++++++++++++++++---
+ include/linux/mdev.h             |  22 ++++++
+ 4 files changed, 140 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/vfio/mdev/mdev_driver.c b/drivers/vfio/mdev/mdev_driver.c
+index 7825d83a55f8..a4799e7d79fc 100644
+--- a/drivers/vfio/mdev/mdev_driver.c
++++ b/drivers/vfio/mdev/mdev_driver.c
+@@ -46,6 +46,7 @@ struct bus_type mdev_bus_type = {
+ 	.remove		= mdev_remove,
+ 	.match		= mdev_match,
+ };
++EXPORT_SYMBOL_GPL(mdev_bus_type);
+ 
+ /**
+  * mdev_register_driver - register a new MDEV driver
+diff --git a/drivers/vfio/mdev/mdev_private.h b/drivers/vfio/mdev/mdev_private.h
+index af457b27f607..ba1b2dbddc0b 100644
+--- a/drivers/vfio/mdev/mdev_private.h
++++ b/drivers/vfio/mdev/mdev_private.h
+@@ -13,7 +13,6 @@
+ int  mdev_bus_register(void);
+ void mdev_bus_unregister(void);
+ 
+-extern struct bus_type mdev_bus_type;
+ extern const struct attribute_group *mdev_device_groups[];
+ 
+ #define to_mdev_type_attr(_attr)	\
+diff --git a/drivers/vfio/vfio_iommu_type1.c b/drivers/vfio/vfio_iommu_type1.c
+index 7fa68dc4e938..fef221a87aa7 100644
+--- a/drivers/vfio/vfio_iommu_type1.c
++++ b/drivers/vfio/vfio_iommu_type1.c
+@@ -36,6 +36,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/vfio.h>
+ #include <linux/workqueue.h>
++#include <linux/mdev.h>
+ #include <linux/notifier.h>
+ #include <linux/irqdomain.h>
+ #include "vfio.h"
+@@ -115,6 +116,7 @@ struct vfio_batch {
+ struct vfio_iommu_group {
+ 	struct iommu_group	*iommu_group;
+ 	struct list_head	next;
++	bool			mdev_group;
+ 	bool			pinned_page_dirty_scope;
+ };
+ 
+@@ -1744,6 +1746,18 @@ static int vfio_dma_do_map(struct vfio_iommu *iommu,
+ 	return ret;
+ }
+ 
++static int vfio_bus_type(struct device *dev, void *data)
++{
++	struct bus_type **bus = data;
++
++	if (*bus && *bus != dev->bus)
++		return -EINVAL;
++
++	*bus = dev->bus;
++
++	return 0;
++}
++
+ static int vfio_iommu_replay(struct vfio_iommu *iommu,
+ 			     struct vfio_domain *domain)
+ {
+@@ -1992,6 +2006,81 @@ static bool vfio_iommu_has_sw_msi(struct list_head *group_resv_regions,
+ 	return ret;
+ }
+ 
++static int vfio_mdev_attach_domain(struct device *dev, void *data)
++{
++	struct mdev_device *mdev = to_mdev_device(dev);
++	struct iommu_domain *domain = data;
++	struct device *iommu_device;
++
++	iommu_device = mdev_get_iommu_device(mdev);
++	if (iommu_device)
++		return iommu_attach_device(domain, iommu_device);
++
++	return -EINVAL;
++}
++
++static int vfio_mdev_detach_domain(struct device *dev, void *data)
++{
++	struct mdev_device *mdev = to_mdev_device(dev);
++	struct iommu_domain *domain = data;
++	struct device *iommu_device;
++
++	iommu_device = mdev_get_iommu_device(mdev);
++	if (iommu_device)
++		iommu_detach_device(domain, iommu_device);
++
++	return 0;
++}
++
++static int vfio_iommu_attach_group(struct vfio_domain *domain,
++				   struct vfio_iommu_group *group)
++{
++	if (group->mdev_group)
++		return iommu_group_for_each_dev(group->iommu_group,
++						domain->domain,
++						vfio_mdev_attach_domain);
++	else
++		return iommu_attach_group(domain->domain, group->iommu_group);
++}
++
++static void vfio_iommu_detach_group(struct vfio_domain *domain,
++				    struct vfio_iommu_group *group)
++{
++	if (group->mdev_group)
++		iommu_group_for_each_dev(group->iommu_group, domain->domain,
++					 vfio_mdev_detach_domain);
++	else
++		iommu_detach_group(domain->domain, group->iommu_group);
++}
++
++static bool vfio_bus_is_mdev(struct bus_type *bus)
++{
++	struct bus_type *mdev_bus;
++	bool ret = false;
++
++	mdev_bus = symbol_get(mdev_bus_type);
++	if (mdev_bus) {
++		ret = (bus == mdev_bus);
++		symbol_put(mdev_bus_type);
++	}
++
++	return ret;
++}
++
++static int vfio_mdev_iommu_device(struct device *dev, void *data)
++{
++	struct mdev_device *mdev = to_mdev_device(dev);
++	struct device **old = data, *new;
++
++	new = mdev_get_iommu_device(mdev);
++	if (!new || (*old && *old != new))
++		return -EINVAL;
++
++	*old = new;
++
++	return 0;
++}
++
+ /*
+  * This is a helper function to insert an address range to iova list.
+  * The list is initially created with a single entry corresponding to
+@@ -2260,6 +2349,25 @@ static int vfio_iommu_type1_attach_group(void *iommu_data,
+ 	group->iommu_group = iommu_group;
+ 
+ 	if (type == VFIO_EMULATED_IOMMU) {
++		struct bus_type *bus = NULL;
++
++		ret = iommu_group_for_each_dev(iommu_group, &bus, vfio_bus_type);
++
++		if (!ret && vfio_bus_is_mdev(bus)) {
++			struct device *iommu_device = NULL;
++
++			group->mdev_group = true;
++
++			/* Determine the isolation type */
++			ret = iommu_group_for_each_dev(iommu_group,
++						       &iommu_device,
++						       vfio_mdev_iommu_device);
++			if (!ret && iommu_device) {
++				iommu_group = iommu_device->iommu_group;
++				goto mdev_iommu_device;
++			}
++		}
++
+ 		list_add(&group->next, &iommu->emulated_iommu_groups);
+ 		/*
+ 		 * An emulated IOMMU group cannot dirty memory directly, it can
+@@ -2272,6 +2380,8 @@ static int vfio_iommu_type1_attach_group(void *iommu_data,
+ 		goto out_unlock;
+ 	}
+ 
++mdev_iommu_device:
++
+ 	ret = -ENOMEM;
+ 	domain = kzalloc(sizeof(*domain), GFP_KERNEL);
+ 	if (!domain)
+@@ -2294,7 +2404,7 @@ static int vfio_iommu_type1_attach_group(void *iommu_data,
+ 			goto out_domain;
+ 	}
+ 
+-	ret = iommu_attach_group(domain->domain, group->iommu_group);
++	ret = vfio_iommu_attach_group(domain, group);
+ 	if (ret)
+ 		goto out_domain;
+ 
+@@ -2370,17 +2480,15 @@ static int vfio_iommu_type1_attach_group(void *iommu_data,
+ 		if (d->domain->ops == domain->domain->ops &&
+ 		    d->enforce_cache_coherency ==
+ 			    domain->enforce_cache_coherency) {
+-			iommu_detach_group(domain->domain, group->iommu_group);
+-			if (!iommu_attach_group(d->domain,
+-						group->iommu_group)) {
++			vfio_iommu_detach_group(domain, group);
++			if (!vfio_iommu_attach_group(d, group)) {
+ 				list_add(&group->next, &d->group_list);
+ 				iommu_domain_free(domain->domain);
+ 				kfree(domain);
+ 				goto done;
+ 			}
+ 
+-			ret = iommu_attach_group(domain->domain,
+-						 group->iommu_group);
++			ret = vfio_iommu_attach_group(domain, group);
+ 			if (ret)
+ 				goto out_domain;
+ 		}
+@@ -2417,7 +2525,7 @@ static int vfio_iommu_type1_attach_group(void *iommu_data,
+ 	return 0;
+ 
+ out_detach:
+-	iommu_detach_group(domain->domain, group->iommu_group);
++	vfio_iommu_detach_group(domain, group);
+ out_domain:
+ 	iommu_domain_free(domain->domain);
+ 	vfio_iommu_iova_free(&iova_copy);
+@@ -2578,7 +2686,7 @@ static void vfio_iommu_type1_detach_group(void *iommu_data,
+ 		if (!group)
+ 			continue;
+ 
+-		iommu_detach_group(domain->domain, group->iommu_group);
++		vfio_iommu_detach_group(domain, group);
+ 		update_dirty_scope = !group->pinned_page_dirty_scope;
+ 		list_del(&group->next);
+ 		kfree(group);
+@@ -2669,7 +2777,7 @@ static void vfio_release_domain(struct vfio_domain *domain)
+ 
+ 	list_for_each_entry_safe(group, group_tmp,
+ 				 &domain->group_list, next) {
+-		iommu_detach_group(domain->domain, group->iommu_group);
++		vfio_iommu_detach_group(domain, group);
+ 		list_del(&group->next);
+ 		kfree(group);
+ 	}
+diff --git a/include/linux/mdev.h b/include/linux/mdev.h
+index 139d05b26f82..b08163d67e63 100644
+--- a/include/linux/mdev.h
++++ b/include/linux/mdev.h
+@@ -20,6 +20,7 @@ struct mdev_device {
+ 	guid_t uuid;
+ 	struct list_head next;
+ 	struct mdev_type *type;
++	struct device *iommu_device;
+ 	bool active;
+ };
+ 
+@@ -53,6 +54,25 @@ static inline struct mdev_device *to_mdev_device(struct device *dev)
+ 	return container_of(dev, struct mdev_device, dev);
+ }
+ 
++/*
++ * Called by the parent device driver to set the device which represents
++ * this mdev in iommu protection scope. By default, the iommu device is
++ * NULL, that indicates using vendor defined isolation.
++ *
++ * @dev: the mediated device that iommu will isolate.
++ * @iommu_device: a pci device which represents the iommu for @dev.
++ */
++static inline void mdev_set_iommu_device(struct mdev_device *mdev,
++					 struct device *iommu_device)
++{
++	mdev->iommu_device = iommu_device;
++}
++
++static inline struct device *mdev_get_iommu_device(struct mdev_device *mdev)
++{
++	return mdev->iommu_device;
++}
++
+ /**
+  * struct mdev_driver - Mediated device driver
+  * @device_api: string to return for the device_api sysfs
+@@ -73,6 +93,8 @@ struct mdev_driver {
+ 	struct device_driver driver;
+ };
+ 
++extern struct bus_type mdev_bus_type;
++
+ int mdev_register_parent(struct mdev_parent *parent, struct device *dev,
+ 		struct mdev_driver *mdev_driver, struct mdev_type **types,
+ 		unsigned int nr_types);
