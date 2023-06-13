@@ -65,10 +65,12 @@ $(DST_DEB): $(BUILD_DIR).prepared
 	#lintian $(HDR_DEB)
 	lintian $(LINUX_TOOLS_DEB)
 
-dsc: $(DSC)
+dsc:
+	$(MAKE) $(DSC)
+	lintian $(DSC)
+
 $(DSC): $(BUILD_DIR).prepared
 	cd $(BUILD_DIR); dpkg-buildpackage -S -uc -us -d
-	lintian $(DSC)
 
 sbuild: $(DSC)
 	sbuild $(DSC)
