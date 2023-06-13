@@ -1,8 +1,11 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
-use PVE::Tools;
+use strict;
+use warnings;
 
-use IO::File;
+use PVE::Tools ();
+
+use IO::File ();
 
 sub usage {
     die "USAGE: $0 INFILE OUTFILE [ABI INFILE-IS-DEB]\n";
