@@ -1,6 +1,7 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 use strict;
+use warnings;
 
 my $dir = shift;
 
@@ -12,21 +13,21 @@ warn "\n\nNOTE: strange directory name: $dir\n\n" if $dir !~ m|^(.*/)?(\d+.\d+.\
 
 my $apiver = $2;
 
-open(TMP, "find '$dir' -name '*.ko'|");
-while (defined(my $fn = <TMP>)) {
+open(my $FIND_KO_FH, "find '$dir' -name '*.ko'|");
+while (defined(my $fn = <$FIND_KO_FH>)) {
     chomp $fn;
     my $relfn = $fn;
     $relfn =~ s|^$dir/*||;
 
     my $cmd = "/sbin/modinfo -F firmware '$fn'";
-    open(MOD, "$cmd|");
-    while (defined(my $fw = <MOD>)) {
+    open(my $MOD_FH, "$cmd|");
+    while (defined(my $fw = <$MOD_FH>)) {
 	chomp $fw;
 	print "$fw $relfn\n";
     }
-    close(MOD);
+    close($MOD_FH);
 
 }
-close TMP;
+close($FIND_KO_FH);
 
 exit 0;
