@@ -4779,10 +4779,10 @@ EXPORT_SYMBOL	 drivers/usb/serial/usb_wwan 0xeb6eed81	usb_wwan_open
 EXPORT_SYMBOL	 drivers/usb/serial/usbserial 0x8d997948	usb_serial_resume
 EXPORT_SYMBOL	 drivers/usb/serial/usbserial 0xcc611d3c	usb_serial_suspend
 EXPORT_SYMBOL	 drivers/vdpa/vdpa 0x428b2554	vdpa_set_status
-EXPORT_SYMBOL	 drivers/vfio/mdev/mdev 0x23ec34a8	mdev_register_driver
-EXPORT_SYMBOL	 drivers/vfio/mdev/mdev 0x70ef0234	mdev_unregister_driver
-EXPORT_SYMBOL	 drivers/vfio/mdev/mdev 0xf6b0301f	mdev_unregister_parent
-EXPORT_SYMBOL	 drivers/vfio/mdev/mdev 0xfe877083	mdev_register_parent
+EXPORT_SYMBOL	 drivers/vfio/mdev/mdev 0x3476c497	mdev_register_parent
+EXPORT_SYMBOL	 drivers/vfio/mdev/mdev 0xb4704d9e	mdev_unregister_driver
+EXPORT_SYMBOL	 drivers/vfio/mdev/mdev 0xc11ea02b	mdev_register_driver
+EXPORT_SYMBOL	 drivers/vfio/mdev/mdev 0xf94855ea	mdev_unregister_parent
 EXPORT_SYMBOL	 drivers/vfio/vfio 0x127c1d84	vfio_pin_pages
 EXPORT_SYMBOL	 drivers/vfio/vfio 0x19567d06	vfio_info_cap_shift
 EXPORT_SYMBOL	 drivers/vfio/vfio 0x68136895	vfio_unpin_pages
@@ -17513,6 +17513,7 @@ EXPORT_SYMBOL_GPL	 drivers/vdpa/vdpa 0xbad38844	vdpa_get_config
 EXPORT_SYMBOL_GPL	 drivers/vdpa/vdpa 0xceca5738	_vdpa_register_device
 EXPORT_SYMBOL_GPL	 drivers/vdpa/vdpa 0xe412dcc8	vdpa_mgmtdev_register
 EXPORT_SYMBOL_GPL	 drivers/vdpa/vdpa_sim/vdpa_sim 0x6743a04b	vdpasim_create
+EXPORT_SYMBOL_GPL	 drivers/vfio/mdev/mdev 0x1aac27ec	mdev_bus_type
 EXPORT_SYMBOL_GPL	 drivers/vfio/pci/vfio-pci-core 0x0d4a4169	vfio_pci_core_match
 EXPORT_SYMBOL_GPL	 drivers/vfio/pci/vfio-pci-core 0x44909f13	vfio_pci_core_close_device
 EXPORT_SYMBOL_GPL	 drivers/vfio/pci/vfio-pci-core 0x4cf699b8	vfio_pci_core_set_params
@@ -26955,6 +26956,7 @@ I915_GVT EXPORT_SYMBOL_GPL 0x438d8abf	shmem_unpin_map	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x4fd9ce06	shmem_pin_map	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x5062d42a	__i915_gem_object_flush_map	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x52450043	i915_gem_object_alloc	drivers/gpu/drm/i915/i915
+I915_GVT EXPORT_SYMBOL_GPL 0x534eaeba	intel_gvt_iterate_mmio_table	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x54ba5006	i915_request_wait	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x6116ec89	i915_gem_prime_export	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x61c7e697	i915_reserve_fence	drivers/gpu/drm/i915/i915
@@ -26968,7 +26970,6 @@ I915_GVT EXPORT_SYMBOL_GPL 0x890fc889	i915_vm_release	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x96a3b936	i915_gem_object_ggtt_pin_ww	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x9987a462	i915_unreserve_fence	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0x9bcfb5f4	intel_uncore_forcewake_for_reg	drivers/gpu/drm/i915/i915
-I915_GVT EXPORT_SYMBOL_GPL 0x9e9f15b3	intel_gvt_iterate_mmio_table	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0xa6485630	i915_gem_object_init	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0xb2762851	intel_uncore_forcewake_get	drivers/gpu/drm/i915/i915
 I915_GVT EXPORT_SYMBOL_GPL 0xb64328bc	i915_gem_ww_ctx_backoff	drivers/gpu/drm/i915/i915
