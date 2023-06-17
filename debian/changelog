@@ -1,3 +1,9 @@
+pve-kernel (6.2.16-3) bookworm; urgency=medium
+
+  * update to Ubuntu-6.2.0-25.25
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 17 Jun 2023 07:58:57 +0200
+
 pve-kernel (6.2.16-2) bookworm; urgency=medium
 
   * update ZFS to 2.1.12
