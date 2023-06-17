@@ -1,3 +1,11 @@
+pve-kernel (5.15.108-1) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-77.84, based on 5.15.108
+
+  * bump ABI to 5.15.108-1
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 17 Jun 2023 11:41:53 +0200
+
 pve-kernel (5.15.107-2) bullseye; urgency=medium
 
   * backport "netfilter: nf_tables: deactivate anonymous set from preparation
