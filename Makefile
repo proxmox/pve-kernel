@@ -54,11 +54,12 @@ LINUX_TOOLS_DEB=linux-tools-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
 LINUX_TOOLS_DBG_DEB=linux-tools-$(KERNEL_MAJMIN)-dbgsym_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
 
 DEBS=$(DST_DEB) $(HDR_DEB) $(USR_HDR_DEB) $(LINUX_TOOLS_DEB) $(LINUX_TOOLS_DBG_DEB)
+UPLOAD_DEBS=$(DST_DEB) $(HDR_DEB) $(LINUX_TOOLS_DEB) $(LINUX_TOOLS_DBG_DEB)
 
 all: deb
 deb: $(DEBS)
 
-$(LINUX_TOOLS_DEB) $(HDR_DEB): $(DST_DEB)
+$(LINUX_TOOLS_DEB) $(HDR_DEB) $(USR_HDR_DEB) $(LINUX_TOOLS_DBG_DEB): $(DST_DEB)
 $(DST_DEB): $(BUILD_DIR).prepared
 	cd $(BUILD_DIR); dpkg-buildpackage --jobs=auto -b -uc -us
 	lintian $(DST_DEB)
@@ -119,8 +120,8 @@ $(ZFSDIR).prepared: $(ZFSONLINUX_SUBMODULE)
 
 .PHONY: upload
 upload: UPLOAD_DIST ?= $(DEB_DISTRIBUTION)
-upload: $(DEBS)
-	tar cf - $(DEBS)|ssh -X repoman@repo.proxmox.com -- upload --product pve,pmg,pbs --dist $(UPLOAD_DIST) --arch $(ARCH)
+upload: $(UPLOAD_DEBS)
+	tar cf - $(UPLOAD_DEBS)|ssh -X repoman@repo.proxmox.com -- upload --product pve,pmg,pbs --dist $(UPLOAD_DIST) --arch $(ARCH)
 
 .PHONY: distclean
 distclean: clean
