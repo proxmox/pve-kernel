@@ -1,3 +1,11 @@
+pve-kernel (6.2.16-4~bpo11+1) bullseye; urgency=medium
+
+  * Rebuild for bullseye but keep ZFS at 2.1.11 for now.
+
+  * bump ABI to 6.2.16-4~bpo11
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 07 Jul 2023 17:05:59 +0200
+
 pve-kernel (6.2.16-4) bookworm; urgency=medium
 
   * backport fixes for StackRot (CVE-2023-3269)
