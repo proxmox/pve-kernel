@@ -1,3 +1,9 @@
+pve-kernel (6.2.16-4) bookworm; urgency=medium
+
+  * backport fixes for StackRot (CVE-2023-3269)
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 07 Jul 2023 06:22:28 +0200
+
 pve-kernel (6.2.16-3) bookworm; urgency=medium
 
   * update to Ubuntu-6.2.0-25.25
