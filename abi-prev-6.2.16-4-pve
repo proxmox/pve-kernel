@@ -21324,7 +21324,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x2e2fa794	tpm_chip_start
 EXPORT_SYMBOL_GPL	 vmlinux 0x2e3f4d8a	perf_trace_run_bpf_submit
 EXPORT_SYMBOL_GPL	 vmlinux 0x2e4bfc65	mmc_regulator_get_supply
 EXPORT_SYMBOL_GPL	 vmlinux 0x2e5175ce	dma_resv_wait_timeout
-EXPORT_SYMBOL_GPL	 vmlinux 0x2e661fca	find_extend_vma
 EXPORT_SYMBOL_GPL	 vmlinux 0x2e746188	io_cgrp_subsys
 EXPORT_SYMBOL_GPL	 vmlinux 0x2e779c2d	clk_hw_init_rate_request
 EXPORT_SYMBOL_GPL	 vmlinux 0x2e78a5d4	vc_scrolldelta_helper
