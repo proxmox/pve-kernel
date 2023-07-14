@@ -1,3 +1,19 @@
+pve-kernel (6.2.16-5) bookworm; urgency=medium
+
+  * kvm: xsave set: mask-out PKRU bit in xfeatures if vCPU has no support to
+    improve live-migrations & snapshot-rollback of VMs running on modern Intel
+    CPUs (Skylake-Server or Tiger Lake Desktop), if configured with a
+    restricted vCPU type (e.g., qemu64) and if the migration source is from
+    our 5.15 based kernel (default in Proxmox VE 7.4) to the 6.2 (and future
+    newer) of Proxmox VE 8.0 as target.
+    This copes with the fallout of a fix, that while itself improved migration
+    compatibility for clusters with different host-CPU models, caused another
+    issue on the transition between the older "broken" and newer "fixed"
+    kernels for homogeneous clusters, i.e., those with the same PVE host-CPU
+    model.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 14 Jul 2023 19:53:39 +0200
+
 pve-kernel (6.2.16-4) bookworm; urgency=medium
 
   * backport fixes for StackRot (CVE-2023-3269)
