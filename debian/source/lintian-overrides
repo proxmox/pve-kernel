@@ -1,2 +1,2 @@
-pve-kernel source: debian-control-has-dbgsym-package (in section for pve-kernel-*-pve-dbgsym) Package [debian/control:*]
-pve-kernel source: license-problem-gfdl-invariants invariant part is: with the :ref:`invariant sections <fdl-invariant>` being list their titles, with the :ref:`front-cover texts <fdl-cover-texts>` being list, and with the :ref:`back-cover texts <fdl-cover-texts>` being list [ubuntu-kernel/Documentation/userspace-api/media/fdl-appendix.rst]
+proxmox-kernel-6.2 source: debian-control-has-dbgsym-package (in section for proxmox-kernel-*-pve-dbgsym) Package [debian/control:*]
+proxmox-kernel-6.2 source: license-problem-gfdl-invariants invariant part is: with the :ref:`invariant sections <fdl-invariant>` being list their titles, with the :ref:`front-cover texts <fdl-cover-texts>` being list, and with the :ref:`back-cover texts <fdl-cover-texts>` being list [ubuntu-kernel/Documentation/userspace-api/media/fdl-appendix.rst]

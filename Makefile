@@ -1,22 +1,22 @@
 include /usr/share/dpkg/pkg-info.mk
 
-# also bump pve-kernel-meta if either of MAJ.MIN, PATCHLEVEL or KREL change
+# also bump proxmox-kernel-meta if the default MAJ.MIN version changes!
 KERNEL_MAJ=6
 KERNEL_MIN=2
 KERNEL_PATCHLEVEL=16
-# increment KREL if the ABI changes (abicheck target in debian/rules)
+# increment KREL for every published package release!
 # rebuild packages with new KREL and run 'make abiupdate'
-KREL=5
+KREL=6
 
-PKGREL=6
+PKGREL=7
 
 KERNEL_MAJMIN=$(KERNEL_MAJ).$(KERNEL_MIN)
 KERNEL_VER=$(KERNEL_MAJMIN).$(KERNEL_PATCHLEVEL)
 
 EXTRAVERSION=-$(KREL)-pve
 KVNAME=$(KERNEL_VER)$(EXTRAVERSION)
-PACKAGE=pve-kernel-$(KVNAME)
-HDRPACKAGE=pve-headers-$(KVNAME)
+PACKAGE=proxmox-kernel-$(KVNAME)
+HDRPACKAGE=proxmox-headers-$(KVNAME)
 
 ARCH=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
 
@@ -31,7 +31,7 @@ GITVERSION:=$(shell git rev-parse HEAD)
 
 SKIPABI=0
 
-BUILD_DIR=pve-kernel-$(KERNEL_VER)
+BUILD_DIR=proxmox-kernel-$(KERNEL_VER)
 
 KERNEL_SRC=ubuntu-kernel
 KERNEL_SRC_SUBMODULE=submodules/$(KERNEL_SRC)
@@ -46,19 +46,21 @@ MODULE_DIRS=$(ZFSDIR)
 # exported to debian/rules via debian/rules.d/dirs.mk
 DIRS=KERNEL_SRC ZFSDIR MODULES
 
-DSC=pve-kernel_$(KERNEL_VER)-$(PKGREL).dsc
+DSC=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL).dsc
 DST_DEB=$(PACKAGE)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
+META_DEB=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL)_all.deb
 HDR_DEB=$(HDRPACKAGE)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
-USR_HDR_DEB=pve-kernel-libc-dev_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
+META_HDR_DEB=proxmox-headers-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL)_all.deb
+USR_HDR_DEB=proxmox-kernel-libc-dev_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
 LINUX_TOOLS_DEB=linux-tools-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
 LINUX_TOOLS_DBG_DEB=linux-tools-$(KERNEL_MAJMIN)-dbgsym_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
 
-DEBS=$(DST_DEB) $(HDR_DEB) $(LINUX_TOOLS_DEB) $(LINUX_TOOLS_DBG_DEB) # $(USR_HDR_DEB)
+DEBS=$(DST_DEB) $(META_DEB) $(HDR_DEB) $(META_HDR_DEB) $(LINUX_TOOLS_DEB) $(LINUX_TOOLS_DBG_DEB) # $(USR_HDR_DEB)
 
 all: deb
 deb: $(DEBS)
 
-$(LINUX_TOOLS_DEB) $(HDR_DEB): $(DST_DEB)
+$(META_DEB) $(META_HDR_DEB) $(LINUX_TOOLS_DEB) $(HDR_DEB): $(DST_DEB)
 $(DST_DEB): $(BUILD_DIR).prepared
 	cd $(BUILD_DIR); dpkg-buildpackage --jobs=auto -b -uc -us
 	lintian $(DST_DEB)
@@ -161,5 +163,5 @@ abi-tmp-$(KVNAME):
 
 .PHONY: clean
 clean:
-	rm -rf *~ pve-kernel-[0-9]*/ *.prepared $(KERNEL_CFG_ORG)
-	rm -f *.deb *.dsc *.changes *.buildinfo *.build pve-kernel*.tar.*
+	rm -rf *~ proxmox-kernel-[0-9]*/ *.prepared $(KERNEL_CFG_ORG)
+	rm -f *.deb *.dsc *.changes *.buildinfo *.build proxmox-kernel*.tar.*

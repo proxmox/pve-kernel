@@ -1,0 +1,17 @@
+#! /bin/sh
+
+# Abort if any command returns an error value 
+set -e
+
+case "$1" in
+  configure)
+    # setup kernel links for installation CD (rescue boot)
+    mkdir -p /boot/pve
+    ln -sf /boot/vmlinuz-@@KVNAME@@ /boot/pve/vmlinuz-@@KVMAJMIN@@
+    ln -sf /boot/initrd.img-@@KVNAME@@ /boot/pve/initrd.img-@@KVMAJMIN@@
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0

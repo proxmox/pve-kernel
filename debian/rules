@@ -16,15 +16,16 @@ MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
 CHANGELOG_DATE:=$(shell dpkg-parsechangelog -SDate)
 CHANGELOG_DATE_UTC_ISO := $(shell date -u -d '$(CHANGELOG_DATE)' +%Y-%m-%dT%H:%MZ)
 
-PVE_KERNEL_PKG=pve-kernel-$(KVNAME)
-PVE_DEBUG_KERNEL_PKG=pve-kernel-$(KVNAME)-dbgsym
-PVE_HEADER_PKG=pve-headers-$(KVNAME)
-PVE_USR_HEADER_PKG=pve-kernel-libc-dev
+PMX_KERNEL_PKG=proxmox-kernel-$(KVNAME)
+PMX_KERNEL_SERIES_PKG=proxmox-kernel-$(KERNEL_MAJMIN)
+PMX_DEBUG_KERNEL_PKG=proxmox-kernel-$(KVNAME)-dbgsym
+PMX_HEADER_PKG=proxmox-headers-$(KVNAME)
+PMX_USR_HEADER_PKG=proxmox-kernel-libc-dev
 LINUX_TOOLS_PKG=linux-tools-$(KERNEL_MAJMIN)
 KERNEL_SRC_COPY=$(KERNEL_SRC)_tmp
 
 # TODO: split for archs, move to files?
-PVE_CONFIG_OPTS= \
+PMX_CONFIG_OPTS= \
 -m INTEL_MEI_WDT \
 -d CONFIG_SND_PCM_OSS \
 -e CONFIG_TRANSPARENT_HUGEPAGE_MADVISE \
@@ -92,14 +93,18 @@ PVE_CONFIG_OPTS= \
 -e CONFIG_PAGE_TABLE_ISOLATION
 
 debian/control: $(wildcard debian/*.in)
-	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/pve-kernel.prerm.in > debian/$(PVE_KERNEL_PKG).prerm
-	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/pve-kernel.postrm.in > debian/$(PVE_KERNEL_PKG).postrm
-	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/pve-kernel.postinst.in > debian/$(PVE_KERNEL_PKG).postinst
-	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/pve-headers.postinst.in > debian/$(PVE_HEADER_PKG).postinst
-	chmod +x debian/$(PVE_KERNEL_PKG).prerm
-	chmod +x debian/$(PVE_KERNEL_PKG).postrm
-	chmod +x debian/$(PVE_KERNEL_PKG).postinst
-	chmod +x debian/$(PVE_HEADER_PKG).postinst
+	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel.prerm.in > debian/$(PMX_KERNEL_PKG).prerm
+	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel.postrm.in > debian/$(PMX_KERNEL_PKG).postrm
+	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel.postinst.in > debian/$(PMX_KERNEL_PKG).postinst
+	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-headers.postinst.in > debian/$(PMX_HEADER_PKG).postinst
+	sed -e 's/@@KVMAJMIN@@/$(KERNEL_MAJMIN)/g' -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel-meta.postrm.in > debian/$(PMX_KERNEL_SERIES_PKG).postrm
+	sed -e 's/@@KVMAJMIN@@/$(KERNEL_MAJMIN)/g' -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel-meta.postinst.in > debian/$(PMX_KERNEL_SERIES_PKG).postinst
+	chmod +x debian/$(PMX_KERNEL_PKG).prerm
+	chmod +x debian/$(PMX_KERNEL_PKG).postrm
+	chmod +x debian/$(PMX_KERNEL_PKG).postinst
+	chmod +x debian/$(PMX_KERNEL_SERIES_PKG).postrm
+	chmod +x debian/$(PMX_KERNEL_SERIES_PKG).postinst
+	chmod +x debian/$(PMX_HEADER_PKG).postinst
 	sed -e 's/@KVNAME@/$(KVNAME)/g' -e 's/@KVMAJMIN@/$(KERNEL_MAJMIN)/g' < debian/control.in > debian/control
 
 build: .compile_mark .tools_compile_mark .modules_compile_mark
@@ -114,7 +119,7 @@ install: .install_mark .tools_install_mark .headers_install_mark .usr_headers_in
 
 binary: install
 	debian/rules fwcheck abicheck
-	dh_strip -N$(PVE_HEADER_PKG) -N$(PVE_USR_HEADER_PKG)
+	dh_strip -N$(PMX_HEADER_PKG) -N$(PMX_USR_HEADER_PKG)
 	dh_makeshlibs
 	dh_shlibdeps
 	dh_installdeb
@@ -123,7 +128,7 @@ binary: install
 	dh_builddeb
 
 .config_mark:
-	cd $(KERNEL_SRC); scripts/config $(PVE_CONFIG_OPTS)
+	cd $(KERNEL_SRC); scripts/config $(PMX_CONFIG_OPTS)
 	$(MAKE) -C $(KERNEL_SRC) oldconfig
 	# copy to allow building in parallel to kernel/module compilation without interference
 	rm -rf $(KERNEL_SRC_COPY)
@@ -131,47 +136,47 @@ binary: install
 	touch $@
 
 .compile_mark: .config_mark
-	$(MAKE) -C $(KERNEL_SRC) KBUILD_BUILD_VERSION_TIMESTAMP="PVE $(DEB_VERSION) ($(CHANGELOG_DATE_UTC_ISO))"
+	$(MAKE) -C $(KERNEL_SRC) KBUILD_BUILD_VERSION_TIMESTAMP="PMX $(DEB_VERSION) ($(CHANGELOG_DATE_UTC_ISO))"
 	touch $@
 
 .install_mark: .compile_mark .modules_compile_mark
-	rm -rf debian/$(PVE_KERNEL_PKG)
-	mkdir -p debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)
-	mkdir debian/$(PVE_KERNEL_PKG)/boot
-	install -m 644 $(KERNEL_SRC)/.config debian/$(PVE_KERNEL_PKG)/boot/config-$(KVNAME)
-	install -m 644 $(KERNEL_SRC)/System.map debian/$(PVE_KERNEL_PKG)/boot/System.map-$(KVNAME)
-	install -m 644 $(KERNEL_SRC)/$(KERNEL_IMAGE_PATH) debian/$(PVE_KERNEL_PKG)/boot/$(KERNEL_INSTALL_FILE)-$(KVNAME)
-	$(MAKE) -C $(KERNEL_SRC) INSTALL_MOD_PATH=$(BUILD_DIR)/debian/$(PVE_KERNEL_PKG)/ modules_install
+	rm -rf debian/$(PMX_KERNEL_PKG)
+	mkdir -p debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)
+	mkdir debian/$(PMX_KERNEL_PKG)/boot
+	install -m 644 $(KERNEL_SRC)/.config debian/$(PMX_KERNEL_PKG)/boot/config-$(KVNAME)
+	install -m 644 $(KERNEL_SRC)/System.map debian/$(PMX_KERNEL_PKG)/boot/System.map-$(KVNAME)
+	install -m 644 $(KERNEL_SRC)/$(KERNEL_IMAGE_PATH) debian/$(PMX_KERNEL_PKG)/boot/$(KERNEL_INSTALL_FILE)-$(KVNAME)
+	$(MAKE) -C $(KERNEL_SRC) INSTALL_MOD_PATH=$(BUILD_DIR)/debian/$(PMX_KERNEL_PKG)/ modules_install
 	# install zfs drivers
-	install -d -m 0755 debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/zfs
-	install -m 644 $(addprefix $(MODULES)/,zfs.ko zavl.ko znvpair.ko zunicode.ko zcommon.ko icp.ko zlua.ko spl.ko zzstd.ko) debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/zfs
+	install -d -m 0755 debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/zfs
+	install -m 644 $(addprefix $(MODULES)/,zfs.ko zavl.ko znvpair.ko zunicode.ko zcommon.ko icp.ko zlua.ko spl.ko zzstd.ko) debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/zfs
 	# remove firmware
-	rm -rf debian/$(PVE_KERNEL_PKG)/lib/firmware
+	rm -rf debian/$(PMX_KERNEL_PKG)/lib/firmware
 
-ifeq ($(filter pkg.pve-kernel.debug,$(DEB_BUILD_PROFILES)),)
-	echo "'pkg.pve-kernel.debug' build profile disabled, skipping -dbgsym creation"
+ifeq ($(filter pkg.proxmox-kernel.debug,$(DEB_BUILD_PROFILES)),)
+	echo "'pkg.proxmox-kernel.debug' build profile disabled, skipping -dbgsym creation"
 else
-	echo "'pkg.pve-kernel.debug' build profile enabled, creating -dbgsym contents"
-	mkdir -p debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)
-	mkdir debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/boot
-	install -m 644 $(KERNEL_SRC)/vmlinux debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/boot/vmlinux-$(KVNAME)
-	cp -r debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME) debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/
-	rm -f debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/source
-	rm -f debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/build
-	rm -f debian/$(PVE_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/modules.*
+	echo "'pkg.proxmox-kernel.debug' build profile enabled, creating -dbgsym contents"
+	mkdir -p debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)
+	mkdir debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/boot
+	install -m 644 $(KERNEL_SRC)/vmlinux debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/boot/vmlinux-$(KVNAME)
+	cp -r debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME) debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/
+	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/source
+	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/build
+	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/modules.*
 endif
 
 	# strip debug info
-	find debian/$(PVE_KERNEL_PKG)/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
+	find debian/$(PMX_KERNEL_PKG)/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
 	# finalize
-	/sbin/depmod -b debian/$(PVE_KERNEL_PKG)/ $(KVNAME)
+	/sbin/depmod -b debian/$(PMX_KERNEL_PKG)/ $(KVNAME)
 	# Autogenerate blacklist for watchdog devices (see README)
-	install -m 0755 -d debian/$(PVE_KERNEL_PKG)/lib/modprobe.d
-	ls debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/kernel/drivers/watchdog/ > watchdog-blacklist.tmp
+	install -m 0755 -d debian/$(PMX_KERNEL_PKG)/lib/modprobe.d
+	ls debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/kernel/drivers/watchdog/ > watchdog-blacklist.tmp
 	echo ipmi_watchdog.ko >> watchdog-blacklist.tmp
-	cat watchdog-blacklist.tmp|sed -e 's/^/blacklist /' -e 's/.ko$$//'|sort -u > debian/$(PVE_KERNEL_PKG)/lib/modprobe.d/blacklist_$(PVE_KERNEL_PKG).conf
-	rm -f debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/source
-	rm -f debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME)/build
+	cat watchdog-blacklist.tmp|sed -e 's/^/blacklist /' -e 's/.ko$$//'|sort -u > debian/$(PMX_KERNEL_PKG)/lib/modprobe.d/blacklist_$(PMX_KERNEL_PKG).conf
+	rm -f debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/source
+	rm -f debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/build
 	touch $@
 
 .tools_compile_mark: .compile_mark
@@ -194,9 +199,9 @@ endif
 	touch $@
 
 .headers_prepare_mark: .config_mark
-	rm -rf debian/$(PVE_HEADER_PKG)
-	mkdir -p debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
-	install -m 0644 $(KERNEL_SRC)/.config debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	rm -rf debian/$(PMX_HEADER_PKG)
+	mkdir -p debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	install -m 0644 $(KERNEL_SRC)/.config debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
 	make -C $(KERNEL_SRC_COPY) mrproper
 	cd $(KERNEL_SRC_COPY); find . -path './debian/*' -prune \
 	    -o -path './include/*' -prune \
@@ -210,35 +215,35 @@ endif
 	        -o -name '*.sh' \
 	        -o -name '*.pl' \
 	    \) \
-	    -print | cpio -pd --preserve-modification-time $(BUILD_DIR)/debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	    -print | cpio -pd --preserve-modification-time $(BUILD_DIR)/debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
 	cd $(KERNEL_SRC_COPY); \
 	    ( \
 	        find arch/$(KERNEL_HEADER_ARCH) -name include -type d -print | \
 	        xargs -n1 -i: find : -type f \
 	    ) | \
-	    cpio -pd --preserve-modification-time $(BUILD_DIR)/debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	    cpio -pd --preserve-modification-time $(BUILD_DIR)/debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
 	touch $@
 
 .headers_compile_mark: .headers_prepare_mark
 	# set output to subdir of source to reduce number of hardcoded paths in output files
-	rm -rf $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG)
-	mkdir -p $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG)
-	cp $(KERNEL_SRC)/.config $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG)/.config
-	$(MAKE) -C $(KERNEL_SRC_COPY) O=$(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG) -j1 syncconfig modules_prepare prepare scripts
-	cd $(KERNEL_SRC_COPY); cp -a include scripts $(BUILD_DIR)/debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
-	find $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG) -name \*.o.ur-\* -o -name '*.cmd' | xargs rm -f
-	rsync --ignore-existing -r -v -a $(addprefix $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PVE_HEADER_PKG)/,arch include kernel scripts tools) $(BUILD_DIR)/debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/
+	rm -rf $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG)
+	mkdir -p $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG)
+	cp $(KERNEL_SRC)/.config $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG)/.config
+	$(MAKE) -C $(KERNEL_SRC_COPY) O=$(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG) -j1 syncconfig modules_prepare prepare scripts
+	cd $(KERNEL_SRC_COPY); cp -a include scripts $(BUILD_DIR)/debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	find $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG) -name \*.o.ur-\* -o -name '*.cmd' | xargs rm -f
+	rsync --ignore-existing -r -v -a $(addprefix $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG)/,arch include kernel scripts tools) $(BUILD_DIR)/debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/
 	rm -rf $(BUILD_DIR)/$(KERNEL_SRC_COPY)
 	touch $@
 
 .headers_install_mark: .compile_mark .modules_compile_mark .headers_compile_mark
-	cp $(KERNEL_SRC)/include/generated/compile.h debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/include/generated/compile.h
-	install -m 0644 $(KERNEL_SRC)/Module.symvers debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
-	mkdir -p debian/$(PVE_HEADER_PKG)/lib/modules/$(KVNAME)
-	ln -sf /usr/src/linux-headers-$(KVNAME) debian/$(PVE_HEADER_PKG)/lib/modules/$(KVNAME)/build
+	cp $(KERNEL_SRC)/include/generated/compile.h debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/include/generated/compile.h
+	install -m 0644 $(KERNEL_SRC)/Module.symvers debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
+	mkdir -p debian/$(PMX_HEADER_PKG)/lib/modules/$(KVNAME)
+	ln -sf /usr/src/linux-headers-$(KVNAME) debian/$(PMX_HEADER_PKG)/lib/modules/$(KVNAME)/build
 	touch $@
 
-.usr_headers_install_mark: PKG_DIR = debian/$(PVE_USR_HEADER_PKG)
+.usr_headers_install_mark: PKG_DIR = debian/$(PMX_USR_HEADER_PKG)
 .usr_headers_install_mark: OUT_DIR = $(PKG_DIR)/usr
 .usr_headers_install_mark: .config_mark
 	rm -rf '$(PKG_DIR)'
@@ -272,7 +277,7 @@ $(MODULES)/zfs.ko: .compile_mark
 	cp $(MODULES)/$(ZFSDIR)/module/zstd/zzstd.ko $(MODULES)/
 
 fwlist-$(KVNAME): .compile_mark .modules_compile_mark
-	debian/scripts/find-firmware.pl debian/$(PVE_KERNEL_PKG)/lib/modules/$(KVNAME) >fwlist.tmp
+	debian/scripts/find-firmware.pl debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME) >fwlist.tmp
 	mv fwlist.tmp $@
 
 .PHONY: fwcheck
@@ -287,7 +292,7 @@ fwcheck: fwlist-$(KVNAME) fwlist-previous
 
 
 abi-$(KVNAME): .compile_mark
-	debian/scripts/abi-generate debian/$(PVE_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/Module.symvers abi-$(KVNAME) $(KVNAME)
+	debian/scripts/abi-generate debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/Module.symvers abi-$(KVNAME) $(KVNAME)
 
 .PHONY: abicheck
 abicheck: debian/scripts/abi-check abi-$(KVNAME) abi-prev-* abi-blacklist

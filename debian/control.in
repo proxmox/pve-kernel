@@ -1,4 +1,4 @@
-Source: pve-kernel
+Source: proxmox-kernel-@KVMAJMIN@
 Section: devel
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
@@ -31,7 +31,7 @@ Build-Depends: asciidoc-base,
                xmlto,
                zlib1g-dev,
                zstd,
-Build-Conflicts: pve-headers-@KVNAME@,
+Build-Conflicts: proxmox-headers-@KVNAME@,
 Standards-Version: 4.6.2
 Vcs-Git: git://git.proxmox.com/git/pve-kernel
 Vcs-Browser: https://git.proxmox.com/?p=pve-kernel.git
@@ -45,48 +45,72 @@ Description: Linux kernel version specific tools for version @KVMAJMIN@
  This package provides the architecture dependent parts for kernel
  version locked tools (such as perf and x86_energy_perf_policy)
 
-Package: pve-headers-@KVNAME@
+Package: proxmox-headers-@KVNAME@
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-headers-@KVNAME@-amd64,
+Provides: linux-headers-@KVNAME@-amd64, pve-headers-@KVNAME@
 Depends: ${misc:Depends},
 Description: Proxmox Kernel Headers
  This package contains the linux kernel headers
 
-Package: pve-kernel-@KVNAME@
+Package: proxmox-kernel-@KVNAME@
 Section: admin
 Priority: optional
 Architecture: any
-Provides: linux-image-@KVNAME@-amd64,
+Provides: linux-image-@KVNAME@-amd64, pve-kernel-@KVNAME@
 Suggests: pve-firmware,
 Depends: busybox, initramfs-tools | linux-initramfs-tool, ${misc:Depends},
 Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub-efi-arm64,
 Description: Proxmox Kernel Image
  This package contains the linux kernel and initial ramdisk used for booting
 
-Package: pve-kernel-@KVNAME@-dbgsym
+Package: proxmox-kernel-@KVNAME@-dbgsym
 Architecture: any
-Provides: linux-debug,
+Provides: linux-debug, pve-kernel-@KVNAME@-dbgsym
 Section: devel
 Priority: optional
-Build-Profiles: <pkg.pve-kernel.debug>
+Build-Profiles: <pkg.proxmox-kernel.debug>
 Depends: ${misc:Depends},
 Description: Proxmox Kernel debug image
  This package provides the kernel debug image for version @KVNAME@. The debug
  kernel image contained in this package is NOT meant to boot from - it is
  uncompressed, and unstripped, and suitable for use with crash/kdump-tools/..
- to analyze kernel crashes. This package also contains the pve-kernel modules
+ to analyze kernel crashes. This package also contains the proxmox-kernel modules
  in their unstripped version.
 
-Package: pve-kernel-libc-dev
+Package: proxmox-kernel-libc-dev
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-libc-dev (=${binary:Version}),
+Provides: linux-libc-dev (=${binary:Version}), pve-kernel-libc-dev
 Conflicts: linux-libc-dev,
-Replaces: linux-libc-dev,
+Replaces: linux-libc-dev, pve-kernel-libc-dev
+Breaks: pve-kernel-libc-dev
 Depends: ${misc:Depends},
 Description: Linux support headers for userspace development
  This package provides userspaces headers from the Linux kernel.  These headers
  are used by the installed headers for GNU libc and other system libraries.
+
+Package: proxmox-headers-@KVMAJMIN@
+Architecture: all
+Section: admin
+Provides: linux-headers-amd64, linux-headers-generic, pve-headers-@KVMAJMIN@
+Replaces: pve-headers-@KVMAJMIN@
+Priority: optional
+Depends: proxmox-headers-@KVNAME@, ${misc:Depends},
+Description: Latest Proxmox Kernel Headers
+ This is a metapackage which will install the kernel headers
+ for the latest available proxmox kernel from the @KVMAJMIN@
+ series.
+
+Package: proxmox-kernel-@KVMAJMIN@
+Architecture: all
+Section: admin
+Provides: linux-image-amd64, linux-image-generic, wireguard-modules (=1.0.0), pve-kernel-@KVMAJMIN@
+Replaces: pve-kernel-@KVMAJMIN@
+Priority: optional
+Depends: pve-firmware, proxmox-kernel-@KVNAME@, ${misc:Depends},
+Description: Latest Proxmox Kernel Image
+ This is a metapackage which will install the latest available
+ proxmox kernel from the @KVMAJMIN@ series.
