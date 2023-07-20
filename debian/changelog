@@ -1,3 +1,10 @@
+pve-kernel (5.15.108-2) bullseye; urgency=medium
+
+  * backport Zenbleed stop-gap workaround for CVE-2023-20593, the actual fix
+    is the amd64-microcode update.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 20 Jul 2023 12:06:18 +0200
+
 pve-kernel (5.15.108-1) bullseye; urgency=medium
 
   * update to Ubuntu-5.15.0-77.84, based on 5.15.108
