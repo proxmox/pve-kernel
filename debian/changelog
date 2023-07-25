@@ -1,3 +1,14 @@
+pve-kernel (6.2.16-6) bookworm; urgency=medium
+
+  * fix #4833: backport fix for recovering potential NX huge pages
+
+  * fix #4770: backport "nvme: don't reject probe due to duplicate IDs"
+
+  * backport Zenbleed stop-gap workaround for CVE-2023-20593, the actual fix
+    is the amd64-microcode update.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 25 Jul 2023 17:33:45 +0200
+
 pve-kernel (6.2.16-5) bookworm; urgency=medium
 
   * kvm: xsave set: mask-out PKRU bit in xfeatures if vCPU has no support to
