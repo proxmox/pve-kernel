@@ -1,3 +1,13 @@
+proxmox-kernel-6.2 (6.2.16-7) bookworm; urgency=medium
+
+  * change `pve-` prefix to `proxmox-`
+
+  * merge proxmox-kernel-meta packaging into main kernel repository
+
+  * bump ABI to 6.2.16-6
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 01 Aug 2023 13:23:46 +0200
+
 pve-kernel (6.2.16-6) bookworm; urgency=medium
 
   * fix #4833: backport fix for recovering potential NX huge pages
