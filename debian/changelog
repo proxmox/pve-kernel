@@ -1,3 +1,9 @@
+proxmox-kernel-6.2 (6.2.16-8) bookworm; urgency=medium
+
+  * sign modules and set trust anchor/lockdown to allow manual secure boot
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 02 Aug 2023 14:17:00 +0200
+
 proxmox-kernel-6.2 (6.2.16-7) bookworm; urgency=medium
 
   * change `pve-` prefix to `proxmox-`

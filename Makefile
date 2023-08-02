@@ -6,9 +6,7 @@ KERNEL_MIN=2
 KERNEL_PATCHLEVEL=16
 # increment KREL for every published package release!
 # rebuild packages with new KREL and run 'make abiupdate'
-KREL=6
-
-PKGREL=7
+KREL=8
 
 KERNEL_MAJMIN=$(KERNEL_MAJ).$(KERNEL_MIN)
 KERNEL_VER=$(KERNEL_MAJMIN).$(KERNEL_PATCHLEVEL)
@@ -46,14 +44,14 @@ MODULE_DIRS=$(ZFSDIR)
 # exported to debian/rules via debian/rules.d/dirs.mk
 DIRS=KERNEL_SRC ZFSDIR MODULES
 
-DSC=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL).dsc
-DST_DEB=$(PACKAGE)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
-META_DEB=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL)_all.deb
-HDR_DEB=$(HDRPACKAGE)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
-META_HDR_DEB=proxmox-headers-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL)_all.deb
-USR_HDR_DEB=proxmox-kernel-libc-dev_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
-LINUX_TOOLS_DEB=linux-tools-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
-LINUX_TOOLS_DBG_DEB=linux-tools-$(KERNEL_MAJMIN)-dbgsym_$(KERNEL_VER)-$(PKGREL)_$(ARCH).deb
+DSC=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(KREL).dsc
+DST_DEB=$(PACKAGE)_$(KERNEL_VER)-$(KREL)_$(ARCH).deb
+META_DEB=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(KREL)_all.deb
+HDR_DEB=$(HDRPACKAGE)_$(KERNEL_VER)-$(KREL)_$(ARCH).deb
+META_HDR_DEB=proxmox-headers-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(KREL)_all.deb
+USR_HDR_DEB=proxmox-kernel-libc-dev_$(KERNEL_VER)-$(KREL)_$(ARCH).deb
+LINUX_TOOLS_DEB=linux-tools-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(KREL)_$(ARCH).deb
+LINUX_TOOLS_DBG_DEB=linux-tools-$(KERNEL_MAJMIN)-dbgsym_$(KERNEL_VER)-$(KREL)_$(ARCH).deb
 
 DEBS=$(DST_DEB) $(META_DEB) $(HDR_DEB) $(META_HDR_DEB) $(LINUX_TOOLS_DEB) $(LINUX_TOOLS_DBG_DEB) # $(USR_HDR_DEB)
 
