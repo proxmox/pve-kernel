@@ -60,13 +60,21 @@ top level meta package, depends on current default kernel series meta package.
 
 git clone git://git.proxmox.com/git/proxmox-ve.git
 
-pve-kernel-meta
----------------
+proxmox-default-kernel
+----------------------
 
-Depends on latest kernel and header package within a certain kernel series,
-e.g., pve-kernel-5.15 / pve-headers-5.15
+Depends on default kernel and header meta package, e.g., proxmox-kernel-6.2 /
+proxmox-headers-6.2.
 
 git clone git://git.proxmox.com/git/pve-kernel-meta.git
+
+proxmox-kernel-X.Y
+------------------
+
+Depends on the latest kernel (or header, in case of proxmox-headers-X.Y)
+package within a certain series.
+
+e.g., proxmox-kernel-6.2 depends on proxmox-kernel-6.2.16-6-pve
 
 pve-firmware
 ------------
@@ -99,18 +107,18 @@ Watchdog blacklist
 
 By default, all watchdog modules are black-listed because it is totally undefined
 which device is actually used for /dev/watchdog.
-We ship this list in /lib/modprobe.d/blacklist_pve-kernel-<VERSION>.conf
+We ship this list in /lib/modprobe.d/blacklist_proxmox-kernel-<VERSION>.conf
 The user typically edit /etc/modules to enable a specific watchdog device.
 
 Debug kernel and modules
 ------------------------
 
 In order to build a -dbgsym package containing an unstripped copy of the kernel
-image and modules, enable the 'pkg.pve-kernel.debug' build profile (e.g. by
-exporting DEB_BUILD_PROFILES='pkg.pve-kernel.debug'). The resulting package can
+image and modules, enable the 'pkg.proxmox-kernel.debug' build profile (e.g. by
+exporting DEB_BUILD_PROFILES='pkg.proxmox-kernel.debug'). The resulting package can
 be used together with 'crash'/'kdump-tools' to debug kernel crashes.
 
-Note: the -dbgsym package is only valid for the pve-kernel packages produced by
+Note: the -dbgsym package is only valid for the proxmox-kernel packages produced by
 the same build. A kernel/module from a different build will likely not match,
 even if both builds are of the same kernel and package version.
 
