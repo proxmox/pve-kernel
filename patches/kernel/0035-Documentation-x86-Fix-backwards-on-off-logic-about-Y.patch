@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dave Hansen <dave.hansen@linux.intel.com>
+Date: Tue, 1 Aug 2023 07:31:07 -0700
+Subject: [PATCH] Documentation/x86: Fix backwards on/off logic about YMM
+ support
+
+These options clearly turn *off* XSAVE YMM support.  Correct the
+typo.
+
+Reported-by: Ben Hutchings <ben@decadent.org.uk>
+Fixes: 553a5c03e90a ("x86/speculation: Add force option to GDS mitigation")
+Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
+
+(cherry picked from commit 1b0fc0345f2852ffe54fb9ae0e12e2ee69ad6a20)
+CVE-2022-40982
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@canonical.com>
+Acked-by: Roxana Nicolescu <roxana.nicolescu@canonical.com>
+Acked-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit f88fa53e3623291b52b8a6656c1ea9a5d6f6f284)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ Documentation/admin-guide/hw-vuln/gather_data_sampling.rst | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Documentation/admin-guide/hw-vuln/gather_data_sampling.rst b/Documentation/admin-guide/hw-vuln/gather_data_sampling.rst
+index 40b7a6260010..264bfa937f7d 100644
+--- a/Documentation/admin-guide/hw-vuln/gather_data_sampling.rst
++++ b/Documentation/admin-guide/hw-vuln/gather_data_sampling.rst
+@@ -63,7 +63,7 @@ GDS can also be mitigated on systems that don't have updated microcode by
+ disabling AVX. This can be done by setting gather_data_sampling="force" or
+ "clearcpuid=avx" on the kernel command-line.
+ 
+-If used, these options will disable AVX use by turning on XSAVE YMM support.
++If used, these options will disable AVX use by turning off XSAVE YMM support.
+ However, the processor will still enumerate AVX support.  Userspace that
+ does not follow proper AVX enumeration to check both AVX *and* XSAVE YMM
+ support will break.

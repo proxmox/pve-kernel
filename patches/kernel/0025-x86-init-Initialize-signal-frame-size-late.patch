@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Wed, 14 Jun 2023 01:39:42 +0200
+Subject: [PATCH] x86/init: Initialize signal frame size late
+
+No point in doing this during really early boot. Move it to an early
+initcall so that it is set up before possible user mode helpers are started
+during device initialization.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Link: https://lore.kernel.org/r/20230613224545.727330699@linutronix.de
+
+(cherry picked from commit 54d9a91a3d6713d1332e93be13b4eaf0fa54349d)
+CVE-2022-40982
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@canonical.com>
+Acked-by: Roxana Nicolescu <roxana.nicolescu@canonical.com>
+Acked-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit cae51198acf57beecfe60bd11710d15b0f0a2856)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/x86/include/asm/sigframe.h | 2 --
+ arch/x86/kernel/cpu/common.c    | 3 ---
+ arch/x86/kernel/signal.c        | 4 +++-
+ 3 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/include/asm/sigframe.h b/arch/x86/include/asm/sigframe.h
+index 5b1ed650b124..84eab2724875 100644
+--- a/arch/x86/include/asm/sigframe.h
++++ b/arch/x86/include/asm/sigframe.h
+@@ -85,6 +85,4 @@ struct rt_sigframe_x32 {
+ 
+ #endif /* CONFIG_X86_64 */
+ 
+-void __init init_sigframe_size(void);
+-
+ #endif /* _ASM_X86_SIGFRAME_H */
+diff --git a/arch/x86/kernel/cpu/common.c b/arch/x86/kernel/cpu/common.c
+index 637817d0d819..256083661fb2 100644
+--- a/arch/x86/kernel/cpu/common.c
++++ b/arch/x86/kernel/cpu/common.c
+@@ -64,7 +64,6 @@
+ #include <asm/cpu_device_id.h>
+ #include <asm/uv/uv.h>
+ #include <asm/set_memory.h>
+-#include <asm/sigframe.h>
+ #include <asm/traps.h>
+ #include <asm/sev.h>
+ 
+@@ -1599,8 +1598,6 @@ static void __init early_identify_cpu(struct cpuinfo_x86 *c)
+ 
+ 	fpu__init_system(c);
+ 
+-	init_sigframe_size();
+-
+ #ifdef CONFIG_X86_32
+ 	/*
+ 	 * Regardless of whether PCID is enumerated, the SDM says
+diff --git a/arch/x86/kernel/signal.c b/arch/x86/kernel/signal.c
+index 004cb30b7419..cfeec3ee877e 100644
+--- a/arch/x86/kernel/signal.c
++++ b/arch/x86/kernel/signal.c
+@@ -182,7 +182,7 @@ get_sigframe(struct ksignal *ksig, struct pt_regs *regs, size_t frame_size,
+ static unsigned long __ro_after_init max_frame_size;
+ static unsigned int __ro_after_init fpu_default_state_size;
+ 
+-void __init init_sigframe_size(void)
++static int __init init_sigframe_size(void)
+ {
+ 	fpu_default_state_size = fpu__get_fpstate_size();
+ 
+@@ -194,7 +194,9 @@ void __init init_sigframe_size(void)
+ 	max_frame_size = round_up(max_frame_size, FRAME_ALIGNMENT);
+ 
+ 	pr_info("max sigframe size: %lu\n", max_frame_size);
++	return 0;
+ }
++early_initcall(init_sigframe_size);
+ 
+ unsigned long get_sigframe_size(void)
+ {

@@ -1,0 +1,172 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Wed, 14 Jun 2023 01:39:38 +0200
+Subject: [PATCH] init: Remove check_bugs() leftovers
+
+Everything is converted over to arch_cpu_finalize_init(). Remove the
+check_bugs() leftovers including the empty stubs in asm-generic, alpha,
+parisc, powerpc and xtensa.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Reviewed-by: Richard Henderson <richard.henderson@linaro.org>
+Link: https://lore.kernel.org/r/20230613224545.553215951@linutronix.de
+
+(cherry picked from commit 61235b24b9cb37c13fcad5b9596d59a1afdcec30)
+CVE-2022-40982
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@canonical.com>
+Acked-by: Roxana Nicolescu <roxana.nicolescu@canonical.com>
+Acked-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit f6914d2bea4df361881adc56f02dde9bddfa1b0a)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/alpha/include/asm/bugs.h   | 20 --------------------
+ arch/parisc/include/asm/bugs.h  | 20 --------------------
+ arch/powerpc/include/asm/bugs.h | 15 ---------------
+ arch/xtensa/include/asm/bugs.h  | 18 ------------------
+ include/asm-generic/bugs.h      | 11 -----------
+ init/main.c                     |  5 -----
+ 6 files changed, 89 deletions(-)
+ delete mode 100644 arch/alpha/include/asm/bugs.h
+ delete mode 100644 arch/parisc/include/asm/bugs.h
+ delete mode 100644 arch/powerpc/include/asm/bugs.h
+ delete mode 100644 arch/xtensa/include/asm/bugs.h
+ delete mode 100644 include/asm-generic/bugs.h
+
+diff --git a/arch/alpha/include/asm/bugs.h b/arch/alpha/include/asm/bugs.h
+deleted file mode 100644
+index 78030d1c7e7e..000000000000
+--- a/arch/alpha/include/asm/bugs.h
++++ /dev/null
+@@ -1,20 +0,0 @@
+-/*
+- *  include/asm-alpha/bugs.h
+- *
+- *  Copyright (C) 1994  Linus Torvalds
+- */
+-
+-/*
+- * This is included by init/main.c to check for architecture-dependent bugs.
+- *
+- * Needs:
+- *	void check_bugs(void);
+- */
+-
+-/*
+- * I don't know of any alpha bugs yet.. Nice chip
+- */
+-
+-static void check_bugs(void)
+-{
+-}
+diff --git a/arch/parisc/include/asm/bugs.h b/arch/parisc/include/asm/bugs.h
+deleted file mode 100644
+index 0a7f9db6bd1c..000000000000
+--- a/arch/parisc/include/asm/bugs.h
++++ /dev/null
+@@ -1,20 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- *  include/asm-parisc/bugs.h
+- *
+- *  Copyright (C) 1999	Mike Shaver
+- */
+-
+-/*
+- * This is included by init/main.c to check for architecture-dependent bugs.
+- *
+- * Needs:
+- *	void check_bugs(void);
+- */
+-
+-#include <asm/processor.h>
+-
+-static inline void check_bugs(void)
+-{
+-//	identify_cpu(&boot_cpu_data);
+-}
+diff --git a/arch/powerpc/include/asm/bugs.h b/arch/powerpc/include/asm/bugs.h
+deleted file mode 100644
+index 01b8f6ca4dbb..000000000000
+--- a/arch/powerpc/include/asm/bugs.h
++++ /dev/null
+@@ -1,15 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0-or-later */
+-#ifndef _ASM_POWERPC_BUGS_H
+-#define _ASM_POWERPC_BUGS_H
+-
+-/*
+- */
+-
+-/*
+- * This file is included by 'init/main.c' to check for
+- * architecture-dependent bugs.
+- */
+-
+-static inline void check_bugs(void) { }
+-
+-#endif	/* _ASM_POWERPC_BUGS_H */
+diff --git a/arch/xtensa/include/asm/bugs.h b/arch/xtensa/include/asm/bugs.h
+deleted file mode 100644
+index 69b29d198249..000000000000
+--- a/arch/xtensa/include/asm/bugs.h
++++ /dev/null
+@@ -1,18 +0,0 @@
+-/*
+- * include/asm-xtensa/bugs.h
+- *
+- * This is included by init/main.c to check for architecture-dependent bugs.
+- *
+- * Xtensa processors don't have any bugs.  :)
+- *
+- * This file is subject to the terms and conditions of the GNU General
+- * Public License.  See the file "COPYING" in the main directory of
+- * this archive for more details.
+- */
+-
+-#ifndef _XTENSA_BUGS_H
+-#define _XTENSA_BUGS_H
+-
+-static void check_bugs(void) { }
+-
+-#endif /* _XTENSA_BUGS_H */
+diff --git a/include/asm-generic/bugs.h b/include/asm-generic/bugs.h
+deleted file mode 100644
+index 69021830f078..000000000000
+--- a/include/asm-generic/bugs.h
++++ /dev/null
+@@ -1,11 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef __ASM_GENERIC_BUGS_H
+-#define __ASM_GENERIC_BUGS_H
+-/*
+- * This file is included by 'init/main.c' to check for
+- * architecture-dependent bugs.
+- */
+-
+-static inline void check_bugs(void) { }
+-
+-#endif	/* __ASM_GENERIC_BUGS_H */
+diff --git a/init/main.c b/init/main.c
+index e39055c8698f..0370df27746f 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -104,7 +104,6 @@
+ #include <net/net_namespace.h>
+ 
+ #include <asm/io.h>
+-#include <asm/bugs.h>
+ #include <asm/setup.h>
+ #include <asm/sections.h>
+ #include <asm/cacheflush.h>
+@@ -1139,10 +1138,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
+ 	delayacct_init();
+ 
+ 	arch_cpu_finalize_init();
+-	/* Temporary conditional until everything has been converted */
+-#ifndef CONFIG_ARCH_HAS_CPU_FINALIZE_INIT
+-	check_bugs();
+-#endif
+ 
+ 	acpi_subsystem_init();
+ 	arch_post_acpi_subsys_init();

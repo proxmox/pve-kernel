@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Wed, 14 Jun 2023 01:39:22 +0200
+Subject: [PATCH] init: Provide arch_cpu_finalize_init()
+
+check_bugs() has become a dumping ground for all sorts of activities to
+finalize the CPU initialization before running the rest of the init code.
+
+Most are empty, a few do actual bug checks, some do alternative patching
+and some cobble a CPU advertisement string together....
+
+Aside of that the current implementation requires duplicated function
+declaration and mostly empty header files for them.
+
+Provide a new function arch_cpu_finalize_init(). Provide a generic
+declaration if CONFIG_ARCH_HAS_CPU_FINALIZE_INIT is selected and a stub
+inline otherwise.
+
+This requires a temporary #ifdef in start_kernel() which will be removed
+along with check_bugs() once the architectures are converted over.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Link: https://lore.kernel.org/r/20230613224544.957805717@linutronix.de
+
+(cherry picked from commit 7725acaa4f0c04fbefb0e0d342635b967bb7d414)
+CVE-2022-40982
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@canonical.com>
+Acked-by: Roxana Nicolescu <roxana.nicolescu@canonical.com>
+Acked-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit c765faa80041002c513c6b356826e11cb78308b3)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/Kconfig        | 3 +++
+ include/linux/cpu.h | 6 ++++++
+ init/main.c         | 4 ++++
+ 3 files changed, 13 insertions(+)
+
+diff --git a/arch/Kconfig b/arch/Kconfig
+index 12e3ddabac9d..9a75f8457283 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -285,6 +285,9 @@ config ARCH_HAS_DMA_SET_UNCACHED
+ config ARCH_HAS_DMA_CLEAR_UNCACHED
+ 	bool
+ 
++config ARCH_HAS_CPU_FINALIZE_INIT
++	bool
++
+ # Select if arch init_task must go in the __init_task_data section
+ config ARCH_TASK_STRUCT_ON_STACK
+ 	bool
+diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+index 314802f98b9d..43b0b7950e33 100644
+--- a/include/linux/cpu.h
++++ b/include/linux/cpu.h
+@@ -187,6 +187,12 @@ void arch_cpu_idle_enter(void);
+ void arch_cpu_idle_exit(void);
+ void arch_cpu_idle_dead(void);
+ 
++#ifdef CONFIG_ARCH_HAS_CPU_FINALIZE_INIT
++void arch_cpu_finalize_init(void);
++#else
++static inline void arch_cpu_finalize_init(void) { }
++#endif
++
+ int cpu_report_state(int cpu);
+ int cpu_check_up_prepare(int cpu);
+ void cpu_set_state_online(int cpu);
+diff --git a/init/main.c b/init/main.c
+index e1c3911d7c70..e39055c8698f 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -1138,7 +1138,11 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
+ 	taskstats_init_early();
+ 	delayacct_init();
+ 
++	arch_cpu_finalize_init();
++	/* Temporary conditional until everything has been converted */
++#ifndef CONFIG_ARCH_HAS_CPU_FINALIZE_INIT
+ 	check_bugs();
++#endif
+ 
+ 	acpi_subsystem_init();
+ 	arch_post_acpi_subsys_init();

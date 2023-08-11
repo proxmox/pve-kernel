@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Wed, 14 Jun 2023 01:39:35 +0200
+Subject: [PATCH] sparc/cpu: Switch to arch_cpu_finalize_init()
+
+check_bugs() is about to be phased out. Switch over to the new
+arch_cpu_finalize_init() implementation.
+
+No functional change.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
+Link: https://lore.kernel.org/r/20230613224545.431995857@linutronix.de
+
+(cherry picked from commit 44ade508e3bfac45ae97864587de29eb1a881ec0)
+CVE-2022-40982
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@canonical.com>
+Acked-by: Roxana Nicolescu <roxana.nicolescu@canonical.com>
+Acked-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit 5f02f99c6d6fd4f2c7b77f6d01bac14cc6fae2f6)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/sparc/Kconfig            |  1 +
+ arch/sparc/include/asm/bugs.h | 18 ------------------
+ arch/sparc/kernel/setup_32.c  |  7 +++++++
+ 3 files changed, 8 insertions(+), 18 deletions(-)
+ delete mode 100644 arch/sparc/include/asm/bugs.h
+
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index dbb1760cbe8c..b67d96e3392e 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -51,6 +51,7 @@ config SPARC
+ config SPARC32
+ 	def_bool !64BIT
+ 	select ARCH_32BIT_OFF_T
++	select ARCH_HAS_CPU_FINALIZE_INIT if !SMP
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select CLZ_TAB
+ 	select DMA_DIRECT_REMAP
+diff --git a/arch/sparc/include/asm/bugs.h b/arch/sparc/include/asm/bugs.h
+deleted file mode 100644
+index 02fa369b9c21..000000000000
+--- a/arch/sparc/include/asm/bugs.h
++++ /dev/null
+@@ -1,18 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/* include/asm/bugs.h:  Sparc probes for various bugs.
+- *
+- * Copyright (C) 1996, 2007 David S. Miller (davem@davemloft.net)
+- */
+-
+-#ifdef CONFIG_SPARC32
+-#include <asm/cpudata.h>
+-#endif
+-
+-extern unsigned long loops_per_jiffy;
+-
+-static void __init check_bugs(void)
+-{
+-#if defined(CONFIG_SPARC32) && !defined(CONFIG_SMP)
+-	cpu_data(0).udelay_val = loops_per_jiffy;
+-#endif
+-}
+diff --git a/arch/sparc/kernel/setup_32.c b/arch/sparc/kernel/setup_32.c
+index c8e0dd99f370..c9d1ba4f311b 100644
+--- a/arch/sparc/kernel/setup_32.c
++++ b/arch/sparc/kernel/setup_32.c
+@@ -412,3 +412,10 @@ static int __init topology_init(void)
+ }
+ 
+ subsys_initcall(topology_init);
++
++#if defined(CONFIG_SPARC32) && !defined(CONFIG_SMP)
++void __init arch_cpu_finalize_init(void)
++{
++	cpu_data(0).udelay_val = loops_per_jiffy;
++}
++#endif

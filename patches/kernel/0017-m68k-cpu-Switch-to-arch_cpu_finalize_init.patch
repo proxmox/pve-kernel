@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Wed, 14 Jun 2023 01:39:30 +0200
+Subject: [PATCH] m68k/cpu: Switch to arch_cpu_finalize_init()
+
+check_bugs() is about to be phased out. Switch over to the new
+arch_cpu_finalize_init() implementation.
+
+No functional change.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Link: https://lore.kernel.org/r/20230613224545.254342916@linutronix.de
+
+(cherry picked from commit 9ceecc2589b9d7cef6b321339ed8de484eac4b20)
+CVE-2022-40982
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@canonical.com>
+Acked-by: Roxana Nicolescu <roxana.nicolescu@canonical.com>
+Acked-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit 51d4827f4d3adf26415b6447d88611a35738e062)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/m68k/Kconfig            |  1 +
+ arch/m68k/include/asm/bugs.h | 21 ---------------------
+ arch/m68k/kernel/setup_mm.c  |  3 ++-
+ 3 files changed, 3 insertions(+), 22 deletions(-)
+ delete mode 100644 arch/m68k/include/asm/bugs.h
+
+diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
+index 7bff88118507..1fe5b2018745 100644
+--- a/arch/m68k/Kconfig
++++ b/arch/m68k/Kconfig
+@@ -4,6 +4,7 @@ config M68K
+ 	default y
+ 	select ARCH_32BIT_OFF_T
+ 	select ARCH_HAS_BINFMT_FLAT
++	select ARCH_HAS_CPU_FINALIZE_INIT if MMU
+ 	select ARCH_HAS_CURRENT_STACK_POINTER
+ 	select ARCH_HAS_DMA_PREP_COHERENT if HAS_DMA && MMU && !COLDFIRE
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE if HAS_DMA
+diff --git a/arch/m68k/include/asm/bugs.h b/arch/m68k/include/asm/bugs.h
+deleted file mode 100644
+index 745530651e0b..000000000000
+--- a/arch/m68k/include/asm/bugs.h
++++ /dev/null
+@@ -1,21 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- *  include/asm-m68k/bugs.h
+- *
+- *  Copyright (C) 1994  Linus Torvalds
+- */
+-
+-/*
+- * This is included by init/main.c to check for architecture-dependent bugs.
+- *
+- * Needs:
+- *	void check_bugs(void);
+- */
+-
+-#ifdef CONFIG_MMU
+-extern void check_bugs(void);	/* in arch/m68k/kernel/setup.c */
+-#else
+-static void check_bugs(void)
+-{
+-}
+-#endif
+diff --git a/arch/m68k/kernel/setup_mm.c b/arch/m68k/kernel/setup_mm.c
+index fbff1cea62ca..6f1ae01f322c 100644
+--- a/arch/m68k/kernel/setup_mm.c
++++ b/arch/m68k/kernel/setup_mm.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/kernel.h>
++#include <linux/cpu.h>
+ #include <linux/mm.h>
+ #include <linux/sched.h>
+ #include <linux/delay.h>
+@@ -504,7 +505,7 @@ static int __init proc_hardware_init(void)
+ module_init(proc_hardware_init);
+ #endif
+ 
+-void check_bugs(void)
++void __init arch_cpu_finalize_init(void)
+ {
+ #if defined(CONFIG_FPU) && !defined(CONFIG_M68KFPU_EMU)
+ 	if (m68k_fputype == 0) {

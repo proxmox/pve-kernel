@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Wed, 14 Jun 2023 01:39:46 +0200
+Subject: [PATCH] x86/fpu: Move FPU initialization into
+ arch_cpu_finalize_init()
+
+Initializing the FPU during the early boot process is a pointless
+exercise. Early boot is convoluted and fragile enough.
+
+Nothing requires that the FPU is set up early. It has to be initialized
+before fork_init() because the task_struct size depends on the FPU register
+buffer size.
+
+Move the initialization to arch_cpu_finalize_init() which is the perfect
+place to do so.
+
+No functional change.
+
+This allows to remove quite some of the custom early command line parsing,
+but that's subject to the next installment.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Link: https://lore.kernel.org/r/20230613224545.902376621@linutronix.de
+
+(cherry picked from commit b81fac906a8f9e682e513ddd95697ec7a20878d4)
+CVE-2022-40982
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@canonical.com>
+Acked-by: Roxana Nicolescu <roxana.nicolescu@canonical.com>
+Acked-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit 010f3814ec351195c9d0a9a408798f9c66fdb906)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/x86/kernel/cpu/common.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/kernel/cpu/common.c b/arch/x86/kernel/cpu/common.c
+index 794eb851cb0d..9b53d1cb424d 100644
+--- a/arch/x86/kernel/cpu/common.c
++++ b/arch/x86/kernel/cpu/common.c
+@@ -1596,8 +1596,6 @@ static void __init early_identify_cpu(struct cpuinfo_x86 *c)
+ 
+ 	sld_setup(c);
+ 
+-	fpu__init_system();
+-
+ #ifdef CONFIG_X86_32
+ 	/*
+ 	 * Regardless of whether PCID is enumerated, the SDM says
+@@ -2283,8 +2281,6 @@ void cpu_init(void)
+ 
+ 	doublefault_init_cpu_tss();
+ 
+-	fpu__init_cpu();
+-
+ 	if (is_uv_system())
+ 		uv_cpu_init();
+ 
+@@ -2300,6 +2296,7 @@ void cpu_init_secondary(void)
+ 	 */
+ 	cpu_init_exception_handling();
+ 	cpu_init();
++	fpu__init_cpu();
+ }
+ #endif
+ 
+@@ -2394,6 +2391,13 @@ void __init arch_cpu_finalize_init(void)
+ 			'0' + (boot_cpu_data.x86 > 6 ? 6 : boot_cpu_data.x86);
+ 	}
+ 
++	/*
++	 * Must be before alternatives because it might set or clear
++	 * feature bits.
++	 */
++	fpu__init_system();
++	fpu__init_cpu();
++
+ 	alternative_instructions();
+ 
+ 	if (IS_ENABLED(CONFIG_X86_64)) {
