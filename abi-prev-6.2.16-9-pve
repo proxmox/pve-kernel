@@ -9336,7 +9336,6 @@ EXPORT_SYMBOL	 vmlinux 0x8601c363	pcix_get_max_mmrbc
 EXPORT_SYMBOL	 vmlinux 0x862c8035	bitmap_alloc_node
 EXPORT_SYMBOL	 vmlinux 0x863831bb	skb_tx_error
 EXPORT_SYMBOL	 vmlinux 0x863a276a	color_table
-EXPORT_SYMBOL	 vmlinux 0x8666e12f	pcpu_hot
 EXPORT_SYMBOL	 vmlinux 0x866a62b2	gnet_stats_basic_sync_init
 EXPORT_SYMBOL	 vmlinux 0x867bc581	pci_bus_set_ops
 EXPORT_SYMBOL	 vmlinux 0x868acba5	get_options
@@ -11883,6 +11882,7 @@ EXPORT_SYMBOL	 vmlinux 0xf71f1cbb	finalize_exec
 EXPORT_SYMBOL	 vmlinux 0xf723934f	__x86_indirect_jump_thunk_r11
 EXPORT_SYMBOL	 vmlinux 0xf7282e11	folio_migrate_mapping
 EXPORT_SYMBOL	 vmlinux 0xf729f235	xfrm_state_lookup_byaddr
+EXPORT_SYMBOL	 vmlinux 0xf72e8c06	pcpu_hot
 EXPORT_SYMBOL	 vmlinux 0xf7370f56	system_state
 EXPORT_SYMBOL	 vmlinux 0xf738d1be	register_blocking_lsm_notifier
 EXPORT_SYMBOL	 vmlinux 0xf7780fb9	block_write_end
@@ -22432,6 +22432,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x57540e92	acpi_get_pci_dev
 EXPORT_SYMBOL_GPL	 vmlinux 0x575513f4	crypto_ahash_digest
 EXPORT_SYMBOL_GPL	 vmlinux 0x5764fc76	hsu_dma_probe
 EXPORT_SYMBOL_GPL	 vmlinux 0x57719632	gnttab_grant_foreign_access
+EXPORT_SYMBOL_GPL	 vmlinux 0x57861a5c	gds_ucode_mitigated
 EXPORT_SYMBOL_GPL	 vmlinux 0x5786661b	crypto_mod_get
 EXPORT_SYMBOL_GPL	 vmlinux 0x57873921	gnttab_pages_clear_private
 EXPORT_SYMBOL_GPL	 vmlinux 0x578eeb4d	hugetlb_cgrp_subsys_enabled_key
