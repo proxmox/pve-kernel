@@ -1,3 +1,11 @@
+proxmox-kernel-6.2 (6.2.16-9) bookworm; urgency=medium
+
+  * add fixes for downfall
+
+  * enable mitigation config option CONFIG_GDS_FORCE_MITIGATION
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 16 Aug 2023 10:07:11 +0200
+
 proxmox-kernel-6.2 (6.2.16-8) bookworm; urgency=medium
 
   * sign modules and set trust anchor/lockdown to allow manual secure boot
