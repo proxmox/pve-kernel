@@ -1,3 +1,11 @@
+proxmox-kernel-6.2 (6.2.16-10) bookworm; urgency=medium
+
+  * disable CONFIG_GDS_FORCE_MITIGATION again
+    when not having installed a new-enough intel-microcode, this disables AVX
+    instructions which breaks a lot of software
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Aug 2023 13:42:38 +0200
+
 proxmox-kernel-6.2 (6.2.16-9) bookworm; urgency=medium
 
   * add fixes for downfall
