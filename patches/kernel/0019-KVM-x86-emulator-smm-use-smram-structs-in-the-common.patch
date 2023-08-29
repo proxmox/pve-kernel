@@ -17,7 +17,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  6 files changed, 28 insertions(+), 20 deletions(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index 1172a201d851..c4e382af1853 100644
+index 55d791ad4787..e05a22527585 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
 @@ -200,6 +200,7 @@ typedef enum exit_fastpath_completion fastpath_t;
@@ -143,10 +143,10 @@ index b0b87c36be3d..545e321998d3 100644
  		return 0;
  
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index 7db4c69ac77b..0e52ddd14c57 100644
+index c3382549fdf2..68a3b2844aed 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -7615,7 +7615,7 @@ static int vmx_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
+@@ -7630,7 +7630,7 @@ static int vmx_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
  	return !is_smm(vcpu);
  }
  
@@ -155,7 +155,7 @@ index 7db4c69ac77b..0e52ddd14c57 100644
  {
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  
-@@ -7629,7 +7629,7 @@ static int vmx_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
+@@ -7644,7 +7644,7 @@ static int vmx_enter_smm(struct kvm_vcpu *vcpu, char *smstate)
  	return 0;
  }
  
@@ -165,10 +165,10 @@ index 7db4c69ac77b..0e52ddd14c57 100644
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  	int ret;
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 1b2f6cd3cc8d..1b7e08590493 100644
+index f57d81400f21..87952db52155 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7440,9 +7440,9 @@ static void emulator_exiting_smm(struct x86_emulate_ctxt *ctxt)
+@@ -7445,9 +7445,9 @@ static void emulator_exiting_smm(struct x86_emulate_ctxt *ctxt)
  }
  
  static int emulator_leave_smm(struct x86_emulate_ctxt *ctxt,
@@ -180,7 +180,7 @@ index 1b2f6cd3cc8d..1b7e08590493 100644
  }
  
  static void emulator_triple_fault(struct x86_emulate_ctxt *ctxt)
-@@ -9321,25 +9321,25 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9326,25 +9326,25 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  	struct kvm_segment cs, ds;
  	struct desc_ptr dt;
  	unsigned long cr0;
