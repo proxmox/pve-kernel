@@ -1,3 +1,10 @@
+pve-kernel (5.15.116-1) bullseye; urgency=medium
+
+  * disable CONFIG_GDS_FORCE_MITIGATION again to avoid software breakage with
+    older intel-microcode versions
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 29 Aug 2023 15:46:21 +0200
+
 pve-kernel (5.15.111-1) bullseye; urgency=medium
 
   * update to Ubuntu-5.15.0-82.91
