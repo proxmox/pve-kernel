@@ -165,7 +165,7 @@ index c3382549fdf2..68a3b2844aed 100644
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
  	int ret;
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index f57d81400f21..87952db52155 100644
+index 66ef3e1b32c5..31424def8a03 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -7445,9 +7445,9 @@ static void emulator_exiting_smm(struct x86_emulate_ctxt *ctxt)

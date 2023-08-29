@@ -267,10 +267,10 @@ index fb09cd22cb7f..0b2bbcce321a 100644
  #if defined(CONFIG_X86_32)
  #define X86EMUL_MODE_HOST X86EMUL_MODE_PROT32
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 3b19e0fdc5b0..f57d81400f21 100644
+index 59b2df71cd49..66ef3e1b32c5 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -12647,6 +12647,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_msr_protocol_exit);
+@@ -12650,6 +12650,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_msr_protocol_exit);
  static int __init kvm_x86_init(void)
  {
  	kvm_mmu_x86_module_init();

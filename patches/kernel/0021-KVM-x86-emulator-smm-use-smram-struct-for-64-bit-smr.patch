@@ -154,7 +154,7 @@ index 0dd18d66f3b7..37c1662b5508 100644
  #endif
  		ret = rsm_load_state_32(ctxt, &smram.smram32);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 26d6e3c3138f..76f7c78c4629 100644
+index 804895afc119..8173c46d76f1 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -9195,20 +9195,17 @@ static void enter_smm_save_seg_32(struct kvm_vcpu *vcpu,
