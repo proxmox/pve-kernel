@@ -1,3 +1,9 @@
+pve-kernel (5.15.111-1) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-82.91
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Aug 2023 10:57:15 +0200
+
 pve-kernel (5.15.108-2) bullseye; urgency=medium
 
   * backport Zenbleed stop-gap workaround for CVE-2023-20593, the actual fix
