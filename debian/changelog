@@ -1,4 +1,4 @@
-pve-kernel (6.2.16-11~bpo11+1) bullseye-backports; urgency=medium
+pve-kernel (6.2.16-11~bpo11+1) bullseye; urgency=medium
 
   * Rebuild 6.2.6-11 for Bullseye
 
