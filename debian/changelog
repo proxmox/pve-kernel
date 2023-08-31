@@ -1,3 +1,12 @@
+proxmox-kernel-6.2 (6.2.16-11) bookworm; urgency=medium
+
+  * cherry-pick fix to surpress faulty segfault logging. While harmless, such
+    logs can look scary and might let people follow them like a red herring.
+
+  * update sources to Ubuntu-6.2.0-32.32
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 31 Aug 2023 11:56:15 +0200
+
 proxmox-kernel-6.2 (6.2.16-10) bookworm; urgency=medium
 
   * disable CONFIG_GDS_FORCE_MITIGATION again
