@@ -1,0 +1,133 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Fri, 14 Jul 2023 18:10:32 +0200
+Subject: [PATCH] kvm: xsave set: mask-out PKRU bit in xfeatures if vCPU has no
+ support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fixes live-migrations & snapshot-rollback of VMs with a restricted
+CPU type (e.g., qemu64) from our 5.15 based kernel (default Proxmox
+VE 7.4) to the 6.2 (and future newer) of Proxmox VE 8.0.
+
+Previous to ad856280ddea ("x86/kvm/fpu: Limit guest user_xfeatures to
+supported bits of XCR0") the PKRU bit of the host could leak into the
+state from the guest, which caused trouble when migrating between
+hosts with different CPUs, i.e., where the source supported it but
+the target did not, causing a general protection fault when the guest
+tried to use a pkru related instruction after the migration.
+
+But the fix, while welcome, caused a temporary out-of-sync state when
+migrating such a VM from a kernel without the fix to a kernel with
+the fix, as it threw of KVM when the CPUID of the guest and most of
+the state doesn't report XSAVE and thus any xfeatures, but PKRU and
+the related state is set as enabled, causing the vCPU to spin at 100%
+without any progress forever.
+
+The fix could be at two sites, either in QEMU or in the kernel, I
+choose the kernel as we have all the info there for a targeted
+heuristic so that we don't have to adapt QEMU and qemu-server, the
+latter even on both sides.
+
+Still, a short summary of the possible fixes and short drawbacks:
+* on QEMU-side either
+  - clear the PKRU state in the migration saved state would be rather
+    complicated to implement as the vCPU is initialised way before we
+    have the saved xfeature state available to check what we'd need
+    to do, plus the user-space only gets a memory blob from ioctl
+    KVM_GET_XSAVE2 that it passes to KVM_SET_XSAVE ioctl, there are
+    no ABI guarantees, and while the struct seem stable for 5.15 to
+    6.5-rc1, that doesn't has to be for future kernels, so off the
+    table.
+  - enforce that the CPUID reports PKU support even if it normally
+    wouldn't. While this works (tested by hard-coding it as POC) it
+    is a) not really nice and b) needs some interaction from
+    qemu-server to enable this flag as otherwise we have no good info
+    to decide when it's OK to do this, which means we need to adapt
+    both PVE 7 and 8's qemu-server and also pve-qemu, workable but
+    not optimal
+
+* on Kernel/KVM-side we can hook into the set XSAVE ioctl specific to
+  the KVM subsystem, which already reduces chance of regression for
+  all other places. There we have access to the union/struct
+  definitions of the saved state and thus can savely cast to that.
+  We also got access to the vCPU's CPUID capabilities, meaning we can
+  check if the XCR0 (first XSAVE Control Register) reports
+  that it support the PKRU feature, and if it does *NOT* but the
+  saved xfeatures register from XSAVE *DOES* report it, we can safely
+  assume that this combination is due to an migration from an older,
+  leaky kernel – and clear the bit in the xfeature register before
+  restoring it to the guest vCPU KVM state, avoiding the confusing
+  situation that made the vCPU spin at 100%.
+  This should be safe to do, as the guest vCPU CPUID never reported
+  support for the PKRU feature, and it's also a relatively niche and
+  newish feature.
+
+If it gains us something we can drop this patch a bit in the future
+Proxmox VE 9 major release, but we should ensure that VMs that where
+started before PVE 8 cannot be directly live-migrated to the release
+that includes that change; so we should rather only drop it if the
+maintenance burden is high.
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/cpuid.c |  6 ++++++
+ arch/x86/kvm/cpuid.h |  2 ++
+ arch/x86/kvm/x86.c   | 13 +++++++++++++
+ 3 files changed, 21 insertions(+)
+
+diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
+index 596061c1610e..9cbf12eca1d9 100644
+--- a/arch/x86/kvm/cpuid.c
++++ b/arch/x86/kvm/cpuid.c
+@@ -251,6 +251,12 @@ static u64 cpuid_get_supported_xcr0(struct kvm_cpuid_entry2 *entries, int nent)
+ 	return (best->eax | ((u64)best->edx << 32)) & kvm_caps.supported_xcr0;
+ }
+ 
++bool vcpu_supports_xsave_pkru(struct kvm_vcpu *vcpu) {
++	u64 guest_supported_xcr0 = cpuid_get_supported_xcr0(
++	    vcpu->arch.cpuid_entries, vcpu->arch.cpuid_nent);
++	return (guest_supported_xcr0 & XFEATURE_MASK_PKRU) != 0;
++}
++
+ static void __kvm_update_cpuid_runtime(struct kvm_vcpu *vcpu, struct kvm_cpuid_entry2 *entries,
+ 				       int nent)
+ {
+diff --git a/arch/x86/kvm/cpuid.h b/arch/x86/kvm/cpuid.h
+index b1658c0de847..12a02851ff57 100644
+--- a/arch/x86/kvm/cpuid.h
++++ b/arch/x86/kvm/cpuid.h
+@@ -32,6 +32,8 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
+ bool kvm_cpuid(struct kvm_vcpu *vcpu, u32 *eax, u32 *ebx,
+ 	       u32 *ecx, u32 *edx, bool exact_only);
+ 
++bool vcpu_supports_xsave_pkru(struct kvm_vcpu *vcpu);
++
+ u32 xstate_required_size(u64 xstate_bv, bool compacted);
+ 
+ int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu);
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index ef53767fb7c8..7d8b14f8807e 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -5335,6 +5335,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
+ 	if (fpstate_is_confidential(&vcpu->arch.guest_fpu))
+ 		return 0;
+ 
++	if (!vcpu_supports_xsave_pkru(vcpu)) {
++		void *buf = guest_xsave->region;
++		union fpregs_state *ustate = buf;
++		if (ustate->xsave.header.xfeatures & XFEATURE_MASK_PKRU) {
++			printk(
++				KERN_NOTICE "clearing PKRU xfeature bit as vCPU from PID %d"
++				" reports no PKRU support - migration from fpu-leaky kernel?",
++				current->pid
++			);
++			ustate->xsave.header.xfeatures &= ~XFEATURE_MASK_PKRU;
++		}
++	}
++
+ 	return fpu_copy_uabi_to_guest_fpstate(&vcpu->arch.guest_fpu,
+ 					      guest_xsave->region,
+ 					      kvm_caps.supported_xcr0,
