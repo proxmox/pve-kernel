@@ -25,8 +25,6 @@ ifneq ($(ARCH), amd64)
 KERNEL_ARCH=$(ARCH)
 endif
 
-GITVERSION:=$(shell git rev-parse HEAD)
-
 SKIPABI=0
 
 BUILD_DIR=proxmox-kernel-$(KERNEL_VER)
@@ -85,7 +83,8 @@ debian.prepared: debian
 	rm -rf $(BUILD_DIR)/debian
 	mkdir -p $(BUILD_DIR)
 	cp -a debian $(BUILD_DIR)/debian
-	echo "git clone git://git.proxmox.com/git/pve-kernel.git\\ngit checkout $(GITVERSION)" > $(BUILD_DIR)/debian/SOURCE
+	echo "git clone git://git.proxmox.com/git/pve-kernel.git\\ngit checkout $(shell git rev-parse HEAD)" \
+	    >$(BUILD_DIR)/debian/SOURCE
 	@$(foreach dir, $(DIRS),echo "$(dir)=$($(dir))" >> $(BUILD_DIR)/debian/rules.d/env.mk;)
 	echo "KVNAME=$(KVNAME)" >> $(BUILD_DIR)/debian/rules.d/env.mk
 	echo "KERNEL_MAJMIN=$(KERNEL_MAJMIN)" >> $(BUILD_DIR)/debian/rules.d/env.mk
