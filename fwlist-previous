@@ -124,6 +124,7 @@ amdgpu/gc_11_0_0_imu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_mes1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_0_mes_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_mes.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -132,6 +133,7 @@ amdgpu/gc_11_0_1_imu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_1_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_1_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_1_mes1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_1_mes_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_1_mes.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_1_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_1_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -139,6 +141,7 @@ amdgpu/gc_11_0_2_imu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_2_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_2_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_2_mes1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_2_mes_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_2_mes.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_2_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_2_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -146,6 +149,7 @@ amdgpu/gc_11_0_3_imu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_mes1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_3_mes_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_mes.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_3_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -153,6 +157,7 @@ amdgpu/gc_11_0_4_imu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_4_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_4_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_4_mes1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_4_mes_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_4_mes.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_4_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_4_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -1936,6 +1941,12 @@ rtl_bt/rtl8723b_config.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8723b_fw.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8723bs_config.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8723bs_fw.bin kernel/drivers/bluetooth/btrtl.ko
+rtl_bt/rtl8723cs_cg_config.bin kernel/drivers/bluetooth/btrtl.ko
+rtl_bt/rtl8723cs_cg_fw.bin kernel/drivers/bluetooth/btrtl.ko
+rtl_bt/rtl8723cs_vf_config.bin kernel/drivers/bluetooth/btrtl.ko
+rtl_bt/rtl8723cs_vf_fw.bin kernel/drivers/bluetooth/btrtl.ko
+rtl_bt/rtl8723cs_xx_config.bin kernel/drivers/bluetooth/btrtl.ko
+rtl_bt/rtl8723cs_xx_fw.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8723ds_config.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8723ds_fw.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8761a_config.bin kernel/drivers/bluetooth/btrtl.ko
@@ -1944,6 +1955,8 @@ rtl_bt/rtl8821a_config.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8821a_fw.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8822b_config.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8822b_fw.bin kernel/drivers/bluetooth/btrtl.ko
+rtl_bt/rtl8851bu_config.bin kernel/drivers/bluetooth/btrtl.ko
+rtl_bt/rtl8851bu_fw.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8852au_config.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8852au_fw.bin kernel/drivers/bluetooth/btrtl.ko
 rtl_bt/rtl8852bu_config.bin kernel/drivers/bluetooth/btrtl.ko
