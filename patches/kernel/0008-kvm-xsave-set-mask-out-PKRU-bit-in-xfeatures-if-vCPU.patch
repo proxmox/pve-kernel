@@ -108,10 +108,10 @@ index b1658c0de847..12a02851ff57 100644
  
  int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 327890b2e0c5..1c5775d51495 100644
+index ef53767fb7c8..7d8b14f8807e 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -5330,6 +5330,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
+@@ -5335,6 +5335,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
  	if (fpstate_is_confidential(&vcpu->arch.guest_fpu))
  		return 0;
  
