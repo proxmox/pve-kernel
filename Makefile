@@ -8,7 +8,7 @@ KERNEL_PATCHLEVEL=16
 # rebuild packages with new KREL and run 'make abiupdate'
 KREL=11-bpo11
 
-PKGREL=11~bpo11+1
+PKGREL=11~bpo11+2
 
 KERNEL_MAJMIN=$(KERNEL_MAJ).$(KERNEL_MIN)
 KERNEL_VER=$(KERNEL_MAJMIN).$(KERNEL_PATCHLEVEL)

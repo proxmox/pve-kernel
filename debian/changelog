@@ -1,4 +1,4 @@
-pve-kernel (6.2.16-11~bpo11+2) bullseye-backports; urgency=medium
+pve-kernel (6.2.16-11~bpo11+2) bullseye; urgency=medium
 
   * cherry-pick fix for KVM vCPU page-fault loop.
     Due to to small and signed type used for an memory related sequence
