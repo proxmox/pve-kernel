@@ -1,3 +1,13 @@
+pve-kernel (6.2.16-11~bpo11+2) bullseye-backports; urgency=medium
+
+  * cherry-pick fix for KVM vCPU page-fault loop.
+    Due to to small and signed type used for an memory related sequence
+    counter there was a chance that for long-lived VMs KVM would effectively
+    hang vCPUs due to always thinking page faults are stale, which results in
+    KVM refusing to "fix" faults.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 04 Sep 2023 16:49:15 +0200
+
 pve-kernel (6.2.16-11~bpo11+1) bullseye; urgency=medium
 
   * Rebuild 6.2.6-11 for Bullseye
