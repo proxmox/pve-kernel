@@ -1,0 +1,35 @@
+From: kiler129 <grzegorz@noflash.pl>
+
+allow opt-in to allow pass-through on broken hardware..
+
+adapted from https://github.com/kiler129/relax-intel-rmrr , licensed under MIT or GPL 2.0+
+
+--- a/drivers/iommu/intel/iommu.c
++++ b/drivers/iommu/intel/iommu.c
+@@ -297,6 +297,7 @@
+ static int dmar_map_ipu = 1;
+ static int intel_iommu_superpage = 1;
+ static int iommu_identity_mapping;
++static int intel_relaxable_rmrr = 0;
+ static int iommu_skip_te_disable;
+ 
+ #define IDENTMAP_GFX		2
+@@ -358,6 +359,9 @@
+ 		} else if (!strncmp(str, "tboot_noforce", 13)) {
+ 			pr_info("Intel-IOMMU: not forcing on after tboot. This could expose security risk for tboot\n");
+ 			intel_iommu_tboot_noforce = 1;
++		} else if (!strncmp(str, "relax_rmrr", 10)) {
++			pr_info("Intel-IOMMU: assuming all RMRRs are relaxable. This can lead to instability or data loss\n");
++			intel_relaxable_rmrr = 1;
+ 		} else {
+ 			pr_notice("Unknown option - '%s'\n", str);
+ 		}
+@@ -2538,7 +2542,7 @@
+ 		return false;
+ 
+ 	pdev = to_pci_dev(dev);
+-	if (IS_USB_DEVICE(pdev) || IS_GFX_DEVICE(pdev))
++	if (intel_relaxable_rmrr || IS_USB_DEVICE(pdev) || IS_GFX_DEVICE(pdev))
+ 		return true;
+ 	else
+ 		return false;
