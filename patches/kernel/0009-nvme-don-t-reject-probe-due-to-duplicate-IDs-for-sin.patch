@@ -27,10 +27,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 33 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/nvme/host/core.c b/drivers/nvme/host/core.c
-index d567762545b0..f350df252d27 100644
+index e2618d2b57bf..56d13d9e08ed 100644
 --- a/drivers/nvme/host/core.c
 +++ b/drivers/nvme/host/core.c
-@@ -4162,10 +4162,40 @@ static int nvme_init_ns_head(struct nvme_ns *ns, struct nvme_ns_info *info)
+@@ -4165,10 +4165,40 @@ static int nvme_init_ns_head(struct nvme_ns *ns, struct nvme_ns_info *info)
  
  	ret = nvme_global_check_duplicate_ids(ctrl->subsys, &info->ids);
  	if (ret) {
