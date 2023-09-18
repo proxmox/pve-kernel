@@ -1,3 +1,14 @@
+proxmox-kernel-6.2 (6.2.16-13) bookworm; urgency=medium
+
+  * fix #4707: add override parameter for RMRR relaxation
+
+  * backport thunderbolt-net fixes for IPv6 and connection re-establishment
+    after a node got rebooted
+
+  * update sources to Ubuntu-6.2.0-34.34
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Sep 2023 15:31:57 +0200
+
 proxmox-kernel-6.2 (6.2.16-12) bookworm; urgency=medium
 
   * cherry-pick fix for KVM vCPU page-fault loop.
