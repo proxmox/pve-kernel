@@ -79,6 +79,12 @@ $(BUILD_DIR).prepared: $(addsuffix .prepared,$(KERNEL_SRC) $(MODULES) debian)
 	cp -a abi-blacklist $(BUILD_DIR)/
 	touch $@
 
+.PHONY: build-dir-fresh
+build-dir-fresh:
+	$(MAKE) clean
+	$(MAKE) $(BUILD_DIR).prepared
+	echo "created build-directory: $(BUILD_DIR).prepared/"
+
 debian.prepared: debian
 	rm -rf $(BUILD_DIR)/debian
 	mkdir -p $(BUILD_DIR)

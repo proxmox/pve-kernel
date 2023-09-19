@@ -24,6 +24,67 @@ Additional/Updated Modules:
   For licensing questions, see: http://open-zfs.org/wiki/Talk:FAQ
 
 
+BUILD
+=====
+
+As this is packaging for the Linux kernel with some extra integrations, like
+ZFS, this repo cannot be handled like a plain Linux kernel git repository.
+
+The actual Linux kernel source lives in a git submodule.
+
+For a build you should init the submodules and then handle it like most our
+Debian packaging builds. If unsure you can follow this:
+
+Installing Build-Dependencies
+-----------------------------
+
+You can either just check the package metadata template `debian/control.in`
+and install the packages listed in the `Build-Depends` section manually
+(replace `debhelper-compat` with just `debhelper`) or use a more automated way
+described below:
+
+ # install base build-dependencies and helpers
+ apt update
+ apt install devscripts
+
+ # create build-directory so that we got final packaging control files from the
+ # .in templates generated
+ make build-dir-fresh
+
+ # install build-dependencies (replace BUILD-DIR with actual one)
+ mk-build-deps -ir BUILD-DIR/debian/control
+
+
+Package Build
+-------------
+
+ # start the actual build
+ make deb
+
+For simple KConfig modifications you can adapt the list in `debian/rules` file.
+For quick code changes to the actual kernel code you can do them directly in
+the submodule/ubuntu-kernels directory, then re-create the build-directory, e.g.:
+
+ make clean
+ # now build again, explicitly creating the build-dir isn't required anymore
+ # after one has the build-dependencies already installed.
+ make deb
+
+
+Modify-Build-Test Cycles
+------------------------
+
+Ideally you avoid the need for doing a full package build and just directly
+build linux from the ubuntu-kernels or the mainline (stable) repo with copying
+over a build-config of a proxmox-kernel to that as .config and then using the
+`make olddefconfig` target.
+
+If you need full package builds you can try to make changes inside the
+BUILD-DIR directly and then continue build from there, e.g., using
+`dpkg-buildpackage -b -uc -us --no-pre-clean`. Depending on what stage you want
+to continue build you might need to touch, or remove some *.prepared files.
+Just check `debian/rules` for how kernel build progress is tracked by make.
+
 SUBMODULE
 =========
 
@@ -75,6 +136,10 @@ Depends on the latest kernel (or header, in case of proxmox-headers-X.Y)
 package within a certain series.
 
 e.g., proxmox-kernel-6.2 depends on proxmox-kernel-6.2.16-6-pve
+
+NOTE: Since Proxmox VE 8, based on Debian 12 Bookworm, the kernel ABI is bumped
+with every version bump due to module signing. Since then the meta package was
+pulled into the kernel repo, before that it lived in pve-kernel-meta.git.
 
 pve-firmware
 ------------
