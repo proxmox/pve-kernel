@@ -1,3 +1,11 @@
+proxmox-kernel-6.2 (6.2.16-14) bookworm; urgency=medium
+
+  * cherry-pick fix for setting X86_FEATURE_OSXSAVE feature improving
+    performance of some code that tries to live-detect available CPU features,
+    like, e.g., ZFS.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 19 Sep 2023 10:17:16 +0200
+
 proxmox-kernel-6.2 (6.2.16-13) bookworm; urgency=medium
 
   * fix #4707: add override parameter for RMRR relaxation
