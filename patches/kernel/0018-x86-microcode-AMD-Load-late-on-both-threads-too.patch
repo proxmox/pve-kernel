@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Borislav Petkov (AMD)" <bp@alien8.de>
+Date: Tue, 2 May 2023 19:53:50 +0200
+Subject: [PATCH] x86/microcode/AMD: Load late on both threads too
+
+commit a32b0f0db3f396f1c9be2fe621e77c09ec3d8e7d upstream.
+
+Do the same as early loading - load on both threads.
+
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Cc: <stable@kernel.org>
+Link: https://lore.kernel.org/r/20230605141332.25948-1-bp@alien8.de
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 94a69d6999419cd21365111b4493070182712299)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/x86/kernel/cpu/microcode/amd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/x86/kernel/cpu/microcode/amd.c b/arch/x86/kernel/cpu/microcode/amd.c
+index ac59783e6e9f..53f21fb431c0 100644
+--- a/arch/x86/kernel/cpu/microcode/amd.c
++++ b/arch/x86/kernel/cpu/microcode/amd.c
+@@ -705,7 +705,7 @@ static enum ucode_state apply_microcode_amd(int cpu)
+ 	rdmsr(MSR_AMD64_PATCH_LEVEL, rev, dummy);
+ 
+ 	/* need to apply patch? */
+-	if (rev >= mc_amd->hdr.patch_id) {
++	if (rev > mc_amd->hdr.patch_id) {
+ 		ret = UCODE_OK;
+ 		goto out;
+ 	}
