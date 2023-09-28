@@ -1,3 +1,14 @@
+proxmox-kernel-6.2 (6.2.16-15) bookworm; urgency=medium
+
+  * fix thunderbolt ring-interrupt not being masked on suspend
+
+  * cherry-pick fix to avoid potentially offlining one CPU thread on some EPYC
+    CPUs with a new amd64-microcode package (still in unstable).
+
+  * update ZFS to 2.1.13
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 28 Sep 2023 15:53:58 +0200
+
 proxmox-kernel-6.2 (6.2.16-14) bookworm; urgency=medium
 
   * cherry-pick fix for setting X86_FEATURE_OSXSAVE feature improving
