@@ -1,3 +1,9 @@
+proxmox-kernel-6.2 (6.2.16-16) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.2.0-36.36
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Oct 2023 07:42:21 +0200
+
 proxmox-kernel-6.2 (6.2.16-15) bookworm; urgency=medium
 
   * fix thunderbolt ring-interrupt not being masked on suspend
