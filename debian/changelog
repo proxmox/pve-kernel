@@ -1,3 +1,9 @@
+pve-kernel (5.15.126-1) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-88.98 basing of 5.15.126
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Oct 2023 19:24:13 +0200
+
 pve-kernel (5.15.116-1) bullseye; urgency=medium
 
   * disable CONFIG_GDS_FORCE_MITIGATION again to avoid software breakage with
