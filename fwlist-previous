@@ -1843,6 +1843,7 @@ ti-connectivity/wl128x-fw-5-mr.bin kernel/drivers/net/wireless/ti/wl12xx/wl12xx.
 ti-connectivity/wl128x-fw-5-plt.bin kernel/drivers/net/wireless/ti/wl12xx/wl12xx.ko
 ti-connectivity/wl128x-fw-5-sr.bin kernel/drivers/net/wireless/ti/wl12xx/wl12xx.ko
 ti-connectivity/wl18xx-fw-4.bin kernel/drivers/net/wireless/ti/wl18xx/wl18xx.ko
+tigon/tg357766.bin kernel/drivers/net/ethernet/broadcom/tg3.ko
 tigon/tg3.bin kernel/drivers/net/ethernet/broadcom/tg3.ko
 tigon/tg3_tso5.bin kernel/drivers/net/ethernet/broadcom/tg3.ko
 tigon/tg3_tso.bin kernel/drivers/net/ethernet/broadcom/tg3.ko
