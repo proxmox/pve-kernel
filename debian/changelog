@@ -1,7 +1,7 @@
 proxmox-kernel-6.2 (6.2.16-18) bookworm; urgency=medium
 
   * backport fix for AMD erratum #1485 on Zen4-based CPUs to avoid triggering
-    undefined instruction expections when disabling all, or certain security
+    undefined instruction exceptions when disabling all, or certain security
     mitigations, like using the "mitigations=off" kernel command line
     parameter
 
