@@ -196,11 +196,11 @@ endif
 	touch $@
 
 .tools_compile_mark: .compile_mark
-	$(MAKE) -C $(KERNEL_SRC)/tools/perf prefix=/usr HAVE_NO_LIBBFD=1 HAVE_CPLUS_DEMANGLE_SUPPORT=1 NO_LIBPYTHON=1 NO_LIBPERL=1 NO_LIBCRYPTO=1 PYTHON=python3
+	$(MAKE) -C $(KERNEL_SRC)/tools/perf prefix=/usr NO_LIBTRACEEVENT=1 HAVE_NO_LIBBFD=1 HAVE_CPLUS_DEMANGLE_SUPPORT=1 NO_LIBPYTHON=1 NO_LIBPERL=1 NO_LIBCRYPTO=1 PYTHON=python3
 	echo "checking GPL-2 only perf binary for library linkage with incompatible licenses.."
 	! ldd $(KERNEL_SRC)/tools/perf/perf | grep -q -E '\blibbfd'
 	! ldd $(KERNEL_SRC)/tools/perf/perf | grep -q -E '\blibcrypto'
-	$(MAKE) -C $(KERNEL_SRC)/tools/perf man
+	$(MAKE) -C $(KERNEL_SRC)/tools/perf NO_LIBTRACEEVENT=1 man
 	touch $@
 
 .tools_install_mark: .tools_compile_mark
