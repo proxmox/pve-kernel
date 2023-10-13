@@ -10,12 +10,13 @@ This reverts commit 106b7a61c488d2022f44e3531ce33461c7c0685f.
 
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  include/linux/fortify-string.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/linux/fortify-string.h b/include/linux/fortify-string.h
-index 7cad8bb031e9..acc24887db3e 100644
+index da51a83b2829..9d9e7822eddf 100644
 --- a/include/linux/fortify-string.h
 +++ b/include/linux/fortify-string.h
 @@ -18,7 +18,7 @@ void __write_overflow_field(size_t avail, size_t wanted) __compiletime_warning("
@@ -25,5 +26,5 @@ index 7cad8bb031e9..acc24887db3e 100644
 -	char *__p = (char *)(p);				\
 +	unsigned char *__p = (unsigned char *)(p);		\
  	size_t __ret = SIZE_MAX;				\
- 	size_t __p_size = __member_size(p);			\
+ 	const size_t __p_size = __member_size(p);		\
  	if (__p_size != SIZE_MAX &&				\

@@ -48,7 +48,7 @@ index b475d9a582b8..e829fa4c6788 100644
  
  static inline void fpstate_set_confidential(struct fpu_guest *gfpu)
 diff --git a/arch/x86/kernel/fpu/core.c b/arch/x86/kernel/fpu/core.c
-index caf33486dc5e..cddd5018e6a4 100644
+index 98e507cc7d34..b582325b9c37 100644
 --- a/arch/x86/kernel/fpu/core.c
 +++ b/arch/x86/kernel/fpu/core.c
 @@ -369,14 +369,15 @@ int fpu_swap_kvm_fpstate(struct fpu_guest *guest_fpu, bool enter_guest)
@@ -123,10 +123,10 @@ index a4ecb04d8d64..3518fb26d06b 100644
  				    enum xstate_copy_mode mode);
  extern int copy_uabi_from_kernel_to_xstate(struct fpstate *fpstate, const void *kbuf, u32 *pkru);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index ff92ff41d5ce..a43a950d04cb 100644
+index 6690a3722007..394d3a8b4682 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -5314,26 +5314,23 @@ static int kvm_vcpu_ioctl_x86_set_debugregs(struct kvm_vcpu *vcpu,
+@@ -5385,26 +5385,23 @@ static int kvm_vcpu_ioctl_x86_set_debugregs(struct kvm_vcpu *vcpu,
  	return 0;
  }
  

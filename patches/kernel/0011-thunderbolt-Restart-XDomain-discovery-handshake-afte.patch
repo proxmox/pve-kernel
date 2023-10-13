@@ -22,10 +22,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 41 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/thunderbolt/xdomain.c b/drivers/thunderbolt/xdomain.c
-index 3c51e47dd86b..0b17a4d4e9b9 100644
+index 5b5566862318..9803f0bbf20d 100644
 --- a/drivers/thunderbolt/xdomain.c
 +++ b/drivers/thunderbolt/xdomain.c
-@@ -704,6 +704,27 @@ static void update_property_block(struct tb_xdomain *xd)
+@@ -703,6 +703,27 @@ static void update_property_block(struct tb_xdomain *xd)
  	mutex_unlock(&xdomain_lock);
  }
  
@@ -53,7 +53,7 @@ index 3c51e47dd86b..0b17a4d4e9b9 100644
  static void tb_xdp_handle_request(struct work_struct *work)
  {
  	struct xdomain_request_work *xw = container_of(work, typeof(*xw), work);
-@@ -766,6 +787,15 @@ static void tb_xdp_handle_request(struct work_struct *work)
+@@ -765,6 +786,15 @@ static void tb_xdp_handle_request(struct work_struct *work)
  	case UUID_REQUEST:
  		tb_dbg(tb, "%llx: received XDomain UUID request\n", route);
  		ret = tb_xdp_uuid_response(ctl, route, sequence, uuid);
@@ -69,7 +69,7 @@ index 3c51e47dd86b..0b17a4d4e9b9 100644
  		break;
  
  	case LINK_STATE_STATUS_REQUEST:
-@@ -1522,6 +1552,13 @@ static void tb_xdomain_queue_properties_changed(struct tb_xdomain *xd)
+@@ -1521,6 +1551,13 @@ static void tb_xdomain_queue_properties_changed(struct tb_xdomain *xd)
  			   msecs_to_jiffies(XDOMAIN_SHORT_TIMEOUT));
  }
  
@@ -83,7 +83,7 @@ index 3c51e47dd86b..0b17a4d4e9b9 100644
  static void tb_xdomain_state_work(struct work_struct *work)
  {
  	struct tb_xdomain *xd = container_of(work, typeof(*xd), state_work.work);
-@@ -1548,7 +1585,7 @@ static void tb_xdomain_state_work(struct work_struct *work)
+@@ -1547,7 +1584,7 @@ static void tb_xdomain_state_work(struct work_struct *work)
  		if (ret) {
  			if (ret == -EAGAIN)
  				goto retry_state;
@@ -92,7 +92,7 @@ index 3c51e47dd86b..0b17a4d4e9b9 100644
  		} else {
  			tb_xdomain_queue_properties_changed(xd);
  			if (xd->bonding_possible)
-@@ -1613,7 +1650,7 @@ static void tb_xdomain_state_work(struct work_struct *work)
+@@ -1612,7 +1649,7 @@ static void tb_xdomain_state_work(struct work_struct *work)
  		if (ret) {
  			if (ret == -EAGAIN)
  				goto retry_state;
@@ -101,7 +101,7 @@ index 3c51e47dd86b..0b17a4d4e9b9 100644
  		} else {
  			xd->state = XDOMAIN_STATE_ENUMERATED;
  		}
-@@ -1624,6 +1661,8 @@ static void tb_xdomain_state_work(struct work_struct *work)
+@@ -1623,6 +1660,8 @@ static void tb_xdomain_state_work(struct work_struct *work)
  		break;
  
  	case XDOMAIN_STATE_ERROR:
@@ -110,7 +110,7 @@ index 3c51e47dd86b..0b17a4d4e9b9 100644
  		break;
  
  	default:
-@@ -1793,21 +1832,6 @@ static void tb_xdomain_release(struct device *dev)
+@@ -1833,21 +1872,6 @@ static void tb_xdomain_release(struct device *dev)
  	kfree(xd);
  }
  

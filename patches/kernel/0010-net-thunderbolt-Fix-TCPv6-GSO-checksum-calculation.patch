@@ -19,14 +19,14 @@ Reviewed-by: Jiri Pirko <jiri@nvidia.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- drivers/net/thunderbolt.c | 3 +--
+ drivers/net/thunderbolt/main.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/thunderbolt.c b/drivers/net/thunderbolt.c
-index 990484776f2d..0c554a7a5ce4 100644
---- a/drivers/net/thunderbolt.c
-+++ b/drivers/net/thunderbolt.c
-@@ -1005,12 +1005,11 @@ static bool tbnet_xmit_csum_and_map(struct tbnet *net, struct sk_buff *skb,
+diff --git a/drivers/net/thunderbolt/main.c b/drivers/net/thunderbolt/main.c
+index 0c1e8970ee58..0a53ec293d04 100644
+--- a/drivers/net/thunderbolt/main.c
++++ b/drivers/net/thunderbolt/main.c
+@@ -1049,12 +1049,11 @@ static bool tbnet_xmit_csum_and_map(struct tbnet *net, struct sk_buff *skb,
  		*tucso = ~csum_tcpudp_magic(ip_hdr(skb)->saddr,
  					    ip_hdr(skb)->daddr, 0,
  					    ip_hdr(skb)->protocol, 0);

@@ -66,10 +66,10 @@ index 463ec0cd0dab..ebe698f8af73 100644
  
  	/* Do the final updates within the locked region */
 diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
-index 61aefeb3fdbc..e5393ee652ba 100644
+index 2c20da9aa2ac..e2b67975869c 100644
 --- a/arch/x86/kvm/cpuid.c
 +++ b/arch/x86/kvm/cpuid.c
-@@ -350,14 +350,6 @@ static void kvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
+@@ -332,14 +332,6 @@ static void kvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
  	vcpu->arch.guest_supported_xcr0 =
  		cpuid_get_supported_xcr0(vcpu->arch.cpuid_entries, vcpu->arch.cpuid_nent);
  
@@ -85,10 +85,10 @@ index 61aefeb3fdbc..e5393ee652ba 100644
  
  	vcpu->arch.maxphyaddr = cpuid_query_maxphyaddr(vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index a43a950d04cb..a4a44adf7c72 100644
+index 394d3a8b4682..e0cea0f8380a 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -5318,12 +5318,26 @@ static int kvm_vcpu_ioctl_x86_set_debugregs(struct kvm_vcpu *vcpu,
+@@ -5389,12 +5389,26 @@ static int kvm_vcpu_ioctl_x86_set_debugregs(struct kvm_vcpu *vcpu,
  static void kvm_vcpu_ioctl_x86_get_xsave2(struct kvm_vcpu *vcpu,
  					  u8 *state, unsigned int size)
  {

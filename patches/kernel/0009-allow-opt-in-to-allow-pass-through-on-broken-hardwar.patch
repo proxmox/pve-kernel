@@ -4,15 +4,17 @@ Date: Mon, 18 Sep 2023 15:19:26 +0200
 Subject: [PATCH] allow opt-in to allow pass-through on broken hardware..
 
 adapted from https://github.com/kiler129/relax-intel-rmrr , licensed under MIT or GPL 2.0+
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  drivers/iommu/intel/iommu.c | 6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index 1c5ba4dbfe78..887667218e3b 100644
+index a377f8e0a414..3be334d34317 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -297,6 +297,7 @@ static int dmar_map_gfx = 1;
+@@ -298,6 +298,7 @@ static int dmar_map_gfx = 1;
  static int dmar_map_ipu = 1;
  static int intel_iommu_superpage = 1;
  static int iommu_identity_mapping;
@@ -20,7 +22,7 @@ index 1c5ba4dbfe78..887667218e3b 100644
  static int iommu_skip_te_disable;
  
  #define IDENTMAP_GFX		2
-@@ -358,6 +359,9 @@ static int __init intel_iommu_setup(char *str)
+@@ -359,6 +360,9 @@ static int __init intel_iommu_setup(char *str)
  		} else if (!strncmp(str, "tboot_noforce", 13)) {
  			pr_info("Intel-IOMMU: not forcing on after tboot. This could expose security risk for tboot\n");
  			intel_iommu_tboot_noforce = 1;
@@ -30,7 +32,7 @@ index 1c5ba4dbfe78..887667218e3b 100644
  		} else {
  			pr_notice("Unknown option - '%s'\n", str);
  		}
-@@ -2538,7 +2542,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
+@@ -2503,7 +2507,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
  		return false;
  
  	pdev = to_pci_dev(dev);

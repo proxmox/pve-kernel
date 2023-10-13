@@ -18,15 +18,16 @@ Reported-by: Stefan Sterz <s.sterz@proxmox.com>
 Closes: https://lkml.kernel.org/r/b9915c9c-4cf6-051a-2d91-44cc6380f455%40proxmox.com
 Signed-off-by: Sean Christopherson <seanjc@google.com>
 Signed-off-by: Stefan Sterz <s.sterz@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/svm/svm.c | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index fb9cde86930d..db8028864094 100644
+index 2ec76ab525ea..ef3215286428 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -4921,6 +4921,7 @@ static __init void svm_set_cpu_caps(void)
+@@ -4969,6 +4969,7 @@ static __init void svm_set_cpu_caps(void)
  	if (nested) {
  		kvm_cpu_cap_set(X86_FEATURE_SVM);
  		kvm_cpu_cap_set(X86_FEATURE_VMCBCLEAN);
