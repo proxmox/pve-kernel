@@ -1,3 +1,9 @@
+proxmox-kernel-6.5 (6.5.3-1) bookworm; urgency=medium
+
+  * update kernel to 6.5 based Ubuntu 23.10 Mantic release
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 13 Oct 2023 15:28:11 +0200
+
 proxmox-kernel-6.2 (6.2.16-19) bookworm; urgency=medium
 
   * backport exposing FLUSHBYASID when running nested VMs on AMD CPUs to fix
