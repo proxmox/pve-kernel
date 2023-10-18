@@ -1,0 +1,29 @@
+name: ABI Update
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  ABI-Update:
+    name: 
+    runs-on: [ubuntu-latest]
+    if: ${{ !contains(github.event.head_commit.message, 'skip ci') }}
+    steps:
+    - name: Checkout Sources
+      uses: actions/checkout@v4
+      with:
+          submodules: recursive
+    - name: Install kernel build deps
+      run: |
+       sudo apt-get update && sudo apt-get install asciidoc-base automake bc bison cpio debhelper-compat \
+       dh-python dwarves file flex gcc git kmod libdw-dev libelf-dev libiberty-dev libnuma-dev \
+       libslang2-dev libssl-dev libtool lintian lz4 python3-minimal rsync sphinx-common xmlto zlib1g-dev zstd
+    - name: ABI Update
+      run: make abiupdate
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v4
+      with:
+        branch: update-abi
+        branch-suffix: short-commit-hash
+        title: Update ab
+   
