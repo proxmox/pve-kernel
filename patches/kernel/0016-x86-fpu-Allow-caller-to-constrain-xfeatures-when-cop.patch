@@ -1,0 +1,164 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 27 Sep 2023 17:19:52 -0700
+Subject: [PATCH] x86/fpu: Allow caller to constrain xfeatures when copying to
+ uabi buffer
+
+Plumb an xfeatures mask into __copy_xstate_to_uabi_buf() so that KVM can
+constrain which xfeatures are saved into the userspace buffer without
+having to modify the user_xfeatures field in KVM's guest_fpu state.
+
+KVM's ABI for KVM_GET_XSAVE{2} is that features that are not exposed to
+guest must not show up in the effective xstate_bv field of the buffer.
+Saving only the guest-supported xfeatures allows userspace to load the
+saved state on a different host with a fewer xfeatures, so long as the
+target host supports the xfeatures that are exposed to the guest.
+
+KVM currently sets user_xfeatures directly to restrict KVM_GET_XSAVE{2} to
+the set of guest-supported xfeatures, but doing so broke KVM's historical
+ABI for KVM_SET_XSAVE, which allows userspace to load any xfeatures that
+are supported by the *host*.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Message-Id: <20230928001956.924301-2-seanjc@google.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 18164f66e6c59fda15c198b371fa008431efdb22)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/include/asm/fpu/api.h |  3 ++-
+ arch/x86/kernel/fpu/core.c     |  5 +++--
+ arch/x86/kernel/fpu/xstate.c   |  7 +++++--
+ arch/x86/kernel/fpu/xstate.h   |  3 ++-
+ arch/x86/kvm/x86.c             | 21 +++++++++------------
+ 5 files changed, 21 insertions(+), 18 deletions(-)
+
+diff --git a/arch/x86/include/asm/fpu/api.h b/arch/x86/include/asm/fpu/api.h
+index b475d9a582b8..e829fa4c6788 100644
+--- a/arch/x86/include/asm/fpu/api.h
++++ b/arch/x86/include/asm/fpu/api.h
+@@ -148,7 +148,8 @@ static inline void fpu_update_guest_xfd(struct fpu_guest *guest_fpu, u64 xfd) {
+ static inline void fpu_sync_guest_vmexit_xfd_state(void) { }
+ #endif
+ 
+-extern void fpu_copy_guest_fpstate_to_uabi(struct fpu_guest *gfpu, void *buf, unsigned int size, u32 pkru);
++extern void fpu_copy_guest_fpstate_to_uabi(struct fpu_guest *gfpu, void *buf,
++					   unsigned int size, u64 xfeatures, u32 pkru);
+ extern int fpu_copy_uabi_to_guest_fpstate(struct fpu_guest *gfpu, const void *buf, u64 xcr0, u32 *vpkru);
+ 
+ static inline void fpstate_set_confidential(struct fpu_guest *gfpu)
+diff --git a/arch/x86/kernel/fpu/core.c b/arch/x86/kernel/fpu/core.c
+index caf33486dc5e..cddd5018e6a4 100644
+--- a/arch/x86/kernel/fpu/core.c
++++ b/arch/x86/kernel/fpu/core.c
+@@ -369,14 +369,15 @@ int fpu_swap_kvm_fpstate(struct fpu_guest *guest_fpu, bool enter_guest)
+ EXPORT_SYMBOL_GPL(fpu_swap_kvm_fpstate);
+ 
+ void fpu_copy_guest_fpstate_to_uabi(struct fpu_guest *gfpu, void *buf,
+-				    unsigned int size, u32 pkru)
++				    unsigned int size, u64 xfeatures, u32 pkru)
+ {
+ 	struct fpstate *kstate = gfpu->fpstate;
+ 	union fpregs_state *ustate = buf;
+ 	struct membuf mb = { .p = buf, .left = size };
+ 
+ 	if (cpu_feature_enabled(X86_FEATURE_XSAVE)) {
+-		__copy_xstate_to_uabi_buf(mb, kstate, pkru, XSTATE_COPY_XSAVE);
++		__copy_xstate_to_uabi_buf(mb, kstate, xfeatures, pkru,
++					  XSTATE_COPY_XSAVE);
+ 	} else {
+ 		memcpy(&ustate->fxsave, &kstate->regs.fxsave,
+ 		       sizeof(ustate->fxsave));
+diff --git a/arch/x86/kernel/fpu/xstate.c b/arch/x86/kernel/fpu/xstate.c
+index 1afbc4866b10..463ec0cd0dab 100644
+--- a/arch/x86/kernel/fpu/xstate.c
++++ b/arch/x86/kernel/fpu/xstate.c
+@@ -1053,6 +1053,7 @@ static void copy_feature(bool from_xstate, struct membuf *to, void *xstate,
+  * __copy_xstate_to_uabi_buf - Copy kernel saved xstate to a UABI buffer
+  * @to:		membuf descriptor
+  * @fpstate:	The fpstate buffer from which to copy
++ * @xfeatures:	The mask of xfeatures to save (XSAVE mode only)
+  * @pkru_val:	The PKRU value to store in the PKRU component
+  * @copy_mode:	The requested copy mode
+  *
+@@ -1063,7 +1064,8 @@ static void copy_feature(bool from_xstate, struct membuf *to, void *xstate,
+  * It supports partial copy but @to.pos always starts from zero.
+  */
+ void __copy_xstate_to_uabi_buf(struct membuf to, struct fpstate *fpstate,
+-			       u32 pkru_val, enum xstate_copy_mode copy_mode)
++			       u64 xfeatures, u32 pkru_val,
++			       enum xstate_copy_mode copy_mode)
+ {
+ 	const unsigned int off_mxcsr = offsetof(struct fxregs_state, mxcsr);
+ 	struct xregs_state *xinit = &init_fpstate.regs.xsave;
+@@ -1087,7 +1089,7 @@ void __copy_xstate_to_uabi_buf(struct membuf to, struct fpstate *fpstate,
+ 		break;
+ 
+ 	case XSTATE_COPY_XSAVE:
+-		header.xfeatures &= fpstate->user_xfeatures;
++		header.xfeatures &= fpstate->user_xfeatures & xfeatures;
+ 		break;
+ 	}
+ 
+@@ -1189,6 +1191,7 @@ void copy_xstate_to_uabi_buf(struct membuf to, struct task_struct *tsk,
+ 			     enum xstate_copy_mode copy_mode)
+ {
+ 	__copy_xstate_to_uabi_buf(to, tsk->thread.fpu.fpstate,
++				  tsk->thread.fpu.fpstate->user_xfeatures,
+ 				  tsk->thread.pkru, copy_mode);
+ }
+ 
+diff --git a/arch/x86/kernel/fpu/xstate.h b/arch/x86/kernel/fpu/xstate.h
+index a4ecb04d8d64..3518fb26d06b 100644
+--- a/arch/x86/kernel/fpu/xstate.h
++++ b/arch/x86/kernel/fpu/xstate.h
+@@ -43,7 +43,8 @@ enum xstate_copy_mode {
+ 
+ struct membuf;
+ extern void __copy_xstate_to_uabi_buf(struct membuf to, struct fpstate *fpstate,
+-				      u32 pkru_val, enum xstate_copy_mode copy_mode);
++				      u64 xfeatures, u32 pkru_val,
++				      enum xstate_copy_mode copy_mode);
+ extern void copy_xstate_to_uabi_buf(struct membuf to, struct task_struct *tsk,
+ 				    enum xstate_copy_mode mode);
+ extern int copy_uabi_from_kernel_to_xstate(struct fpstate *fpstate, const void *kbuf, u32 *pkru);
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index ff92ff41d5ce..a43a950d04cb 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -5314,26 +5314,23 @@ static int kvm_vcpu_ioctl_x86_set_debugregs(struct kvm_vcpu *vcpu,
+ 	return 0;
+ }
+ 
+-static void kvm_vcpu_ioctl_x86_get_xsave(struct kvm_vcpu *vcpu,
+-					 struct kvm_xsave *guest_xsave)
++
++static void kvm_vcpu_ioctl_x86_get_xsave2(struct kvm_vcpu *vcpu,
++					  u8 *state, unsigned int size)
+ {
+ 	if (fpstate_is_confidential(&vcpu->arch.guest_fpu))
+ 		return;
+ 
+-	fpu_copy_guest_fpstate_to_uabi(&vcpu->arch.guest_fpu,
+-				       guest_xsave->region,
+-				       sizeof(guest_xsave->region),
++	fpu_copy_guest_fpstate_to_uabi(&vcpu->arch.guest_fpu, state, size,
++				       vcpu->arch.guest_fpu.fpstate->user_xfeatures,
+ 				       vcpu->arch.pkru);
+ }
+ 
+-static void kvm_vcpu_ioctl_x86_get_xsave2(struct kvm_vcpu *vcpu,
+-					  u8 *state, unsigned int size)
++static void kvm_vcpu_ioctl_x86_get_xsave(struct kvm_vcpu *vcpu,
++					 struct kvm_xsave *guest_xsave)
+ {
+-	if (fpstate_is_confidential(&vcpu->arch.guest_fpu))
+-		return;
+-
+-	fpu_copy_guest_fpstate_to_uabi(&vcpu->arch.guest_fpu,
+-				       state, size, vcpu->arch.pkru);
++	return kvm_vcpu_ioctl_x86_get_xsave2(vcpu, (void *)guest_xsave->region,
++					     sizeof(guest_xsave->region));
+ }
+ 
+ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
