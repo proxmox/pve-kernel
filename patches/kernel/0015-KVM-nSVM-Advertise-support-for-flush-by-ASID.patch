@@ -1,7 +1,7 @@
-From 42af81abf0b96ab661591d024aed55c05dd85b91 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Sean Christopherson <seanjc@google.com>
 Date: Wed, 18 Oct 2023 12:41:04 -0700
-Subject: [PATCH 2/2] KVM: nSVM: Advertise support for flush-by-ASID
+Subject: [PATCH] KVM: nSVM: Advertise support for flush-by-ASID
 
 Advertise support for FLUSHBYASID when nested SVM is enabled, as KVM can
 always emulate flushing TLB entries for a vmcb12 ASID, e.g. by running L2
@@ -23,17 +23,14 @@ Signed-off-by: Stefan Sterz <s.sterz@proxmox.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 9a194aa1a75a..0fde9b0c464b 100644
+index fb9cde86930d..db8028864094 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -4880,6 +4880,7 @@ static __init void svm_set_cpu_caps(void)
+@@ -4921,6 +4921,7 @@ static __init void svm_set_cpu_caps(void)
  	if (nested) {
  		kvm_cpu_cap_set(X86_FEATURE_SVM);
  		kvm_cpu_cap_set(X86_FEATURE_VMCBCLEAN);
 +		kvm_cpu_cap_set(X86_FEATURE_FLUSHBYASID);
-
+ 
  		if (nrips)
  			kvm_cpu_cap_set(X86_FEATURE_NRIPS);
---
-2.39.2
-
