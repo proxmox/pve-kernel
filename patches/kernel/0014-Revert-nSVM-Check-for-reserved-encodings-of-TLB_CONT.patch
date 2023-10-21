@@ -1,8 +1,8 @@
-From 379ad2e0326c55682d0bb9391f16f1072fe400d2 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Stefan Sterz <s.sterz@proxmox.com>
 Date: Wed, 18 Oct 2023 10:45:45 +0200
-Subject: [PATCH 1/2] Revert "nSVM: Check for reserved encodings of TLB_CONTROL
- in nested VMCB"
+Subject: [PATCH] Revert "nSVM: Check for reserved encodings of TLB_CONTROL in
+ nested VMCB"
 
 This reverts commit 174a921b6975ef959dd82ee9e8844067a62e3ec1.
 
@@ -18,7 +18,7 @@ index add65dd59756..61a6c0235519 100644
 @@ -242,18 +242,6 @@ static bool nested_svm_check_bitmap_pa(struct kvm_vcpu *vcpu, u64 pa, u32 size)
  	    kvm_vcpu_is_legal_gpa(vcpu, addr + size - 1);
  }
-
+ 
 -static bool nested_svm_check_tlb_ctl(struct kvm_vcpu *vcpu, u8 tlb_ctl)
 -{
 -	/* Nested FLUSHBYASID is not supported yet.  */
@@ -37,13 +37,10 @@ index add65dd59756..61a6c0235519 100644
 @@ -273,9 +261,6 @@ static bool __nested_vmcb_check_controls(struct kvm_vcpu *vcpu,
  					   IOPM_SIZE)))
  		return false;
-
+ 
 -	if (CC(!nested_svm_check_tlb_ctl(vcpu, control->tlb_ctl)))
 -		return false;
 -
  	return true;
  }
-
---
-2.39.2
-
+ 
