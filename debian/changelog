@@ -1,3 +1,14 @@
+proxmox-kernel-6.2 (6.2.16-19) bookworm; urgency=medium
+
+  * backport exposing FLUSHBYASID when running nested VMs on AMD CPUs to fix
+    nesting of some hyper-visors like VMware Workstation.
+
+  * backport constraining guest-supported xfeatures only at KVM_GET_XSAVE{2}
+    to further improve compatibility for guests w.r.t. live-migration, or live
+    snapshot rollback, to hosts with less (FPU) xfeatures supported.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Oct 2023 14:07:51 +0200
+
 proxmox-kernel-6.2 (6.2.16-18) bookworm; urgency=medium
 
   * backport fix for AMD erratum #1485 on Zen4-based CPUs to avoid triggering
