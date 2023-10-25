@@ -1,5 +1,12 @@
 proxmox-kernel-6.5 (6.5.3-1) bookworm; urgency=medium
 
+  * disable UBSAN bounds checking to avoid false-positive oopses due to the
+    ZFS module using an older style for declaring flexible array member.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 23 Oct 2023 10:03:52 +0200
+
+proxmox-kernel-6.5 (6.5.3-1~1) bookworm; urgency=medium
+
   * update kernel to 6.5 based Ubuntu 23.10 Mantic release
 
  -- Proxmox Support Team <support@proxmox.com>  Fri, 13 Oct 2023 15:28:11 +0200
