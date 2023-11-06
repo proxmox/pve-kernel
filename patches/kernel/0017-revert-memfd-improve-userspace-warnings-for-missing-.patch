@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Mon, 6 Nov 2023 10:17:02 +0100
+Subject: [PATCH] revert "memfd: improve userspace warnings for missing
+ exec-related flags".
+
+This warning is telling userspace developers to pass MFD_EXEC and
+MFD_NOEXEC_SEAL to memfd_create().  Commit 434ed3350f57 ("memfd: improve
+userspace warnings for missing exec-related flags") made the warning more
+frequent and visible in the hope that this would accelerate the fixing of
+errant userspace.
+
+But the overall effect is to generate far too much dmesg noise.
+
+Fixes: 434ed3350f57 ("memfd: improve userspace warnings for missing exec-related flags")
+Reported-by: Damian Tometzki <dtometzki@fedoraproject.org>
+Closes: https://lkml.kernel.org/r/ZPFzCSIgZ4QuHsSC@fedora.fritz.box
+Cc: Aleksa Sarai <cyphar@cyphar.com>
+Cc: Christian Brauner <brauner@kernel.org>
+Cc: Daniel Verkamp <dverkamp@chromium.org>
+Cc: Jeff Xu <jeffxu@google.com>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Shuah Khan <shuah@kernel.org>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+ (cherry picked from commit 2562d67b1bdf91c7395b0225d60fdeb26b4bc5a0)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/memfd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mm/memfd.c b/mm/memfd.c
+index 2dba2cb6f0d0..1c077e98e116 100644
+--- a/mm/memfd.c
++++ b/mm/memfd.c
+@@ -282,7 +282,7 @@ static int check_sysctl_memfd_noexec(unsigned int *flags)
+ 	}
+ 
+ 	if (!(*flags & MFD_NOEXEC_SEAL) && sysctl >= MEMFD_NOEXEC_SCOPE_NOEXEC_ENFORCED) {
+-		pr_err_ratelimited(
++		pr_warn_once(
+ 			"%s[%d]: memfd_create() requires MFD_NOEXEC_SEAL with vm.memfd_noexec=%d\n",
+ 			current->comm, task_pid_nr(current), sysctl);
+ 		return -EACCES;
