@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 17 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/gpu/drm/tiny/simpledrm.c b/drivers/gpu/drm/tiny/simpledrm.c
-index f3c2c173ca4b..da58c0d0f44d 100644
+index f3c2c173ca4b5..da58c0d0f44d8 100644
 --- a/drivers/gpu/drm/tiny/simpledrm.c
 +++ b/drivers/gpu/drm/tiny/simpledrm.c
 @@ -525,21 +525,33 @@ static int simpledrm_device_init_mm(struct simpledrm_device *sdev)

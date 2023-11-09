@@ -14,7 +14,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 18 insertions(+)
 
 diff --git a/drivers/edac/amd64_edac.c b/drivers/edac/amd64_edac.c
-index c6c58f01067f..f8ef2edf8abf 100644
+index c6c58f01067f4..f8ef2edf8abf2 100644
 --- a/drivers/edac/amd64_edac.c
 +++ b/drivers/edac/amd64_edac.c
 @@ -2660,6 +2660,16 @@ static struct amd64_family_type family_types[] = {
@@ -47,7 +47,7 @@ index c6c58f01067f..f8ef2edf8abf 100644
  			fam_type = &family_types[F19_M10H_CPUS];
  			pvt->ops = &family_types[F19_M10H_CPUS].ops;
 diff --git a/drivers/edac/amd64_edac.h b/drivers/edac/amd64_edac.h
-index 650cab401e21..352bda9803f6 100644
+index 650cab401e212..352bda9803f6c 100644
 --- a/drivers/edac/amd64_edac.h
 +++ b/drivers/edac/amd64_edac.h
 @@ -128,6 +128,8 @@

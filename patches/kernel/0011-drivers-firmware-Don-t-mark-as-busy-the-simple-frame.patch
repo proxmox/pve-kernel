@@ -20,7 +20,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/firmware/sysfb_simplefb.c b/drivers/firmware/sysfb_simplefb.c
-index fd4fa923088a..ca907f7e76c6 100644
+index fd4fa923088af..ca907f7e76c65 100644
 --- a/drivers/firmware/sysfb_simplefb.c
 +++ b/drivers/firmware/sysfb_simplefb.c
 @@ -99,7 +99,7 @@ __init struct platform_device *sysfb_create_simplefb(const struct screen_info *s

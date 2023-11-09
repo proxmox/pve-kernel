@@ -22,7 +22,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 8 insertions(+), 16 deletions(-)
 
 diff --git a/block/blk-cgroup.c b/block/blk-cgroup.c
-index 3ee4c1217b63..0e15a9345966 100644
+index 3ee4c1217b636..0e15a93459665 100644
 --- a/block/blk-cgroup.c
 +++ b/block/blk-cgroup.c
 @@ -887,7 +887,6 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
@@ -64,7 +64,7 @@ index 3ee4c1217b63..0e15a9345966 100644
  
  static int blkcg_print_stat(struct seq_file *sf, void *v)
 diff --git a/block/blk-iocost.c b/block/blk-iocost.c
-index f95feabb3ca8..94d1824906c7 100644
+index f95feabb3ca88..94d1824906c7a 100644
 --- a/block/blk-iocost.c
 +++ b/block/blk-iocost.c
 @@ -3021,13 +3021,13 @@ static void ioc_pd_free(struct blkg_policy_data *pd)
@@ -92,7 +92,7 @@ index f95feabb3ca8..94d1824906c7 100644
  
  static u64 ioc_weight_prfill(struct seq_file *sf, struct blkg_policy_data *pd,
 diff --git a/block/blk-iolatency.c b/block/blk-iolatency.c
-index bdef8395af6e..a5f13743a280 100644
+index bdef8395af6e7..a5f13743a2800 100644
 --- a/block/blk-iolatency.c
 +++ b/block/blk-iolatency.c
 @@ -906,7 +906,7 @@ static int iolatency_print_limit(struct seq_file *sf, void *v)
@@ -133,7 +133,7 @@ index bdef8395af6e..a5f13743a280 100644
  
  static struct blkg_policy_data *iolatency_pd_alloc(gfp_t gfp,
 diff --git a/include/linux/blk-cgroup.h b/include/linux/blk-cgroup.h
-index bc5c04d711bb..618359e3beca 100644
+index bc5c04d711bbc..618359e3becab 100644
 --- a/include/linux/blk-cgroup.h
 +++ b/include/linux/blk-cgroup.h
 @@ -153,7 +153,7 @@ typedef void (blkcg_pol_online_pd_fn)(struct blkg_policy_data *pd);

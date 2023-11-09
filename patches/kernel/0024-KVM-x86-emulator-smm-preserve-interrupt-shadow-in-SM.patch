@@ -30,7 +30,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 32 insertions(+), 7 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 37c1662b5508..b70adbee03b7 100644
+index 37c1662b55082..b70adbee03b75 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
 @@ -2419,7 +2419,7 @@ static int rsm_load_state_32(struct x86_emulate_ctxt *ctxt,
@@ -72,7 +72,7 @@ index 37c1662b5508..b70adbee03b7 100644
  }
  #endif
 diff --git a/arch/x86/kvm/kvm_emulate.h b/arch/x86/kvm/kvm_emulate.h
-index 3b37b3e17379..a64c190abf28 100644
+index 3b37b3e173791..a64c190abf28f 100644
 --- a/arch/x86/kvm/kvm_emulate.h
 +++ b/arch/x86/kvm/kvm_emulate.h
 @@ -231,6 +231,7 @@ struct x86_emulate_ops {
@@ -128,10 +128,10 @@ index 3b37b3e17379..a64c190abf28 100644
  	__CHECK_SMRAM64_OFFSET(auto_hlt_restart,	0xFEC9);
  	__CHECK_SMRAM64_OFFSET(reserved2,		0xFECA);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 88d78b9bfd43..93fff459b95b 100644
+index 2b1be90f36031..19bd000bebcff 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7441,6 +7441,11 @@ static void emulator_set_nmi_mask(struct x86_emulate_ctxt *ctxt, bool masked)
+@@ -7439,6 +7439,11 @@ static void emulator_set_nmi_mask(struct x86_emulate_ctxt *ctxt, bool masked)
  	static_call(kvm_x86_set_nmi_mask)(emul_to_vcpu(ctxt), masked);
  }
  
@@ -143,7 +143,7 @@ index 88d78b9bfd43..93fff459b95b 100644
  static unsigned emulator_get_hflags(struct x86_emulate_ctxt *ctxt)
  {
  	return emul_to_vcpu(ctxt)->arch.hflags;
-@@ -7510,6 +7515,7 @@ static const struct x86_emulate_ops emulate_ops = {
+@@ -7508,6 +7513,7 @@ static const struct x86_emulate_ops emulate_ops = {
  	.guest_has_fxsr      = emulator_guest_has_fxsr,
  	.guest_has_rdpid     = emulator_guest_has_rdpid,
  	.set_nmi_mask        = emulator_set_nmi_mask,
@@ -151,7 +151,7 @@ index 88d78b9bfd43..93fff459b95b 100644
  	.get_hflags          = emulator_get_hflags,
  	.exiting_smm         = emulator_exiting_smm,
  	.leave_smm           = emulator_leave_smm,
-@@ -9259,6 +9265,8 @@ static void enter_smm_save_state_32(struct kvm_vcpu *vcpu, struct kvm_smram_stat
+@@ -9257,6 +9263,8 @@ static void enter_smm_save_state_32(struct kvm_vcpu *vcpu, struct kvm_smram_stat
  	smram->cr4 = kvm_read_cr4(vcpu);
  	smram->smm_revision = 0x00020000;
  	smram->smbase = vcpu->arch.smbase;
@@ -160,7 +160,7 @@ index 88d78b9bfd43..93fff459b95b 100644
  }
  
  #ifdef CONFIG_X86_64
-@@ -9307,6 +9315,8 @@ static void enter_smm_save_state_64(struct kvm_vcpu *vcpu, struct kvm_smram_stat
+@@ -9305,6 +9313,8 @@ static void enter_smm_save_state_64(struct kvm_vcpu *vcpu, struct kvm_smram_stat
  	enter_smm_save_seg_64(vcpu, &smram->ds, VCPU_SREG_DS);
  	enter_smm_save_seg_64(vcpu, &smram->fs, VCPU_SREG_FS);
  	enter_smm_save_seg_64(vcpu, &smram->gs, VCPU_SREG_GS);
@@ -169,7 +169,7 @@ index 88d78b9bfd43..93fff459b95b 100644
  }
  #endif
  
-@@ -9343,6 +9353,8 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9341,6 +9351,8 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  	kvm_set_rflags(vcpu, X86_EFLAGS_FIXED);
  	kvm_rip_write(vcpu, 0x8000);
  
