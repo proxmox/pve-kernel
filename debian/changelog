@@ -1,3 +1,15 @@
+proxmox-kernel-6.5 (6.5.11-1) bookworm; urgency=medium
+
+  * update to v6.5.11 upstream stable release
+
+  * revert "memfd: improve userspace warnings for missing exec-related flags",
+    producing to much log noise without any benefit
+
+  * Revert "UBUNTU: SAUCE: ceph: make sure all the files successfully put
+    before unmounting"
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 08 Nov 2023 15:40:29 +0100
+
 proxmox-kernel-6.5 (6.5.3-1) bookworm; urgency=medium
 
   * disable UBSAN bounds checking to avoid false-positive oopses due to the
