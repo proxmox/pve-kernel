@@ -138,7 +138,7 @@ binary: install
 
 .config_mark:
 	cd $(KERNEL_SRC); scripts/config $(PMX_CONFIG_OPTS)
-	$(MAKE) -C $(KERNEL_SRC) oldconfig
+	$(MAKE) -C $(KERNEL_SRC) olddefconfig
 	# copy to allow building in parallel to kernel/module compilation without interference
 	rm -rf $(KERNEL_SRC_COPY)
 	cp -ar $(KERNEL_SRC) $(KERNEL_SRC_COPY)
