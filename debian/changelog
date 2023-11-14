@@ -1,3 +1,10 @@
+pve-kernel (5.15.131-2) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-91.101 fixing an issue with enumerating USB
+    devices
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 14 Nov 2023 12:32:55 +0100
+
 pve-kernel (5.15.131-1) bullseye; urgency=medium
 
   * update to Ubuntu-5.15.0-90.100 basing of the 5.15.131 stable release
