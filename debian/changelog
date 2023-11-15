@@ -1,3 +1,15 @@
+proxmox-kernel-6.5 (6.5.11-2) bookworm; urgency=medium
+
+  * rebase on Ubuntu-6.5.0-14.14 to include a fix for viewing ast/bmc remote
+    consoles
+
+  * backport flexible-array-member fixes for the amdgpu module to avoid UBSAN
+    warnings.
+
+  * disable UBSAN bounds checking again completely, to many false-positives
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 14 Nov 2023 18:19:51 +0100
+
 proxmox-kernel-6.5 (6.5.11-1) bookworm; urgency=medium
 
   * update to v6.5.11 upstream stable release
