@@ -100,6 +100,7 @@ PMX_CONFIG_OPTS= \
 -e CONFIG_ARCH_HAS_CPU_FINALIZE_INIT \
 -d CONFIG_GDS_FORCE_MITIGATION \
 -d CONFIG_WQ_CPU_INTENSIVE_REPORT \
+-d UBSAN_BOUNDS \
 
 debian/control: $(wildcard debian/*.in)
 	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel.prerm.in > debian/$(PMX_KERNEL_PKG).prerm
