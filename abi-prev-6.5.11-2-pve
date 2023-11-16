@@ -16611,6 +16611,16 @@ EXPORT_SYMBOL_GPL	 drivers/net/wireless/ti/wlcore/wlcore 0xf0b884e5	wlcore_event
 EXPORT_SYMBOL_GPL	 drivers/net/wireless/ti/wlcore/wlcore 0xf55fcc28	wlcore_alloc_hw
 EXPORT_SYMBOL_GPL	 drivers/net/wireless/ti/wlcore/wlcore 0xf8873993	wlcore_free_hw
 EXPORT_SYMBOL_GPL	 drivers/net/wireless/ti/wlcore/wlcore 0xfa7652c2	wl12xx_cmd_build_probe_req
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0x3d9bbf75	wwan_port_txon
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0x4dff61e5	wwan_port_txoff
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0x526bcf2a	wwan_port_get_drvdata
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0x6603b0b3	wwan_create_port
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0x7e7ff36d	wwan_register_ops
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0xadc9b988	wwan_unregister_ops
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0xb4e5d099	wwan_put_debugfs_dir
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0xb6084416	wwan_port_rx
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0xb74c31cd	wwan_remove_port
+EXPORT_SYMBOL_GPL	 drivers/net/wwan/wwan 0xcc9d9b50	wwan_get_debugfs_dir
 EXPORT_SYMBOL_GPL	 drivers/nfc/mei_phy 0x7e52e0aa	mei_phy_ops
 EXPORT_SYMBOL_GPL	 drivers/nfc/mei_phy 0xba0e87cd	nfc_mei_phy_alloc
 EXPORT_SYMBOL_GPL	 drivers/nfc/mei_phy 0xc0f2bfef	nfc_mei_phy_free
@@ -22201,7 +22211,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x3d8a216e	__phy_modify_mmd
 EXPORT_SYMBOL_GPL	 vmlinux 0x3d8b5557	virtio_max_dma_size
 EXPORT_SYMBOL_GPL	 vmlinux 0x3d8baf3b	zs_huge_class_size
 EXPORT_SYMBOL_GPL	 vmlinux 0x3d9aaf3f	cpu_subsys
-EXPORT_SYMBOL_GPL	 vmlinux 0x3d9bbf75	wwan_port_txon
 EXPORT_SYMBOL_GPL	 vmlinux 0x3daa2540	nf_hooks_lwtunnel_enabled
 EXPORT_SYMBOL_GPL	 vmlinux 0x3dbe5705	usb_register_device_driver
 EXPORT_SYMBOL_GPL	 vmlinux 0x3dc77055	vc_scrolldelta_helper
@@ -22650,7 +22659,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x4de015be	i2c_acpi_find_bus_speed
 EXPORT_SYMBOL_GPL	 vmlinux 0x4de17ab3	usb_state_string
 EXPORT_SYMBOL_GPL	 vmlinux 0x4de65cf1	fscrypt_ioctl_add_key
 EXPORT_SYMBOL_GPL	 vmlinux 0x4dec4387	fat_truncate_time
-EXPORT_SYMBOL_GPL	 vmlinux 0x4dff61e5	wwan_port_txoff
 EXPORT_SYMBOL_GPL	 vmlinux 0x4e0d5259	ata_host_alloc_pinfo
 EXPORT_SYMBOL_GPL	 vmlinux 0x4e10d747	bus_for_each_dev
 EXPORT_SYMBOL_GPL	 vmlinux 0x4e13c750	pse_controller_register
@@ -22780,7 +22788,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x52431348	xenbus_transaction_start
 EXPORT_SYMBOL_GPL	 vmlinux 0x525d0aa3	trace_seq_printf
 EXPORT_SYMBOL_GPL	 vmlinux 0x525d694e	virtio_device_restore
 EXPORT_SYMBOL_GPL	 vmlinux 0x52647db1	ct_idle_exit
-EXPORT_SYMBOL_GPL	 vmlinux 0x526bcf2a	wwan_port_get_drvdata
 EXPORT_SYMBOL_GPL	 vmlinux 0x5289728e	serdev_device_write_buf
 EXPORT_SYMBOL_GPL	 vmlinux 0x5296bdfe	crypto_unregister_skciphers
 EXPORT_SYMBOL_GPL	 vmlinux 0x5298ef2f	__devm_irq_alloc_descs
@@ -23289,7 +23296,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x65de44da	pinconf_generic_dump_config
 EXPORT_SYMBOL_GPL	 vmlinux 0x65e38a08	debugfs_create_x8
 EXPORT_SYMBOL_GPL	 vmlinux 0x65e9076c	regulator_unregister
 EXPORT_SYMBOL_GPL	 vmlinux 0x65fb9bda	mnt_drop_write
-EXPORT_SYMBOL_GPL	 vmlinux 0x6603b0b3	wwan_create_port
 EXPORT_SYMBOL_GPL	 vmlinux 0x66048b93	dev_pm_genpd_remove_notifier
 EXPORT_SYMBOL_GPL	 vmlinux 0x660da5cd	synth_event_add_next_val
 EXPORT_SYMBOL_GPL	 vmlinux 0x66141852	pm_clk_create
@@ -23972,7 +23978,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x7e64181d	usb_calc_bus_time
 EXPORT_SYMBOL_GPL	 vmlinux 0x7e69c5de	pci_disable_ats
 EXPORT_SYMBOL_GPL	 vmlinux 0x7e7a47c9	pci_acpi_clear_companion_lookup_hook
 EXPORT_SYMBOL_GPL	 vmlinux 0x7e7e3f58	ring_buffer_reset_cpu
-EXPORT_SYMBOL_GPL	 vmlinux 0x7e7ff36d	wwan_register_ops
 EXPORT_SYMBOL_GPL	 vmlinux 0x7e82be4c	pinctrl_utils_add_config
 EXPORT_SYMBOL_GPL	 vmlinux 0x7e8d8619	usb_anchor_empty
 EXPORT_SYMBOL_GPL	 vmlinux 0x7e97c72f	acpi_get_pci_dev
@@ -25249,7 +25254,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xadbc95c2	usb_unanchor_urb
 EXPORT_SYMBOL_GPL	 vmlinux 0xadbebfe6	xenbus_dev_suspend
 EXPORT_SYMBOL_GPL	 vmlinux 0xadc466b4	dev_pm_qos_hide_latency_limit
 EXPORT_SYMBOL_GPL	 vmlinux 0xadc8b444	pci_msix_alloc_irq_at
-EXPORT_SYMBOL_GPL	 vmlinux 0xadc9b988	wwan_unregister_ops
 EXPORT_SYMBOL_GPL	 vmlinux 0xade5339b	hte_get_clk_src_info
 EXPORT_SYMBOL_GPL	 vmlinux 0xade80358	extcon_get_property
 EXPORT_SYMBOL_GPL	 vmlinux 0xadf46463	devm_regulator_register_supply_alias
@@ -25441,7 +25445,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xb48b7050	ipv4_sk_update_pmtu
 EXPORT_SYMBOL_GPL	 vmlinux 0xb48f0638	software_node_register
 EXPORT_SYMBOL_GPL	 vmlinux 0xb4b97c90	pvclock_gtod_register_notifier
 EXPORT_SYMBOL_GPL	 vmlinux 0xb4e52953	serdev_device_close
-EXPORT_SYMBOL_GPL	 vmlinux 0xb4e5d099	wwan_put_debugfs_dir
 EXPORT_SYMBOL_GPL	 vmlinux 0xb4ea7cf7	kgdb_connected
 EXPORT_SYMBOL_GPL	 vmlinux 0xb4eda0da	ring_buffer_event_length
 EXPORT_SYMBOL_GPL	 vmlinux 0xb4eeb38a	dm_device_name
@@ -25477,7 +25480,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xb5e5b0ac	devm_of_phy_get
 EXPORT_SYMBOL_GPL	 vmlinux 0xb5ea4dc8	__tracepoint_sched_util_est_cfs_tp
 EXPORT_SYMBOL_GPL	 vmlinux 0xb5fae970	devl_unregister
 EXPORT_SYMBOL_GPL	 vmlinux 0xb6020676	thermal_acpi_active_trip_temp
-EXPORT_SYMBOL_GPL	 vmlinux 0xb6084416	wwan_port_rx
 EXPORT_SYMBOL_GPL	 vmlinux 0xb61233d5	sk_msg_free
 EXPORT_SYMBOL_GPL	 vmlinux 0xb61fbc66	devm_hwspin_lock_register
 EXPORT_SYMBOL_GPL	 vmlinux 0xb6261484	register_die_notifier
@@ -25513,7 +25515,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xb737866a	pinctrl_utils_add_map_configs
 EXPORT_SYMBOL_GPL	 vmlinux 0xb7387a5e	mmu_interval_notifier_insert_locked
 EXPORT_SYMBOL_GPL	 vmlinux 0xb73dab87	ata_scsi_slave_destroy
 EXPORT_SYMBOL_GPL	 vmlinux 0xb745c5d2	inode_dax
-EXPORT_SYMBOL_GPL	 vmlinux 0xb74c31cd	wwan_remove_port
 EXPORT_SYMBOL_GPL	 vmlinux 0xb75041d1	hv_stimer_legacy_init
 EXPORT_SYMBOL_GPL	 vmlinux 0xb756d381	firmware_request_cache
 EXPORT_SYMBOL_GPL	 vmlinux 0xb75d45d2	regmap_exit
@@ -26086,7 +26087,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xcc76162a	devl_register
 EXPORT_SYMBOL_GPL	 vmlinux 0xcc9268fc	hwpoison_filter_enable
 EXPORT_SYMBOL_GPL	 vmlinux 0xcc935375	walk_iomem_res_desc
 EXPORT_SYMBOL_GPL	 vmlinux 0xcc967763	phy_pm_runtime_put_sync
-EXPORT_SYMBOL_GPL	 vmlinux 0xcc9d9b50	wwan_get_debugfs_dir
 EXPORT_SYMBOL_GPL	 vmlinux 0xcca51271	pm_wakeup_dev_event
 EXPORT_SYMBOL_GPL	 vmlinux 0xccabde6f	crc64_rocksoft_generic
 EXPORT_SYMBOL_GPL	 vmlinux 0xccc0c92c	fsnotify_add_mark
