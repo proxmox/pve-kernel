@@ -1,3 +1,12 @@
+proxmox-kernel-6.5 (6.5.11-3) bookworm; urgency=medium
+
+  * ZFS: pick bug-fixes staged for 2.2.1:
+    - add a tunable to disable BRT support and disable it by default
+    - fix block cloning between unencrypted and encrypted datasets
+    - disable block cloning by default
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 17 Nov 2023 17:34:32 +0100
+
 proxmox-kernel-6.5 (6.5.11-2) bookworm; urgency=medium
 
   * rebase on Ubuntu-6.5.0-14.14 to include a fix for viewing ast/bmc remote
