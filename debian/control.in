@@ -118,7 +118,7 @@ Section: admin
 Provides: linux-image-amd64, linux-image-generic, wireguard-modules (=1.0.0), pve-kernel-@KVMAJMIN@
 Replaces: pve-kernel-@KVMAJMIN@
 Priority: optional
-Depends: pve-firmware, proxmox-kernel-@KVNAME@, ${misc:Depends},
+Depends: pve-firmware, proxmox-kernel-@KVNAME@-signed | proxmox-kernel-@KVNAME@, ${misc:Depends},
 Description: Latest Proxmox Kernel Image
  This is a metapackage which will install the latest available
  proxmox kernel from the @KVMAJMIN@ series.
