@@ -12428,7 +12428,6 @@ EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xa84a2e73	__SCT__tp_func_kvm_write_tsc_offs
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xa96897bb	kvm_arch_register_noncoherent_dma
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xab36b79e	kvm_vcpu_write_guest
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xac08c409	__SCK__tp_func_kvm_nested_intercepts
-EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xaf4a118c	kvm_x86_vendor_init
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xaf636e18	kvm_mmu_gva_to_gpa_write
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xafb48633	kvm_vcpu_reset
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xb06cab90	kvm_emulate_rdmsr
@@ -12513,6 +12512,7 @@ EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf3899863	__tracepoint_kvm_invlpga
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf44561c1	hv_flush_remote_tlbs_range
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf468425b	kvm_read_guest_offset_cached
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf54e2886	__SCT__tp_func_kvm_vmgexit_msr_protocol_enter
+EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf5d8cc23	kvm_x86_vendor_init
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf6bed5a9	kvm_get_rflags
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf7e23408	kvm_arch_unregister_noncoherent_dma
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xf817eec3	kvm_slot_page_track_remove_page
