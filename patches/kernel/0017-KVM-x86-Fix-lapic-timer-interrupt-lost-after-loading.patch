@@ -1,0 +1,126 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Fri, 24 Nov 2023 17:48:01 +0000
+Subject: [PATCH] KVM: x86: Fix lapic timer interrupt lost after loading a
+ snapshot.
+
+commit 9cfec6d097c607e36199cf0cfbb8cf5acbd8e9b2 upstream.
+
+When running android emulator (which is based on QEMU 2.12) on
+certain Intel hosts with kernel version 6.3-rc1 or above, guest
+will freeze after loading a snapshot. This is almost 100%
+reproducible. By default, the android emulator will use snapshot
+to speed up the next launching of the same android guest. So
+this breaks the android emulator badly.
+
+I tested QEMU 8.0.4 from Debian 12 with an Ubuntu 22.04 guest by
+running command "loadvm" after "savevm". The same issue is
+observed. At the same time, none of our AMD platforms is impacted.
+More experiments show that loading the KVM module with
+"enable_apicv=false" can workaround it.
+
+The issue started to show up after commit 8e6ed96cdd50 ("KVM: x86:
+fire timer when it is migrated and expired, and in oneshot mode").
+However, as is pointed out by Sean Christopherson, it is introduced
+by commit 967235d32032 ("KVM: vmx: clear pending interrupts on
+KVM_SET_LAPIC"). commit 8e6ed96cdd50 ("KVM: x86: fire timer when
+it is migrated and expired, and in oneshot mode") just makes it
+easier to hit the issue.
+
+Having both commits, the oneshot lapic timer gets fired immediately
+inside the KVM_SET_LAPIC call when loading the snapshot. On Intel
+platforms with APIC virtualization and posted interrupt processing,
+this eventually leads to setting the corresponding PIR bit. However,
+the whole PIR bits get cleared later in the same KVM_SET_LAPIC call
+by apicv_post_state_restore. This leads to timer interrupt lost.
+
+The fix is to move vmx_apicv_post_state_restore to the beginning of
+the KVM_SET_LAPIC call and rename to vmx_apicv_pre_state_restore.
+What vmx_apicv_post_state_restore does is actually clearing any
+former apicv state and this behavior is more suitable to carry out
+in the beginning.
+
+Fixes: 967235d32032 ("KVM: vmx: clear pending interrupts on KVM_SET_LAPIC")
+Cc: stable@vger.kernel.org
+Suggested-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Haitao Shan <hshan@google.com>
+Link: https://lore.kernel.org/r/20230913000215.478387-1-hshan@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(picked from https://lore.kernel.org/stable/20231124172031.920738810@linuxfoundation.org/)
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/x86/include/asm/kvm-x86-ops.h | 1 +
+ arch/x86/include/asm/kvm_host.h    | 1 +
+ arch/x86/kvm/lapic.c               | 4 ++++
+ arch/x86/kvm/vmx/vmx.c             | 4 ++--
+ 4 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/include/asm/kvm-x86-ops.h b/arch/x86/include/asm/kvm-x86-ops.h
+index e3054e3e46d52..9b419f0de713c 100644
+--- a/arch/x86/include/asm/kvm-x86-ops.h
++++ b/arch/x86/include/asm/kvm-x86-ops.h
+@@ -108,6 +108,7 @@ KVM_X86_OP_OPTIONAL(vcpu_blocking)
+ KVM_X86_OP_OPTIONAL(vcpu_unblocking)
+ KVM_X86_OP_OPTIONAL(pi_update_irte)
+ KVM_X86_OP_OPTIONAL(pi_start_assignment)
++KVM_X86_OP_OPTIONAL(apicv_pre_state_restore)
+ KVM_X86_OP_OPTIONAL(apicv_post_state_restore)
+ KVM_X86_OP_OPTIONAL_RET0(dy_apicv_has_pending_interrupt)
+ KVM_X86_OP_OPTIONAL(set_hv_timer)
+diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
+index f72b30d2238a6..9bdbb1cc03d38 100644
+--- a/arch/x86/include/asm/kvm_host.h
++++ b/arch/x86/include/asm/kvm_host.h
+@@ -1690,6 +1690,7 @@ struct kvm_x86_ops {
+ 	int (*pi_update_irte)(struct kvm *kvm, unsigned int host_irq,
+ 			      uint32_t guest_irq, bool set);
+ 	void (*pi_start_assignment)(struct kvm *kvm);
++	void (*apicv_pre_state_restore)(struct kvm_vcpu *vcpu);
+ 	void (*apicv_post_state_restore)(struct kvm_vcpu *vcpu);
+ 	bool (*dy_apicv_has_pending_interrupt)(struct kvm_vcpu *vcpu);
+ 
+diff --git a/arch/x86/kvm/lapic.c b/arch/x86/kvm/lapic.c
+index e74e223f46aa3..a3d488608b85d 100644
+--- a/arch/x86/kvm/lapic.c
++++ b/arch/x86/kvm/lapic.c
+@@ -2649,6 +2649,8 @@ void kvm_lapic_reset(struct kvm_vcpu *vcpu, bool init_event)
+ 	u64 msr_val;
+ 	int i;
+ 
++	static_call_cond(kvm_x86_apicv_pre_state_restore)(vcpu);
++
+ 	if (!init_event) {
+ 		msr_val = APIC_DEFAULT_PHYS_BASE | MSR_IA32_APICBASE_ENABLE;
+ 		if (kvm_vcpu_is_reset_bsp(vcpu))
+@@ -2960,6 +2962,8 @@ int kvm_apic_set_state(struct kvm_vcpu *vcpu, struct kvm_lapic_state *s)
+ 	struct kvm_lapic *apic = vcpu->arch.apic;
+ 	int r;
+ 
++	static_call_cond(kvm_x86_apicv_pre_state_restore)(vcpu);
++
+ 	kvm_lapic_set_base(vcpu, vcpu->arch.apic_base);
+ 	/* set SPIV separately to get count of SW disabled APICs right */
+ 	apic_set_spiv(apic, *((u32 *)(s->regs + APIC_SPIV)));
+diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
+index bc6f0fea48b43..52af279f793db 100644
+--- a/arch/x86/kvm/vmx/vmx.c
++++ b/arch/x86/kvm/vmx/vmx.c
+@@ -6909,7 +6909,7 @@ static void vmx_load_eoi_exitmap(struct kvm_vcpu *vcpu, u64 *eoi_exit_bitmap)
+ 	vmcs_write64(EOI_EXIT_BITMAP3, eoi_exit_bitmap[3]);
+ }
+ 
+-static void vmx_apicv_post_state_restore(struct kvm_vcpu *vcpu)
++static void vmx_apicv_pre_state_restore(struct kvm_vcpu *vcpu)
+ {
+ 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+ 
+@@ -8275,7 +8275,7 @@ static struct kvm_x86_ops vmx_x86_ops __initdata = {
+ 	.set_apic_access_page_addr = vmx_set_apic_access_page_addr,
+ 	.refresh_apicv_exec_ctrl = vmx_refresh_apicv_exec_ctrl,
+ 	.load_eoi_exitmap = vmx_load_eoi_exitmap,
+-	.apicv_post_state_restore = vmx_apicv_post_state_restore,
++	.apicv_pre_state_restore = vmx_apicv_pre_state_restore,
+ 	.required_apicv_inhibits = VMX_REQUIRED_APICV_INHIBITS,
+ 	.hwapic_irr_update = vmx_hwapic_irr_update,
+ 	.hwapic_isr_update = vmx_hwapic_isr_update,
