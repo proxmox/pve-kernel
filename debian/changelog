@@ -1,3 +1,9 @@
+proxmox-kernel-6.5 (6.5.11-6) bookworm; urgency=medium
+
+  * cherry-pick ZFS fix for (rare) dirty dnode data corruption bug
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 29 Nov 2023 09:32:26 +0100
+
 proxmox-kernel-6.5 (6.5.11-5) bookworm; urgency=medium
 
   * properly set CONFIG_VFIO_VIRQFD as a boolean
