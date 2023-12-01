@@ -23,10 +23,10 @@ Signed-off-by: Stefan Sterz <s.sterz@proxmox.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index fb9cde86930d..db8028864094 100644
+index cf31babfbbb9..99a7e93b2edf 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -4921,6 +4921,7 @@ static __init void svm_set_cpu_caps(void)
+@@ -4920,6 +4920,7 @@ static __init void svm_set_cpu_caps(void)
  	if (nested) {
  		kvm_cpu_cap_set(X86_FEATURE_SVM);
  		kvm_cpu_cap_set(X86_FEATURE_VMCBCLEAN);
