@@ -1,3 +1,11 @@
+proxmox-kernel-6.2 (6.2.16-20) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.2.0-39.40
+
+  * update ZFS to 2.1.14
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 01 Dec 2023 14:17:27 +0100
+
 proxmox-kernel-6.2 (6.2.16-19) bookworm; urgency=medium
 
   * backport exposing FLUSHBYASID when running nested VMs on AMD CPUs to fix
