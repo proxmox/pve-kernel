@@ -48,7 +48,7 @@ index b475d9a582b8..e829fa4c6788 100644
  
  static inline void fpstate_set_confidential(struct fpu_guest *gfpu)
 diff --git a/arch/x86/kernel/fpu/core.c b/arch/x86/kernel/fpu/core.c
-index caf33486dc5e..cddd5018e6a4 100644
+index a083f9ac9e4f..1d190761d00f 100644
 --- a/arch/x86/kernel/fpu/core.c
 +++ b/arch/x86/kernel/fpu/core.c
 @@ -369,14 +369,15 @@ int fpu_swap_kvm_fpstate(struct fpu_guest *guest_fpu, bool enter_guest)
