@@ -1,3 +1,78 @@
+pve-kernel (6.2.16-20~bpo11+1) bullseye-backports; urgency=medium
+
+  * backport to Debian Bullseye based Proxmox projects.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 01 Dec 2023 15:42:23 +0100
+
+proxmox-kernel-6.2 (6.2.16-20) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.2.0-39.40
+
+  * update ZFS to 2.1.14
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 01 Dec 2023 14:17:27 +0100
+
+proxmox-kernel-6.2 (6.2.16-19) bookworm; urgency=medium
+
+  * backport exposing FLUSHBYASID when running nested VMs on AMD CPUs to fix
+    nesting of some hyper-visors like VMware Workstation.
+
+  * backport constraining guest-supported xfeatures only at KVM_GET_XSAVE{2}
+    to further improve compatibility for guests w.r.t. live-migration, or live
+    snapshot rollback, to hosts with less (FPU) xfeatures supported.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Oct 2023 14:07:51 +0200
+
+proxmox-kernel-6.2 (6.2.16-18) bookworm; urgency=medium
+
+  * backport fix for AMD erratum #1485 on Zen4-based CPUs to avoid triggering
+    undefined instruction exceptions when disabling all, or certain security
+    mitigations, like using the "mitigations=off" kernel command line
+    parameter
+
+  * backport ZFS fix to avoid crashes and hangs if used on modern Intel HW
+    like the Xeon Scalable 4th Gen "Sapphire Rapids" CPUs due to a HW bug as
+    per Intel SPR erratum SPR4
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 11 Oct 2023 17:05:18 +0200
+
+proxmox-kernel-6.2 (6.2.16-16) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.2.0-36.36
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Oct 2023 07:42:21 +0200
+
+proxmox-kernel-6.2 (6.2.16-15) bookworm; urgency=medium
+
+  * fix thunderbolt ring-interrupt not being masked on suspend
+
+  * cherry-pick fix to avoid potentially offlining one CPU thread on some EPYC
+    CPUs with a new amd64-microcode package (still in unstable).
+
+  * update ZFS to 2.1.13
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 28 Sep 2023 15:53:58 +0200
+
+proxmox-kernel-6.2 (6.2.16-14) bookworm; urgency=medium
+
+  * cherry-pick fix for setting X86_FEATURE_OSXSAVE feature improving
+    performance of some code that tries to live-detect available CPU features,
+    like, e.g., ZFS.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 19 Sep 2023 10:17:16 +0200
+
+proxmox-kernel-6.2 (6.2.16-13) bookworm; urgency=medium
+
+  * fix #4707: add override parameter for RMRR relaxation
+
+  * backport thunderbolt-net fixes for IPv6 and connection re-establishment
+    after a node got rebooted
+
+  * update sources to Ubuntu-6.2.0-34.34
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Sep 2023 15:31:57 +0200
+
+
 pve-kernel (6.2.16-11~bpo11+2) bullseye; urgency=medium
 
   * cherry-pick fix for KVM vCPU page-fault loop.
@@ -7,6 +82,16 @@ pve-kernel (6.2.16-11~bpo11+2) bullseye; urgency=medium
     KVM refusing to "fix" faults.
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 04 Sep 2023 16:49:15 +0200
+
+proxmox-kernel-6.2 (6.2.16-12) bookworm; urgency=medium
+
+  * cherry-pick fix for KVM vCPU page-fault loop.
+    Due to too small and signed type used for an memory related sequence
+    counter there was a chance that for long-lived VMs KVM would effectively
+    hang vCPUs due to always thinking page faults are stale, which results in
+    KVM refusing to "fix" faults.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 04 Sep 2023 15:21:22 +0200
 
 pve-kernel (6.2.16-11~bpo11+1) bullseye; urgency=medium
 
