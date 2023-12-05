@@ -1,3 +1,11 @@
+proxmox-kernel-6.5 (6.5.11-7) bookworm; urgency=medium
+
+  * update ZFS to 2.2.2 to make it easier for users to ensure we're not
+    affected by any recently uncovered data integrity issues (which got
+    already patched out earlier via backports).
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 05 Dec 2023 10:44:02 +0100
+
 proxmox-kernel-6.5 (6.5.11-6) bookworm; urgency=medium
 
   * cherry-pick ZFS fix for (rare) dirty dnode data corruption bug
