@@ -1,3 +1,9 @@
+pve-kernel (5.15.136-1) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-94.104 basing of 5.15.136
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 23 Jan 2024 12:10:07 +0100
+
 pve-kernel (5.15.131-3) bullseye; urgency=medium
 
   * updates ZFS to 2.1.14
