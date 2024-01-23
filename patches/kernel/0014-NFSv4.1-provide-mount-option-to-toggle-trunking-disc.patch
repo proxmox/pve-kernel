@@ -68,10 +68,10 @@ index fb3cad38b1497..0166370f088e9 100644
  		if (result.negated)
  			ctx->flags |= NFS_MOUNT_NOAC;
 diff --git a/include/linux/nfs_fs_sb.h b/include/linux/nfs_fs_sb.h
-index da9ef0ab9b4b6..5336e494703bd 100644
+index 5e065f16d061d..324bdd653ad48 100644
 --- a/include/linux/nfs_fs_sb.h
 +++ b/include/linux/nfs_fs_sb.h
-@@ -156,6 +156,7 @@ struct nfs_server {
+@@ -157,6 +157,7 @@ struct nfs_server {
  #define NFS_MOUNT_SOFTREVAL		0x800000
  #define NFS_MOUNT_WRITE_EAGER		0x01000000
  #define NFS_MOUNT_WRITE_WAIT		0x02000000
