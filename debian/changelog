@@ -1,3 +1,11 @@
+proxmox-kernel-6.5 (6.5.11-8) bookworm; urgency=medium
+
+  * fix #5077: cherry-pick revert for aacraid resets
+
+  * fix #5158: cherry-pick ext4 fix for high-CPU flush
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 30 Jan 2024 13:27:34 +0100
+
 proxmox-kernel-6.5 (6.5.11-7) bookworm; urgency=medium
 
   * update ZFS to 2.2.2 to make it easier for users to ensure we're not
