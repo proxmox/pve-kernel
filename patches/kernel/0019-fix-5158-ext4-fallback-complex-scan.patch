@@ -1,0 +1,66 @@
+From: Ojaswin Mujoo <ojaswin@linux.ibm.com>
+To: linux-ext4@vger.kernel.org, "Theodore Ts'o" <tytso@mit.edu>
+Cc: Ritesh Harjani <ritesh.list@gmail.com>, linux-kernel@vger.kernel.org,
+        Jan Kara <jack@suse.cz>, glandvador@yahoo.com, bugzilla@eyal.emu.id.au
+Subject: [PATCH 1/1] ext4: fallback to complex scan if aligned scan doesn't work
+Date: Fri, 15 Dec 2023 16:49:50 +0530
+Message-Id: <ee033f6dfa0a7f2934437008a909c3788233950f.1702455010.git.ojaswin@linux.ibm.com>
+X-Mailer: git-send-email 2.39.3
+In-Reply-To: <cover.1702455010.git.ojaswin@linux.ibm.com>
+References: <cover.1702455010.git.ojaswin@linux.ibm.com>
+
+Currently in case the goal length is a multiple of stripe size we use
+ext4_mb_scan_aligned() to find the stripe size aligned physical blocks.
+In case we are not able to find any, we again go back to calling
+ext4_mb_choose_next_group() to search for a different suitable block
+group. However, since the linear search always begins from the start,
+most of the times we end up with the same BG and the cycle continues.
+
+With large fliesystems, the CPU can be stuck in this loop for hours
+which can slow down the whole system. Hence, until we figure out a
+better way to continue the search (rather than starting from beginning)
+in ext4_mb_choose_next_group(), lets just fallback to
+ext4_mb_complex_scan_group() in case aligned scan fails, as it is much
+more likely to find the needed blocks.
+
+Signed-off-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
+---
+ fs/ext4/mballoc.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
+index d72b5e3c92ec..63f12ec02485 100644
+--- a/fs/ext4/mballoc.c
++++ b/fs/ext4/mballoc.c
+@@ -2895,14 +2895,19 @@ ext4_mb_regular_allocator(struct ext4_allocation_context *ac)
+ 			ac->ac_groups_scanned++;
+ 			if (cr == CR_POWER2_ALIGNED)
+ 				ext4_mb_simple_scan_group(ac, &e4b);
+-			else if ((cr == CR_GOAL_LEN_FAST ||
+-				 cr == CR_BEST_AVAIL_LEN) &&
+-				 sbi->s_stripe &&
+-				 !(ac->ac_g_ex.fe_len %
+-				 EXT4_B2C(sbi, sbi->s_stripe)))
+-				ext4_mb_scan_aligned(ac, &e4b);
+-			else
+-				ext4_mb_complex_scan_group(ac, &e4b);
++			else {
++				bool is_stripe_aligned = sbi->s_stripe &&
++					!(ac->ac_g_ex.fe_len %
++					  EXT4_B2C(sbi, sbi->s_stripe));
++
++				if ((cr == CR_GOAL_LEN_FAST ||
++				     cr == CR_BEST_AVAIL_LEN) &&
++				    is_stripe_aligned)
++					ext4_mb_scan_aligned(ac, &e4b);
++
++				if (ac->ac_status == AC_STATUS_CONTINUE)
++					ext4_mb_complex_scan_group(ac, &e4b);
++			}
+ 
+ 			ext4_unlock_group(sb, group);
+ 			ext4_mb_unload_buddy(&e4b);
+-- 
+2.39.3
+
+
