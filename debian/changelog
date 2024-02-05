@@ -1,3 +1,12 @@
+proxmox-kernel-6.5 (6.5.13-1) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.5.0-20.20 based on v6.5.13 and some newer
+    stable-tree backports
+
+  * backport scheduler fix to avoid temporary VM freezes on NUMA hosts
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 05 Feb 2024 14:50:54 +0100
+
 proxmox-kernel-6.5 (6.5.11-8) bookworm; urgency=medium
 
   * fix #5077: cherry-pick revert for aacraid resets
