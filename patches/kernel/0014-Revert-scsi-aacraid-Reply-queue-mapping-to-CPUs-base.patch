@@ -1,8 +1,8 @@
-From c5becf57dd5659c687d41d623a69f42d63f59eb2 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: "Martin K. Petersen" <martin.petersen@oracle.com>
 Date: Fri, 8 Dec 2023 12:09:38 -0500
-Subject: Revert "scsi: aacraid: Reply queue mapping to CPUs based on IRQ
- affinity"
+Subject: [PATCH] Revert "scsi: aacraid: Reply queue mapping to CPUs based on
+ IRQ affinity"
 
 This reverts commit 9dc704dcc09eae7d21b5da0615eb2ed79278f63e.
 
@@ -21,7 +21,7 @@ Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
  4 files changed, 3 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/scsi/aacraid/aacraid.h b/drivers/scsi/aacraid/aacraid.h
-index 73b6ac0c01f54..7d5a155073c62 100644
+index 73b6ac0c01f5..7d5a155073c6 100644
 --- a/drivers/scsi/aacraid/aacraid.h
 +++ b/drivers/scsi/aacraid/aacraid.h
 @@ -1678,7 +1678,6 @@ struct aac_dev
@@ -33,7 +33,7 @@ index 73b6ac0c01f54..7d5a155073c62 100644
  
  #define aac_adapter_interrupt(dev) \
 diff --git a/drivers/scsi/aacraid/commsup.c b/drivers/scsi/aacraid/commsup.c
-index 013a9a334972e..25cee03d7f973 100644
+index 013a9a334972..25cee03d7f97 100644
 --- a/drivers/scsi/aacraid/commsup.c
 +++ b/drivers/scsi/aacraid/commsup.c
 @@ -223,12 +223,8 @@ int aac_fib_setup(struct aac_dev * dev)
@@ -51,7 +51,7 @@ index 013a9a334972e..25cee03d7f973 100644
  	 *	Null out fields that depend on being zero at the start of
  	 *	each I/O
 diff --git a/drivers/scsi/aacraid/linit.c b/drivers/scsi/aacraid/linit.c
-index c4a36c0be527c..68f4dbcfff492 100644
+index c4a36c0be527..68f4dbcfff49 100644
 --- a/drivers/scsi/aacraid/linit.c
 +++ b/drivers/scsi/aacraid/linit.c
 @@ -19,7 +19,6 @@
@@ -62,7 +62,7 @@ index c4a36c0be527c..68f4dbcfff492 100644
  #include <linux/completion.h>
  #include <linux/init.h>
  #include <linux/interrupt.h>
-@@ -505,15 +504,6 @@ common_config:
+@@ -505,15 +504,6 @@ static int aac_slave_configure(struct scsi_device *sdev)
  	return 0;
  }
  
@@ -104,7 +104,7 @@ index c4a36c0be527c..68f4dbcfff492 100644
  
  	__aac_shutdown(aac);
 diff --git a/drivers/scsi/aacraid/src.c b/drivers/scsi/aacraid/src.c
-index 61949f3741886..11ef58204e96f 100644
+index 61949f374188..11ef58204e96 100644
 --- a/drivers/scsi/aacraid/src.c
 +++ b/drivers/scsi/aacraid/src.c
 @@ -493,10 +493,6 @@ static int aac_src_deliver_message(struct fib *fib)
@@ -146,6 +146,3 @@ index 61949f3741886..11ef58204e96f 100644
  
  		if (native_hba) {
  			if (fib->flags & FIB_CONTEXT_FLAG_NATIVE_HBA_TMF) {
--- 
-cgit 1.2.3-korg
-

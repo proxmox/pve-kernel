@@ -1,13 +1,7 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-To: linux-ext4@vger.kernel.org, "Theodore Ts'o" <tytso@mit.edu>
-Cc: Ritesh Harjani <ritesh.list@gmail.com>, linux-kernel@vger.kernel.org,
-        Jan Kara <jack@suse.cz>, glandvador@yahoo.com, bugzilla@eyal.emu.id.au
-Subject: [PATCH 1/1] ext4: fallback to complex scan if aligned scan doesn't work
 Date: Fri, 15 Dec 2023 16:49:50 +0530
-Message-Id: <ee033f6dfa0a7f2934437008a909c3788233950f.1702455010.git.ojaswin@linux.ibm.com>
-X-Mailer: git-send-email 2.39.3
-In-Reply-To: <cover.1702455010.git.ojaswin@linux.ibm.com>
-References: <cover.1702455010.git.ojaswin@linux.ibm.com>
+Subject: [PATCH] ext4: fallback to complex scan if aligned scan doesn't work
 
 Currently in case the goal length is a multiple of stripe size we use
 ext4_mb_scan_aligned() to find the stripe size aligned physical blocks.
@@ -29,10 +23,10 @@ Signed-off-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
  1 file changed, 13 insertions(+), 8 deletions(-)
 
 diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
-index d72b5e3c92ec..63f12ec02485 100644
+index 3711be697a0a..0c81836f092e 100644
 --- a/fs/ext4/mballoc.c
 +++ b/fs/ext4/mballoc.c
-@@ -2895,14 +2895,19 @@ ext4_mb_regular_allocator(struct ext4_allocation_context *ac)
+@@ -2894,14 +2894,19 @@ ext4_mb_regular_allocator(struct ext4_allocation_context *ac)
  			ac->ac_groups_scanned++;
  			if (cr == CR_POWER2_ALIGNED)
  				ext4_mb_simple_scan_group(ac, &e4b);
@@ -60,7 +54,3 @@ index d72b5e3c92ec..63f12ec02485 100644
  
  			ext4_unlock_group(sb, group);
  			ext4_mb_unload_buddy(&e4b);
--- 
-2.39.3
-
-

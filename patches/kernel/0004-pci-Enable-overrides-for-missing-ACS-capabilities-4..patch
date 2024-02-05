@@ -55,10 +55,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 111 insertions(+)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 9f2bcb8b7f96..a60a4220be95 100644
+index 90ddf08e8409..eedfabda597f 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4281,6 +4281,15 @@
+@@ -4285,6 +4285,15 @@
  				Also, it enforces the PCI Local Bus spec
  				rule that those bits should be 0 in system reset
  				events (useful for kexec/kdump cases).
@@ -75,7 +75,7 @@ index 9f2bcb8b7f96..a60a4220be95 100644
  				Safety option to keep boot IRQs enabled. This
  				should never be necessary.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 139df46ed306..08450329f1a3 100644
+index b3a55f2cab46..baef591d10f6 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -287,6 +287,106 @@ static int __init pci_apply_final_quirks(void)

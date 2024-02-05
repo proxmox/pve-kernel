@@ -11,7 +11,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index 656b2150643e..06fefd2a4bfa 100644
+index 15e2649b25ef..752f77e285f2 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
 @@ -298,6 +298,7 @@ static int dmar_map_gfx = 1;
@@ -32,7 +32,7 @@ index 656b2150643e..06fefd2a4bfa 100644
  		} else {
  			pr_notice("Unknown option - '%s'\n", str);
  		}
-@@ -2503,7 +2507,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
+@@ -2504,7 +2508,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
  		return false;
  
  	pdev = to_pci_dev(dev);
