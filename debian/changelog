@@ -1,3 +1,9 @@
+pve-kernel (5.15.143-1) bullseye; urgency=medium
+
+  * update to Ubuntu-5.15.0-100.110 basing of 5.15.143
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 08 Feb 2024 19:12:26 +0100
+
 pve-kernel (5.15.136-1) bullseye; urgency=medium
 
   * update to Ubuntu-5.15.0-94.104 basing of 5.15.136
