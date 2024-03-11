@@ -1,4 +1,4 @@
-From 39f2bfe0177d3f56c9feac4e70424e4952949e2a Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Sean Christopherson <seanjc@google.com>
 Date: Wed, 10 Jan 2024 13:47:23 -0800
 Subject: [PATCH] sched/core: Drop spinlocks on contention iff kernel is
@@ -40,10 +40,10 @@ Signed-off-by: Sean Christopherson <seanjc@google.com>
  1 file changed, 6 insertions(+), 8 deletions(-)
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 292c31697248..a274bc85f222 100644
+index 609bde814cb0..995e6699e026 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -2234,11 +2234,10 @@ static inline bool preempt_model_preemptible(void)
+@@ -2211,11 +2211,10 @@ static inline bool preempt_model_preemptible(void)
   */
  static inline int spin_needbreak(spinlock_t *lock)
  {
@@ -58,7 +58,7 @@ index 292c31697248..a274bc85f222 100644
  }
  
  /*
-@@ -2251,11 +2250,10 @@ static inline int spin_needbreak(spinlock_t *lock)
+@@ -2228,11 +2227,10 @@ static inline int spin_needbreak(spinlock_t *lock)
   */
  static inline int rwlock_needbreak(rwlock_t *lock)
  {
@@ -73,6 +73,3 @@ index 292c31697248..a274bc85f222 100644
  }
  
  static __always_inline bool need_resched(void)
--- 
-2.39.2
-
