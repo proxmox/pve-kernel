@@ -1,3 +1,10 @@
+proxmox-kernel-6.5 (6.5.13-3) bookworm; urgency=medium
+
+  * updated sources to Ubuntu-6.5.0-27.28 to fix a regression in the tracing &
+    debugging related eventfs, potentially breaking bpftrace.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 20 Mar 2024 11:45:08 +0100
+
 proxmox-kernel-6.5 (6.5.13-2) bookworm; urgency=medium
 
   * update sources to Ubuntu-6.5.0-27.27 based on stable-tree backports of
