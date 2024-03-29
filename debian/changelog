@@ -1,3 +1,10 @@
+proxmox-kernel-6.5 (6.5.13-4) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.5.0-32.32 based on stable-tree backports of up
+    to v6.1.77, v6.6.16
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 29 Mar 2024 15:28:57 +0100
+
 proxmox-kernel-6.5 (6.5.13-3) bookworm; urgency=medium
 
   * updated sources to Ubuntu-6.5.0-27.28 to fix a regression in the tracing &
