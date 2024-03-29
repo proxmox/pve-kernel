@@ -22,10 +22,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 8 insertions(+), 16 deletions(-)
 
 diff --git a/block/blk-cgroup.c b/block/blk-cgroup.c
-index 3ee4c1217b636..0e15a93459665 100644
+index fd81a73708645..4677829e4ae30 100644
 --- a/block/blk-cgroup.c
 +++ b/block/blk-cgroup.c
-@@ -887,7 +887,6 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
+@@ -900,7 +900,6 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
  {
  	struct blkg_iostat_set *bis = &blkg->iostat;
  	u64 rbytes, wbytes, rios, wios, dbytes, dios;
@@ -33,7 +33,7 @@ index 3ee4c1217b636..0e15a93459665 100644
  	const char *dname;
  	unsigned seq;
  	int i;
-@@ -913,14 +912,12 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
+@@ -926,14 +925,12 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
  	} while (u64_stats_fetch_retry(&bis->sync, seq));
  
  	if (rbytes || wbytes || rios || wios) {
@@ -48,7 +48,7 @@ index 3ee4c1217b636..0e15a93459665 100644
  		seq_printf(s, " use_delay=%d delay_nsec=%llu",
  			atomic_read(&blkg->use_delay),
  			atomic64_read(&blkg->delay_nsec));
-@@ -932,12 +929,10 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
+@@ -945,12 +942,10 @@ static void blkcg_print_one_stat(struct blkcg_gq *blkg, struct seq_file *s)
  		if (!blkg->pd[i] || !pol->pd_stat_fn)
  			continue;
  
@@ -64,10 +64,10 @@ index 3ee4c1217b636..0e15a93459665 100644
  
  static int blkcg_print_stat(struct seq_file *sf, void *v)
 diff --git a/block/blk-iocost.c b/block/blk-iocost.c
-index f95feabb3ca88..94d1824906c7a 100644
+index 645a589edda82..b0846da38edad 100644
 --- a/block/blk-iocost.c
 +++ b/block/blk-iocost.c
-@@ -3021,13 +3021,13 @@ static void ioc_pd_free(struct blkg_policy_data *pd)
+@@ -3028,13 +3028,13 @@ static void ioc_pd_free(struct blkg_policy_data *pd)
  	kfree(iocg);
  }
  
@@ -83,7 +83,7 @@ index f95feabb3ca88..94d1824906c7a 100644
  
  	if (iocg->level == 0) {
  		unsigned vp10k = DIV64_U64_ROUND_CLOSEST(
-@@ -3043,7 +3043,6 @@ static bool ioc_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
+@@ -3050,7 +3050,6 @@ static bool ioc_pd_stat(struct blkg_policy_data *pd, struct seq_file *s)
  			iocg->last_stat.wait_us,
  			iocg->last_stat.indebt_us,
  			iocg->last_stat.indelay_us);
