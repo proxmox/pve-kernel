@@ -1,3 +1,10 @@
+proxmox-kernel-6.8 (6.8.1-1) bookworm; urgency=medium
+
+  * update submodule and patches for 24.04 Noble based kernel with tag
+    Ubuntu-6.8.0-20.20
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 02 Apr 2024 18:19:23 +0200
+
 proxmox-kernel-6.5 (6.5.13-4) bookworm; urgency=medium
 
   * update sources to Ubuntu-6.5.0-32.32 based on stable-tree backports of up
