@@ -24,14 +24,14 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 99832814341c..e8bb2bfd1ba1 100644
+index e90b429c84f1..5c7faf7c447f 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -4985,6 +4985,7 @@ static __init void svm_set_cpu_caps(void)
+@@ -5085,6 +5085,7 @@ static __init void svm_set_cpu_caps(void)
  	if (nested) {
  		kvm_cpu_cap_set(X86_FEATURE_SVM);
  		kvm_cpu_cap_set(X86_FEATURE_VMCBCLEAN);
 +		kvm_cpu_cap_set(X86_FEATURE_FLUSHBYASID);
  
- 		if (nrips)
- 			kvm_cpu_cap_set(X86_FEATURE_NRIPS);
+ 		/*
+ 		 * KVM currently flushes TLBs on *every* nested SVM transition,
