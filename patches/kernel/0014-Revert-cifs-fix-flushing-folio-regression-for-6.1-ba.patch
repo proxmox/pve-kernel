@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Stoiko Ivanov <s.ivanov@proxmox.com>
+Date: Wed, 3 Apr 2024 10:29:59 +0200
+Subject: [PATCH] Revert "cifs: fix flushing folio regression for 6.1 backport"
+
+This reverts commit 2dc07a11e269bfbe5589e99b60cdbae0118be979.
+---
+ fs/smb/client/cifsfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/smb/client/cifsfs.c b/fs/smb/client/cifsfs.c
+index 55a6d0296ec82..82313b2534631 100644
+--- a/fs/smb/client/cifsfs.c
++++ b/fs/smb/client/cifsfs.c
+@@ -1245,7 +1245,7 @@ static int cifs_flush_folio(struct inode *inode, loff_t pos, loff_t *_fstart, lo
+ 	int rc = 0;
+ 
+ 	folio = filemap_get_folio(inode->i_mapping, index);
+-	if (!folio)
++	if (IS_ERR(folio))
+ 		return 0;
+ 
+ 	size = folio_size(folio);
