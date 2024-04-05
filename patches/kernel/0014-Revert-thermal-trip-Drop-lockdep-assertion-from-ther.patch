@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Stoiko Ivanov <s.ivanov@proxmox.com>
+Date: Thu, 4 Apr 2024 11:41:15 +0200
+Subject: [PATCH] Revert "thermal: trip: Drop lockdep assertion from
+ thermal_zone_trip_id()"
+
+This reverts commit c723c4fca6d2db3815623ff4dc0ea51667b56b89.
+---
+ drivers/thermal/thermal_trip.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/thermal/thermal_trip.c b/drivers/thermal/thermal_trip.c
+index 68bea8706c597..1d4fe63e09f77 100644
+--- a/drivers/thermal/thermal_trip.c
++++ b/drivers/thermal/thermal_trip.c
+@@ -201,6 +201,8 @@ int thermal_zone_trip_id(struct thermal_zone_device *tz,
+ {
+ 	int i;
+ 
++	lockdep_assert_held(&tz->lock);
++
+ 	for (i = 0; i < tz->num_trips; i++) {
+ 		if (&tz->trips[i] == trip)
+ 			return i;

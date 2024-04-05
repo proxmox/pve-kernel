@@ -1,0 +1,343 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Stoiko Ivanov <s.ivanov@proxmox.com>
+Date: Thu, 4 Apr 2024 11:41:17 +0200
+Subject: [PATCH] Revert "thermal: core: Store trip pointer in struct
+ thermal_instance"
+
+This reverts commit 643b451957369f28b7770af387d14d4e4712074b.
+---
+ drivers/thermal/gov_bang_bang.c       | 23 +++++++++++++++--------
+ drivers/thermal/gov_fair_share.c      |  5 ++---
+ drivers/thermal/gov_power_allocator.c | 11 +++--------
+ drivers/thermal/gov_step_wise.c       | 16 +++++++++-------
+ drivers/thermal/thermal_core.c        | 15 +++++----------
+ drivers/thermal/thermal_core.h        |  4 +---
+ drivers/thermal/thermal_helpers.c     |  5 +----
+ drivers/thermal/thermal_sysfs.c       |  3 +--
+ drivers/thermal/thermal_trip.c        | 15 ---------------
+ 9 files changed, 37 insertions(+), 60 deletions(-)
+
+diff --git a/drivers/thermal/gov_bang_bang.c b/drivers/thermal/gov_bang_bang.c
+index 49cdfaa3a9279..1b121066521ff 100644
+--- a/drivers/thermal/gov_bang_bang.c
++++ b/drivers/thermal/gov_bang_bang.c
+@@ -13,21 +13,28 @@
+ 
+ #include "thermal_core.h"
+ 
+-static int thermal_zone_trip_update(struct thermal_zone_device *tz, int trip_index)
++static int thermal_zone_trip_update(struct thermal_zone_device *tz, int trip_id)
+ {
+-	const struct thermal_trip *trip = &tz->trips[trip_index];
++	struct thermal_trip trip;
+ 	struct thermal_instance *instance;
++	int ret;
++
++	ret = __thermal_zone_get_trip(tz, trip_id, &trip);
++	if (ret) {
++		pr_warn_once("Failed to retrieve trip point %d\n", trip_id);
++		return ret;
++	}
+ 
+-	if (!trip->hysteresis)
++	if (!trip.hysteresis)
+ 		dev_info_once(&tz->device,
+ 			      "Zero hysteresis value for thermal zone %s\n", tz->type);
+ 
+ 	dev_dbg(&tz->device, "Trip%d[temp=%d]:temp=%d:hyst=%d\n",
+-				trip_index, trip->temperature, tz->temperature,
+-				trip->hysteresis);
++				trip_id, trip.temperature, tz->temperature,
++				trip.hysteresis);
+ 
+ 	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
+-		if (instance->trip != trip)
++		if (instance->trip != trip_id)
+ 			continue;
+ 
+ 		/* in case fan is in initial state, switch the fan off */
+@@ -45,10 +52,10 @@ static int thermal_zone_trip_update(struct thermal_zone_device *tz, int trip_ind
+ 		 * enable fan when temperature exceeds trip_temp and disable
+ 		 * the fan in case it falls below trip_temp minus hysteresis
+ 		 */
+-		if (instance->target == 0 && tz->temperature >= trip->temperature)
++		if (instance->target == 0 && tz->temperature >= trip.temperature)
+ 			instance->target = 1;
+ 		else if (instance->target == 1 &&
+-			 tz->temperature <= trip->temperature - trip->hysteresis)
++			 tz->temperature <= trip.temperature - trip.hysteresis)
+ 			instance->target = 0;
+ 
+ 		dev_dbg(&instance->cdev->device, "target=%d\n",
+diff --git a/drivers/thermal/gov_fair_share.c b/drivers/thermal/gov_fair_share.c
+index 2abeb8979f500..03c2daeb6ee8b 100644
+--- a/drivers/thermal/gov_fair_share.c
++++ b/drivers/thermal/gov_fair_share.c
+@@ -49,7 +49,7 @@ static long get_target_state(struct thermal_zone_device *tz,
+ /**
+  * fair_share_throttle - throttles devices associated with the given zone
+  * @tz: thermal_zone_device
+- * @trip_index: trip point index
++ * @trip: trip point index
+  *
+  * Throttling Logic: This uses three parameters to calculate the new
+  * throttle state of the cooling devices associated with the given zone.
+@@ -65,9 +65,8 @@ static long get_target_state(struct thermal_zone_device *tz,
+  *	(Heavily assumes the trip points are in ascending order)
+  * new_state of cooling device = P3 * P2 * P1
+  */
+-static int fair_share_throttle(struct thermal_zone_device *tz, int trip_index)
++static int fair_share_throttle(struct thermal_zone_device *tz, int trip)
+ {
+-	const struct thermal_trip *trip = &tz->trips[trip_index];
+ 	struct thermal_instance *instance;
+ 	int total_weight = 0;
+ 	int total_instance = 0;
+diff --git a/drivers/thermal/gov_power_allocator.c b/drivers/thermal/gov_power_allocator.c
+index fc969642f70b7..fb311339bd08f 100644
+--- a/drivers/thermal/gov_power_allocator.c
++++ b/drivers/thermal/gov_power_allocator.c
+@@ -90,14 +90,12 @@ static u32 estimate_sustainable_power(struct thermal_zone_device *tz)
+ 	u32 sustainable_power = 0;
+ 	struct thermal_instance *instance;
+ 	struct power_allocator_params *params = tz->governor_data;
+-	const struct thermal_trip *trip_max_desired_temperature =
+-			&tz->trips[params->trip_max_desired_temperature];
+ 
+ 	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
+ 		struct thermal_cooling_device *cdev = instance->cdev;
+ 		u32 min_power;
+ 
+-		if (instance->trip != trip_max_desired_temperature)
++		if (instance->trip != params->trip_max_desired_temperature)
+ 			continue;
+ 
+ 		if (!cdev_is_power_actor(cdev))
+@@ -385,13 +383,12 @@ static int allocate_power(struct thermal_zone_device *tz,
+ {
+ 	struct thermal_instance *instance;
+ 	struct power_allocator_params *params = tz->governor_data;
+-	const struct thermal_trip *trip_max_desired_temperature =
+-			&tz->trips[params->trip_max_desired_temperature];
+ 	u32 *req_power, *max_power, *granted_power, *extra_actor_power;
+ 	u32 *weighted_req_power;
+ 	u32 total_req_power, max_allocatable_power, total_weighted_req_power;
+ 	u32 total_granted_power, power_range;
+ 	int i, num_actors, total_weight, ret = 0;
++	int trip_max_desired_temperature = params->trip_max_desired_temperature;
+ 
+ 	num_actors = 0;
+ 	total_weight = 0;
+@@ -567,14 +564,12 @@ static void allow_maximum_power(struct thermal_zone_device *tz, bool update)
+ {
+ 	struct thermal_instance *instance;
+ 	struct power_allocator_params *params = tz->governor_data;
+-	const struct thermal_trip *trip_max_desired_temperature =
+-			&tz->trips[params->trip_max_desired_temperature];
+ 	u32 req_power;
+ 
+ 	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
+ 		struct thermal_cooling_device *cdev = instance->cdev;
+ 
+-		if ((instance->trip != trip_max_desired_temperature) ||
++		if ((instance->trip != params->trip_max_desired_temperature) ||
+ 		    (!cdev_is_power_actor(instance->cdev)))
+ 			continue;
+ 
+diff --git a/drivers/thermal/gov_step_wise.c b/drivers/thermal/gov_step_wise.c
+index 849dc1ec8d27c..1050fb4d94c2d 100644
+--- a/drivers/thermal/gov_step_wise.c
++++ b/drivers/thermal/gov_step_wise.c
+@@ -81,24 +81,26 @@ static void update_passive_instance(struct thermal_zone_device *tz,
+ 
+ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip_id)
+ {
+-	const struct thermal_trip *trip = &tz->trips[trip_id];
+ 	enum thermal_trend trend;
+ 	struct thermal_instance *instance;
++	struct thermal_trip trip;
+ 	bool throttle = false;
+ 	int old_target;
+ 
++	__thermal_zone_get_trip(tz, trip_id, &trip);
++
+ 	trend = get_tz_trend(tz, trip_id);
+ 
+-	if (tz->temperature >= trip->temperature) {
++	if (tz->temperature >= trip.temperature) {
+ 		throttle = true;
+-		trace_thermal_zone_trip(tz, trip_id, trip->type);
++		trace_thermal_zone_trip(tz, trip_id, trip.type);
+ 	}
+ 
+ 	dev_dbg(&tz->device, "Trip%d[type=%d,temp=%d]:trend=%d,throttle=%d\n",
+-		trip_id, trip->type, trip->temperature, trend, throttle);
++				trip_id, trip.type, trip.temperature, trend, throttle);
+ 
+ 	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
+-		if (instance->trip != trip)
++		if (instance->trip != trip_id)
+ 			continue;
+ 
+ 		old_target = instance->target;
+@@ -112,11 +114,11 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip_id
+ 		/* Activate a passive thermal instance */
+ 		if (old_target == THERMAL_NO_TARGET &&
+ 			instance->target != THERMAL_NO_TARGET)
+-			update_passive_instance(tz, trip->type, 1);
++			update_passive_instance(tz, trip.type, 1);
+ 		/* Deactivate a passive thermal instance */
+ 		else if (old_target != THERMAL_NO_TARGET &&
+ 			instance->target == THERMAL_NO_TARGET)
+-			update_passive_instance(tz, trip->type, -1);
++			update_passive_instance(tz, trip.type, -1);
+ 
+ 		instance->initialized = true;
+ 		mutex_lock(&instance->cdev->lock);
+diff --git a/drivers/thermal/thermal_core.c b/drivers/thermal/thermal_core.c
+index c066c09555667..69cff5fc32156 100644
+--- a/drivers/thermal/thermal_core.c
++++ b/drivers/thermal/thermal_core.c
+@@ -582,7 +582,7 @@ struct thermal_zone_device *thermal_zone_get_by_id(int id)
+ /**
+  * thermal_zone_bind_cooling_device() - bind a cooling device to a thermal zone
+  * @tz:		pointer to struct thermal_zone_device
+- * @trip_index:	indicates which trip point the cooling devices is
++ * @trip:	indicates which trip point the cooling devices is
+  *		associated with in this thermal zone.
+  * @cdev:	pointer to struct thermal_cooling_device
+  * @upper:	the Maximum cooling state for this trip point.
+@@ -602,7 +602,7 @@ struct thermal_zone_device *thermal_zone_get_by_id(int id)
+  * Return: 0 on success, the proper error value otherwise.
+  */
+ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
+-				     int trip_index,
++				     int trip,
+ 				     struct thermal_cooling_device *cdev,
+ 				     unsigned long upper, unsigned long lower,
+ 				     unsigned int weight)
+@@ -611,15 +611,12 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
+ 	struct thermal_instance *pos;
+ 	struct thermal_zone_device *pos1;
+ 	struct thermal_cooling_device *pos2;
+-	const struct thermal_trip *trip;
+ 	bool upper_no_limit;
+ 	int result;
+ 
+-	if (trip_index >= tz->num_trips || trip_index < 0)
++	if (trip >= tz->num_trips || trip < 0)
+ 		return -EINVAL;
+ 
+-	trip = &tz->trips[trip_index];
+-
+ 	list_for_each_entry(pos1, &thermal_tz_list, node) {
+ 		if (pos1 == tz)
+ 			break;
+@@ -724,7 +721,7 @@ EXPORT_SYMBOL_GPL(thermal_zone_bind_cooling_device);
+  * thermal_zone_unbind_cooling_device() - unbind a cooling device from a
+  *					  thermal zone.
+  * @tz:		pointer to a struct thermal_zone_device.
+- * @trip_index:	indicates which trip point the cooling devices is
++ * @trip:	indicates which trip point the cooling devices is
+  *		associated with in this thermal zone.
+  * @cdev:	pointer to a struct thermal_cooling_device.
+  *
+@@ -735,15 +732,13 @@ EXPORT_SYMBOL_GPL(thermal_zone_bind_cooling_device);
+  * Return: 0 on success, the proper error value otherwise.
+  */
+ int thermal_zone_unbind_cooling_device(struct thermal_zone_device *tz,
+-				       int trip_index,
++				       int trip,
+ 				       struct thermal_cooling_device *cdev)
+ {
+ 	struct thermal_instance *pos, *next;
+-	const struct thermal_trip *trip;
+ 
+ 	mutex_lock(&tz->lock);
+ 	mutex_lock(&cdev->lock);
+-	trip = &tz->trips[trip_index];
+ 	list_for_each_entry_safe(pos, next, &tz->thermal_instances, tz_node) {
+ 		if (pos->tz == tz && pos->trip == trip && pos->cdev == cdev) {
+ 			list_del(&pos->tz_node);
+diff --git a/drivers/thermal/thermal_core.h b/drivers/thermal/thermal_core.h
+index a33b389bbcfe8..17c1bbed734d3 100644
+--- a/drivers/thermal/thermal_core.h
++++ b/drivers/thermal/thermal_core.h
+@@ -91,7 +91,7 @@ struct thermal_instance {
+ 	char name[THERMAL_NAME_LENGTH];
+ 	struct thermal_zone_device *tz;
+ 	struct thermal_cooling_device *cdev;
+-	const struct thermal_trip *trip;
++	int trip;
+ 	bool initialized;
+ 	unsigned long upper;	/* Highest cooling state for this trip point */
+ 	unsigned long lower;	/* Lowest cooling state for this trip point */
+@@ -123,8 +123,6 @@ void __thermal_zone_device_update(struct thermal_zone_device *tz,
+ void __thermal_zone_set_trips(struct thermal_zone_device *tz);
+ int __thermal_zone_get_trip(struct thermal_zone_device *tz, int trip_id,
+ 			    struct thermal_trip *trip);
+-int thermal_zone_trip_id(struct thermal_zone_device *tz,
+-			 const struct thermal_trip *trip);
+ int __thermal_zone_get_temp(struct thermal_zone_device *tz, int *temp);
+ 
+ /* sysfs I/F */
+diff --git a/drivers/thermal/thermal_helpers.c b/drivers/thermal/thermal_helpers.c
+index 421ed301541e1..cfba0965a22da 100644
+--- a/drivers/thermal/thermal_helpers.c
++++ b/drivers/thermal/thermal_helpers.c
+@@ -41,17 +41,14 @@ int get_tz_trend(struct thermal_zone_device *tz, int trip)
+ 
+ struct thermal_instance *
+ get_thermal_instance(struct thermal_zone_device *tz,
+-		     struct thermal_cooling_device *cdev, int trip_index)
++		     struct thermal_cooling_device *cdev, int trip)
+ {
+ 	struct thermal_instance *pos = NULL;
+ 	struct thermal_instance *target_instance = NULL;
+-	const struct thermal_trip *trip;
+ 
+ 	mutex_lock(&tz->lock);
+ 	mutex_lock(&cdev->lock);
+ 
+-	trip = &tz->trips[trip_index];
+-
+ 	list_for_each_entry(pos, &tz->thermal_instances, tz_node) {
+ 		if (pos->tz == tz && pos->trip == trip && pos->cdev == cdev) {
+ 			target_instance = pos;
+diff --git a/drivers/thermal/thermal_sysfs.c b/drivers/thermal/thermal_sysfs.c
+index eef40d4f30639..4e6a97db894e9 100644
+--- a/drivers/thermal/thermal_sysfs.c
++++ b/drivers/thermal/thermal_sysfs.c
+@@ -943,8 +943,7 @@ trip_point_show(struct device *dev, struct device_attribute *attr, char *buf)
+ 	instance =
+ 	    container_of(attr, struct thermal_instance, attr);
+ 
+-	return sprintf(buf, "%d\n",
+-		       thermal_zone_trip_id(instance->tz, instance->trip));
++	return sprintf(buf, "%d\n", instance->trip);
+ }
+ 
+ ssize_t
+diff --git a/drivers/thermal/thermal_trip.c b/drivers/thermal/thermal_trip.c
+index 1d4fe63e09f77..21736e02fa360 100644
+--- a/drivers/thermal/thermal_trip.c
++++ b/drivers/thermal/thermal_trip.c
+@@ -195,18 +195,3 @@ int thermal_zone_set_trip(struct thermal_zone_device *tz, int trip_id,
+ 
+ 	return 0;
+ }
+-
+-int thermal_zone_trip_id(struct thermal_zone_device *tz,
+-			 const struct thermal_trip *trip)
+-{
+-	int i;
+-
+-	lockdep_assert_held(&tz->lock);
+-
+-	for (i = 0; i < tz->num_trips; i++) {
+-		if (&tz->trips[i] == trip)
+-			return i;
+-	}
+-
+-	return -ENODATA;
+-}
