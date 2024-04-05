@@ -10565,6 +10565,7 @@ EXPORT_SYMBOL	 vmlinux 0xb9af1d0d	__xa_clear_mark
 EXPORT_SYMBOL	 vmlinux 0xb9afdc4e	pci_free_irq_vectors
 EXPORT_SYMBOL	 vmlinux 0xb9b7faa6	rproc_add
 EXPORT_SYMBOL	 vmlinux 0xb9c6b6e2	tcp_openreq_init_rwin
+EXPORT_SYMBOL	 vmlinux 0xb9cfb89a	get_thermal_instance
 EXPORT_SYMBOL	 vmlinux 0xb9db722d	agp_copy_info
 EXPORT_SYMBOL	 vmlinux 0xb9e12d4a	pci_enable_ptm
 EXPORT_SYMBOL	 vmlinux 0xb9e276cf	wrmsr_safe_regs_on_cpu
@@ -11234,7 +11235,6 @@ EXPORT_SYMBOL	 vmlinux 0xd9491c14	xa_destroy
 EXPORT_SYMBOL	 vmlinux 0xd9519a42	genphy_c37_read_status
 EXPORT_SYMBOL	 vmlinux 0xd960d290	eisa_bus_type
 EXPORT_SYMBOL	 vmlinux 0xd971c6c4	xen_arch_register_cpu
-EXPORT_SYMBOL	 vmlinux 0xd97552f7	get_thermal_instance
 EXPORT_SYMBOL	 vmlinux 0xd985dc99	mempool_free_pages
 EXPORT_SYMBOL	 vmlinux 0xd9893bc0	path_has_submounts
 EXPORT_SYMBOL	 vmlinux 0xd99c9f52	pipe_lock
