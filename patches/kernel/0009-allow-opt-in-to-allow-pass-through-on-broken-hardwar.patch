@@ -11,10 +11,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index a788062820df..4020c5336369 100644
+index 8a1471f794cb..fa9c6e056f1b 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -159,6 +159,7 @@ static int dmar_map_gfx = 1;
+@@ -234,6 +234,7 @@ static int dmar_map_gfx = 1;
  static int dmar_map_ipu = 1;
  static int intel_iommu_superpage = 1;
  static int iommu_identity_mapping;
@@ -22,7 +22,7 @@ index a788062820df..4020c5336369 100644
  static int iommu_skip_te_disable;
  
  #define IDENTMAP_GFX		2
-@@ -221,6 +222,9 @@ static int __init intel_iommu_setup(char *str)
+@@ -296,6 +297,9 @@ static int __init intel_iommu_setup(char *str)
  		} else if (!strncmp(str, "tboot_noforce", 13)) {
  			pr_info("Intel-IOMMU: not forcing on after tboot. This could expose security risk for tboot\n");
  			intel_iommu_tboot_noforce = 1;
@@ -32,7 +32,7 @@ index a788062820df..4020c5336369 100644
  		} else {
  			pr_notice("Unknown option - '%s'\n", str);
  		}
-@@ -2395,7 +2399,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
+@@ -2470,7 +2474,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
  		return false;
  
  	pdev = to_pci_dev(dev);
