@@ -1,3 +1,10 @@
+proxmox-kernel-6.8 (6.8.4-1) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.8.0-23.23 based on v6.8.4 upstream stable
+    release
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 08 Apr 2024 17:49:22 +0200
+
 proxmox-kernel-6.8 (6.8.1-1) bookworm; urgency=medium
 
   * update submodule and patches for 24.04 Noble based kernel with tag
