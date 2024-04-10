@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Wolfgang Bumiller <w.bumiller@proxmox.com>
+Date: Wed, 10 Apr 2024 13:21:59 +0200
+Subject: [PATCH] apparmor: expect msg_namelen=0 for recvmsg calls
+
+When coming from sys_recvmsg, msg->msg_namelen is explicitly set to
+zero early on. (see ____sys_recvmsg in net/socket.c)
+We still end up in 'map_addr' where the assumption is that addr !=
+NULL means addrlen has a valid size.
+
+This is likely not a final fix, it was suggested by jjohansen on irc
+to get things going until this is resolved properly.
+
+Signed-off-by: Wolfgang Bumiller <w.bumiller@proxmox.com>
+---
+ security/apparmor/af_inet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/security/apparmor/af_inet.c b/security/apparmor/af_inet.c
+index fb5cd985630d..6a056e1c30d6 100644
+--- a/security/apparmor/af_inet.c
++++ b/security/apparmor/af_inet.c
+@@ -768,7 +768,7 @@ int aa_inet_msg_perm(const char *op, u32 request, struct socket *sock,
+ 	/* do we need early bailout for !family ... */
+ 	return sk_has_perm2(sock->sk, op, request, profile, ad,
+ 			    map_sock_addr(sock, ADDR_LOCAL, &laddr, &ad),
+-			    map_addr(msg->msg_name, msg->msg_namelen, 0,
++			    map_addr(msg->msg_namelen == 0 ? NULL : msg->msg_name, msg->msg_namelen, 0,
+ 				     ADDR_REMOTE, &raddr, &ad),
+ 			    profile_remote_perm(profile, sock->sk, request,
+ 						&raddr, &laddr.maddr, &ad));
