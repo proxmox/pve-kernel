@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.4-2) bookworm; urgency=medium
+
+  * patch apparmor to make it cope with recvmsg returning EINVAL
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 10 Apr 2024 19:36:43 +0200
+
 proxmox-kernel-6.8 (6.8.4-1) bookworm; urgency=medium
 
   * update sources to Ubuntu-6.8.0-23.23 based on v6.8.4 upstream stable
