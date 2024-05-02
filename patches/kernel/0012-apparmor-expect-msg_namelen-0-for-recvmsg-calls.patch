@@ -17,10 +17,10 @@ Signed-off-by: Wolfgang Bumiller <w.bumiller@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/security/apparmor/af_inet.c b/security/apparmor/af_inet.c
-index fb5cd985630d..6a056e1c30d6 100644
+index 57b710054a76..35f905d9b960 100644
 --- a/security/apparmor/af_inet.c
 +++ b/security/apparmor/af_inet.c
-@@ -768,7 +768,7 @@ int aa_inet_msg_perm(const char *op, u32 request, struct socket *sock,
+@@ -766,7 +766,7 @@ int aa_inet_msg_perm(const char *op, u32 request, struct socket *sock,
  	/* do we need early bailout for !family ... */
  	return sk_has_perm2(sock->sk, op, request, profile, ad,
  			    map_sock_addr(sock, ADDR_LOCAL, &laddr, &ad),

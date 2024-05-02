@@ -55,7 +55,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 111 insertions(+)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index cfff5d4df6a0..21b6d7871493 100644
+index 3470cb524222..3c9192618839 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
 @@ -4399,6 +4399,15 @@
