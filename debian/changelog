@@ -1,3 +1,16 @@
+proxmox-kernel-6.8 (6.8.4-4) bookworm; urgency=medium
+
+  * update ZFS to 2.2.4
+
+  * backport fix for NFS memory leak on mount that can add up if there are
+    many mount operations
+
+  * backport fix for managing block flush queue list, resolving a potential
+    crash due to dereferebcing a NULL pointer with, e.g., the
+    blk_flush_complete_seq function in the stack trace of the error.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 04 Jun 2024 12:37:16 +0200
+
 proxmox-kernel-6.8 (6.8.4-3) bookworm; urgency=medium
 
   *  update sources and patches to Ubuntu-6.8.0-32.32
