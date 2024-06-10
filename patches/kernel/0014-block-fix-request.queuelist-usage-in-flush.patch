@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Chengming Zhou <chengming.zhou@linux.dev>
-Date: Tue, 4 Jun 2024 14:47:45 +0800
+Date: Sat, 8 Jun 2024 22:31:15 +0800
 Subject: [PATCH] block: fix request.queuelist usage in flush
 
 Friedrich Weber reported a kernel crash problem and bisected to commit
@@ -22,19 +22,27 @@ touch rq->queuelist after blk_mq_end_request() since we will reuse it to
 add rq to the post-flush pending list in POSTFLUSH. If this is not true,
 we will have to revert that commit IMHO.
 
+This updated version adds "list_del_init(&rq->queuelist)" in flush rq
+callback since the dm layer may submit request of a weird invalid format
+(REQ_FSEQ_PREFLUSH | REQ_FSEQ_POSTFLUSH), which causes double list_add
+if without this "list_del_init(&rq->queuelist)". The weird invalid format
+problem should be fixed in dm layer.
+
 Reported-by: Friedrich Weber <f.weber@proxmox.com>
 Closes: https://lore.kernel.org/lkml/14b89dfb-505c-49f7-aebb-01c54451db40@proxmox.com/
+Closes: https://lore.kernel.org/lkml/c9d03ff7-27c5-4ebd-b3f6-5a90d96f35ba@proxmox.com/
 Fixes: 81ada09cc25e ("blk-flush: reuse rq queuelist in flush state machine")
 Cc: Christoph Hellwig <hch@lst.de>
 Cc: ming.lei@redhat.com
 Cc: bvanassche@acm.org
+Tested-by: Friedrich Weber <f.weber@proxmox.com>
 Signed-off-by: Chengming Zhou <chengming.zhou@linux.dev>
 ---
- block/blk-flush.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ block/blk-flush.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/block/blk-flush.c b/block/blk-flush.c
-index 3f4d41952ef2..aa5e573dd010 100644
+index 3f4d41952ef2..d72b57898b23 100644
 --- a/block/blk-flush.c
 +++ b/block/blk-flush.c
 @@ -183,7 +183,7 @@ static void blk_flush_complete_seq(struct request *rq,
@@ -46,3 +54,11 @@ index 3f4d41952ef2..aa5e573dd010 100644
  		break;
  
  	case REQ_FSEQ_DATA:
+@@ -261,6 +261,7 @@ static enum rq_end_io_ret flush_end_io(struct request *flush_rq,
+ 		unsigned int seq = blk_flush_cur_seq(rq);
+ 
+ 		BUG_ON(seq != REQ_FSEQ_PREFLUSH && seq != REQ_FSEQ_POSTFLUSH);
++		list_del_init(&rq->queuelist);
+ 		blk_flush_complete_seq(rq, fq, seq, error);
+ 	}
+ 
