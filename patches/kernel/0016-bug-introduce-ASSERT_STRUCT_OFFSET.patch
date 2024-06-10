@@ -18,7 +18,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/arch/x86/kvm/vmx/vmcs12.h b/arch/x86/kvm/vmx/vmcs12.h
-index 2a45f026ee11d..ba8617964982a 100644
+index 2a45f026ee11..ba8617964982 100644
 --- a/arch/x86/kvm/vmx/vmcs12.h
 +++ b/arch/x86/kvm/vmx/vmcs12.h
 @@ -208,9 +208,8 @@ struct __packed vmcs12 {
@@ -34,7 +34,7 @@ index 2a45f026ee11d..ba8617964982a 100644
  static inline void vmx_check_vmcs12_offsets(void)
  {
 diff --git a/include/linux/build_bug.h b/include/linux/build_bug.h
-index e3a0be2c90ad9..3aa3640f8c181 100644
+index e3a0be2c90ad..3aa3640f8c18 100644
 --- a/include/linux/build_bug.h
 +++ b/include/linux/build_bug.h
 @@ -77,4 +77,13 @@

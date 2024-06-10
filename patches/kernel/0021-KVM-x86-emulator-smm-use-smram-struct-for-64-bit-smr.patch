@@ -16,7 +16,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 62 insertions(+), 101 deletions(-)
 
 diff --git a/arch/x86/kvm/emulate.c b/arch/x86/kvm/emulate.c
-index 36c45c89563cf..eb2f5e43f6add 100644
+index 36c45c89563c..eb2f5e43f6ad 100644
 --- a/arch/x86/kvm/emulate.c
 +++ b/arch/x86/kvm/emulate.c
 @@ -2357,24 +2357,16 @@ static void rsm_load_seg_32(struct x86_emulate_ctxt *ctxt,
@@ -154,10 +154,10 @@ index 36c45c89563cf..eb2f5e43f6add 100644
  #endif
  		ret = rsm_load_state_32(ctxt, &smram.smram32);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index d32da92bff499..3bd65844e80f3 100644
+index c6b5c0543931..f309248fa888 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -9226,20 +9226,17 @@ static void enter_smm_save_seg_32(struct kvm_vcpu *vcpu,
+@@ -9239,20 +9239,17 @@ static void enter_smm_save_seg_32(struct kvm_vcpu *vcpu,
  }
  
  #ifdef CONFIG_X86_64
@@ -185,7 +185,7 @@ index d32da92bff499..3bd65844e80f3 100644
  }
  #endif
  
-@@ -9287,57 +9284,51 @@ static void enter_smm_save_state_32(struct kvm_vcpu *vcpu, struct kvm_smram_stat
+@@ -9300,57 +9297,51 @@ static void enter_smm_save_state_32(struct kvm_vcpu *vcpu, struct kvm_smram_stat
  }
  
  #ifdef CONFIG_X86_64
@@ -268,7 +268,7 @@ index d32da92bff499..3bd65844e80f3 100644
  }
  #endif
  
-@@ -9351,7 +9342,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
+@@ -9364,7 +9355,7 @@ static void enter_smm(struct kvm_vcpu *vcpu)
  	memset(smram.bytes, 0, sizeof(smram.bytes));
  #ifdef CONFIG_X86_64
  	if (guest_cpuid_has(vcpu, X86_FEATURE_LM))

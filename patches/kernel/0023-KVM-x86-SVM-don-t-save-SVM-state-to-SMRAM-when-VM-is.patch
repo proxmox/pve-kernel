@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 9 insertions(+)
 
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index ba3861d5114b0..ebbd2d3b4e532 100644
+index ba3861d5114b..ebbd2d3b4e53 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
 @@ -4337,6 +4337,15 @@ static int svm_enter_smm(struct kvm_vcpu *vcpu, union kvm_smram *smram)
