@@ -6,7 +6,7 @@ KERNEL_MIN=8
 KERNEL_PATCHLEVEL=8
 # increment KREL for every published package release!
 # rebuild packages with new KREL and run 'make abiupdate'
-KREL=1
+KREL=2
 
 KERNEL_MAJMIN=$(KERNEL_MAJ).$(KERNEL_MIN)
 KERNEL_VER=$(KERNEL_MAJMIN).$(KERNEL_PATCHLEVEL)
