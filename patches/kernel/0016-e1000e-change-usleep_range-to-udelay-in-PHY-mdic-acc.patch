@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vitaly Lifshits <vitaly.lifshits@intel.com>
+Date: Mon, 29 Apr 2024 10:10:40 -0700
+Subject: [PATCH] e1000e: change usleep_range to udelay in PHY mdic access
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This is a partial revert of commit 6dbdd4de0362 ("e1000e: Workaround
+for sporadic MDI error on Meteor Lake systems"). The referenced commit
+used usleep_range inside the PHY access routines, which are sometimes
+called from an atomic context. This can lead to a kernel panic in some
+scenarios, such as cable disconnection and reconnection on vPro systems.
+
+Solve this by changing the usleep_range calls back to udelay.
+
+Fixes: 6dbdd4de0362 ("e1000e: Workaround for sporadic MDI error on Meteor Lake systems")
+Cc: stable@vger.kernel.org
+Reported-by: Jérôme Carretero <cJ@zougloub.eu>
+Closes: https://bugzilla.kernel.org/show_bug.cgi?id=218740
+Closes: https://lore.kernel.org/lkml/a7eb665c74b5efb5140e6979759ed243072cb24a.camel@zougloub.eu/
+Co-developed-by: Sasha Neftin <sasha.neftin@intel.com>
+Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+Signed-off-by: Vitaly Lifshits <vitaly.lifshits@intel.com>
+Tested-by: Dima Ruinskiy <dima.ruinskiy@intel.com>
+Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
+Reviewed-by: Simon Horman <horms@kernel.org>
+Link: https://lore.kernel.org/r/20240429171040.1152516-1-anthony.l.nguyen@intel.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+---
+ drivers/net/ethernet/intel/e1000e/phy.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index 93544f1cc2a5..f7ae0e0aa4a4 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -157,7 +157,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 		 * the lower time out
+ 		 */
+ 		for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
+-			usleep_range(50, 60);
++			udelay(50);
+ 			mdic = er32(MDIC);
+ 			if (mdic & E1000_MDIC_READY)
+ 				break;
+@@ -181,7 +181,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 		 * reading duplicate data in the next MDIC transaction.
+ 		 */
+ 		if (hw->mac.type == e1000_pch2lan)
+-			usleep_range(100, 150);
++			udelay(100);
+ 
+ 		if (success) {
+ 			*data = (u16)mdic;
+@@ -237,7 +237,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+ 		 * the lower time out
+ 		 */
+ 		for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
+-			usleep_range(50, 60);
++			udelay(50);
+ 			mdic = er32(MDIC);
+ 			if (mdic & E1000_MDIC_READY)
+ 				break;
+@@ -261,7 +261,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+ 		 * reading duplicate data in the next MDIC transaction.
+ 		 */
+ 		if (hw->mac.type == e1000_pch2lan)
+-			usleep_range(100, 150);
++			udelay(100);
+ 
+ 		if (success)
+ 			return 0;
