@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ma Jun <Jun.Ma2@amd.com>
+Date: Tue, 19 Mar 2024 11:02:29 +0800
+Subject: [PATCH] drm/amdgpu/pm: Don't use OD table on Arcturus
+
+OD is not supported on Arcturus, so the OD table
+should not be used.
+
+Signed-off-by: Ma Jun <Jun.Ma2@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit bc55c344b06f7e6f99eb92d393ff0a84c1532514)
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ .../gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c | 33 +++----------------
+ 1 file changed, 5 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c
+index 40ba7227cca5..0c2d04f978ac 100644
+--- a/drivers/gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c
++++ b/drivers/gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c
+@@ -1283,11 +1283,8 @@ static int arcturus_get_power_limit(struct smu_context *smu,
+ 					uint32_t *max_power_limit,
+ 					uint32_t *min_power_limit)
+ {
+-	struct smu_11_0_powerplay_table *powerplay_table =
+-		(struct smu_11_0_powerplay_table *)smu->smu_table.power_play_table;
+-	struct smu_11_0_overdrive_table *od_settings = smu->od_settings;
+ 	PPTable_t *pptable = smu->smu_table.driver_pptable;
+-	uint32_t power_limit, od_percent_upper = 0, od_percent_lower = 0;
++	uint32_t power_limit;
+ 
+ 	if (smu_v11_0_get_current_power_limit(smu, &power_limit)) {
+ 		/* the last hope to figure out the ppt limit */
+@@ -1303,30 +1300,10 @@ static int arcturus_get_power_limit(struct smu_context *smu,
+ 		*current_power_limit = power_limit;
+ 	if (default_power_limit)
+ 		*default_power_limit = power_limit;
+-
+-	if (powerplay_table) {
+-		if (smu->od_enabled &&
+-				od_settings->cap[SMU_11_0_ODCAP_POWER_LIMIT]) {
+-			od_percent_upper = le32_to_cpu(powerplay_table->overdrive_table.max[SMU_11_0_ODSETTING_POWERPERCENTAGE]);
+-			od_percent_lower = le32_to_cpu(powerplay_table->overdrive_table.min[SMU_11_0_ODSETTING_POWERPERCENTAGE]);
+-		} else if (od_settings->cap[SMU_11_0_ODCAP_POWER_LIMIT]) {
+-			od_percent_upper = 0;
+-			od_percent_lower = le32_to_cpu(powerplay_table->overdrive_table.min[SMU_11_0_ODSETTING_POWERPERCENTAGE]);
+-		}
+-	}
+-
+-	dev_dbg(smu->adev->dev, "od percent upper:%d, od percent lower:%d (default power: %d)\n",
+-							od_percent_upper, od_percent_lower, power_limit);
+-
+-	if (max_power_limit) {
+-		*max_power_limit = power_limit * (100 + od_percent_upper);
+-		*max_power_limit /= 100;
+-	}
+-
+-	if (min_power_limit) {
+-		*min_power_limit = power_limit * (100 - od_percent_lower);
+-		*min_power_limit /= 100;
+-	}
++	if (max_power_limit)
++		*max_power_limit = power_limit;
++	if (min_power_limit)
++		*min_power_limit = power_limit;
+ 
+ 	return 0;
+ }
