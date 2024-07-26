@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.8-4) bookworm; urgency=medium
+
+  * fix CVE-2024-41090/41091: DoS via short ethernet frames over tun/tap
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 26 Jul 2024 13:15:13 +0200
+
 proxmox-kernel-6.8 (6.8.8-3) bookworm; urgency=medium
 
   * backport fix for CIFS client memory leak
