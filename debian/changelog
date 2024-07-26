@@ -1,3 +1,9 @@
+pve-kernel (5.15.158-2) bullseye; urgency=medium
+
+  * fix CVE-2024-41090/41091: DoS via short ethernet frames over tun/tap
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 26 Jul 2024 15:11:10 +0200
+
 pve-kernel (5.15.158-1) bullseye; urgency=medium
 
   * update sources to Ubuntu-5.15.0-115.125, based on 5.15.158
