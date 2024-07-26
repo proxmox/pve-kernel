@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Si-Wei Liu <si-wei.liu@oracle.com>
+Date: Wed, 24 Jul 2024 10:04:51 -0700
+Subject: [PATCH] tap: add missing verification for short frame
+
+The cited commit missed to check against the validity of the frame length
+in the tap_get_user_xdp() path, which could cause a corrupted skb to be
+sent downstack. Even before the skb is transmitted, the
+tap_get_user_xdp()-->skb_set_network_header() may assume the size is more
+than ETH_HLEN. Once transmitted, this could either cause out-of-bound
+access beyond the actual length, or confuse the underlayer with incorrect
+or inconsistent header length in the skb metadata.
+
+In the alternative path, tap_get_user() already prohibits short frame which
+has the length less than Ethernet header size from being transmitted.
+
+This is to drop any frame shorter than the Ethernet header size just like
+how tap_get_user() does.
+
+CVE: CVE-2024-41090
+Link: https://lore.kernel.org/netdev/1717026141-25716-1-git-send-email-si-wei.liu@oracle.com/
+Fixes: 0efac27791ee ("tap: accept an array of XDP buffs through sendmsg()")
+Cc: stable@vger.kernel.org
+Signed-off-by: Si-Wei Liu <si-wei.liu@oracle.com>
+Signed-off-by: Dongli Zhang <dongli.zhang@oracle.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Reviewed-by: Paolo Abeni <pabeni@redhat.com>
+Reviewed-by: Jason Wang <jasowang@redhat.com>
+Link: https://patch.msgid.link/20240724170452.16837-2-dongli.zhang@oracle.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit ed7f2afdd0e043a397677e597ced0830b83ba0b3)
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ drivers/net/tap.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/tap.c b/drivers/net/tap.c
+index 9f0495e8df4d..feeeac715c18 100644
+--- a/drivers/net/tap.c
++++ b/drivers/net/tap.c
+@@ -1177,6 +1177,11 @@ static int tap_get_user_xdp(struct tap_queue *q, struct xdp_buff *xdp)
+ 	struct sk_buff *skb;
+ 	int err, depth;
+ 
++	if (unlikely(xdp->data_end - xdp->data < ETH_HLEN)) {
++		err = -EINVAL;
++		goto err;
++	}
++
+ 	if (q->flags & IFF_VNET_HDR)
+ 		vnet_hdr_len = READ_ONCE(q->vnet_hdr_sz);
+ 

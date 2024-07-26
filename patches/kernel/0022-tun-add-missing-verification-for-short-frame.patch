@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dongli Zhang <dongli.zhang@oracle.com>
+Date: Wed, 24 Jul 2024 10:04:52 -0700
+Subject: [PATCH] tun: add missing verification for short frame
+
+The cited commit missed to check against the validity of the frame length
+in the tun_xdp_one() path, which could cause a corrupted skb to be sent
+downstack. Even before the skb is transmitted, the
+tun_xdp_one-->eth_type_trans() may access the Ethernet header although it
+can be less than ETH_HLEN. Once transmitted, this could either cause
+out-of-bound access beyond the actual length, or confuse the underlayer
+with incorrect or inconsistent header length in the skb metadata.
+
+In the alternative path, tun_get_user() already prohibits short frame which
+has the length less than Ethernet header size from being transmitted for
+IFF_TAP.
+
+This is to drop any frame shorter than the Ethernet header size just like
+how tun_get_user() does.
+
+CVE: CVE-2024-41091
+Inspired-by: https://lore.kernel.org/netdev/1717026141-25716-1-git-send-email-si-wei.liu@oracle.com/
+Fixes: 043d222f93ab ("tuntap: accept an array of XDP buffs through sendmsg()")
+Cc: stable@vger.kernel.org
+Signed-off-by: Dongli Zhang <dongli.zhang@oracle.com>
+Reviewed-by: Si-Wei Liu <si-wei.liu@oracle.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Reviewed-by: Paolo Abeni <pabeni@redhat.com>
+Reviewed-by: Jason Wang <jasowang@redhat.com>
+Link: https://patch.msgid.link/20240724170452.16837-3-dongli.zhang@oracle.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 049584807f1d797fc3078b68035450a9769eb5c3)
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ drivers/net/tun.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 86515f0c2b6c..e9cd3b810e2c 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -2459,6 +2459,9 @@ static int tun_xdp_one(struct tun_struct *tun,
+ 	bool skb_xdp = false;
+ 	struct page *page;
+ 
++	if (unlikely(datasize < ETH_HLEN))
++		return -EINVAL;
++
+ 	xdp_prog = rcu_dereference(tun->xdp_prog);
+ 	if (xdp_prog) {
+ 		if (gso->gso_type) {
