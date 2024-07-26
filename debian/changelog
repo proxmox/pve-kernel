@@ -1,3 +1,15 @@
+proxmox-kernel-6.5 (6.5.13-6) bookworm; urgency=medium
+
+  * fix #5373: cherry-pick USB ethernet naming fix
+
+  * config: disable CONFIG_N_GSM
+
+  * cherry-pick improved erratum 1386 workaround
+
+  * fix cve-2024-41090/41091: dos via short ethernet frames over tun/tap
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 26 Jul 2024 14:34:47 +0200
+
 proxmox-kernel-6.5 (6.5.13-5) bookworm; urgency=medium
 
   * revert a backport to avoid breaking copying files within a CIFS mount
