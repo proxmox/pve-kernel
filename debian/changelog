@@ -1,3 +1,13 @@
+proxmox-kernel-6.8 (6.8.12-1) bookworm; urgency=medium
+
+  * cherry-pick fix for NULL pointer dereference in apparmorfs
+
+  * cherry-pick fix for bnxt_re driver
+
+  * update sources to Ubuntu-6.8.0-43.43
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 05 Aug 2024 18:17:37 +0200
+
 proxmox-kernel-6.8 (6.8.8-4) bookworm; urgency=medium
 
   * fix CVE-2024-41090/41091: DoS via short ethernet frames over tun/tap
