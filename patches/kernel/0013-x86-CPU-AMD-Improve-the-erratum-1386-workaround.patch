@@ -21,10 +21,10 @@ Link: https://lore.kernel.org/r/20240324200525.GBZgCHhYFsBj12PrKv@fat_crate.loca
  2 files changed, 20 insertions(+)
 
 diff --git a/arch/x86/include/asm/cpu_device_id.h b/arch/x86/include/asm/cpu_device_id.h
-index eb8fcede9e3b..bf4e065cf1e2 100644
+index e8e3dbe7f173..b6325ee30871 100644
 --- a/arch/x86/include/asm/cpu_device_id.h
 +++ b/arch/x86/include/asm/cpu_device_id.h
-@@ -190,6 +190,14 @@ struct x86_cpu_desc {
+@@ -288,6 +288,14 @@ struct x86_cpu_desc {
  	.x86_microcode_rev	= (revision),			\
  }
  
@@ -40,7 +40,7 @@ index eb8fcede9e3b..bf4e065cf1e2 100644
  extern bool x86_cpu_has_min_microcode_rev(const struct x86_cpu_desc *table);
  
 diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
-index dfa8d0cf5e18..22a263b1a884 100644
+index 0838ea579eb0..ca6096dcc5c6 100644
 --- a/arch/x86/kernel/cpu/amd.c
 +++ b/arch/x86/kernel/cpu/amd.c
 @@ -13,6 +13,7 @@
@@ -51,7 +51,7 @@ index dfa8d0cf5e18..22a263b1a884 100644
  #include <asm/spec-ctrl.h>
  #include <asm/smp.h>
  #include <asm/numa.h>
-@@ -926,6 +927,11 @@ static void init_amd_bd(struct cpuinfo_x86 *c)
+@@ -925,6 +926,11 @@ static void init_amd_bd(struct cpuinfo_x86 *c)
  	clear_rdrand_cpuid_bit(c);
  }
  
@@ -63,7 +63,7 @@ index dfa8d0cf5e18..22a263b1a884 100644
  static void fix_erratum_1386(struct cpuinfo_x86 *c)
  {
  	/*
-@@ -935,7 +941,13 @@ static void fix_erratum_1386(struct cpuinfo_x86 *c)
+@@ -934,7 +940,13 @@ static void fix_erratum_1386(struct cpuinfo_x86 *c)
  	 *
  	 * Affected parts all have no supervisor XSAVE states, meaning that
  	 * the XSAVEC instruction (which works fine) is equivalent.

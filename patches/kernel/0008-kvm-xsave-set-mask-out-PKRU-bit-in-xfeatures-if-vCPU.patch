@@ -78,7 +78,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 21 insertions(+)
 
 diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
-index 3a02276899db..e07a6089ba4b 100644
+index ce1499732cb8..d68c04bde5ed 100644
 --- a/arch/x86/kvm/cpuid.c
 +++ b/arch/x86/kvm/cpuid.c
 @@ -262,6 +262,12 @@ static u64 cpuid_get_supported_xcr0(struct kvm_cpuid_entry2 *entries, int nent)
@@ -108,7 +108,7 @@ index 23dbb9eb277c..07da153802e4 100644
  
  int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index c84927216fad..880e2b87777e 100644
+index 3750a0c688b7..706348cbde7c 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -5580,6 +5580,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
