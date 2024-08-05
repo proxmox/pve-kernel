@@ -92,6 +92,7 @@ amdgpu/dcn_3_1_5_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_1_6_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_2_0_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_2_1_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/dcn_3_5_1_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_5_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dimgrey_cavefish_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dimgrey_cavefish_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -1794,6 +1795,8 @@ phanfw.bin kernel/drivers/net/ethernet/qlogic/netxen/netxen_nic.ko
 phanfw.bin kernel/drivers/net/ethernet/qlogic/qlcnic/qlcnic.ko
 plfxlc/lifi-x.bin kernel/drivers/net/wireless/purelifi/plfxlc/plfxlc.ko
 prism2_ru.fw kernel/drivers/staging/wlan-ng/prism2_usb.ko
+qat_402xx.bin kernel/drivers/crypto/intel/qat/qat_4xxx/qat_4xxx.ko
+qat_402xx_mmp.bin kernel/drivers/crypto/intel/qat/qat_4xxx/qat_4xxx.ko
 qat_420xx.bin kernel/drivers/crypto/intel/qat/qat_420xx/qat_420xx.ko
 qat_420xx_mmp.bin kernel/drivers/crypto/intel/qat/qat_420xx/qat_420xx.ko
 qat_4xxx.bin kernel/drivers/crypto/intel/qat/qat_4xxx/qat_4xxx.ko
