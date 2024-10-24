@@ -16,10 +16,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/linux/fortify-string.h b/include/linux/fortify-string.h
-index e99dbc052575..9e9cdb198b82 100644
+index 0d99bf11d260..fe04f7f93575 100644
 --- a/include/linux/fortify-string.h
 +++ b/include/linux/fortify-string.h
-@@ -18,7 +18,7 @@ void __write_overflow_field(size_t avail, size_t wanted) __compiletime_warning("
+@@ -62,7 +62,7 @@ void __write_overflow_field(size_t avail, size_t wanted) __compiletime_warning("
  
  #define __compiletime_strlen(p)					\
  ({								\

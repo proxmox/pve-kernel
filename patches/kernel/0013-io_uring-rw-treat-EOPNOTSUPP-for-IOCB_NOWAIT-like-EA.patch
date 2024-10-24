@@ -25,12 +25,12 @@ Signed-off-by: Daniel Kral <d.kral@proxmox.com>
  1 file changed, 8 insertions(+)
 
 diff --git a/io_uring/rw.c b/io_uring/rw.c
-index c3c154790e45..ed7f67097572 100644
+index c004d21e2f12..d85e2d41a992 100644
 --- a/io_uring/rw.c
 +++ b/io_uring/rw.c
-@@ -825,6 +825,14 @@ static int __io_read(struct io_kiocb *req, unsigned int issue_flags)
+@@ -855,6 +855,14 @@ static int __io_read(struct io_kiocb *req, unsigned int issue_flags)
  
- 	ret = io_iter_do_read(rw, &s->iter);
+ 	ret = io_iter_do_read(rw, &io->iter);
  
 +	/*
 +	 * Some file systems like to return -EOPNOTSUPP for an IOCB_NOWAIT
@@ -42,4 +42,4 @@ index c3c154790e45..ed7f67097572 100644
 +
  	if (ret == -EAGAIN || (req->flags & REQ_F_REISSUE)) {
  		req->flags &= ~REQ_F_REISSUE;
- 		/*
+ 		/* If we can poll, just do that. */

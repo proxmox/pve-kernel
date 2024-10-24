@@ -1,4 +1,4 @@
-From cd27abf0c555f39b12c05f9f6a8cb59ff25dfe45 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Christian Ebner <c.ebner@proxmox.com>
 Date: Wed, 2 Oct 2024 15:24:31 +0200
 Subject: [PATCH] netfs: reset subreq iov iter before tail clean
@@ -26,6 +26,3 @@ index d6ada4eba744..500119285346 100644
  		netfs_clear_unread(subreq);
  		subreq->transferred = subreq->len;
  		goto complete;
--- 
-2.39.5
-
