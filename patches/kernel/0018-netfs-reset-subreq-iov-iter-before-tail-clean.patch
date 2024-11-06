@@ -1,4 +1,4 @@
-From cd27abf0c555f39b12c05f9f6a8cb59ff25dfe45 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Christian Ebner <c.ebner@proxmox.com>
 Date: Wed, 2 Oct 2024 15:24:31 +0200
 Subject: [PATCH] netfs: reset subreq iov iter before tail clean
@@ -15,10 +15,10 @@ Signed-off-by: Christian Ebner <c.ebner@proxmox.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/fs/netfs/io.c b/fs/netfs/io.c
-index d6ada4eba744..500119285346 100644
+index 4261ad6c55b6..27c9e441d21e 100644
 --- a/fs/netfs/io.c
 +++ b/fs/netfs/io.c
-@@ -528,6 +528,7 @@ void netfs_subreq_terminated(struct netfs_io_subrequest *subreq,
+@@ -516,6 +516,7 @@ void netfs_subreq_terminated(struct netfs_io_subrequest *subreq,
  
  incomplete:
  	if (test_bit(NETFS_SREQ_CLEAR_TAIL, &subreq->flags)) {
@@ -26,6 +26,3 @@ index d6ada4eba744..500119285346 100644
  		netfs_clear_unread(subreq);
  		subreq->transferred = subreq->len;
  		goto complete;
--- 
-2.39.5
-
