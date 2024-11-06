@@ -1,3 +1,12 @@
+proxmox-kernel-6.8 (6.8.12-4) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.8.0-49.49
+
+  * cherry-pick fix mitigating host reboot issue affecting certain AMD Zen4
+    CPU models
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 06 Nov 2024 16:04:25 +0100
+
 proxmox-kernel-6.8 (6.8.12-3) bookworm; urgency=medium
 
   * fix #5430: cherry-pick fix for ocfs2 io_uring rw issues
