@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-5) bookworm; urgency=medium
+
+  * revert Ubuntu patch disabling IOMMU functionality for Skylake iGPU
+
+  * update sources to Ubuntu-6.8.0-51.52
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Dec 2024 11:26:04 +0100
+
 proxmox-kernel-6.8 (6.8.12-4) bookworm; urgency=medium
 
   * update sources to Ubuntu-6.8.0-49.49
