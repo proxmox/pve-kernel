@@ -21,11 +21,11 @@ Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
  1 file changed, 11 insertions(+)
 
 diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
-index 1e0fe5f8ab84..ee87f997d31f 100644
+index ca6096dcc5c6..e30f4896415d 100644
 --- a/arch/x86/kernel/cpu/amd.c
 +++ b/arch/x86/kernel/cpu/amd.c
-@@ -924,6 +924,17 @@ static void init_amd_zen4(struct cpuinfo_x86 *c)
- {
+@@ -1061,6 +1061,17 @@ static void init_amd_zen4(struct cpuinfo_x86 *c)
+ 
  	if (!cpu_has(c, X86_FEATURE_HYPERVISOR))
  		msr_set_bit(MSR_ZEN4_BP_CFG, MSR_ZEN4_BP_CFG_SHARED_BTB_FIX_BIT);
 +
