@@ -21,7 +21,7 @@ Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
  1 file changed, 11 insertions(+)
 
 diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
-index ca6096dcc5c6..e30f4896415d 100644
+index 809a66d522c1..edc1b32b5021 100644
 --- a/arch/x86/kernel/cpu/amd.c
 +++ b/arch/x86/kernel/cpu/amd.c
 @@ -1061,6 +1061,17 @@ static void init_amd_zen4(struct cpuinfo_x86 *c)

@@ -15,10 +15,10 @@ Signed-off-by: Christian Ebner <c.ebner@proxmox.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/fs/netfs/io.c b/fs/netfs/io.c
-index 4261ad6c55b6..27c9e441d21e 100644
+index aaff3844e9b7..e8a884040e2b 100644
 --- a/fs/netfs/io.c
 +++ b/fs/netfs/io.c
-@@ -516,6 +516,7 @@ void netfs_subreq_terminated(struct netfs_io_subrequest *subreq,
+@@ -517,6 +517,7 @@ void netfs_subreq_terminated(struct netfs_io_subrequest *subreq,
  
  incomplete:
  	if (test_bit(NETFS_SREQ_CLEAR_TAIL, &subreq->flags)) {

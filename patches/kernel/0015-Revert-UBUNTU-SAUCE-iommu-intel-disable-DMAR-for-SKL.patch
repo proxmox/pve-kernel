@@ -14,7 +14,7 @@ This reverts commit b310f5f58c83756fc164f7d391d76f0df9cc65c3.
  1 file changed, 27 deletions(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index 9e8cdd7298d3..5e037a9ea6a6 100644
+index d9cc1264e40a..89fdcaad20e1 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
 @@ -5034,33 +5034,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
