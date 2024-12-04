@@ -2188,6 +2188,7 @@ rtl_nic/rtl8107e-2.fw kernel/drivers/net/ethernet/realtek/r8169.ko
 rtl_nic/rtl8125a-3.fw kernel/drivers/net/ethernet/realtek/r8169.ko
 rtl_nic/rtl8125b-2.fw kernel/drivers/net/ethernet/realtek/r8169.ko
 rtl_nic/rtl8126a-2.fw kernel/drivers/net/ethernet/realtek/r8169.ko
+rtl_nic/rtl8126a-3.fw kernel/drivers/net/ethernet/realtek/r8169.ko
 rtl_nic/rtl8153a-2.fw kernel/drivers/net/usb/r8152.ko
 rtl_nic/rtl8153a-3.fw kernel/drivers/net/usb/r8152.ko
 rtl_nic/rtl8153a-4.fw kernel/drivers/net/usb/r8152.ko
