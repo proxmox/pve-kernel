@@ -1,3 +1,18 @@
+proxmox-kernel-6.11 (6.11.0-2) bookworm; urgency=medium
+
+  * updated sources to Ubuntu-6.11.0-13.14
+
+  * cherry-pick fix mitigating host reboot issue affecting certain AMD Zen4
+    CPU models
+
+  * d/rules: enable CONFIG_MEMCG_V1 needed for legacy containers
+
+  * fix #5926: cherry-pick ACS-quirk fix from linux-stable/6.11.7
+
+  * revert Ubuntu patch disabling IOMMU functionality for Skylake iGPU
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 04 Dec 2024 11:29:32 +0100
+
 proxmox-kernel-6.11 (6.11.0-1) bookworm; urgency=medium
 
   * update submodule and patches for 24.10 Oracular based kernel with tag
