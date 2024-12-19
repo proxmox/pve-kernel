@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.12-6) bookworm; urgency=medium
+
+  * backport fix for kvm performance regression with Intel Emerald Rapids
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 19 Dec 2024 20:05:32 +0100
+
 proxmox-kernel-6.8 (6.8.12-5) bookworm; urgency=medium
 
   * revert Ubuntu patch disabling IOMMU functionality for Skylake iGPU
