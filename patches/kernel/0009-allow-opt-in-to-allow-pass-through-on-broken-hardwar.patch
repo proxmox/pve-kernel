@@ -11,7 +11,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index 555301f45bec..34c8b02ca787 100644
+index 555301f45bec5ef12290a48095c2cfdaf05602db..34c8b02ca7878e0b1803a07f2f6e5c6c0039a9f8 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
 @@ -228,6 +228,7 @@ EXPORT_SYMBOL_GPL(intel_iommu_enabled);

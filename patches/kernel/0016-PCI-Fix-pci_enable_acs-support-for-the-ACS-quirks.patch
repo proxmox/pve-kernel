@@ -33,7 +33,7 @@ Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
  1 file changed, 9 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index ffaaca0978cb..a89436d481f0 100644
+index ffaaca0978cbc95fbb7566e9700b375cdb4940cc..a89436d481f0702d57516b378d282808766410c6 100644
 --- a/drivers/pci/pci.c
 +++ b/drivers/pci/pci.c
 @@ -1067,8 +1067,15 @@ static void pci_std_enable_acs(struct pci_dev *dev, struct pci_acs *caps)
