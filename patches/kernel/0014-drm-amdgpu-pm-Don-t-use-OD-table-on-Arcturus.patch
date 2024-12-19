@@ -16,7 +16,7 @@ Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
  1 file changed, 5 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c
-index 437ac31b1673..415032f58522 100644
+index 437ac31b1673986f96a5a714e3e017d06e053dc9..415032f58522f8eefcfe1ddad5dc992f6f3e2e3d 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/smu11/arcturus_ppt.c
 @@ -1283,11 +1283,8 @@ static int arcturus_get_power_limit(struct smu_context *smu,

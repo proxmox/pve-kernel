@@ -25,7 +25,7 @@ Signed-off-by: Daniel Kral <d.kral@proxmox.com>
  1 file changed, 8 insertions(+)
 
 diff --git a/io_uring/rw.c b/io_uring/rw.c
-index c3c154790e45..ed7f67097572 100644
+index c3c154790e45230a1d503173e287c6305ab22916..ed7f6709757268faacd69ed4c83a17fa155b3c98 100644
 --- a/io_uring/rw.c
 +++ b/io_uring/rw.c
 @@ -825,6 +825,14 @@ static int __io_read(struct io_kiocb *req, unsigned int issue_flags)

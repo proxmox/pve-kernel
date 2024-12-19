@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 
 diff --git a/net/wireless/certs/debian.hex b/net/wireless/certs/debian.hex
 new file mode 100644
-index 000000000000..c5ab03f8c500
+index 0000000000000000000000000000000000000000..c5ab03f8c500d2f0e5b7931d5790bd22983c3660
 --- /dev/null
 +++ b/net/wireless/certs/debian.hex
 @@ -0,0 +1,1426 @@
