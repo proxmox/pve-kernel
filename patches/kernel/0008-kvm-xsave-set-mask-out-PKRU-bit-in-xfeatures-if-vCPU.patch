@@ -73,15 +73,15 @@ maintenance burden is high.
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/cpuid.c |  6 ++++++
- arch/x86/kvm/cpuid.h |  2 ++
+ arch/x86/kvm/cpuid.h |  3 +++
  arch/x86/kvm/x86.c   | 13 +++++++++++++
- 3 files changed, 21 insertions(+)
+ 3 files changed, 22 insertions(+)
 
 diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
-index 2617be544480aaf78d21d89f5f0e978a0715e0d6..b6892645c4cde238923062e3f71df21d68cc201d 100644
+index be2baf851ec7d63a2095247d828f390b9757f905..dc73965aa73b21d26b4cf039336da3ca38e89bc6 100644
 --- a/arch/x86/kvm/cpuid.c
 +++ b/arch/x86/kvm/cpuid.c
-@@ -269,6 +269,12 @@ static u64 cpuid_get_supported_xcr0(struct kvm_cpuid_entry2 *entries, int nent)
+@@ -290,6 +290,12 @@ static u64 cpuid_get_supported_xcr0(struct kvm_cpuid_entry2 *entries, int nent)
  	return (best->eax | ((u64)best->edx << 32)) & kvm_caps.supported_xcr0;
  }
  
@@ -95,20 +95,22 @@ index 2617be544480aaf78d21d89f5f0e978a0715e0d6..b6892645c4cde238923062e3f71df21d
  				       int nent)
  {
 diff --git a/arch/x86/kvm/cpuid.h b/arch/x86/kvm/cpuid.h
-index 41697cca354e6bc3cb7787602d440eb26e630e5b..0e46c4555311d02b6ec9eba7f33b292c3562b0ee 100644
+index ad479cfb91bc7bc5d400d2c098536abb4d4babe5..e55eecb2f3646ff7ef63c107c5cc5481fabb8a51 100644
 --- a/arch/x86/kvm/cpuid.h
 +++ b/arch/x86/kvm/cpuid.h
-@@ -32,6 +32,8 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
+@@ -32,7 +32,10 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
  bool kvm_cpuid(struct kvm_vcpu *vcpu, u32 *eax, u32 *ebx,
  	       u32 *ecx, u32 *edx, bool exact_only);
  
 +bool vcpu_supports_xsave_pkru(struct kvm_vcpu *vcpu);
 +
+ void __init kvm_init_xstate_sizes(void);
++
  u32 xstate_required_size(u64 xstate_bv, bool compacted);
  
  int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index c983c8e434b8b8eadc8571aebeb06c1b694e134f..c7c3d04198c6c7f88f97e122bfe78b857f26cb26 100644
+index 3667ba359e63579eaff36fea92bf19a84e5df592..4d10fc1a9b4114d1e2edf133717f307043560263 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -5633,6 +5633,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
