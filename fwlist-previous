@@ -1067,6 +1067,8 @@ intel/ibt-11-5.sfi kernel/drivers/bluetooth/btintel.ko
 intel/ibt-12-16.ddc kernel/drivers/bluetooth/btintel.ko
 intel/ibt-12-16.sfi kernel/drivers/bluetooth/btintel.ko
 intel/ice/ddp/ice.pkg kernel/drivers/net/ethernet/intel/ice/ice.ko
+intel/vpu/vpu_37xx_v0.0.bin kernel/drivers/accel/ivpu/intel_vpu.ko
+intel/vpu/vpu_40xx_v0.0.bin kernel/drivers/accel/ivpu/intel_vpu.ko
 ipue.bin kernel/drivers/crypto/inside-secure/crypto_safexcel.ko
 ipw2100-1.3-i.fw kernel/drivers/net/wireless/intel/ipw2x00/ipw2100.ko
 ipw2100-1.3-p.fw kernel/drivers/net/wireless/intel/ipw2x00/ipw2100.ko
