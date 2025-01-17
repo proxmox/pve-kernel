@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xi Ruoyao <xry111@xry111.site>
+Date: Wed, 22 May 2024 10:06:24 +0800
+Subject: [PATCH] x86/mm: Don't disable PCID when INVLPG has been fixed by
+ microcode
+
+Per the "Processor Specification Update" documentations referred by
+the intel-microcode-20240312 release note, this microcode release has
+fixed the issue for all affected models.
+
+So don't disable PCID if the microcode is new enough.  The precise
+minimum microcode revision fixing the issue was provided by Pawan
+Intel.
+
+[ dhansen: comment and changelog tweaks ]
+
+Signed-off-by: Xi Ruoyao <xry111@xry111.site>
+Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
+Acked-by: Pawan Gupta <pawan.kumar.gupta@linux.intel.com>
+Link: https://lore.kernel.org/all/168436059559.404.13934972543631851306.tip-bot2@tip-bot2/
+Link: https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases/tag/microcode-20240312
+Link: https://cdrdv2.intel.com/v1/dl/getContent/740518 # RPL042, rev. 13
+Link: https://cdrdv2.intel.com/v1/dl/getContent/682436 # ADL063, rev. 24
+Link: https://lore.kernel.org/all/20240325231300.qrltbzf6twm43ftb@desk/
+Link: https://lore.kernel.org/all/20240522020625.69418-1-xry111%40xry111.site
+ (cherry-picked from f24f669d03f884a6ef95cca84317d0f329e93961)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/mm/init.c | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/arch/x86/mm/init.c b/arch/x86/mm/init.c
+index eb503f53c3195ca4f299593c0112dab0fb09e7dd..101725c149c4294f22e337845e01c82dfe71cde5 100644
+--- a/arch/x86/mm/init.c
++++ b/arch/x86/mm/init.c
+@@ -263,28 +263,33 @@ static void __init probe_page_size_mask(void)
+ }
+ 
+ /*
+- * INVLPG may not properly flush Global entries
+- * on these CPUs when PCIDs are enabled.
++ * INVLPG may not properly flush Global entries on
++ * these CPUs.  New microcode fixes the issue.
+  */
+ static const struct x86_cpu_id invlpg_miss_ids[] = {
+-	X86_MATCH_VFM(INTEL_ALDERLAKE,	    0),
+-	X86_MATCH_VFM(INTEL_ALDERLAKE_L,    0),
+-	X86_MATCH_VFM(INTEL_ATOM_GRACEMONT, 0),
+-	X86_MATCH_VFM(INTEL_RAPTORLAKE,	    0),
+-	X86_MATCH_VFM(INTEL_RAPTORLAKE_P,   0),
+-	X86_MATCH_VFM(INTEL_RAPTORLAKE_S,   0),
++	X86_MATCH_VFM(INTEL_ALDERLAKE,	    0x2e),
++	X86_MATCH_VFM(INTEL_ALDERLAKE_L,    0x42c),
++	X86_MATCH_VFM(INTEL_ATOM_GRACEMONT, 0x11),
++	X86_MATCH_VFM(INTEL_RAPTORLAKE,	    0x118),
++	X86_MATCH_VFM(INTEL_RAPTORLAKE_P,   0x4117),
++	X86_MATCH_VFM(INTEL_RAPTORLAKE_S,   0x2e),
+ 	{}
+ };
+ 
+ static void setup_pcid(void)
+ {
++	const struct x86_cpu_id *invlpg_miss_match;
++
+ 	if (!IS_ENABLED(CONFIG_X86_64))
+ 		return;
+ 
+ 	if (!boot_cpu_has(X86_FEATURE_PCID))
+ 		return;
+ 
+-	if (x86_match_cpu(invlpg_miss_ids)) {
++	invlpg_miss_match = x86_match_cpu(invlpg_miss_ids);
++
++	if (invlpg_miss_match &&
++	    boot_cpu_data.microcode < invlpg_miss_match->driver_data) {
+ 		pr_info("Incomplete global flushes, disabling PCID");
+ 		setup_clear_cpu_cap(X86_FEATURE_PCID);
+ 		return;
