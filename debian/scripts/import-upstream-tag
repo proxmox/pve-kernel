@@ -17,11 +17,11 @@ old_ref=
 
 function cleanup_pq_branch {
     if [[ -n $pq_branch ]]; then
-	echo "cleaning up PQ branch '$pq_branch'"
-	cd "${top}/${kernel_submodule}"
-	git checkout --quiet $old_ref
-	git reset --hard
-	git branch -D "$pq_branch"
+        echo "cleaning up PQ branch '$pq_branch'"
+        cd "${top}/${kernel_submodule}"
+        git checkout --quiet $old_ref
+        git reset --hard
+        git branch -D "$pq_branch"
     fi
 }
 
