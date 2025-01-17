@@ -1,3 +1,15 @@
+proxmox-kernel-6.8 (6.8.12-7) bookworm; urgency=medium
+
+  * update ZFS to 2.2.7
+
+  * update submodule and patches for Ubuntu-6.8.0-53.54
+
+  * fix #6065: cherry-pick "x86/mm: Don't disable PCID when INVLPG has been
+    fixed by microcode" to avoid performance penalty when CPU microcode is
+    already new enough.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 17 Jan 2025 09:18:45 +0100
+
 proxmox-kernel-6.8 (6.8.12-6) bookworm; urgency=medium
 
   * backport fix for kvm performance regression with Intel Emerald Rapids
