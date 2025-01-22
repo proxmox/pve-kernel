@@ -167,6 +167,11 @@ variable in the Makefile, rebuilding the packages and running 'make abiupdate'
 (the 'abiupdate' target in 'Makefile' contains the steps for consistently
 updating the repository).
 
+The source package-name is proxmox-kernel-MAJ.MIN, the version of the package
+defaults to MAJ.MIN.PATCH-KREL - but this can be adapted to contain a suffix
+for test-packages (e.g. ~test01). The version in the Makefile needs to be equal
+to the one in debian/changelog.
+
 Watchdog blacklist
 ------------------
 
