@@ -1,3 +1,12 @@
+proxmox-kernel-6.8 (6.8.12-8) bookworm; urgency=medium
+
+  * ensure ZFS kernel version reports correct 2.2.7 version
+
+  * backport fix for network crashes when exiting the ovs-tcpdump program,
+    which is a tcpdump wrapper provided by Open vSwitch.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 24 Jan 2025 13:32:34 +0100
+
 proxmox-kernel-6.8 (6.8.12-7) bookworm; urgency=medium
 
   * update ZFS to 2.2.7
