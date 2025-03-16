@@ -1,3 +1,12 @@
+proxmox-kernel-6.8 (6.8.12-9) bookworm; urgency=medium
+
+  * update source and patches to Ubuntu-6.8.0-58.60
+
+  * update ZFS to include fix for ZVOL sync/flush regression that was
+    introduced with ZFS 2.2.7
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 16 Mar 2025 20:18:35 +0100
+
 proxmox-kernel-6.8 (6.8.12-8) bookworm; urgency=medium
 
   * ensure ZFS kernel version reports correct 2.2.7 version
