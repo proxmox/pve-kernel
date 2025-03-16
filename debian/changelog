@@ -1,3 +1,14 @@
+proxmox-kernel-6.11 (6.11.11-2) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.11.0-24.24
+
+  * backport fix for network crashes when exiting ovs-tcpdump
+
+  * update ZFS to include fix for ZVOL sync/flush regression that was
+    introduced with ZFS 2.2.7
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 16 Mar 2025 19:52:50 +0100
+
 proxmox-kernel-6.11 (6.11.11-1) bookworm; urgency=medium
 
   * updated sources to Ubuntu-6.11.0-13.14
