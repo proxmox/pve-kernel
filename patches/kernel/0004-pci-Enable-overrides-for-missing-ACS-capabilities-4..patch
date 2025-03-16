@@ -75,7 +75,7 @@ index 4d27542bebcbff40ae27446410207cd32272f2b7..87480be6e054df3927c5691a49c0dd18
  				Safety option to keep boot IRQs enabled. This
  				should never be necessary.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index bd2470ec3922f13843f2adcf0df41b5be91fbf94..0d0781ede9235c154e061eb11b38815931c352f7 100644
+index baf2f6e94ea536bb223422bde537c441bc002f78..230f4f2a89772d61e50b4295b95fd7d22b520ac1 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -300,6 +300,106 @@ static int __init pci_apply_final_quirks(void)
@@ -185,7 +185,7 @@ index bd2470ec3922f13843f2adcf0df41b5be91fbf94..0d0781ede9235c154e061eb11b388159
  /*
   * Decoding should be disabled for a PCI device during BAR sizing to avoid
   * conflict. But doing so may cause problems on host bridge and perhaps other
-@@ -5113,6 +5213,8 @@ static const struct pci_dev_acs_enabled {
+@@ -5124,6 +5224,8 @@ static const struct pci_dev_acs_enabled {
  	{ PCI_VENDOR_ID_CAVIUM, 0xA060, pci_quirk_mf_endpoint_acs },
  	/* APM X-Gene */
  	{ PCI_VENDOR_ID_AMCC, 0xE004, pci_quirk_xgene_acs },

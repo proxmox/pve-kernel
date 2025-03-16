@@ -1,4 +1,4 @@
-From 48ebfb955228ae4804c2c666a7b200bd38f330b0 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Ilya Maximets <i.maximets@ovn.org>
 Date: Thu, 9 Jan 2025 13:21:24 +0100
 Subject: [PATCH] openvswitch: fix lockup on tx to unregistering netdev with
@@ -58,7 +58,7 @@ Signed-off-by: Friedrich Weber <f.weber@proxmox.com>
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 964225580824..0c0e4fb58bf4 100644
+index 96422558082476316bc0ab6a28e41c8103c44b8a..0c0e4fb58bf4d5d180bf883e430573c9aa359143 100644
 --- a/net/openvswitch/actions.c
 +++ b/net/openvswitch/actions.c
 @@ -925,7 +925,9 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
@@ -72,6 +72,3 @@ index 964225580824..0c0e4fb58bf4 100644
  		u16 mru = OVS_CB(skb)->mru;
  		u32 cutlen = OVS_CB(skb)->cutlen;
  
--- 
-2.39.5
-
