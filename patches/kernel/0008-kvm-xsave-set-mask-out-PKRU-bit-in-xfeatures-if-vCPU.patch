@@ -72,33 +72,32 @@ maintenance burden is high.
 
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- arch/x86/kvm/cpuid.c |  6 ++++++
+ arch/x86/kvm/cpuid.c |  5 +++++
  arch/x86/kvm/cpuid.h |  3 +++
  arch/x86/kvm/x86.c   | 13 +++++++++++++
- 3 files changed, 22 insertions(+)
+ 3 files changed, 21 insertions(+)
 
 diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
-index be2baf851ec7d63a2095247d828f390b9757f905..dc73965aa73b21d26b4cf039336da3ca38e89bc6 100644
+index 121edf1f2a79ac9f7fcf881a51d374c62f689c5b..837035bb4e3629428befeac73f14793b5cb45c82 100644
 --- a/arch/x86/kvm/cpuid.c
 +++ b/arch/x86/kvm/cpuid.c
-@@ -290,6 +290,12 @@ static u64 cpuid_get_supported_xcr0(struct kvm_cpuid_entry2 *entries, int nent)
+@@ -291,6 +291,11 @@ static u64 cpuid_get_supported_xcr0(struct kvm_vcpu *vcpu)
  	return (best->eax | ((u64)best->edx << 32)) & kvm_caps.supported_xcr0;
  }
  
 +bool vcpu_supports_xsave_pkru(struct kvm_vcpu *vcpu) {
-+	u64 guest_supported_xcr0 = cpuid_get_supported_xcr0(
-+	    vcpu->arch.cpuid_entries, vcpu->arch.cpuid_nent);
++	u64 guest_supported_xcr0 = cpuid_get_supported_xcr0(vcpu);
 +	return (guest_supported_xcr0 & XFEATURE_MASK_PKRU) != 0;
 +}
 +
- static void __kvm_update_cpuid_runtime(struct kvm_vcpu *vcpu, struct kvm_cpuid_entry2 *entries,
- 				       int nent)
- {
+ static __always_inline void kvm_update_feature_runtime(struct kvm_vcpu *vcpu,
+ 						       struct kvm_cpuid_entry2 *entry,
+ 						       unsigned int x86_feature,
 diff --git a/arch/x86/kvm/cpuid.h b/arch/x86/kvm/cpuid.h
-index ad479cfb91bc7bc5d400d2c098536abb4d4babe5..e55eecb2f3646ff7ef63c107c5cc5481fabb8a51 100644
+index 67d80aa72d50d1323375068f7a75224d8529974b..47b08881a3f0e3f6c0b2e8085d75250fe5a32f65 100644
 --- a/arch/x86/kvm/cpuid.h
 +++ b/arch/x86/kvm/cpuid.h
-@@ -32,7 +32,10 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
+@@ -31,7 +31,10 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
  bool kvm_cpuid(struct kvm_vcpu *vcpu, u32 *eax, u32 *ebx,
  	       u32 *ecx, u32 *edx, bool exact_only);
  
@@ -110,10 +109,10 @@ index ad479cfb91bc7bc5d400d2c098536abb4d4babe5..e55eecb2f3646ff7ef63c107c5cc5481
  
  int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 4040bdebebf2ff5783895608215505f13ded668f..aa7d3ef88a644565afdacec434547a284b2f0f76 100644
+index 4b64ab350bcd4d122adbe9416523bec692e5fc4f..2e8d971f9df00537581cf41eae64d93a4e932801 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -5633,6 +5633,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
+@@ -5596,6 +5596,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
  	if (fpstate_is_confidential(&vcpu->arch.guest_fpu))
  		return vcpu->kvm->arch.has_protected_state ? -EINVAL : 0;
  

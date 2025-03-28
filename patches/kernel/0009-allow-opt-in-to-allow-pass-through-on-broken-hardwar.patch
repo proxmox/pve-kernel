@@ -11,10 +11,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index 0d80f97ecc8a3d9c6a75d522494e1687fa29ac49..676f94c491dc87b5882100c6e08af0f3221592b2 100644
+index b859d7396e7e8a80856e86d50ecffbe181e945c3..7c8f66e29463e82269c4b8893ccd9647cebcacd5 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -228,6 +228,7 @@ EXPORT_SYMBOL_GPL(intel_iommu_enabled);
+@@ -218,6 +218,7 @@ EXPORT_SYMBOL_GPL(intel_iommu_enabled);
  static int dmar_map_ipu = 1;
  static int intel_iommu_superpage = 1;
  static int iommu_identity_mapping;
@@ -22,7 +22,7 @@ index 0d80f97ecc8a3d9c6a75d522494e1687fa29ac49..676f94c491dc87b5882100c6e08af0f3
  static int iommu_skip_te_disable;
  static int disable_igfx_iommu;
  
-@@ -290,6 +291,9 @@ static int __init intel_iommu_setup(char *str)
+@@ -280,6 +281,9 @@ static int __init intel_iommu_setup(char *str)
  		} else if (!strncmp(str, "tboot_noforce", 13)) {
  			pr_info("Intel-IOMMU: not forcing on after tboot. This could expose security risk for tboot\n");
  			intel_iommu_tboot_noforce = 1;
@@ -32,7 +32,7 @@ index 0d80f97ecc8a3d9c6a75d522494e1687fa29ac49..676f94c491dc87b5882100c6e08af0f3
  		} else {
  			pr_notice("Unknown option - '%s'\n", str);
  		}
-@@ -2165,7 +2169,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
+@@ -1889,7 +1893,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
  		return false;
  
  	pdev = to_pci_dev(dev);

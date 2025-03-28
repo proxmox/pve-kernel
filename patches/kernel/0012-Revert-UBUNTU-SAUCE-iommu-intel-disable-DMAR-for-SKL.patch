@@ -17,10 +17,10 @@ gfx").
  1 file changed, 68 deletions(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index 676f94c491dc87b5882100c6e08af0f3221592b2..00bf41e964fb3c62fce13b49f55c01295ea3e6fd 100644
+index 7c8f66e29463e82269c4b8893ccd9647cebcacd5..851667c6c22f063a47f569ab9c4bf2781f68230a 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -4782,74 +4782,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
+@@ -4557,74 +4557,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163A, quirk_iommu_igfx);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163D, quirk_iommu_igfx);
  
