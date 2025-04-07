@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Qiuxu Zhuo <qiuxu.zhuo@intel.com>
+Date: Wed, 12 Feb 2025 16:33:54 +0800
+Subject: [PATCH] EDAC/igen6: Fix the flood of invalid error reports
+
+The ECC_ERROR_LOG register of certain SoCs may contain the invalid value
+~0, which results in a flood of invalid error reports in polling mode.
+
+Fix the flood of invalid error reports by skipping the invalid ECC error
+log value ~0.
+
+Fixes: e14232afa944 ("EDAC/igen6: Add polling support")
+Reported-by: Ramses <ramses@well-founded.dev>
+Closes: https://lore.kernel.org/all/OISL8Rv--F-9@well-founded.dev/
+Tested-by: Ramses <ramses@well-founded.dev>
+Reported-by: John <therealgraysky@proton.me>
+Closes: https://lore.kernel.org/all/p5YcxOE6M3Ncxpn2-Ia_wCt61EM4LwIiN3LroQvT_-G2jMrFDSOW5k2A9D8UUzD2toGpQBN1eI0sL5dSKnkO8iteZegLoQEj-DwQaMhGx4A=@proton.me/
+Tested-by: John <therealgraysky@proton.me>
+Signed-off-by: Qiuxu Zhuo <qiuxu.zhuo@intel.com>
+Link: https://lore.proxmox.com/20250212083354.31919-1-qiuxu.zhuo@intel.com
+---
+ drivers/edac/igen6_edac.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/edac/igen6_edac.c b/drivers/edac/igen6_edac.c
+index fdf3a84fe6988b62ff608fd085241019e08ae992..595908af9e5c93e78480247daaf56dedbc3d9de2 100644
+--- a/drivers/edac/igen6_edac.c
++++ b/drivers/edac/igen6_edac.c
+@@ -785,13 +785,22 @@ static u64 ecclog_read_and_clear(struct igen6_imc *imc)
+ {
+ 	u64 ecclog = readq(imc->window + ECC_ERROR_LOG_OFFSET);
+ 
+-	if (ecclog & (ECC_ERROR_LOG_CE | ECC_ERROR_LOG_UE)) {
+-		/* Clear CE/UE bits by writing 1s */
+-		writeq(ecclog, imc->window + ECC_ERROR_LOG_OFFSET);
+-		return ecclog;
+-	}
++	/*
++	 * Quirk: The ECC_ERROR_LOG register of certain SoCs may contain
++	 *        the invalid value ~0. This will result in a flood of invalid
++	 *        error reports in polling mode. Skip it.
++	 */
++	if (ecclog == ~0)
++		return 0;
+ 
+-	return 0;
++	/* Neither a CE nor a UE. Skip it.*/
++	if (!(ecclog & (ECC_ERROR_LOG_CE | ECC_ERROR_LOG_UE)))
++		return 0;
++
++	/* Clear CE/UE bits by writing 1s */
++	writeq(ecclog, imc->window + ECC_ERROR_LOG_OFFSET);
++
++	return ecclog;
+ }
+ 
+ static void errsts_clear(struct igen6_imc *imc)
