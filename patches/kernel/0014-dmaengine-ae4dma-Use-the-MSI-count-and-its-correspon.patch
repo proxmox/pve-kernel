@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Basavaraj Natikar <Basavaraj.Natikar@amd.com>
+Date: Mon, 3 Feb 2025 21:55:10 +0530
+Subject: [PATCH] dmaengine: ae4dma: Use the MSI count and its corresponding
+ IRQ number
+
+Instead of using the defined maximum hardware queue, which can lead to
+incorrect values if the counts mismatch, use the exact supported MSI
+count and its corresponding IRQ number.
+
+Fixes: 90a30e268d9b ("dmaengine: ae4dma: Add AMD ae4dma controller driver")
+Signed-off-by: Basavaraj Natikar <Basavaraj.Natikar@amd.com>
+---
+ drivers/dma/amd/ae4dma/ae4dma-pci.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/dma/amd/ae4dma/ae4dma-pci.c b/drivers/dma/amd/ae4dma/ae4dma-pci.c
+index aad0dc4294a3945245737978c077eecf740ccb3a..587c5a10c1a8b2dbb925c31af86b1d0b23438b45 100644
+--- a/drivers/dma/amd/ae4dma/ae4dma-pci.c
++++ b/drivers/dma/amd/ae4dma/ae4dma-pci.c
+@@ -46,8 +46,8 @@ static int ae4_get_irqs(struct ae4_device *ae4)
+ 
+ 	} else {
+ 		ae4_msix->msix_count = ret;
+-		for (i = 0; i < MAX_AE4_HW_QUEUES; i++)
+-			ae4->ae4_irq[i] = ae4_msix->msix_entry[i].vector;
++		for (i = 0; i < ae4_msix->msix_count; i++)
++			ae4->ae4_irq[i] = pci_irq_vector(pdev, i);
+ 	}
+ 
+ 	return ret;
