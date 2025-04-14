@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Basavaraj Natikar <Basavaraj.Natikar@amd.com>
+Date: Mon, 3 Feb 2025 21:55:09 +0530
+Subject: [PATCH] dmaengine: ae4dma: Remove deprecated PCI IDs
+
+Two previously used PCI IDs are deprecated and should not be used for
+AE4DMA. Hence, remove as they are unsupported for AE4DMA.
+
+Fixes: 90a30e268d9b ("dmaengine: ae4dma: Add AMD ae4dma controller driver")
+Signed-off-by: Basavaraj Natikar <Basavaraj.Natikar@amd.com>
+Link: https://lore.kernel.org/r/20250203162511.911946-2-Basavaraj.Natikar@amd.com
+Signed-off-by: Vinod Koul <vkoul@kernel.org>
+(cherry picked from commit b87c29c007e80f4737a056b3c5c21b5b5106b7f7)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/dma/amd/ae4dma/ae4dma-pci.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/dma/amd/ae4dma/ae4dma-pci.c b/drivers/dma/amd/ae4dma/ae4dma-pci.c
+index 587c5a10c1a8b2dbb925c31af86b1d0b23438b45..2c63907db22825e260653c6e9654e2b9eaa10d43 100644
+--- a/drivers/dma/amd/ae4dma/ae4dma-pci.c
++++ b/drivers/dma/amd/ae4dma/ae4dma-pci.c
+@@ -137,8 +137,6 @@ static void ae4_pci_remove(struct pci_dev *pdev)
+ }
+ 
+ static const struct pci_device_id ae4_pci_table[] = {
+-	{ PCI_VDEVICE(AMD, 0x14C8), },
+-	{ PCI_VDEVICE(AMD, 0x14DC), },
+ 	{ PCI_VDEVICE(AMD, 0x149B), },
+ 	/* Last entry must be zero */
+ 	{ 0, }
