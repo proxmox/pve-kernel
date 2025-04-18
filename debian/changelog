@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-10) bookworm; urgency=medium
+
+  * cherry-pick "bnxt_en: Fix GSO type for HW GRO packets on 5750X chips".
+
+  * update source and patches to Ubuntu-6.8.0-60.63
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Apr 2025 09:39:25 +0200
+
 proxmox-kernel-6.8 (6.8.12-9) bookworm; urgency=medium
 
   * update source and patches to Ubuntu-6.8.0-58.60
