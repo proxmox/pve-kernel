@@ -75,7 +75,7 @@ index 4d27542bebcbff40ae27446410207cd32272f2b7..87480be6e054df3927c5691a49c0dd18
  				Safety option to keep boot IRQs enabled. This
  				should never be necessary.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index baf2f6e94ea536bb223422bde537c441bc002f78..230f4f2a89772d61e50b4295b95fd7d22b520ac1 100644
+index e18a67f288dffbb906e6da0f50570b0550bf29f8..ea567e1eb6eec02f989349b691f69f9e3bc3612a 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -300,6 +300,106 @@ static int __init pci_apply_final_quirks(void)
