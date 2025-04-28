@@ -17,7 +17,7 @@ open(my $FIND_KO_FH, "find '$dir' -name '*.ko'|");
 while (defined(my $fn = <$FIND_KO_FH>)) {
     chomp $fn;
     my $relfn = $fn;
-    $relfn =~ s|^$dir/*||;
+    $relfn =~ s|^\Q$dir\E/*||;
 
     my $cmd = "/sbin/modinfo -F firmware '$fn'";
     open(my $MOD_FH, "$cmd|");
