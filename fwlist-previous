@@ -562,6 +562,7 @@ amdgpu/topaz_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/topaz_sdma.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/topaz_sdma1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/topaz_smc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/umsch_mm_4_0_0.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vangogh_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vangogh_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vangogh_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
