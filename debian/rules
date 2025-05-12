@@ -166,15 +166,15 @@ binary: install
 
 .install_mark: .compile_mark .modules_compile_mark
 	rm -rf debian/$(PMX_KERNEL_PKG)
-	mkdir -p debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)
+	mkdir -p debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)
 	mkdir debian/$(PMX_KERNEL_PKG)/boot
 	install -m 644 $(KERNEL_SRC)/.config debian/$(PMX_KERNEL_PKG)/boot/config-$(KVNAME)
 	install -m 644 $(KERNEL_SRC)/System.map debian/$(PMX_KERNEL_PKG)/boot/System.map-$(KVNAME)
 	install -m 644 $(KERNEL_SRC)/$(KERNEL_IMAGE_PATH) debian/$(PMX_KERNEL_PKG)/boot/$(KERNEL_INSTALL_FILE)-$(KVNAME)
-	$(MAKE) -C $(KERNEL_SRC) INSTALL_MOD_PATH=$(BUILD_DIR)/debian/$(PMX_KERNEL_PKG)/ modules_install
+	$(MAKE) -C $(KERNEL_SRC) INSTALL_MOD_PATH=$(BUILD_DIR)/debian/$(PMX_KERNEL_PKG)/usr/ modules_install
 	# install zfs drivers
-	install -d -m 0755 debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/zfs
-	install -m 644 $(MODULES)/zfs.ko $(MODULES)/spl.ko debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/zfs
+	install -d -m 0755 debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)/zfs
+	install -m 644 $(MODULES)/zfs.ko $(MODULES)/spl.ko debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)/zfs
 	# remove firmware
 	rm -rf debian/$(PMX_KERNEL_PKG)/lib/firmware
 
@@ -182,33 +182,33 @@ ifeq ($(filter pkg.proxmox-kernel.debug,$(DEB_BUILD_PROFILES)),)
 	echo "'pkg.proxmox-kernel.debug' build profile disabled, skipping -dbgsym creation"
 else
 	echo "'pkg.proxmox-kernel.debug' build profile enabled, creating -dbgsym contents"
-	mkdir -p debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)
+	mkdir -p debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/usr/lib/modules/$(KVNAME)
 	mkdir debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/boot
 	install -m 644 $(KERNEL_SRC)/vmlinux debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/boot/vmlinux-$(KVNAME)
-	cp -r debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME) debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/
-	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/source
-	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/build
-	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/lib/modules/$(KVNAME)/modules.*
+	cp -r debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME) debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/usr/lib/modules/
+	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/usr/lib/modules/$(KVNAME)/source
+	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/usr/lib/modules/$(KVNAME)/build
+	rm -f debian/$(PMX_DEBUG_KERNEL_PKG)/usr/lib/debug/usr/lib/modules/$(KVNAME)/modules.*
 endif
 
 	# strip debug info
-	find debian/$(PMX_KERNEL_PKG)/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
+	find debian/$(PMX_KERNEL_PKG)/usr/lib/modules -name \*.ko -print | while read f ; do strip --strip-debug "$$f"; done
 
 	# sign modules using ephemeral, embedded key
 	if grep -q CONFIG_MODULE_SIG=y ubuntu-kernel/.config ; then \
-		find debian/$(PMX_KERNEL_PKG)/lib/modules -name \*.ko -print | while read f ; do \
+		find debian/$(PMX_KERNEL_PKG)/usr/lib/modules -name \*.ko -print | while read f ; do \
 			./ubuntu-kernel/scripts/sign-file sha512 ./ubuntu-kernel/certs/signing_key.pem ubuntu-kernel/certs/signing_key.x509 "$$f" ; \
 		done; \
 	fi
 	# finalize
-	/sbin/depmod -b debian/$(PMX_KERNEL_PKG)/ $(KVNAME)
+	/sbin/depmod -b debian/$(PMX_KERNEL_PKG)/usr/ $(KVNAME)
 	# Autogenerate blacklist for watchdog devices (see README)
-	install -m 0755 -d debian/$(PMX_KERNEL_PKG)/lib/modprobe.d
-	ls debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/kernel/drivers/watchdog/ > watchdog-blacklist.tmp
+	install -m 0755 -d debian/$(PMX_KERNEL_PKG)/usr/lib/modprobe.d
+	ls debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)/kernel/drivers/watchdog/ > watchdog-blacklist.tmp
 	echo ipmi_watchdog.ko >> watchdog-blacklist.tmp
-	cat watchdog-blacklist.tmp|sed -e 's/^/blacklist /' -e 's/.ko$$//'|sort -u > debian/$(PMX_KERNEL_PKG)/lib/modprobe.d/blacklist_$(PMX_KERNEL_PKG).conf
-	rm -f debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/source
-	rm -f debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME)/build
+	cat watchdog-blacklist.tmp|sed -e 's/^/blacklist /' -e 's/.ko$$//'|sort -u > debian/$(PMX_KERNEL_PKG)/usr/lib/modprobe.d/blacklist_$(PMX_KERNEL_PKG).conf
+	rm -f debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)/source
+	rm -f debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)/build
 
 	# copy signing template contents
 	rm -rf debian/${PMX_KERNEL_SIGNING_TEMPLATE_PKG}
@@ -292,8 +292,8 @@ endif
 .headers_install_mark: .compile_mark .modules_compile_mark .headers_compile_mark
 	cp $(KERNEL_SRC)/include/generated/compile.h debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/include/generated/compile.h
 	install -m 0644 $(KERNEL_SRC)/Module.symvers debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
-	mkdir -p debian/$(PMX_HEADER_PKG)/lib/modules/$(KVNAME)
-	ln -sf /usr/src/linux-headers-$(KVNAME) debian/$(PMX_HEADER_PKG)/lib/modules/$(KVNAME)/build
+	mkdir -p debian/$(PMX_HEADER_PKG)/usr/lib/modules/$(KVNAME)
+	ln -sf /usr/src/linux-headers-$(KVNAME) debian/$(PMX_HEADER_PKG)/usr/lib/modules/$(KVNAME)/build
 	touch $@
 
 .usr_headers_install_mark: PKG_DIR = debian/$(PMX_USR_HEADER_PKG)
@@ -323,7 +323,7 @@ $(MODULES)/zfs.ko: .compile_mark
 	cp $(MODULES)/$(ZFSDIR)/module/spl.ko $(MODULES)/
 
 fwlist-$(KVNAME): .compile_mark .modules_compile_mark
-	debian/scripts/find-firmware.pl debian/$(PMX_KERNEL_PKG)/lib/modules/$(KVNAME) >fwlist.tmp
+	debian/scripts/find-firmware.pl debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME) >fwlist.tmp
 	mv fwlist.tmp $@
 
 .PHONY: fwcheck
