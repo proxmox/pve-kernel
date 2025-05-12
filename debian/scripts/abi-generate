@@ -1,45 +1,35 @@
-#!/usr/bin/perl
+#!/bin/bash
 
-use strict;
-use warnings;
-
-use PVE::Tools ();
-
-use IO::File ();
-
-sub usage {
-    die "USAGE: $0 INFILE OUTFILE [ABI INFILE-IS-DEB]\n";
+usage() {
+    echo "USAGE: $0 INFILE OUTFILE [ABI INFILE-IS-DEB]" >&2
+    exit 1
 }
 
-my $input_file = shift // usage();
-my $output_file = shift // usage();
-my $abi = shift;
-my $extract_deb = shift;
+input_file="$1"
+output_file="$2"
+abi="$3"
+extract_deb="$4"
 
-die "input file '$input_file' does not exist\n" if ! -e $input_file;
+[ -z "$input_file" ] && usage
+[ -z "$output_file" ] && usage
+[ ! -e "$input_file" ] && echo "input file '$input_file' does not exist" >&2 && exit 1
 
-my $modules_symver_fh;
+if [ -n "$extract_deb" ]; then
+    [ -z "$abi" ] && usage
+    exec 3< <(dpkg --fsys-tarfile "$input_file" | tar -xOf - "./usr/src/linux-headers-${abi}/Module.symvers")
+else
+    exec 3< "$input_file"
+fi
 
-if ($extract_deb) {
-	usage() if !defined($abi);
-	my $cmd = [];
-	push @$cmd, ['dpkg', '--fsys-tarfile', $input_file];
-	push @$cmd, ['tar', '-xOf', '-', "./usr/src/linux-headers-${abi}/Module.symvers"];
-	$modules_symver_fh = IO::File->new_tmpfile();
-	PVE::Tools::run_command($cmd, output => '>&'.fileno($modules_symver_fh));
-	seek($modules_symver_fh, 0, 0);
-} else {
-	open($modules_symver_fh, '<', $input_file) or die "can't open '$input_file' - $!\n";
-}
+awk '{
+    if (NF >= 3) {
+        printf "%s %s ", $NF, $(NF-1)
+        for (i = 1; i <= NF-2; i++)
+            printf "%s%s", $i, (i < NF-2 ? "\t" : "")
+        print ""
+    } else {
+        print "malformed symvers line: \""$0"\"" > "/dev/stderr"
+    }
+}' <&3 | sort > "$output_file"
 
-my $lines = [];
-while(my $line = <$modules_symver_fh>) {
-	if ($line =~ /^(.+)\s+(.+)\s+(.+)$/) {
-		push @$lines, "$3 $2 $1";
-	} else {
-		warn "malformed symvers line: '$line'\n";
-	}
-}
-close($modules_symver_fh);
-
-PVE::Tools::file_set_contents($output_file, join("\n", sort @$lines));
+exec 3<&-
