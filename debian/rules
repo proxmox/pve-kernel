@@ -199,7 +199,6 @@ endif
 		find debian/$(PMX_KERNEL_PKG)/lib/modules -name \*.ko -print | while read f ; do \
 			./ubuntu-kernel/scripts/sign-file sha512 ./ubuntu-kernel/certs/signing_key.pem ubuntu-kernel/certs/signing_key.x509 "$$f" ; \
 		done; \
-		rm ./ubuntu-kernel/certs/signing_key.pem ; \
 	fi
 	# finalize
 	/sbin/depmod -b debian/$(PMX_KERNEL_PKG)/ $(KVNAME)
@@ -225,6 +224,11 @@ endif
 		debian/signing-template/SOURCE \
 		debian/${PMX_KERNEL_SIGNING_TEMPLATE_PKG}/usr/share/code-signing/${PMX_KERNEL_SIGNING_TEMPLATE_PKG}/source-template/debian
 	cp debian/signing-template/files.json debian/${PMX_KERNEL_SIGNING_TEMPLATE_PKG}/usr/share/code-signing/${PMX_KERNEL_SIGNING_TEMPLATE_PKG}/
+
+	# only clean-up signing key now to allow continuing build if anything from above fails
+	if grep -q CONFIG_MODULE_SIG=y ubuntu-kernel/.config ; then \
+		rm ./ubuntu-kernel/certs/signing_key.pem ; \
+	fi
 
 	touch $@
 
