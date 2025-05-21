@@ -1,3 +1,9 @@
+proxmox-kernel-6.14 (6.14.5-1) trixie; urgency=medium
+
+  * update sources to Ubuntu-6.14.0-22.22 based on upstream stable 6.14.5
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 May 2025 17:33:29 +0200
+
 proxmox-kernel-6.14 (6.14.4-1+deb13u1) trixie; urgency=medium
 
   * re-build for Debian Trixie based releases.
