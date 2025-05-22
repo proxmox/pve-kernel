@@ -8,11 +8,18 @@ KERNEL_PATCHLEVEL=4
 # rebuild packages with new KREL and run 'make abiupdate'
 KREL=1
 
+# Use to create a separate package for the same version, like -bpoXY for backport or test-$foo.
+# This way the package can be co-installed with the original, a requirement for major dist updates.
+KREL_EXTRA=
+# Normally empty, but allows adding a part just for the debian package revision, like ~bpoXY+Z.
+# For the kernel pkg itself it wouldn't matter, but for the meta pkgs it allows major dist upgrades.
+PKG_REV_EXTRA=
+
 KERNEL_MAJMIN=$(KERNEL_MAJ).$(KERNEL_MIN)
 KERNEL_VER=$(KERNEL_MAJMIN).$(KERNEL_PATCHLEVEL)
 
-DEB_VERSION=$(KERNEL_VER)-$(KREL)
-EXTRAVERSION=-$(KREL)-pve
+DEB_VERSION=$(KERNEL_VER)-$(KREL)$(PKG_REV_EXTRA)
+EXTRAVERSION=-$(KREL)$(KREL_EXTRA)-pve
 KVNAME=$(KERNEL_VER)$(EXTRAVERSION)
 PACKAGE=proxmox-kernel-$(KVNAME)
 HDRPACKAGE=proxmox-headers-$(KVNAME)
@@ -43,7 +50,7 @@ MODULE_DIRS=$(ZFSDIR)
 # exported to debian/rules via debian/rules.d/dirs.mk
 DIRS=KERNEL_SRC ZFSDIR MODULES
 
-DSC=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(KREL).dsc
+DSC=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(KREL)$(KREL_EXTRA).dsc
 DST_DEB=$(PACKAGE)_$(DEB_VERSION)_$(ARCH).deb
 SIGNED_TEMPLATE_DEB=$(PACKAGE)-signed-template_$(DEB_VERSION)_$(ARCH).deb
 META_DEB=proxmox-kernel-$(KERNEL_MAJMIN)_$(DEB_VERSION)_all.deb
