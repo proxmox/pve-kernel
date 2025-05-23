@@ -3,17 +3,17 @@ include /usr/share/dpkg/pkg-info.mk
 # also bump proxmox-kernel-meta if the default MAJ.MIN version changes!
 KERNEL_MAJ=6
 KERNEL_MIN=14
-KERNEL_PATCHLEVEL=4
+KERNEL_PATCHLEVEL=5
 # increment KREL for every published package release!
 # rebuild packages with new KREL and run 'make abiupdate'
 KREL=1
 
 # Use to create a separate package for the same version, like -bpoXY for backport or test-$foo.
 # This way the package can be co-installed with the original, a requirement for major dist updates.
-KREL_EXTRA=
+KREL_EXTRA=-bpo12
 # Normally empty, but allows adding a part just for the debian package revision, like ~bpoXY+Z.
 # For the kernel pkg itself it wouldn't matter, but for the meta pkgs it allows major dist upgrades.
-PKG_REV_EXTRA=
+PKG_REV_EXTRA=~bpo12+1
 
 KERNEL_MAJMIN=$(KERNEL_MAJ).$(KERNEL_MIN)
 KERNEL_VER=$(KERNEL_MAJMIN).$(KERNEL_PATCHLEVEL)

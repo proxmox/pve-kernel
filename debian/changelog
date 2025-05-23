@@ -1,3 +1,12 @@
+proxmox-kernel-6.14 (6.14.5-1~bpo12+1) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.14.0-22.22 based on upstream stable 6.14.5.
+
+  * ship modules in canonical /usr/lib path, avoiding the aliased /lib one to
+    better follow usrmerge.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 May 2025 17:55:32 +0200
+
 proxmox-kernel-6.14 (6.14.4-1) bookworm; urgency=medium
 
   * update sources to Ubuntu-6.14.0-17.17 based on upstream stable 6.14.4
