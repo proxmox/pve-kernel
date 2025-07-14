@@ -55,7 +55,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 111 insertions(+)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 4d27542bebcbff40ae27446410207cd32272f2b7..87480be6e054df3927c5691a49c0dd185fba0410 100644
+index 85b71fbb7531aca70028b32237960a067b48f9a8..34bea8435043d51d82c89db7349e5d71581af499 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
 @@ -4397,6 +4397,15 @@
@@ -75,7 +75,7 @@ index 4d27542bebcbff40ae27446410207cd32272f2b7..87480be6e054df3927c5691a49c0dd18
  				Safety option to keep boot IRQs enabled. This
  				should never be necessary.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index e18a67f288dffbb906e6da0f50570b0550bf29f8..ea567e1eb6eec02f989349b691f69f9e3bc3612a 100644
+index e2e386639e3f08d28577ba218ea24527a55b17fc..45356aaaa8d052a17c072b7d9e2585af79114c78 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -300,6 +300,106 @@ static int __init pci_apply_final_quirks(void)
