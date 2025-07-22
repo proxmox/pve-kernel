@@ -1,3 +1,9 @@
+proxmox-kernel-6.14 (6.14.8-2~bpo12+1) bookworm-backports; urgency=medium
+
+  * backport fix for passthrough for devices without PCI power management.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 22 Jul 2025 15:15:15 +0200
+
 proxmox-kernel-6.14 (6.14.8-1~bpo12+1) bookworm-backports; urgency=medium
 
   * update sources to Ubuntu-6.14.0-26.26 based on upstream stable 6.14.8.
