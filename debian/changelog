@@ -1,3 +1,10 @@
+proxmox-kernel-6.8 (6.8.12-13) bookworm; urgency=medium
+
+  * backport fix for passthrough of devices without proper PCI power
+    management.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 22 Jul 2025 12:00:43 +0200
+
 proxmox-kernel-6.8 (6.8.12-12) bookworm; urgency=medium
 
   * update ZFS to 2.2.8
