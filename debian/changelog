@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-14) bookworm; urgency=medium
+
+  * update source and patches to Ubuntu-6.8.0-80.80.
+
+  * update ZFS to include fix for enforcing arc_dnode_limit.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 27 Aug 2025 00:25:08 +0200
+
 proxmox-kernel-6.8 (6.8.12-13) bookworm; urgency=medium
 
   * backport fix for passthrough of devices without proper PCI power
