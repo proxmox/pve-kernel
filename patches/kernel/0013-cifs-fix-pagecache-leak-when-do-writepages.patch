@@ -42,12 +42,13 @@ Cc: stable@kernel.org # v6.6+
 Signed-off-by: Yang Erkun <yangerkun@huawei.com>
 (picked from https://lore.kernel.org/linux-cifs/20240625034332.750312-1-yangerkun@huawei.com/)
 Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  fs/smb/client/file.c | 16 +++++++++++++---
  1 file changed, 13 insertions(+), 3 deletions(-)
 
 diff --git a/fs/smb/client/file.c b/fs/smb/client/file.c
-index d495e3511014b9e628d0592d328f63b4a680de97..e755ae643c090e595bf2431e471eddff7b868e9f 100644
+index d495e3511014..e755ae643c09 100644
 --- a/fs/smb/client/file.c
 +++ b/fs/smb/client/file.c
 @@ -2845,17 +2845,21 @@ static ssize_t cifs_write_back_from_locked_folio(struct address_space *mapping,

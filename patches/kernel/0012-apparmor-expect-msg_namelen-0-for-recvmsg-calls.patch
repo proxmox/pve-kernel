@@ -12,12 +12,13 @@ This is likely not a final fix, it was suggested by jjohansen on irc
 to get things going until this is resolved properly.
 
 Signed-off-by: Wolfgang Bumiller <w.bumiller@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  security/apparmor/af_inet.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/security/apparmor/af_inet.c b/security/apparmor/af_inet.c
-index 57b710054a76582346f37671843f3f8d6e99331c..35f905d9b960f62fa2ecb80b5c1a8e9edecd9b5d 100644
+index 57b710054a76..35f905d9b960 100644
 --- a/security/apparmor/af_inet.c
 +++ b/security/apparmor/af_inet.c
 @@ -766,7 +766,7 @@ int aa_inet_msg_perm(const char *op, u32 request, struct socket *sock,

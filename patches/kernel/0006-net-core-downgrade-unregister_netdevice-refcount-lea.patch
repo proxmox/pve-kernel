@@ -9,12 +9,13 @@ Content-Transfer-Encoding: 8bit
 
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  net/core/dev.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 11f1e27b5da484b4cd9016877d44ced48d92d896..a667146e3141330e480e40629651e4cfe14203a7 100644
+index 1564fe7b4809..ef41224ef31b 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
 @@ -10533,7 +10533,7 @@ static struct net_device *netdev_wait_allrefs_any(struct list_head *list)
