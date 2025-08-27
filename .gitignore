@@ -1,2 +1,8 @@
-ubuntu-zesty
+*.buildinfo
+*.changes
+*.deb
+*.dsc
 *.prepared
+/abi-tmp*
+/config*.org
+/proxmox-kernel-[0-9]*/
