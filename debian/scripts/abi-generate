@@ -21,6 +21,8 @@ else
     exec 3< "$input_file"
 fi
 
+export LC_COLLATE=C.UTF-8
+
 awk '{
     if (NF >= 3) {
         printf "%s %s ", $NF, $(NF-1)
