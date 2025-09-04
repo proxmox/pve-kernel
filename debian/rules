@@ -146,7 +146,7 @@ install: .install_mark .tools_install_mark .headers_install_mark .usr_headers_in
 
 binary: install
 	debian/rules fwcheck abicheck
-	dh_strip -N$(PMX_HEADER_PKG) -N$(PMX_USR_HEADER_PKG)
+	dh_strip -N$(PMX_HEADER_PKG) -N$(PMX_USR_HEADER_PKG) -Xvmlinux -Xvmlinuz
 	dh_makeshlibs
 	dh_shlibdeps
 	dh_installdeb
