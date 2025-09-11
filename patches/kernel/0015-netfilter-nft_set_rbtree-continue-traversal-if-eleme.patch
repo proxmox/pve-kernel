@@ -1,0 +1,88 @@
+From 2af0ed300431a3c5675cd6a7219424430fa9651b Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Wed, 10 Sep 2025 12:08:56 +0200
+Subject: [PATCH 2/5] netfilter: nft_set_rbtree: continue traversal if element
+ is inactive
+
+When the rbtree lookup function finds a match in the rbtree, it sets the
+range start interval to a potentially inactive element.
+
+Then, after tree lookup, if the matching element is inactive, it returns
+NULL and suppresses a matching result.
+
+This is wrong and leads to false negative matches when a transaction has
+already entered the commit phase.
+
+cpu0					cpu1
+  has added new elements to clone
+  has marked elements as being
+  inactive in new generation
+					perform lookup in the set
+  enters commit phase:
+I) increments the genbit
+					A) observes new genbit
+					B) finds matching range
+					C) returns no match: found
+					range invalid in new generation
+II) removes old elements from the tree
+					C New nft_lookup happening now
+				       	  will find matching element,
+					  because it is no longer
+					  obscured by old, inactive one.
+
+Consider a packet matching range r1-r2:
+
+cpu0 processes following transaction:
+1. remove r1-r2
+2. add r1-r3
+
+P is contained in both ranges. Therefore, cpu1 should always find a match
+for P.  Due to above race, this is not the case:
+
+cpu1 does find r1-r2, but then ignores it due to the genbit indicating
+the range has been removed.  It does NOT test for further matches.
+
+The situation persists for all lookups until after cpu0 hits II) after
+which r1-r3 range start node is tested for the first time.
+
+Move the "interval start is valid" check ahead so that tree traversal
+continues if the starting interval is not valid in this generation.
+
+Thanks to Stefan Hanreich for providing an initial reproducer for this
+bug.
+
+Reported-by: Stefan Hanreich <s.hanreich@proxmox.com>
+Fixes: c1eda3c6394f ("netfilter: nft_rbtree: ignore inactive matching element with no descendants")
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+---
+ net/netfilter/nft_set_rbtree.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
+index 2e8ef16ff191..c4eb94258e24 100644
+--- a/net/netfilter/nft_set_rbtree.c
++++ b/net/netfilter/nft_set_rbtree.c
+@@ -77,7 +77,9 @@ static bool __nft_rbtree_lookup(const struct net *net, const struct nft_set *set
+ 			    nft_rbtree_interval_end(rbe) &&
+ 			    nft_rbtree_interval_start(interval))
+ 				continue;
+-			interval = rbe;
++			if (nft_set_elem_active(&rbe->ext, genmask) &&
++			    !nft_rbtree_elem_expired(rbe))
++				interval = rbe;
+ 		} else if (d > 0)
+ 			parent = rcu_dereference_raw(parent->rb_right);
+ 		else {
+@@ -103,8 +105,6 @@ static bool __nft_rbtree_lookup(const struct net *net, const struct nft_set *set
+ 	}
+ 
+ 	if (set->flags & NFT_SET_INTERVAL && interval != NULL &&
+-	    nft_set_elem_active(&interval->ext, genmask) &&
+-	    !nft_rbtree_elem_expired(interval) &&
+ 	    nft_rbtree_interval_start(interval)) {
+ 		*ext = &interval->ext;
+ 		return true;
+-- 
+2.47.3
+
