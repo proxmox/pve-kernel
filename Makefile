@@ -74,7 +74,7 @@ $(DST_DEB): $(BUILD_DIR).prepared
 
 dsc:
 	$(MAKE) $(DSC)
-	#lintian $(DSC)
+	lintian $(DSC)
 
 $(DSC): $(BUILD_DIR).prepared
 	cd $(BUILD_DIR); dpkg-buildpackage -S -uc -us -d
