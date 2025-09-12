@@ -22650,6 +22650,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x3239fbdb	osc_sb_native_usb4_support_confirmed
 EXPORT_SYMBOL_GPL vmlinux 0x3239fbdb	pm_trace_rtc_abused
 EXPORT_SYMBOL_GPL vmlinux 0x3239fbdb	static_key_initialized
 EXPORT_SYMBOL_GPL vmlinux 0x3239fbdb	tick_nohz_full_running
+EXPORT_SYMBOL_GPL vmlinux 0x3239fbdb	x86_ibpb_exit_to_user
 EXPORT_SYMBOL_GPL vmlinux 0x3239fbdb	xen_have_vector_callback
 EXPORT_SYMBOL_GPL vmlinux 0x3239fbdb	xen_percpu_upcall
 EXPORT_SYMBOL_GPL vmlinux 0x3239fbdb	xen_pvh
