@@ -39,35 +39,36 @@ only removes an unnecessary RFDS mitigation from specific steppings of certain I
 CPUs, and is not related to vmscape
 
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/include/asm/cpufeatures.h |  1 +
  arch/x86/kernel/cpu/common.c       | 63 +++++++++++++++++++-----------
  2 files changed, 42 insertions(+), 22 deletions(-)
 
 diff --git a/arch/x86/include/asm/cpufeatures.h b/arch/x86/include/asm/cpufeatures.h
-index b8fbd847c34afd264b8791044373e722b8632b9e..1279665342f9af6bf3b480755bae42d3a8628f4a 100644
+index 57794ec873aa41716c0ae9c2228c64370afa81c2..23b68c3651fda728813c1237993937b2893c76df 100644
 --- a/arch/x86/include/asm/cpufeatures.h
 +++ b/arch/x86/include/asm/cpufeatures.h
-@@ -537,4 +537,5 @@
- #define X86_BUG_IBPB_NO_RET	   	X86_BUG(1*32 + 4) /* "ibpb_no_ret" IBPB omits return target predictions */
+@@ -542,4 +542,5 @@
  #define X86_BUG_ITS			X86_BUG(1*32 + 5) /* "its" CPU is affected by Indirect Target Selection */
  #define X86_BUG_ITS_NATIVE_ONLY		X86_BUG(1*32 + 6) /* "its_native_only" CPU is affected by ITS, VMX is not affected */
-+#define X86_BUG_VMSCAPE			X86_BUG(1*32 + 7) /* "vmscape" CPU is affected by VMSCAPE attacks from guests */
+ #define X86_BUG_TSA			X86_BUG( 1*32+ 9) /* "tsa" CPU is affected by Transient Scheduler Attacks */
++#define X86_BUG_VMSCAPE			X86_BUG(1*32 + 10) /* "vmscape" CPU is affected by VMSCAPE attacks from guests */
  #endif /* _ASM_X86_CPUFEATURES_H */
 diff --git a/arch/x86/kernel/cpu/common.c b/arch/x86/kernel/cpu/common.c
-index 3820e3ad27fc12a5193cd97e98af4c18e409ed4b..9abcebc46e003ad849e5ef2814d801518ebd93f3 100644
+index ead1d95b01441f684e904511be5037f0ec9e6e89..45e081dfbf4fa2b4ab2883b673261395b8bb47ba 100644
 --- a/arch/x86/kernel/cpu/common.c
 +++ b/arch/x86/kernel/cpu/common.c
-@@ -1231,6 +1231,8 @@ static const __initconst struct x86_cpu_id cpu_vuln_whitelist[] = {
- #define ITS		BIT(8)
- /* CPU is affected by Indirect Target Selection, but guest-host isolation is not affected */
+@@ -1233,6 +1233,8 @@ static const __initconst struct x86_cpu_id cpu_vuln_whitelist[] = {
  #define ITS_NATIVE_ONLY	BIT(9)
+ /* CPU is affected by Transient Scheduler Attacks */
+ #define TSA		BIT(10)
 +/* CPU is affected by VMSCAPE */
-+#define VMSCAPE		BIT(10)
++#define VMSCAPE		BIT(11)
  
  static const struct x86_cpu_id cpu_vuln_blacklist[] __initconst = {
  	VULNBL_INTEL_STEPS(INTEL_IVYBRIDGE,	     X86_STEP_MAX,	SRBDS),
-@@ -1242,44 +1244,53 @@ static const struct x86_cpu_id cpu_vuln_blacklist[] __initconst = {
+@@ -1244,44 +1246,53 @@ static const struct x86_cpu_id cpu_vuln_blacklist[] __initconst = {
  	VULNBL_INTEL_STEPS(INTEL_BROADWELL_G,	     X86_STEP_MAX,	SRBDS),
  	VULNBL_INTEL_STEPS(INTEL_BROADWELL_X,	     X86_STEP_MAX,	MMIO),
  	VULNBL_INTEL_STEPS(INTEL_BROADWELL,	     X86_STEP_MAX,	SRBDS),
@@ -134,17 +135,17 @@ index 3820e3ad27fc12a5193cd97e98af4c18e409ed4b..9abcebc46e003ad849e5ef2814d80151
  	VULNBL_AMD(0x16, RETBLEED),
 -	VULNBL_AMD(0x17, RETBLEED | SMT_RSB | SRSO),
 -	VULNBL_HYGON(0x18, RETBLEED | SMT_RSB | SRSO),
--	VULNBL_AMD(0x19, SRSO),
+-	VULNBL_AMD(0x19, SRSO | TSA),
 -	VULNBL_AMD(0x1a, SRSO),
 +	VULNBL_AMD(0x17, RETBLEED | SMT_RSB | SRSO | VMSCAPE),
 +	VULNBL_HYGON(0x18, RETBLEED | SMT_RSB | SRSO | VMSCAPE),
-+	VULNBL_AMD(0x19, SRSO | VMSCAPE),
++	VULNBL_AMD(0x19, SRSO | TSA | VMSCAPE),
 +	VULNBL_AMD(0x1a, SRSO | VMSCAPE),
  	{}
  };
  
-@@ -1489,6 +1500,14 @@ static void __init cpu_set_bug_bits(struct cpuinfo_x86 *c)
- 			setup_force_cpu_bug(X86_BUG_ITS_NATIVE_ONLY);
+@@ -1501,6 +1512,14 @@ static void __init cpu_set_bug_bits(struct cpuinfo_x86 *c)
+ 		}
  	}
  
 +	/*

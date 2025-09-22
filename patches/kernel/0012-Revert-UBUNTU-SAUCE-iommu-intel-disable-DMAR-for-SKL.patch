@@ -12,6 +12,8 @@ This reverts both, commit b310f5f58c83 ("UBUNTU: SAUCE: iommu/intel:
 disable DMAR for SKL integrated gfx") and also commit 252bf1619fd5
 ("UBUNTU: SAUCE: iommu/intel: disable DMAR for KBL and CML integrated
 gfx").
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  drivers/iommu/intel/iommu.c | 68 -------------------------------------
  1 file changed, 68 deletions(-)

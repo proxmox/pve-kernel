@@ -12,16 +12,17 @@ Signed-off-by: Pawan Gupta <pawan.kumar.gupta@linux.intel.com>
 Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
 (cherry picked from commit 8a68d64bb10334426834e8c273319601878e961e)
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kernel/cpu/common.c | 21 ++++++++++++---------
  1 file changed, 12 insertions(+), 9 deletions(-)
 
 diff --git a/arch/x86/kernel/cpu/common.c b/arch/x86/kernel/cpu/common.c
-index 9abcebc46e003ad849e5ef2814d801518ebd93f3..efe346d9f7cb00fdb41997c5527f19cd971fa424 100644
+index 45e081dfbf4fa2b4ab2883b673261395b8bb47ba..1c3df4c3f825f2d765380bdb2298cc0c2a025562 100644
 --- a/arch/x86/kernel/cpu/common.c
 +++ b/arch/x86/kernel/cpu/common.c
-@@ -1235,15 +1235,18 @@ static const __initconst struct x86_cpu_id cpu_vuln_whitelist[] = {
- #define VMSCAPE		BIT(10)
+@@ -1237,15 +1237,18 @@ static const __initconst struct x86_cpu_id cpu_vuln_whitelist[] = {
+ #define VMSCAPE		BIT(11)
  
  static const struct x86_cpu_id cpu_vuln_blacklist[] __initconst = {
 -	VULNBL_INTEL_STEPS(INTEL_IVYBRIDGE,	     X86_STEP_MAX,	SRBDS),

@@ -25,15 +25,17 @@ Conflicts:
 	arch/x86/kernel/cpu/bugs.c
 FG: move current code (excluding AUTO variants and TSA)
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+ [TL: re-add TSA fixes in context recently included in ubuntu]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- arch/x86/kernel/cpu/bugs.c | 121 +++++++++++++++++++------------------
- 1 file changed, 61 insertions(+), 60 deletions(-)
+ arch/x86/kernel/cpu/bugs.c | 157 +++++++++++++++++++------------------
+ 1 file changed, 79 insertions(+), 78 deletions(-)
 
 diff --git a/arch/x86/kernel/cpu/bugs.c b/arch/x86/kernel/cpu/bugs.c
-index 80f71962d6e641efaa703250cf1949bf35aa23af..4e5b9fb5ca497f3d3be4746fbb3a30700aa8e030 100644
+index 167af2d4aebd82451fc14280dcd2822d9d5570f1..f31db89352c1b3ce4195145e73bce124321442f6 100644
 --- a/arch/x86/kernel/cpu/bugs.c
 +++ b/arch/x86/kernel/cpu/bugs.c
-@@ -2110,66 +2110,6 @@ static void update_mds_branch_idle(void)
+@@ -2111,10 +2111,6 @@ static void update_mds_branch_idle(void)
  	}
  }
  
@@ -41,6 +43,13 @@ index 80f71962d6e641efaa703250cf1949bf35aa23af..4e5b9fb5ca497f3d3be4746fbb3a3070
 -#define TAA_MSG_SMT "TAA CPU bug present and SMT on, data leak possible. See https://www.kernel.org/doc/html/latest/admin-guide/hw-vuln/tsx_async_abort.html for more details.\n"
 -#define MMIO_MSG_SMT "MMIO Stale Data CPU bug present and SMT on, data leak possible. See https://www.kernel.org/doc/html/latest/admin-guide/hw-vuln/processor_mmio_stale_data.html for more details.\n"
 -
+ #undef pr_fmt
+ #define pr_fmt(fmt)	"Transient Scheduler Attacks: " fmt
+ 
+@@ -2203,80 +2199,6 @@ static void __init tsa_select_mitigation(void)
+ 	pr_info("%s\n", tsa_strings[tsa_mitigation]);
+ }
+ 
 -void cpu_bugs_smt_update(void)
 -{
 -	mutex_lock(&spec_ctrl_mutex);
@@ -94,13 +103,31 @@ index 80f71962d6e641efaa703250cf1949bf35aa23af..4e5b9fb5ca497f3d3be4746fbb3a3070
 -		break;
 -	}
 -
+-	switch (tsa_mitigation) {
+-	case TSA_MITIGATION_USER_KERNEL:
+-	case TSA_MITIGATION_VM:
+-	case TSA_MITIGATION_FULL:
+-	case TSA_MITIGATION_UCODE_NEEDED:
+-		/*
+-		 * TSA-SQ can potentially lead to info leakage between
+-		 * SMT threads.
+-		 */
+-		if (sched_smt_active())
+-			static_branch_enable(&cpu_buf_idle_clear);
+-		else
+-			static_branch_disable(&cpu_buf_idle_clear);
+-		break;
+-	case TSA_MITIGATION_NONE:
+-		break;
+-	}
+-
 -	mutex_unlock(&spec_ctrl_mutex);
 -}
 -
  #undef pr_fmt
  #define pr_fmt(fmt)	"Speculative Store Bypass: " fmt
  
-@@ -2921,6 +2861,67 @@ static void __init vmscape_select_mitigation(void)
+@@ -3028,6 +2950,85 @@ static void __init vmscape_select_mitigation(void)
  #undef pr_fmt
  #define pr_fmt(fmt) fmt
  
@@ -159,6 +186,24 @@ index 80f71962d6e641efaa703250cf1949bf35aa23af..4e5b9fb5ca497f3d3be4746fbb3a3070
 +			pr_warn_once(MMIO_MSG_SMT);
 +		break;
 +	case MMIO_MITIGATION_OFF:
++		break;
++	}
++
++	switch (tsa_mitigation) {
++	case TSA_MITIGATION_USER_KERNEL:
++	case TSA_MITIGATION_VM:
++	case TSA_MITIGATION_FULL:
++	case TSA_MITIGATION_UCODE_NEEDED:
++		/*
++		 * TSA-SQ can potentially lead to info leakage between
++		 * SMT threads.
++		 */
++		if (sched_smt_active())
++			static_branch_enable(&cpu_buf_idle_clear);
++		else
++			static_branch_disable(&cpu_buf_idle_clear);
++		break;
++	case TSA_MITIGATION_NONE:
 +		break;
 +	}
 +

@@ -12,6 +12,7 @@ This is likely not a final fix, it was suggested by jjohansen on irc
 to get things going until this is resolved properly.
 
 Signed-off-by: Wolfgang Bumiller <w.bumiller@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  security/apparmor/af_inet.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

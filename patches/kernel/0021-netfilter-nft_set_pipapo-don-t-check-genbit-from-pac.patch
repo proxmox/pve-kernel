@@ -1,8 +1,8 @@
-From da2f3da272763d4382e4c82d2a6d1358aed10123 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Gabriel Goller <g.goller@proxmox.com>
 Date: Wed, 10 Sep 2025 12:08:09 +0200
-Subject: [PATCH 1/5] netfilter: nft_set_pipapo: don't check genbit from
- packetpath lookups
+Subject: [PATCH] netfilter: nft_set_pipapo: don't check genbit from packetpath
+ lookups
 
 The pipapo set type is special in that it has two copies of its
 datastructure: one live copy containing only valid elements and one
@@ -82,13 +82,14 @@ via netfilter hook traversal (nf_hook_slow()).
 Fixes: 3c4287f62044 ("nf_tables: Add set type for arbitrary concatenation of ranges")
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  net/netfilter/nft_set_pipapo.c      | 21 +++++++++++++++++++--
  net/netfilter/nft_set_pipapo_avx2.c |  4 +---
  2 files changed, 20 insertions(+), 5 deletions(-)
 
 diff --git a/net/netfilter/nft_set_pipapo.c b/net/netfilter/nft_set_pipapo.c
-index 0529e4ef7520..a386c3761cac 100644
+index c5855069bdaba08a0d39cfed59b79c45961bc114..a50e629015e0cfda93bb59e74a1420946f57406a 100644
 --- a/net/netfilter/nft_set_pipapo.c
 +++ b/net/netfilter/nft_set_pipapo.c
 @@ -405,6 +405,24 @@ int pipapo_refill(unsigned long *map, unsigned int len, unsigned int rules,
@@ -134,7 +135,7 @@ index 0529e4ef7520..a386c3761cac 100644
  
  			/* Last field: we're just returning the key without
 diff --git a/net/netfilter/nft_set_pipapo_avx2.c b/net/netfilter/nft_set_pipapo_avx2.c
-index be7c16c79f71..675c0a9634b6 100644
+index be7c16c79f711ef5b32e8f64df22715be6574a90..675c0a9634b64d16b8ed0a3463c923d286d5b2c6 100644
 --- a/net/netfilter/nft_set_pipapo_avx2.c
 +++ b/net/netfilter/nft_set_pipapo_avx2.c
 @@ -1151,7 +1151,6 @@ bool nft_pipapo_avx2_lookup(const struct net *net, const struct nft_set *set,
@@ -155,6 +156,3 @@ index be7c16c79f71..675c0a9634b6 100644
  				ret = 0;
  				goto next_match;
  			}
--- 
-2.47.3
-

@@ -1,7 +1,7 @@
-From 7d566006c0aa2461aa263a94e0edc73637750bab Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Gabriel Goller <g.goller@proxmox.com>
 Date: Wed, 10 Sep 2025 12:09:43 +0200
-Subject: [PATCH 3/5] netfilter: nf_tables: place base_seq in struct net
+Subject: [PATCH] netfilter: nf_tables: place base_seq in struct net
 
 This will soon be read from packet path around same time as the gencursor.
 
@@ -12,6 +12,7 @@ This doesn't increase struct net size on 64bit due to padding.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  include/net/netfilter/nf_tables.h |  1 -
  include/net/netns/nftables.h      |  1 +
@@ -19,7 +20,7 @@ Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
  3 files changed, 34 insertions(+), 32 deletions(-)
 
 diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 803d5f1601f9..56c6698ed5bf 100644
+index 803d5f1601f9ddcef048f64b28e55baef80fb590..56c6698ed5bf9c65a753b46c6f30e5311082aead 100644
 --- a/include/net/netfilter/nf_tables.h
 +++ b/include/net/netfilter/nf_tables.h
 @@ -1913,7 +1913,6 @@ struct nftables_pernet {
@@ -31,7 +32,7 @@ index 803d5f1601f9..56c6698ed5bf 100644
  	u8			validate_state;
  	struct work_struct	destroy_work;
 diff --git a/include/net/netns/nftables.h b/include/net/netns/nftables.h
-index cc8060c017d5..99dd166c5d07 100644
+index cc8060c017d5fb4d96a7fab85c7140cfbe44332e..99dd166c5d07c39e456e32bd19db6857b57ec336 100644
 --- a/include/net/netns/nftables.h
 +++ b/include/net/netns/nftables.h
 @@ -3,6 +3,7 @@
@@ -43,7 +44,7 @@ index cc8060c017d5..99dd166c5d07 100644
  };
  
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index a133e1c175ce..f9e7f056ea5b 100644
+index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883bb11ea059 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
 @@ -1096,11 +1096,14 @@ nf_tables_chain_type_lookup(struct net *net, const struct nlattr *nla,
@@ -305,6 +306,3 @@ index a133e1c175ce..f9e7f056ea5b 100644
  	nft_net->gc_seq = 0;
  	nft_net->validate_state = NFT_VALIDATE_SKIP;
  	INIT_WORK(&nft_net->destroy_work, nf_tables_trans_destroy_work);
--- 
-2.47.3
-

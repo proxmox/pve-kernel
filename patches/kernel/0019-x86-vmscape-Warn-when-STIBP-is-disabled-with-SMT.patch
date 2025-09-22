@@ -27,15 +27,17 @@ Conflicts:
 	arch/x86/kernel/cpu/bugs.c
 FG: remove TSA from context
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+ [TL: re-add TSA fixes to context]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kernel/cpu/bugs.c | 22 ++++++++++++++++++++++
  1 file changed, 22 insertions(+)
 
 diff --git a/arch/x86/kernel/cpu/bugs.c b/arch/x86/kernel/cpu/bugs.c
-index 4e5b9fb5ca497f3d3be4746fbb3a30700aa8e030..b5da4c0d0b71b5067ea7380ae27a427d29193e2c 100644
+index f31db89352c1b3ce4195145e73bce124321442f6..0f06e39fba2f908cdbaddb5f22c67c1400dbfb24 100644
 --- a/arch/x86/kernel/cpu/bugs.c
 +++ b/arch/x86/kernel/cpu/bugs.c
-@@ -2919,6 +2919,28 @@ void cpu_bugs_smt_update(void)
+@@ -3026,6 +3026,28 @@ void cpu_bugs_smt_update(void)
  		break;
  	}
  

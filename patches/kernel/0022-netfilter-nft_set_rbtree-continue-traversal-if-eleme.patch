@@ -1,8 +1,8 @@
-From 2af0ed300431a3c5675cd6a7219424430fa9651b Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Gabriel Goller <g.goller@proxmox.com>
 Date: Wed, 10 Sep 2025 12:08:56 +0200
-Subject: [PATCH 2/5] netfilter: nft_set_rbtree: continue traversal if element
- is inactive
+Subject: [PATCH] netfilter: nft_set_rbtree: continue traversal if element is
+ inactive
 
 When the rbtree lookup function finds a match in the rbtree, it sets the
 range start interval to a potentially inactive element.
@@ -55,12 +55,13 @@ Reported-by: Stefan Hanreich <s.hanreich@proxmox.com>
 Fixes: c1eda3c6394f ("netfilter: nft_rbtree: ignore inactive matching element with no descendants")
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  net/netfilter/nft_set_rbtree.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
-index 2e8ef16ff191..c4eb94258e24 100644
+index 2e8ef16ff191d42a47b86a64e929d6fdad3e1716..c4eb94258e24ff377c44f69e492089cc73d1ba89 100644
 --- a/net/netfilter/nft_set_rbtree.c
 +++ b/net/netfilter/nft_set_rbtree.c
 @@ -77,7 +77,9 @@ static bool __nft_rbtree_lookup(const struct net *net, const struct nft_set *set
@@ -83,6 +84,3 @@ index 2e8ef16ff191..c4eb94258e24 100644
  	    nft_rbtree_interval_start(interval)) {
  		*ext = &interval->ext;
  		return true;
--- 
-2.47.3
-

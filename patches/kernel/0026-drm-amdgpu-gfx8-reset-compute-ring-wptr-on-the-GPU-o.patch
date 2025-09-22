@@ -23,15 +23,16 @@ Cc: stable@vger.kernel.org
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 (cherry picked from commit 07ed3ff608bd7840d99bae26598ded0c49f319f4)
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
-index 6a025438f9d041abcc3eb6bbc9eb98a79cd57ab9..e0d1b623e75e673f07b9ef7ab7fbf4f2fd0fa33a 100644
+index 9491ddc48db478b0fdbb87b857cc583d25d216d6..5e6cfb819f5ca0a8e23e57fdd5bc399194faf3e8 100644
 --- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
 +++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
-@@ -4666,6 +4666,7 @@ static int gfx_v8_0_kcq_init_queue(struct amdgpu_ring *ring)
+@@ -4664,6 +4664,7 @@ static int gfx_v8_0_kcq_init_queue(struct amdgpu_ring *ring)
  			memcpy(mqd, adev->gfx.mec.mqd_backup[mqd_idx], sizeof(struct vi_mqd_allocation));
  		/* reset ring buffer */
  		ring->wptr = 0;

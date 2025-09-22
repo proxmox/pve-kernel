@@ -34,13 +34,13 @@ Reviewed-by: Dave Hansen <dave.hansen@linux.intel.com>
 Reviewed-by: Borislav Petkov (AMD) <bp@alien8.de>
 Acked-by: Sean Christopherson <seanjc@google.com>
 (cherry picked from commit 2f8f173413f1cbf52660d04df92d0069c4306d25)
-
-Conflicts:
-	arch/x86/include/asm/cpufeatures.h
-	arch/x86/include/asm/nospec-branch.h
-
+ Conflicts:
+ 	arch/x86/include/asm/cpufeatures.h
+ 	arch/x86/include/asm/nospec-branch.h
 FG: adapt to missing TSA fixes and missing https://lore.kernel.org/all/cover.1744148254.git.jpoimboe@kernel.org/
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+ [TL: re-add TSA fixes in context recently included in ubuntu]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/include/asm/cpufeatures.h   | 1 +
  arch/x86/include/asm/entry-common.h  | 7 +++++++
@@ -50,14 +50,14 @@ Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
  5 files changed, 27 insertions(+)
 
 diff --git a/arch/x86/include/asm/cpufeatures.h b/arch/x86/include/asm/cpufeatures.h
-index 1279665342f9af6bf3b480755bae42d3a8628f4a..f10c7940ca1cbcb6ad553850a844ecc27ddf4efd 100644
+index 23b68c3651fda728813c1237993937b2893c76df..0da2343a0eda58242f4cc16089a7c0b1d6b0dfa6 100644
 --- a/arch/x86/include/asm/cpufeatures.h
 +++ b/arch/x86/include/asm/cpufeatures.h
-@@ -484,6 +484,7 @@
- #define X86_FEATURE_AMD_HETEROGENEOUS_CORES (21*32 + 6) /* Heterogeneous Core Topology */
- #define X86_FEATURE_AMD_WORKLOAD_CLASS	(21*32 + 7) /* Workload Classification */
- #define X86_FEATURE_INDIRECT_THUNK_ITS	(21*32 + 8) /* Use thunk for indirect branches in lower half of cacheline */
-+#define X86_FEATURE_IBPB_EXIT_TO_USER	(21*32 + 9) /* Use IBPB on exit-to-userspace, see VMSCAPE bug */
+@@ -488,6 +488,7 @@
+ #define X86_FEATURE_TSA_SQ_NO		(21*32+11) /* AMD CPU not vulnerable to TSA-SQ */
+ #define X86_FEATURE_TSA_L1_NO		(21*32+12) /* AMD CPU not vulnerable to TSA-L1 */
+ #define X86_FEATURE_CLEAR_CPU_BUF_VM	(21*32+13) /* Clear CPU buffers using VERW before VMRUN */
++#define X86_FEATURE_IBPB_EXIT_TO_USER	(21*32+14) /* Use IBPB on exit-to-userspace, see VMSCAPE bug */
  
  /*
   * BUG word(s)
@@ -80,10 +80,10 @@ index 77d20555e04de5765b392f639e0611eeaf7e423d..f71290eec4b1f383ac954900fc70222c
  #define arch_exit_to_user_mode_prepare arch_exit_to_user_mode_prepare
  
 diff --git a/arch/x86/include/asm/nospec-branch.h b/arch/x86/include/asm/nospec-branch.h
-index 0cc2d535e5c5f6a7ab43ea57fd616fd18801db16..c091471bf3cb6a19bc89c46ee923790ed50d9188 100644
+index 66e8f8379de226c80fa927b20aafe00438476acd..f6ea7c54b6fa5b7798399dfd9c8847b3fff63329 100644
 --- a/arch/x86/include/asm/nospec-branch.h
 +++ b/arch/x86/include/asm/nospec-branch.h
-@@ -529,6 +529,8 @@ void alternative_msr_write(unsigned int msr, u64 val, unsigned int feature)
+@@ -535,6 +535,8 @@ void alternative_msr_write(unsigned int msr, u64 val, unsigned int feature)
  
  extern u64 x86_pred_cmd;
  
@@ -93,10 +93,10 @@ index 0cc2d535e5c5f6a7ab43ea57fd616fd18801db16..c091471bf3cb6a19bc89c46ee923790e
  {
  	alternative_msr_write(MSR_IA32_PRED_CMD, x86_pred_cmd, X86_FEATURE_USE_IBPB);
 diff --git a/arch/x86/kernel/cpu/bugs.c b/arch/x86/kernel/cpu/bugs.c
-index e0e0ecc401947a4f543eebf7c4c82cc129ee4812..284954ed4821ffc4faa97e240e63929b704de67b 100644
+index 7fd7b10fa0fac43acbcc917aae6f748b2c9935f1..b565a06f5d89f54f06cb1733dcb25b97aed77f15 100644
 --- a/arch/x86/kernel/cpu/bugs.c
 +++ b/arch/x86/kernel/cpu/bugs.c
-@@ -59,6 +59,14 @@ EXPORT_SYMBOL_GPL(x86_spec_ctrl_base);
+@@ -60,6 +60,14 @@ EXPORT_SYMBOL_GPL(x86_spec_ctrl_base);
  DEFINE_PER_CPU(u64, x86_spec_ctrl_current);
  EXPORT_PER_CPU_SYMBOL_GPL(x86_spec_ctrl_current);
  

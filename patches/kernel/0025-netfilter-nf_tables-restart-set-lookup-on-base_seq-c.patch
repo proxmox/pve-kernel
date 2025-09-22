@@ -1,8 +1,7 @@
-From 35dd20f6e27b4a6b0b6c2cbf6ebf8eab33121378 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Gabriel Goller <g.goller@proxmox.com>
 Date: Wed, 10 Sep 2025 12:18:18 +0200
-Subject: [PATCH 5/5] netfilter: nf_tables: restart set lookup on base_seq
- change
+Subject: [PATCH] netfilter: nf_tables: restart set lookup on base_seq change
 
 The hash, hash_fast, rhash and bitwise sets may indicate no result even
 though a matching element exists during a short time window while other
@@ -78,13 +77,14 @@ Signed-off-by: Florian Westphal <fw@strlen.de>
 doesn't ext pointer yet, but still returns a bool, so we just check if
 the bool is false, so if no element has been found and retry.]
 Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  net/netfilter/nf_tables_api.c |  3 ++-
  net/netfilter/nft_lookup.c    | 32 +++++++++++++++++++++++++++++++-
  2 files changed, 33 insertions(+), 2 deletions(-)
 
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index f9e7f056ea5b..40a32ef86470 100644
+index f9e7f056ea5b45756f6186519e20883bb11ea059..40a32ef8647014472ca7caddaa065ae2e172fa2e 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
 @@ -10733,7 +10733,8 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
@@ -98,7 +98,7 @@ index f9e7f056ea5b..40a32ef86470 100644
  	gc_seq = nft_gc_seq_begin(nft_net);
  
 diff --git a/net/netfilter/nft_lookup.c b/net/netfilter/nft_lookup.c
-index 7d0add1041bb..fc0eb91d94c0 100644
+index 7d0add1041bb6c3ae8c40b00991675036eea4c29..fc0eb91d94c055f89f04f9fe6d5e4d76134a0f53 100644
 --- a/net/netfilter/nft_lookup.c
 +++ b/net/netfilter/nft_lookup.c
 @@ -53,10 +53,40 @@ static bool __nft_set_do_lookup(const struct net *net, const struct nft_set *set
@@ -143,6 +143,3 @@ index 7d0add1041bb..fc0eb91d94c0 100644
  }
  EXPORT_SYMBOL_GPL(nft_set_do_lookup);
  
--- 
-2.47.3
-

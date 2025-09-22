@@ -17,6 +17,7 @@ Reviewed-by: Borislav Petkov (AMD) <bp@alien8.de>
 Reviewed-by: Dave Hansen <dave.hansen@linux.intel.com>
 (cherry picked from commit 9969779d0803f5dcd4460ae7aca2bc3fd91bff12)
 Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  Documentation/admin-guide/hw-vuln/index.rst   |   1 +
  Documentation/admin-guide/hw-vuln/vmscape.rst | 110 ++++++++++++++++++
