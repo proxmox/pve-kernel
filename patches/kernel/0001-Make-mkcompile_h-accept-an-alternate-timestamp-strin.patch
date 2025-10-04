@@ -21,10 +21,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/init/Makefile b/init/Makefile
-index 10b652d33e872658f2d8c8ce3a0b45e9a473fd64..e4dabde27b90c12bd72c6239e15509f9a9448d80 100644
+index d6f75d8907e09877c6e413986c75f0ac92a89f89..543de4bbcd7cef40901f4a7a60de3e26f1823a4b 100644
 --- a/init/Makefile
 +++ b/init/Makefile
-@@ -29,7 +29,7 @@ preempt-flag-$(CONFIG_PREEMPT_DYNAMIC)	:= PREEMPT_DYNAMIC
+@@ -30,7 +30,7 @@ preempt-flag-$(CONFIG_PREEMPT_DYNAMIC)	:= PREEMPT_DYNAMIC
  preempt-flag-$(CONFIG_PREEMPT_RT)	:= PREEMPT_RT
  
  build-version = $(or $(KBUILD_BUILD_VERSION), $(build-version-auto))

@@ -18,7 +18,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/security/apparmor/af_inet.c b/security/apparmor/af_inet.c
-index e352652554d24543e822520305f07ea21149c7ac..b9c7f501aaaf38247b70b5b06f0e6eecbe08a230 100644
+index 5255595a6876b24032ef6419d53a693edb6e9518..d8dc1fa298026e9c6653f72ab5aa84cbd427385f 100644
 --- a/security/apparmor/af_inet.c
 +++ b/security/apparmor/af_inet.c
 @@ -738,7 +738,7 @@ int aa_inet_msg_perm(const char *op, u32 request, struct socket *sock,

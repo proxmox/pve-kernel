@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 4 deletions(-)
 
 diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 75204d36d7f9062306dfc66c3c35448e16257215..1fb5ff73ec1ef3bd79960182c87a0ba312b3635d 100644
+index c20a41bf253bea2e00c60050f2aa23fa80f64d2f..1bd7a32fa05ebfbca4c739491dafb8e3346e30fa 100644
 --- a/net/bridge/br_stp_if.c
 +++ b/net/bridge/br_stp_if.c
 @@ -265,10 +265,7 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)

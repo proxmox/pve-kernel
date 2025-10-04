@@ -78,10 +78,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 21 insertions(+)
 
 diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
-index 679d3db847b70196668b8edae15807009f20e8d3..dd0e6675b498a193f221832e3c9bd92a42f05e37 100644
+index e2836a255b1679de1ef76a6869fdf25217b8b201..329d44fb2c58f4d7578882dbe2eb3cad30802a16 100644
 --- a/arch/x86/kvm/cpuid.c
 +++ b/arch/x86/kvm/cpuid.c
-@@ -291,6 +291,11 @@ static u64 cpuid_get_supported_xcr0(struct kvm_vcpu *vcpu)
+@@ -263,6 +263,11 @@ static u64 cpuid_get_supported_xcr0(struct kvm_vcpu *vcpu)
  	return (best->eax | ((u64)best->edx << 32)) & kvm_caps.supported_xcr0;
  }
  
@@ -94,10 +94,10 @@ index 679d3db847b70196668b8edae15807009f20e8d3..dd0e6675b498a193f221832e3c9bd92a
  						       struct kvm_cpuid_entry2 *entry,
  						       unsigned int x86_feature,
 diff --git a/arch/x86/kvm/cpuid.h b/arch/x86/kvm/cpuid.h
-index 67d80aa72d50d1323375068f7a75224d8529974b..47b08881a3f0e3f6c0b2e8085d75250fe5a32f65 100644
+index d3f5ae15a7ca314675ad0b4e7347ddd2c205a69f..d9d3f24eca4ec7f48680933ef7291c52d48b2036 100644
 --- a/arch/x86/kvm/cpuid.h
 +++ b/arch/x86/kvm/cpuid.h
-@@ -31,7 +31,10 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
+@@ -54,7 +54,10 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
  bool kvm_cpuid(struct kvm_vcpu *vcpu, u32 *eax, u32 *ebx,
  	       u32 *ecx, u32 *edx, bool exact_only);
  
@@ -109,10 +109,10 @@ index 67d80aa72d50d1323375068f7a75224d8529974b..47b08881a3f0e3f6c0b2e8085d75250f
  
  int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 9e57dd990a262c252e580c597af15a1b5919b035..21ad6bdd79b32d1ad25fb027f91d1fbb7f3e0644 100644
+index 706b6fd56d3c5d29e7f9f6816beeebacb5ef68e6..ae3deadd6f5216765d25603f7fb8b12fc706980a 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -5603,6 +5603,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
+@@ -5666,6 +5666,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
  	if (fpstate_is_confidential(&vcpu->arch.guest_fpu))
  		return vcpu->kvm->arch.has_protected_state ? -EINVAL : 0;
  
