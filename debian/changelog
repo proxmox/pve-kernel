@@ -1,3 +1,9 @@
+proxmox-kernel-6.17 (6.17.0-1) trixie; urgency=medium
+
+  * update kernel to 6.17.0 basing off Ubuntu 25.10 Questing
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 04 Oct 2025 13:00:44 +0200
+
 proxmox-kernel-6.14 (6.14.11-3) trixie; urgency=medium
 
   * backport fix for atomicity issue in nftables with updates to a set.
