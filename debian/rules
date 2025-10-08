@@ -105,6 +105,8 @@ PMX_CONFIG_OPTS= \
 -d CONFIG_WQ_CPU_INTENSIVE_REPORT \
 -d CONFIG_N_GSM \
 -d UBSAN_BOUNDS \
+-d KVM_INTEL_PROVE_VE \
+
 
 debian/control: $(wildcard debian/*.in)
 	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel.prerm.in > debian/$(PMX_KERNEL_PKG).prerm
