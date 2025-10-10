@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yu Kuai <yukuai3@huawei.com>
+Date: Wed, 3 Sep 2025 09:41:40 +0800
+Subject: [PATCH] md/raid1: fix data lost for writemostly rdev
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit 93dec51e716db88f32d770dc9ab268964fff320b ]
+
+If writemostly is enabled, alloc_behind_master_bio() will allocate a new
+bio for rdev, with bi_opf set to 0. Later, raid1_write_request() will
+clone from this bio, hence bi_opf is still 0 for the cloned bio. Submit
+this cloned bio will end up to be read, causing write data lost.
+
+Fix this problem by inheriting bi_opf from original bio for
+behind_mast_bio.
+
+Fixes: e879a0d9cb08 ("md/raid1,raid10: don't ignore IO flags")
+Reported-and-tested-by: Ian Dall <ian@beware.dropbear.id.au>
+Closes: https://bugzilla.kernel.org/show_bug.cgi?id=220507
+Link: https://lore.kernel.org/linux-raid/20250903014140.3690499-1-yukuai1@huaweicloud.com
+Signed-off-by: Yu Kuai <yukuai3@huawei.com>
+Reviewed-by: Li Nan <linan122@huawei.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit fbd879fc77ebbee7bd184dc501407246b5d9a27f)
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ drivers/md/raid1.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/md/raid1.c b/drivers/md/raid1.c
+index 78949814dbed5c62e7d56a432d0aefa2ba5854df..11a1a373ef0ee11fa6e1ed98d0af3a687d5ef40c 100644
+--- a/drivers/md/raid1.c
++++ b/drivers/md/raid1.c
+@@ -1225,7 +1225,7 @@ static void alloc_behind_master_bio(struct r1bio *r1_bio,
+ 	int i = 0;
+ 	struct bio *behind_bio = NULL;
+ 
+-	behind_bio = bio_alloc_bioset(NULL, vcnt, 0, GFP_NOIO,
++	behind_bio = bio_alloc_bioset(NULL, vcnt, bio->bi_opf, GFP_NOIO,
+ 				      &r1_bio->mddev->bio_set);
+ 
+ 	/* discard op, we don't support writezero/writesame yet */
