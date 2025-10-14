@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.12-16) bookworm; urgency=medium
+
+  * update source and patches to Ubuntu-6.8.0-88.89.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 14 Oct 2025 10:58:36 +0200
+
 proxmox-kernel-6.8 (6.8.12-15) bookworm; urgency=medium
 
   * cherry-pick VMSCAPE fixes.
