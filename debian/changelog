@@ -1,3 +1,12 @@
+proxmox-kernel-6.17 (6.17.2-1) trixie; urgency=medium
+
+  * update kernel to 6.17.1 based on Ubuntu-6.17.0-7.7
+
+  * cherry-pick fix for regression with network bonding interfaces using the
+    broadcast mode.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 21 Oct 2025 13:55:33 +0200
+
 proxmox-kernel-6.17 (6.17.1-1) trixie; urgency=medium
 
   * update kernel to 6.17.1
