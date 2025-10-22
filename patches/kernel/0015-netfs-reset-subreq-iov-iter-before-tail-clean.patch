@@ -16,7 +16,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/fs/netfs/io.c b/fs/netfs/io.c
-index aaff3844e9b7..e8a884040e2b 100644
+index aaff3844e9b708e20b885cfdcc378f91d3335d4c..e8a884040e2b377b48d6da9f1b5096f8fcd99f92 100644
 --- a/fs/netfs/io.c
 +++ b/fs/netfs/io.c
 @@ -517,6 +517,7 @@ void netfs_subreq_terminated(struct netfs_io_subrequest *subreq,
