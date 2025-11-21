@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-17) bookworm; urgency=medium
+
+  * update source and patches to Ubuntu-6.8.0-90.91.
+
+  * cherry-pick fix for md issue during shutdown, related to #6746.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 21 Nov 2025 12:16:49 +0100
+
 proxmox-kernel-6.8 (6.8.12-16) bookworm; urgency=medium
 
   * update source and patches to Ubuntu-6.8.0-88.89.
