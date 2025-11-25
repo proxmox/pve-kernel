@@ -44,7 +44,7 @@ index cc8060c017d5fb4d96a7fab85c7140cfbe44332e..99dd166c5d07c39e456e32bd19db6857
  };
  
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883bb11ea059 100644
+index acfa83dee5c10803e15fcfe9de70fcb25de616fa..31c7e118c6b74e5f548b686763a5bc0815fc4935 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
 @@ -1096,11 +1096,14 @@ nf_tables_chain_type_lookup(struct net *net, const struct nlattr *nla,
@@ -74,7 +74,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	if (!nlh)
  		goto nla_put_failure;
  
-@@ -1212,7 +1215,7 @@ static int nf_tables_dump_tables(struct sk_buff *skb,
+@@ -1207,7 +1210,7 @@ static int nf_tables_dump_tables(struct sk_buff *skb,
  
  	rcu_read_lock();
  	nft_net = nft_pernet(net);
@@ -83,7 +83,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  
  	list_for_each_entry_rcu(table, &nft_net->tables, list) {
  		if (family != NFPROTO_UNSPEC && family != table->family)
-@@ -1983,7 +1986,7 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, struct net *net,
+@@ -1978,7 +1981,7 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, struct net *net,
  
  	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
  	nlh = nfnl_msg_put(skb, portid, seq, event, flags, family,
@@ -92,7 +92,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	if (!nlh)
  		goto nla_put_failure;
  
-@@ -2084,7 +2087,7 @@ static int nf_tables_dump_chains(struct sk_buff *skb,
+@@ -2074,7 +2077,7 @@ static int nf_tables_dump_chains(struct sk_buff *skb,
  
  	rcu_read_lock();
  	nft_net = nft_pernet(net);
@@ -101,7 +101,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  
  	list_for_each_entry_rcu(table, &nft_net->tables, list) {
  		if (family != NFPROTO_UNSPEC && family != table->family)
-@@ -3584,7 +3587,7 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
+@@ -3589,7 +3592,7 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
  	u16 type = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
  
  	nlh = nfnl_msg_put(skb, portid, seq, type, flags, family, NFNETLINK_V0,
@@ -110,7 +110,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	if (!nlh)
  		goto nla_put_failure;
  
-@@ -3752,7 +3755,7 @@ static int nf_tables_dump_rules(struct sk_buff *skb,
+@@ -3757,7 +3760,7 @@ static int nf_tables_dump_rules(struct sk_buff *skb,
  
  	rcu_read_lock();
  	nft_net = nft_pernet(net);
@@ -119,7 +119,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  
  	list_for_each_entry_rcu(table, &nft_net->tables, list) {
  		if (family != NFPROTO_UNSPEC && family != table->family)
-@@ -3963,7 +3966,7 @@ static int nf_tables_getrule_reset(struct sk_buff *skb,
+@@ -3968,7 +3971,7 @@ static int nf_tables_getrule_reset(struct sk_buff *skb,
  	buf = kasprintf(GFP_ATOMIC, "%.*s:%u",
  			nla_len(nla[NFTA_RULE_TABLE]),
  			(char *)nla_data(nla[NFTA_RULE_TABLE]),
@@ -128,7 +128,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	audit_log_nfcfg(buf, info->nfmsg->nfgen_family, 1,
  			AUDIT_NFT_OP_RULE_RESET, GFP_ATOMIC);
  	kfree(buf);
-@@ -4776,7 +4779,7 @@ static int nf_tables_fill_set(struct sk_buff *skb, const struct nft_ctx *ctx,
+@@ -4781,7 +4784,7 @@ static int nf_tables_fill_set(struct sk_buff *skb, const struct nft_ctx *ctx,
  
  	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
  	nlh = nfnl_msg_put(skb, portid, seq, event, flags, ctx->family,
@@ -191,7 +191,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	if (!nlh)
  		goto nla_put_failure;
  
-@@ -8330,7 +8333,7 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
+@@ -8325,7 +8328,7 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
  
  	rcu_read_lock();
  	nft_net = nft_pernet(net);
@@ -200,7 +200,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  
  	list_for_each_entry_rcu(table, &nft_net->tables, list) {
  		if (family != NFPROTO_UNSPEC && family != table->family)
-@@ -8364,7 +8367,7 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
+@@ -8359,7 +8362,7 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
  			idx++;
  		}
  		if (ctx->reset && entries)
@@ -209,7 +209,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  		if (rc < 0)
  			break;
  	}
-@@ -8533,7 +8536,7 @@ static int nf_tables_getobj_reset(struct sk_buff *skb,
+@@ -8528,7 +8531,7 @@ static int nf_tables_getobj_reset(struct sk_buff *skb,
  	buf = kasprintf(GFP_ATOMIC, "%.*s:%u",
  			nla_len(nla[NFTA_OBJ_TABLE]),
  			(char *)nla_data(nla[NFTA_OBJ_TABLE]),
@@ -218,7 +218,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	audit_log_nfcfg(buf, info->nfmsg->nfgen_family, 1,
  			AUDIT_NFT_OP_OBJ_RESET, GFP_ATOMIC);
  	kfree(buf);
-@@ -8640,7 +8643,7 @@ void nft_obj_notify(struct net *net, const struct nft_table *table,
+@@ -8635,7 +8638,7 @@ void nft_obj_notify(struct net *net, const struct nft_table *table,
  {
  	struct nftables_pernet *nft_net = nft_pernet(net);
  	char *buf = kasprintf(gfp, "%s:%u",
@@ -227,7 +227,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  
  	audit_log_nfcfg(buf,
  			family,
-@@ -9288,7 +9291,7 @@ static int nf_tables_fill_flowtable_info(struct sk_buff *skb, struct net *net,
+@@ -9298,7 +9301,7 @@ static int nf_tables_fill_flowtable_info(struct sk_buff *skb, struct net *net,
  
  	event = nfnl_msg_type(NFNL_SUBSYS_NFTABLES, event);
  	nlh = nfnl_msg_put(skb, portid, seq, event, flags, family,
@@ -236,7 +236,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	if (!nlh)
  		goto nla_put_failure;
  
-@@ -9356,7 +9359,7 @@ static int nf_tables_dump_flowtable(struct sk_buff *skb,
+@@ -9361,7 +9364,7 @@ static int nf_tables_dump_flowtable(struct sk_buff *skb,
  
  	rcu_read_lock();
  	nft_net = nft_pernet(net);
@@ -245,7 +245,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  
  	list_for_each_entry_rcu(table, &nft_net->tables, list) {
  		if (family != NFPROTO_UNSPEC && family != table->family)
-@@ -9541,17 +9544,16 @@ static void nf_tables_flowtable_destroy(struct nft_flowtable *flowtable)
+@@ -9546,17 +9549,16 @@ static void nf_tables_flowtable_destroy(struct nft_flowtable *flowtable)
  static int nf_tables_fill_gen_info(struct sk_buff *skb, struct net *net,
  				   u32 portid, u32 seq)
  {
@@ -265,7 +265,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	    nla_put_be32(skb, NFTA_GEN_PROC_PID, htonl(task_pid_nr(current))) ||
  	    nla_put_string(skb, NFTA_GEN_PROC_NAME, get_task_comm(buf, current)))
  		goto nla_put_failure;
-@@ -10727,11 +10729,11 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
+@@ -10732,11 +10734,11 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
  	 * Bump generation counter, invalidate any dump in progress.
  	 * Cannot fail after this point.
  	 */
@@ -279,7 +279,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  
  	gc_seq = nft_gc_seq_begin(nft_net);
  
-@@ -10940,7 +10942,7 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
+@@ -10945,7 +10947,7 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
  
  	nft_commit_notify(net, NETLINK_CB(skb).portid);
  	nf_tables_gen_notify(net, skb, NFT_MSG_NEWGEN);
@@ -288,7 +288,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  
  	nft_gc_seq_end(nft_net, gc_seq);
  	nft_net->validate_state = NFT_VALIDATE_SKIP;
-@@ -11265,7 +11267,7 @@ static bool nf_tables_valid_genid(struct net *net, u32 genid)
+@@ -11270,7 +11272,7 @@ static bool nf_tables_valid_genid(struct net *net, u32 genid)
  	mutex_lock(&nft_net->commit_mutex);
  	nft_net->tstamp = get_jiffies_64();
  
@@ -297,7 +297,7 @@ index a133e1c175ce9c815ca5f19f9ae762928d87d976..f9e7f056ea5b45756f6186519e20883b
  	if (!genid_ok)
  		mutex_unlock(&nft_net->commit_mutex);
  
-@@ -11902,7 +11904,7 @@ static int __net_init nf_tables_init_net(struct net *net)
+@@ -11907,7 +11909,7 @@ static int __net_init nf_tables_init_net(struct net *net)
  	INIT_LIST_HEAD(&nft_net->module_list);
  	INIT_LIST_HEAD(&nft_net->notify_list);
  	mutex_init(&nft_net->commit_mutex);

@@ -11,7 +11,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index b3e49b644c2c3118e13768005649f5289c5daf2f..7a3801f5c4c78e28cbbd8d3a3f7ab459fcc22605 100644
+index b5f7b4fe66fb022f881ecde9603e3b80985316bb..de5a66932064228af7a7e5ff29617eb72ae3fce3 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
 @@ -220,6 +220,7 @@ EXPORT_SYMBOL_GPL(intel_iommu_enabled);
@@ -32,7 +32,7 @@ index b3e49b644c2c3118e13768005649f5289c5daf2f..7a3801f5c4c78e28cbbd8d3a3f7ab459
  		} else {
  			pr_notice("Unknown option - '%s'\n", str);
  		}
-@@ -1897,7 +1901,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
+@@ -1896,7 +1900,7 @@ static bool device_rmrr_is_relaxable(struct device *dev)
  		return false;
  
  	pdev = to_pci_dev(dev);

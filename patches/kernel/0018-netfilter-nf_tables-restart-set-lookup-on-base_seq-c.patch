@@ -84,10 +84,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 33 insertions(+), 2 deletions(-)
 
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index f9e7f056ea5b45756f6186519e20883bb11ea059..40a32ef8647014472ca7caddaa065ae2e172fa2e 100644
+index 31c7e118c6b74e5f548b686763a5bc0815fc4935..cf7a5cb9d24424d9ef9e04ccf35523849cabf4bc 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -10733,7 +10733,8 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
+@@ -10738,7 +10738,8 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
  	while (++base_seq == 0)
  		;
  
