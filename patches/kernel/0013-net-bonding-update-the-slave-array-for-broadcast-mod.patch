@@ -29,7 +29,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 57be04f6cb11a89382debbf05b71541ac4911820..310ccad7c7b1d603f1e45cb98f546efd752380b1 100644
+index f4f0feddd9fa0839d19a3dcdc6d15875e331e824..c3f3897273700d8718f460fd469798b68f745b6e 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
 @@ -2385,7 +2385,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
