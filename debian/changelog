@@ -1,3 +1,9 @@
+proxmox-kernel-6.17 (6.17.4-1) trixie; urgency=medium
+
+  * update kernel to 6.17.4 based on Ubuntu-6.17.0-9.9
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 03 Dec 2025 16:42:08 +0100
+
 proxmox-kernel-6.17 (6.17.2-2) trixie; urgency=medium
 
   * fix apparmor unix socket check NULL deref
