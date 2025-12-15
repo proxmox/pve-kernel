@@ -1112,6 +1112,7 @@ iwlwifi-9260-th-b0-jf-b0-46.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlw
 iwlwifi-Qu-b0-hr-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-Qu-b0-jf-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-Qu-c0-hr-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
+iwlwifi-Qu-c0-jf-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-QuZ-a0-hr-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-QuZ-a0-jf-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-br-a0-pe-a0-96.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
