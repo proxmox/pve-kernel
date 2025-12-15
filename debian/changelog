@@ -1,4 +1,4 @@
-proxmox-kernel-6.14 (6.14.11-5~bpo12+1) trixie; urgency=medium
+proxmox-kernel-6.14 (6.14.11-5~bpo12+1) bookworm; urgency=medium
 
   * update kernel to Ubuntu-6.14.0-37.37.
 
