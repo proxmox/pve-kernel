@@ -12,6 +12,7 @@ Link: https://lore.kernel.org/r/20250203162511.911946-2-Basavaraj.Natikar@amd.co
 Signed-off-by: Vinod Koul <vkoul@kernel.org>
 (cherry picked from commit b87c29c007e80f4737a056b3c5c21b5b5106b7f7)
 Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  drivers/dma/amd/ae4dma/ae4dma-pci.c | 2 --
  1 file changed, 2 deletions(-)

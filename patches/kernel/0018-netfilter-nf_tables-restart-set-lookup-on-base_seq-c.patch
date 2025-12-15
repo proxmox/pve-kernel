@@ -1,0 +1,145 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Wed, 10 Sep 2025 12:18:18 +0200
+Subject: [PATCH] netfilter: nf_tables: restart set lookup on base_seq change
+
+The hash, hash_fast, rhash and bitwise sets may indicate no result even
+though a matching element exists during a short time window while other
+cpu is finalizing the transaction.
+
+This happens when the hash lookup/bitwise lookup function has picked up
+the old genbit, right before it was toggled by nf_tables_commit(), but
+then the same cpu managed to unlink the matching old element from the
+hash table:
+
+cpu0					cpu1
+  has added new elements to clone
+  has marked elements as being
+  inactive in new generation
+					perform lookup in the set
+  enters commit phase:
+					A) observes old genbit
+   increments base_seq
+I) increments the genbit
+II) removes old element from the set
+					B) finds matching element
+					C) returns no match: found
+					element is not valid in old
+					generation
+
+					Next lookup observes new genbit and
+					finds matching e2.
+
+Consider a packet matching element e1, e2.
+
+cpu0 processes following transaction:
+1. remove e1
+2. adds e2, which has same key as e1.
+
+P matches both e1 and e2.  Therefore, cpu1 should always find a match
+for P. Due to above race, this is not the case:
+
+cpu1 observed the old genbit.  e2 will not be considered once it is found.
+The element e1 is not found anymore if cpu0 managed to unlink it from the
+hlist before cpu1 found it during list traversal.
+
+The situation only occurs for a brief time period, lookups happening
+after I) observe new genbit and return e2.
+
+This problem exists in all set types except nft_set_pipapo, so fix it once
+in nft_lookup rather than each set ops individually.
+
+Sample the base sequence counter, which gets incremented right before the
+genbit is changed.
+
+Then, if no match is found, retry the lookup if the base sequence was
+altered in between.
+
+If the base sequence hasn't changed:
+ - No update took place: no-match result is expected.
+   This is the common case.  or:
+ - nf_tables_commit() hasn't progressed to genbit update yet.
+   Old elements were still visible and nomatch result is expected, or:
+ - nf_tables_commit updated the genbit:
+   We picked up the new base_seq, so the lookup function also picked
+   up the new genbit, no-match result is expected.
+
+If the old genbit was observed, then nft_lookup also picked up the old
+base_seq: nft_lookup_should_retry() returns true and relookup is performed
+in the new generation.
+
+Thanks to Pablo Neira Ayuso for reviewing an earlier version of this
+patchset, for suggesting re-use of existing base_seq and placement of
+the restart loop in nft_set_do_lookup().
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+[GG: this patch needed a bigger change because __nft_set_do_lookup
+doesn't ext pointer yet, but still returns a bool, so we just check if
+the bool is false, so if no element has been found and retry.]
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/netfilter/nf_tables_api.c |  3 ++-
+ net/netfilter/nft_lookup.c    | 32 +++++++++++++++++++++++++++++++-
+ 2 files changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 31c7e118c6b74e5f548b686763a5bc0815fc4935..cf7a5cb9d24424d9ef9e04ccf35523849cabf4bc 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -10738,7 +10738,8 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
+ 	while (++base_seq == 0)
+ 		;
+ 
+-	WRITE_ONCE(net->nft.base_seq, base_seq);
++	/* pairs with smp_load_acquire in nft_lookup_eval */
++	smp_store_release(&net->nft.base_seq, base_seq);
+ 
+ 	gc_seq = nft_gc_seq_begin(nft_net);
+ 
+diff --git a/net/netfilter/nft_lookup.c b/net/netfilter/nft_lookup.c
+index 7d0add1041bb6c3ae8c40b00991675036eea4c29..fc0eb91d94c055f89f04f9fe6d5e4d76134a0f53 100644
+--- a/net/netfilter/nft_lookup.c
++++ b/net/netfilter/nft_lookup.c
+@@ -53,10 +53,40 @@ static bool __nft_set_do_lookup(const struct net *net, const struct nft_set *set
+ #endif
+ 	return set->ops->lookup(net, set, key, ext);
+ }
++
++static unsigned int nft_base_seq(const struct net *net)
++{
++	/* pairs with smp_store_release() in nf_tables_commit() */
++	return smp_load_acquire(&net->nft.base_seq);
++}
++
++static bool nft_lookup_should_retry(const struct net *net, unsigned int seq)
++{
++	return unlikely(seq != nft_base_seq(net));
++}
++
+ bool nft_set_do_lookup(const struct net *net, const struct nft_set *set,
+ 		       const u32 *key, const struct nft_set_ext **ext)
+ {
+-	return __nft_set_do_lookup(net, set, key, ext);
++	bool result;
++	unsigned int base_seq;
++
++	do {
++		base_seq = nft_base_seq(net);
++
++		result = __nft_set_do_lookup(net, set, key, ext);
++		if (result)
++			break;
++		/* No match?  There is a small chance that lookup was
++		 * performed in the old generation, but nf_tables_commit()
++		 * already unlinked a (matching) element.
++		 *
++		 * We need to repeat the lookup to make sure that we didn't
++		 * miss a matching element in the new generation.
++		 */
++	} while (nft_lookup_should_retry(net, base_seq));
++
++	return result;
+ }
+ EXPORT_SYMBOL_GPL(nft_set_do_lookup);
+ 

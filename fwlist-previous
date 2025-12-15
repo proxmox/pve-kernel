@@ -24,6 +24,7 @@ amd/amd_sev_fam17h_model3xh.sbin kernel/drivers/crypto/ccp/ccp.ko
 amd/amd_sev_fam19h_model0xh.sbin kernel/drivers/crypto/ccp/ccp.ko
 amd/amd_sev_fam19h_model1xh.sbin kernel/drivers/crypto/ccp/ccp.ko
 amdgpu/aldebaran_cap.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/aldebaran_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/aldebaran_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/aldebaran_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/aldebaran_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -36,6 +37,7 @@ amdgpu/aldebaran_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/aldebaran_vcn.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/arcturus_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_sdma.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -130,6 +132,7 @@ amdgpu/gc_10_3_7_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_10_3_7_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_10_3_7_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_imu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_0_imu_kicker.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_mes.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -138,6 +141,7 @@ amdgpu/gc_11_0_0_mes_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_rlc_1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/gc_11_0_0_rlc_kicker.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_0_toc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_1_imu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/gc_11_0_1_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -347,6 +351,7 @@ amdgpu/oland_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/picasso_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -427,7 +432,9 @@ amdgpu/polaris12_smc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/polaris12_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_0_sos.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/psp_13_0_0_sos_kicker.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_0_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/psp_13_0_0_ta_kicker.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_10_sos.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_10_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/psp_13_0_11_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -459,6 +466,7 @@ amdgpu/psp_14_0_4_toc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/raven2_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -471,6 +479,7 @@ amdgpu/raven_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_dmcu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/raven_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_kicker_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -491,6 +500,7 @@ amdgpu/renoir_sdma.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/renoir_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/renoir_vcn.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/sdma_4_4_2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/sdma_4_4_4.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/sdma_4_4_5.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/sdma_5_2_6.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/sdma_5_2_7.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -518,6 +528,7 @@ amdgpu/sienna_cichlid_sos.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/sienna_cichlid_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/sienna_cichlid_vcn.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/smu_13_0_0.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/smu_13_0_0_kicker.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/smu_13_0_10.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/smu_13_0_14.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/smu_13_0_6.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -589,6 +600,7 @@ amdgpu/vega10_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_cap.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/vega10_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -603,6 +615,7 @@ amdgpu/vega10_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/vega12_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -616,6 +629,7 @@ amdgpu/vega12_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/vega20_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -1138,29 +1152,29 @@ inside-secure/eip197b/ifpp.bin kernel/drivers/crypto/inside-secure/crypto_safexc
 inside-secure/eip197b/ipue.bin kernel/drivers/crypto/inside-secure/crypto_safexcel.ko
 inside-secure/eip197d/ifpp.bin kernel/drivers/crypto/inside-secure/crypto_safexcel.ko
 inside-secure/eip197d/ipue.bin kernel/drivers/crypto/inside-secure/crypto_safexcel.ko
-intel/adl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
-intel/adl_n/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
-intel/apl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
-intel/cnl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
-intel/ehl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/adl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/adl_n/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/apl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/cnl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/ehl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/icl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/jsl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/lkf/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/skl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
+intel/avs/tgl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
 intel/ibt-11-5.ddc kernel/drivers/bluetooth/btintel.ko
 intel/ibt-11-5.sfi kernel/drivers/bluetooth/btintel.ko
 intel/ibt-12-16.ddc kernel/drivers/bluetooth/btintel.ko
 intel/ibt-12-16.sfi kernel/drivers/bluetooth/btintel.ko
 intel/ice/ddp/ice.pkg kernel/drivers/net/ethernet/intel/ice/ice.ko
-intel/icl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
 intel/ipu/irci_irci_ecr-master_20161208_0213_20170112_1500.bin kernel/drivers/staging/media/ipu3/ipu3-imgu.ko
 intel/ipu3-fw.bin kernel/drivers/staging/media/ipu3/ipu3-imgu.ko
 intel/irci_irci_ecr-master_20161208_0213_20170112_1500.bin kernel/drivers/staging/media/ipu3/ipu3-imgu.ko
 intel/ish/ish_*.bin kernel/drivers/hid/intel-ish-hid/intel-ish-ipc.ko
 intel/ish/ish_lnlm.bin kernel/drivers/hid/intel-ish-hid/intel-ish-ipc.ko
-intel/jsl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
-intel/lkf/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
-intel/skl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
-intel/tgl/dsp_basefw.bin kernel/sound/soc/intel/avs/snd-soc-avs.ko
-intel/vpu/vpu_37xx_v0.0.bin kernel/drivers/accel/ivpu/intel_vpu.ko
-intel/vpu/vpu_40xx_v0.0.bin kernel/drivers/accel/ivpu/intel_vpu.ko
-intel/vpu/vpu_50xx_v0.0.bin kernel/drivers/accel/ivpu/intel_vpu.ko
+intel/vpu/vpu_37xx_v1.bin kernel/drivers/accel/ivpu/intel_vpu.ko
+intel/vpu/vpu_40xx_v1.bin kernel/drivers/accel/ivpu/intel_vpu.ko
+intel/vpu/vpu_50xx_v1.bin kernel/drivers/accel/ivpu/intel_vpu.ko
 ipue.bin kernel/drivers/crypto/inside-secure/crypto_safexcel.ko
 ipw2100-1.3-i.fw kernel/drivers/net/wireless/intel/ipw2x00/ipw2100.ko
 ipw2100-1.3-p.fw kernel/drivers/net/wireless/intel/ipw2x00/ipw2100.ko
@@ -1204,6 +1218,7 @@ iwlwifi-9260-th-b0-jf-b0-46.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlw
 iwlwifi-Qu-b0-hr-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-Qu-b0-jf-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-Qu-c0-hr-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
+iwlwifi-Qu-c0-jf-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-QuZ-a0-hr-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-QuZ-a0-jf-b0-77.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
 iwlwifi-br-a0-pe-a0-96.ucode kernel/drivers/net/wireless/intel/iwlwifi/iwlwifi.ko
@@ -2337,6 +2352,7 @@ sun/cassini.bin kernel/drivers/net/ethernet/sun/cassini.ko
 tdmb_denver.inp kernel/drivers/media/common/siano/smsmdtv.ko
 tdmb_nova_12mhz.inp kernel/drivers/media/common/siano/smsmdtv.ko
 tdmb_nova_12mhz_b0.inp kernel/drivers/media/common/siano/smsmdtv.ko
+tehuti/aqr105-tn40xx.cld kernel/drivers/net/ethernet/tehuti/tn40xx.ko
 tehuti/bdx.bin kernel/drivers/net/ethernet/tehuti/tehuti.ko
 tehuti/bdx.bin kernel/drivers/net/ethernet/tehuti/tn40xx.ko
 ti-connectivity/wl1251-fw.bin kernel/drivers/net/wireless/ti/wl1251/wl1251.ko

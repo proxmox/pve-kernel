@@ -105,6 +105,8 @@ PMX_CONFIG_OPTS= \
 -d CONFIG_WQ_CPU_INTENSIVE_REPORT \
 -d CONFIG_N_GSM \
 -d UBSAN_BOUNDS \
+-d KVM_INTEL_PROVE_VE \
+
 
 debian/control: $(wildcard debian/*.in)
 	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel.prerm.in > debian/$(PMX_KERNEL_PKG).prerm
@@ -144,7 +146,7 @@ install: .install_mark .tools_install_mark .headers_install_mark .usr_headers_in
 
 binary: install
 	debian/rules fwcheck abicheck
-	dh_strip -N$(PMX_HEADER_PKG) -N$(PMX_USR_HEADER_PKG)
+	dh_strip -N$(PMX_HEADER_PKG) -N$(PMX_USR_HEADER_PKG) -Xvmlinux -Xvmlinuz
 	dh_makeshlibs
 	dh_shlibdeps
 	dh_installdeb
@@ -330,8 +332,8 @@ fwlist-$(KVNAME): .compile_mark .modules_compile_mark
 fwcheck: fwlist-$(KVNAME) fwlist-previous
 	@echo "checking fwlist for changes since last built firmware package.."
 	@echo "if this check fails, add fwlist-$(KVNAME) to the pve-firmware repository and upload a new firmware package together with the $(KVNAME) kernel"
-	sort fwlist-previous | uniq > fwlist-previous.sorted
-	sort fwlist-$(KVNAME) | uniq > fwlist-$(KVNAME).sorted
+	LC_ALL=C.utf8 sort fwlist-previous | uniq > fwlist-previous.sorted
+	LC_ALL=C.utf8 sort fwlist-$(KVNAME) | uniq > fwlist-$(KVNAME).sorted
 	diff -up -N fwlist-previous.sorted fwlist-$(KVNAME).sorted > fwlist.diff
 	rm fwlist.diff fwlist-previous.sorted fwlist-$(KVNAME).sorted
 	@echo "done, no need to rebuild pve-firmware"

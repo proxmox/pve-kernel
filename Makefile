@@ -3,10 +3,10 @@ include /usr/share/dpkg/pkg-info.mk
 # also bump proxmox-kernel-meta if the default MAJ.MIN version changes!
 KERNEL_MAJ=6
 KERNEL_MIN=14
-KERNEL_PATCHLEVEL=8
+KERNEL_PATCHLEVEL=11
 # increment KREL for every published package release!
 # rebuild packages with new KREL and run 'make abiupdate'
-KREL=3
+KREL=5
 
 # Use to create a separate package for the same version, like -bpoXY for backport or test-$foo.
 # This way the package can be co-installed with the original, a requirement for major dist updates.
@@ -64,13 +64,12 @@ DEBS=$(DST_DEB) $(META_DEB) $(HDR_DEB) $(META_HDR_DEB) $(LINUX_TOOLS_DEB) $(LINU
 
 all: deb
 deb: $(DEBS)
-
-$(META_DEB) $(META_HDR_DEB) $(LINUX_TOOLS_DEB) $(HDR_DEB): $(DST_DEB)
-$(DST_DEB): $(BUILD_DIR).prepared
-	cd $(BUILD_DIR); dpkg-buildpackage --jobs=auto -b -uc -us
 	lintian $(DST_DEB)
 	#lintian $(HDR_DEB)
 	lintian $(LINUX_TOOLS_DEB)
+
+$(META_DEB) $(META_HDR_DEB) $(LINUX_TOOLS_DEB) $(HDR_DEB) $(DST_DEB) &: $(BUILD_DIR).prepared
+	cd $(BUILD_DIR); dpkg-buildpackage --jobs=auto -b -uc -us
 
 dsc:
 	$(MAKE) $(DSC)

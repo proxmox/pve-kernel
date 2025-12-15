@@ -12,15 +12,17 @@ This reverts both, commit b310f5f58c83 ("UBUNTU: SAUCE: iommu/intel:
 disable DMAR for SKL integrated gfx") and also commit 252bf1619fd5
 ("UBUNTU: SAUCE: iommu/intel: disable DMAR for KBL and CML integrated
 gfx").
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  drivers/iommu/intel/iommu.c | 68 -------------------------------------
  1 file changed, 68 deletions(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index 1106ad96802df5f42987e1dfca757c98a78ac360..1a33f6ef6c0c6684b7f8a07c1de8bf1f12711815 100644
+index de5a66932064228af7a7e5ff29617eb72ae3fce3..f9586863fbc0534d50233cac78ea6a71e6f963fc 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -4576,74 +4576,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
+@@ -4654,74 +4654,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163A, quirk_iommu_igfx);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163D, quirk_iommu_igfx);
  

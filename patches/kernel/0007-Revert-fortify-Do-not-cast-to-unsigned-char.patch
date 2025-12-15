@@ -16,7 +16,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/linux/fortify-string.h b/include/linux/fortify-string.h
-index e4ce1cae03bf770047ce8a7c032b183683388cd5..16fcaf15da54f93fb1c14e392d0e0b7907435f25 100644
+index b3b53f8c1b28ef4fcb10b942de652097f30a10e9..7ea980bb6a7120023d27d8790f91154778f7ab30 100644
 --- a/include/linux/fortify-string.h
 +++ b/include/linux/fortify-string.h
 @@ -62,7 +62,7 @@ void __write_overflow_field(size_t avail, size_t wanted) __compiletime_warning("
