@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-18) bookworm; urgency=medium
+
+  * update source and patches to Ubuntu-6.8.0-92.93.
+
+  * update ZFS to 2.2.9.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 15 Dec 2025 19:07:19 +0100
+
 proxmox-kernel-6.8 (6.8.12-17) bookworm; urgency=medium
 
   * update source and patches to Ubuntu-6.8.0-90.91.

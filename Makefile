@@ -6,7 +6,7 @@ KERNEL_MIN=8
 KERNEL_PATCHLEVEL=12
 # increment KREL for every published package release!
 # rebuild packages with new KREL and run 'make abiupdate'
-KREL=17
+KREL=18
 
 # Use to create a separate package for the same version, like -bpoXY for backport or test-$foo.
 # This way the package can be co-installed with the original, a requirement for major dist updates.
