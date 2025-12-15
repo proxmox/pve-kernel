@@ -4,7 +4,9 @@ proxmox-kernel-6.14 (6.14.11-5~bpo12+1) trixie; urgency=medium
 
   * backport fix for memory leak with Intel NICs using the ice driver.
 
- -- Proxmox Support Team <support@proxmox.com>  Mon, 15 Dec 2025 09:44:56 +0100
+  * update ZFS to 2.2.9 stable release.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 15 Dec 2025 14:46:30 +0100
 
 proxmox-kernel-6.14 (6.14.8-3~bpo12+1) bookworm; urgency=medium
 
