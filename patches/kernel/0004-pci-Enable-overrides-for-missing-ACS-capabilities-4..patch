@@ -55,10 +55,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 111 insertions(+)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index cefbb2aeacbc5f7bb6f86e78351ef3142674884b..95252280f9ff811d76815dd06212717dd38958f8 100644
+index 1c356da915dd260fbd4929f914613ed70a4e8de4..c43ce1179cb5bf8c03eedd31e2857a7681e3052a 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4398,6 +4398,15 @@
+@@ -4416,6 +4416,15 @@
  				Also, it enforces the PCI Local Bus spec
  				rule that those bits should be 0 in system reset
  				events (useful for kexec/kdump cases).
@@ -75,7 +75,7 @@ index cefbb2aeacbc5f7bb6f86e78351ef3142674884b..95252280f9ff811d76815dd06212717d
  				Safety option to keep boot IRQs enabled. This
  				should never be necessary.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 7f7d08b93107a5064d3e5422ec547d6625eee910..a4fbf6ce2ab653e72abb0afddcbb2d1634e07581 100644
+index c7fdedbd21617ba49ade86410850a0d394902f53..96574340a311dc313b0544a30efc9198acd8903a 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -300,6 +300,106 @@ static int __init pci_apply_final_quirks(void)
@@ -185,7 +185,7 @@ index 7f7d08b93107a5064d3e5422ec547d6625eee910..a4fbf6ce2ab653e72abb0afddcbb2d16
  /*
   * Decoding should be disabled for a PCI device during BAR sizing to avoid
   * conflict. But doing so may cause problems on host bridge and perhaps other
-@@ -5124,6 +5224,8 @@ static const struct pci_dev_acs_enabled {
+@@ -5136,6 +5236,8 @@ static const struct pci_dev_acs_enabled {
  	{ PCI_VENDOR_ID_CAVIUM, 0xA060, pci_quirk_mf_endpoint_acs },
  	/* APM X-Gene */
  	{ PCI_VENDOR_ID_AMCC, 0xE004, pci_quirk_xgene_acs },
