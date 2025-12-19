@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fabian=20Gr=C3=BCnbichler?= <f.gruenbichler@proxmox.com>
+Date: Fri, 19 Dec 2025 08:46:26 +0100
+Subject: [PATCH] Revert "tcp: refine sk_rcvbuf increase for ooo packets"
+
+This reverts commit 1a03edeb84e6e3b9c6ca5a642557bced93d54434.
+---
+ net/ipv4/tcp_input.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 070546382d1f4620411a43853a2d82ac2bc73c6e..a5200bd0ea2292d04b661216a3b939e70f9fdbba 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5050,9 +5050,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
+ 		skb_condense(skb);
+ 		skb_set_owner_r(skb, sk);
+ 	}
+-	/* do not grow rcvbuf for not-yet-accepted or orphaned sockets. */
+-	if (sk->sk_socket)
+-		tcp_rcvbuf_grow(sk);
++	tcp_rcvbuf_grow(sk);
+ }
+ 
+ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb,

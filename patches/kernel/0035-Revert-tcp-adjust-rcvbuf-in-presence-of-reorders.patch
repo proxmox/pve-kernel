@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fabian=20Gr=C3=BCnbichler?= <f.gruenbichler@proxmox.com>
+Date: Fri, 19 Dec 2025 08:46:27 +0100
+Subject: [PATCH] Revert "tcp: adjust rcvbuf in presence of reorders"
+
+This reverts commit 63ad7dfedfaee60d9ab40f9f2ec4fb488fa9b1ec.
+---
+ net/ipv4/tcp_input.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 42b1578210614f8551578ac6a36f67098e03b876..ebd1934b195473d96ee9105f5c0670d3a19d2632 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -760,9 +760,6 @@ static void tcp_rcvbuf_grow(struct sock *sk)
+ 	/* slow start: allow the sender to double its rate. */
+ 	rcvwin = tp->rcvq_space.space << 1;
+ 
+-	if (!RB_EMPTY_ROOT(&tp->out_of_order_queue))
+-		rcvwin += TCP_SKB_CB(tp->ooo_last_skb)->end_seq - tp->rcv_nxt;
+-
+ 	cap = READ_ONCE(net->ipv4.sysctl_tcp_rmem[2]);
+ 
+ 	rcvbuf = min_t(u32, tcp_space_from_win(sk, rcvwin), cap);
+@@ -5051,7 +5048,6 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
+ 		skb_condense(skb);
+ 		skb_set_owner_r(skb, sk);
+ 	}
+-	tcp_rcvbuf_grow(sk);
+ }
+ 
+ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb,
