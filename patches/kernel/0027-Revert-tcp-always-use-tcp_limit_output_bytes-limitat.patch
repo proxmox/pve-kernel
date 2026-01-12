@@ -9,10 +9,10 @@ This reverts commit c4221a8cc3a719a3926a330c4fe15e2b15abe662.
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index caf11920a87861955b0d7eeb2c0c03973d6e58ee..e35ca6d1f550d4c3e79ee7a65491f77408ba7d12 100644
+index 16251d8e1b592b1754cafe0cb6d665d4918c4d66..8c4ccb26681fc9ecea5c26ec27e90d0885a0cd1c 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -2614,8 +2614,9 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
+@@ -2625,8 +2625,9 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
  	limit = max_t(unsigned long,
  		      2 * skb->truesize,
  		      READ_ONCE(sk->sk_pacing_rate) >> READ_ONCE(sk->sk_pacing_shift));

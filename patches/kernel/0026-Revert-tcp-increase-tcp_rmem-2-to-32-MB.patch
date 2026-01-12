@@ -23,7 +23,7 @@ index 9756d16e3df1400626ce24726feceaeefa5da523..4487094e6fa5aec66446c4c7b0386e86
  tcp_sack - BOOLEAN
  	Enable select acknowledgments (SACKS).
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index ba36f558f144c6e542bb59cea94616499d9b05b0..60e47418629469f9b376e72794fee41d2c65bec4 100644
+index f421cad69d8c94ecf39fd47a56b2593b282ba7db..deeb05db0f139be46468976458037365ffbfe621 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -5237,7 +5237,7 @@ void __init tcp_init(void)
