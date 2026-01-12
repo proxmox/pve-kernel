@@ -1,3 +1,11 @@
+proxmox-kernel-6.17 (6.17.9-1) trixie; urgency=medium
+
+  * update kernel to 6.17.9 based on Ubuntu-6.17.0-14.14.
+
+  * update ZFS module to 2.3.5 release.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 12 Jan 2026 17:25:15 +0100
+
 proxmox-kernel-6.17 (6.17.4-2) trixie; urgency=medium
 
   * revert TCP changes in 6.17 that causes connection stalls on some setups
