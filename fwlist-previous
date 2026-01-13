@@ -88,6 +88,7 @@ amdgpu/cyan_skillfish2_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/cyan_skillfish2_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/cyan_skillfish2_sdma.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/cyan_skillfish2_sdma1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/cyan_skillfish_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_1_4_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_1_5_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_1_6_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
