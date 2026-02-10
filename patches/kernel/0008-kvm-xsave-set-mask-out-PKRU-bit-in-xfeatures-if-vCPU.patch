@@ -78,10 +78,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 22 insertions(+)
 
 diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
-index b5155103ebda37c64b2203341c31392a29a0493c..6a9325fbde43c06f7edc282b3fa6af10bef684bc 100644
+index 27d374c5b33bd51f4f6ba8c66a73816ecdaeb6eb..3efd54bd49c77f069f163dbd099bd2da4a0246e7 100644
 --- a/arch/x86/kvm/cpuid.c
 +++ b/arch/x86/kvm/cpuid.c
-@@ -283,6 +283,12 @@ static u64 cpuid_get_supported_xcr0(struct kvm_cpuid_entry2 *entries, int nent)
+@@ -284,6 +284,12 @@ static u64 cpuid_get_supported_xcr0(struct kvm_cpuid_entry2 *entries, int nent)
  	return (best->eax | ((u64)best->edx << 32)) & kvm_caps.supported_xcr0;
  }
  
@@ -95,10 +95,10 @@ index b5155103ebda37c64b2203341c31392a29a0493c..6a9325fbde43c06f7edc282b3fa6af10
  				       int nent)
  {
 diff --git a/arch/x86/kvm/cpuid.h b/arch/x86/kvm/cpuid.h
-index da4e23e32cffa430f04d1589d6fa2d4a856ed714..e33c2269c5a075d57c53d817ebeaf1b6a1d6a227 100644
+index 4f7d86084655e16dacd299d6068bb8066f9e77c7..09151a3a2814d18c7ecc5e85f40837a57299f0e1 100644
 --- a/arch/x86/kvm/cpuid.h
 +++ b/arch/x86/kvm/cpuid.h
-@@ -32,7 +32,10 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
+@@ -31,7 +31,10 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
  bool kvm_cpuid(struct kvm_vcpu *vcpu, u32 *eax, u32 *ebx,
  	       u32 *ecx, u32 *edx, bool exact_only);
  
@@ -110,10 +110,10 @@ index da4e23e32cffa430f04d1589d6fa2d4a856ed714..e33c2269c5a075d57c53d817ebeaf1b6
  
  int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 02c9220402c1d98ac03b5ede8b94e176317facee..1bb44080ef5d11d674ac646a38f31288bd0dcb91 100644
+index bacd5d114297c0f2feb45f2a2c95bc4f6970d6e6..7062635a753b9f3112198567313703149108c8e4 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -5571,6 +5571,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
+@@ -5572,6 +5572,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
  	if (fpstate_is_confidential(&vcpu->arch.guest_fpu))
  		return 0;
  

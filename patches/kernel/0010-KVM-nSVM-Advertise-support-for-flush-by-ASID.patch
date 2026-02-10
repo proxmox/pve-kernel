@@ -24,10 +24,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 93722be0c3dbfccf55ab9a254c71b98a48aa62ee..d91edbb0183d9904987a7451c44ecfef5b7349a7 100644
+index 69627bfd1e5ea8e2e6c1ee0cecac0d027cc05ec6..474a9e28bc9f8dafb2fda2b97555c776ff6eda0a 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -5168,6 +5168,7 @@ static __init void svm_set_cpu_caps(void)
+@@ -5247,6 +5247,7 @@ static __init void svm_set_cpu_caps(void)
  	if (nested) {
  		kvm_cpu_cap_set(X86_FEATURE_SVM);
  		kvm_cpu_cap_set(X86_FEATURE_VMCBCLEAN);
