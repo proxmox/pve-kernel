@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Sat, 14 Feb 2026 16:44:03 +0100
+Subject: [PATCH] smb client: switch disable_work_sync with cancel_work_sync to
+ fix backport
+
+The backport of upstream commit d9dcbbcf9145 ("smb: client: let
+smbd_destroy() call disable_work_sync(&info->post_send_credits_work)")
+was not adapted to the workqueue helpers available in 6.8, as the
+disable_work_sync function was only added for v6.10. Swap it out with
+the cancel_work_sync one available in 6.8, while the newer one would
+slightly be robuster, this should still fulfill what the backported
+fix wants to achieve.
+
+Fixes: 070ee6e1f3fd ("smb: client: let smbd_destroy() call disable_work_sync(&info->post_send_credits_work)")
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/smbdirect.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/smb/client/smbdirect.c b/fs/smb/client/smbdirect.c
+index 6b5c133c1faa5b939dd020998003e82f54557d86..581e86b7c1194075d6b7a4f3b1e97adaac4b6579 100644
+--- a/fs/smb/client/smbdirect.c
++++ b/fs/smb/client/smbdirect.c
+@@ -1302,7 +1302,7 @@ void smbd_destroy(struct TCP_Server_Info *server)
+ 	}
+ 
+ 	log_rdma_event(INFO, "cancelling post_send_credits_work\n");
+-	disable_work_sync(&info->post_send_credits_work);
++	cancel_work_sync(&info->post_send_credits_work);
+ 
+ 	log_rdma_event(INFO, "destroying qp\n");
+ 	ib_drain_qp(sc->ib.qp);

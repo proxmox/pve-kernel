@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Fri, 13 Feb 2026 13:09:13 +0100
+Subject: [PATCH] smb client: fix unknown-variable compilation error due to bad
+ backport
+
+The upstream commit 1944f6ab4967 ("smb: client: let
+smbd_post_send_iter() respect the peers max_send_size and transmit all
+data") was recently backported but not adapted to work for 6.8 based
+kernel. The Cc trailer to stable clearly mentions "sp->max_send_size
+should be info->max_send_size in backports", but that was not followed
+here and thus fails compilation.
+
+Fixes: d9eaf72656d3 ("smb: client: let smbd_post_send_iter() respect the peers max_send_size and transmit all data")
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/smbdirect.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/smb/client/smbdirect.c b/fs/smb/client/smbdirect.c
+index bff06a7a924c70c13664343498938be3bcc6aea7..6b5c133c1faa5b939dd020998003e82f54557d86 100644
+--- a/fs/smb/client/smbdirect.c
++++ b/fs/smb/client/smbdirect.c
+@@ -891,7 +891,7 @@ static int smbd_post_send_iter(struct smbd_connection *info,
+ 			.direction	= DMA_TO_DEVICE,
+ 		};
+ 		size_t payload_len = umin(*_remaining_data_length,
+-					  sp->max_send_size - sizeof(*packet));
++					  info->max_send_size - sizeof(*packet));
+ 
+ 		rc = smb_extract_iter_to_rdma(iter, payload_len,
+ 					      &extract);
