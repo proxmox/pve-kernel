@@ -25,6 +25,7 @@ amd/amd_sev_fam17h_model3xh.sbin kernel/drivers/crypto/ccp/ccp.ko
 amd/amd_sev_fam19h_model0xh.sbin kernel/drivers/crypto/ccp/ccp.ko
 amd/amd_sev_fam19h_model1xh.sbin kernel/drivers/crypto/ccp/ccp.ko
 amdgpu/aldebaran_cap.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/aldebaran_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/aldebaran_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/aldebaran_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/aldebaran_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -37,6 +38,7 @@ amdgpu/aldebaran_ta.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/aldebaran_vcn.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/arcturus_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/arcturus_sdma.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -87,6 +89,7 @@ amdgpu/cyan_skillfish2_pfp.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/cyan_skillfish2_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/cyan_skillfish2_sdma.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/cyan_skillfish2_sdma1.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/cyan_skillfish_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_1_4_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_1_5_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/dcn_3_1_6_dmcub.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -310,6 +313,7 @@ amdgpu/oland_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/picasso_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/picasso_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -410,6 +414,7 @@ amdgpu/psp_14_0_0_toc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/raven2_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven2_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -422,6 +427,7 @@ amdgpu/raven_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_dmcu.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/raven_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_kicker_rlc.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/raven_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -530,6 +536,7 @@ amdgpu/vega10_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_cap.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/vega10_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega10_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -544,6 +551,7 @@ amdgpu/vega10_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_gpu_info.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/vega12_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
@@ -557,6 +565,7 @@ amdgpu/vega12_uvd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega12_vce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_asd.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_ce.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+amdgpu/vega20_ip_discovery.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_me.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_mec.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
 amdgpu/vega20_mec2.bin kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
