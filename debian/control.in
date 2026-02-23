@@ -44,7 +44,7 @@ Priority: optional
 Depends: linux-base, ${misc:Depends}, ${shlibs:Depends},
 Description: Linux kernel version specific tools for version @KVMAJMIN@
  This package provides the architecture dependent parts for kernel
- version locked tools (such as perf and x86_energy_perf_policy)
+ version locked tools (such as perf)
 
 Package: proxmox-headers-@KVNAME@
 Section: devel
