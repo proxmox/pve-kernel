@@ -26,12 +26,15 @@ HDRPACKAGE=proxmox-headers-$(KVNAME)
 
 ARCH=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
 
-# amd64/x86_64/x86 share the arch subdirectory in the kernel, 'x86' so we need
-# a mapping
-KERNEL_ARCH=x86
-ifneq ($(ARCH), amd64)
-KERNEL_ARCH=$(ARCH)
+SUPPORTED_ARCHS = amd64 arm64
+ifeq ($(filter $(ARCH),$(SUPPORTED_ARCHS)),)
+$(error Unsupported architecture: $(ARCH). Supported: $(SUPPORTED_ARCHS))
 endif
+
+# map Debian arch to kernel source arch directory name
+KERNEL_ARCH_amd64 = x86
+KERNEL_ARCH_arm64 = arm64
+KERNEL_ARCH = $(KERNEL_ARCH_$(ARCH))
 
 SKIPABI=0
 
@@ -39,7 +42,7 @@ BUILD_DIR=proxmox-kernel-$(KERNEL_VER)
 
 KERNEL_SRC=ubuntu-kernel
 KERNEL_SRC_SUBMODULE=submodules/$(KERNEL_SRC)
-KERNEL_CFG_ORG=config-$(KERNEL_VER).org
+KERNEL_CFG_ORG=config-$(KERNEL_VER)-$(ARCH).org
 
 ZFSONLINUX_SUBMODULE=submodules/zfsonlinux
 ZFSDIR=pkg-zfs
@@ -109,8 +112,7 @@ $(KERNEL_SRC).prepared: $(KERNEL_SRC_SUBMODULE) | submodule
 	rm -rf $(BUILD_DIR)/$(KERNEL_SRC) $@
 	mkdir -p $(BUILD_DIR)
 	cp -a $(KERNEL_SRC_SUBMODULE) $(BUILD_DIR)/$(KERNEL_SRC)
-# TODO: split for archs, track and diff in our repository?
-	cd $(BUILD_DIR)/$(KERNEL_SRC); python3 debian/scripts/misc/annotations --arch amd64 --export >../../$(KERNEL_CFG_ORG)
+	cd $(BUILD_DIR)/$(KERNEL_SRC); python3 debian/scripts/misc/annotations --arch $(ARCH) --export >../../$(KERNEL_CFG_ORG)
 	cp $(KERNEL_CFG_ORG) $(BUILD_DIR)/$(KERNEL_SRC)/.config
 	sed -i $(BUILD_DIR)/$(KERNEL_SRC)/Makefile -e 's/^EXTRAVERSION.*$$/EXTRAVERSION=$(EXTRAVERSION)/'
 	rm -rf $(BUILD_DIR)/$(KERNEL_SRC)/debian $(BUILD_DIR)/$(KERNEL_SRC)/debian.master
