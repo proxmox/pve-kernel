@@ -53,7 +53,7 @@ MODULE_DIRS=$(ZFSDIR)
 # exported to debian/rules via debian/rules.d/dirs.mk
 DIRS=KERNEL_SRC ZFSDIR MODULES
 
-DSC=proxmox-kernel-$(KERNEL_MAJMIN)_$(KERNEL_VER)-$(KREL)$(KREL_EXTRA).dsc
+DSC=proxmox-kernel-$(KERNEL_MAJMIN)_$(DEB_VERSION).dsc
 DST_DEB=$(PACKAGE)_$(DEB_VERSION)_$(ARCH).deb
 SIGNED_TEMPLATE_DEB=$(PACKAGE)-signed-template_$(DEB_VERSION)_$(ARCH).deb
 META_DEB=proxmox-kernel-$(KERNEL_MAJMIN)_$(DEB_VERSION)_$(ARCH).deb
