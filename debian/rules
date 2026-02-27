@@ -44,11 +44,11 @@ debian/control: $(wildcard debian/*.in)
 	chmod +x debian/$(PMX_KERNEL_SERIES_PKG).postrm
 	chmod +x debian/$(PMX_KERNEL_SERIES_PKG).postinst
 	chmod +x debian/$(PMX_HEADER_PKG).postinst
-	sed -e 's/@KVNAME@/$(KVNAME)/g' -e 's/@KVMAJMIN@/$(KERNEL_MAJMIN)/g' < debian/control.in > debian/control
+	sed -e 's/@KVNAME@/$(KVNAME)/g' -e 's/@KVMAJMIN@/$(KERNEL_MAJMIN)/g' -e 's/@ARCH@/$(DEB_BUILD_ARCH)/g' -e 's/@GRUB_RECOMMENDS@/$(GRUB_RECOMMENDS)/g' < debian/control.in > debian/control
 
 	# signing-template
 	sed -e '1 s/proxmox-kernel/proxmox-kernel-signed/' -e '1 s/${DEB_VERSION}/${PMX_KERNEL_SIGNED_VERSION}/' < debian/changelog > debian/signing-template/changelog
-	sed -e 's/@KVNAME@/${KVNAME}/g' -e 's/@KVMAJMIN@/$(KERNEL_MAJMIN)/g' -e 's/@UNSIGNED_VERSION@/${DEB_VERSION}/g' < debian/signing-template/control.in > debian/signing-template/control
+	sed -e 's/@KVNAME@/${KVNAME}/g' -e 's/@KVMAJMIN@/$(KERNEL_MAJMIN)/g' -e 's/@UNSIGNED_VERSION@/${DEB_VERSION}/g' -e 's/@ARCH@/$(DEB_BUILD_ARCH)/g' < debian/signing-template/control.in > debian/signing-template/control
 	sed -e 's/@KVNAME@/${KVNAME}/g' < debian/signing-template/files.json.in > debian/signing-template/files.json
 	sed -e 's/@KVNAME@/${KVNAME}/g' -e 's/@PKG_VERSION@/${DEB_VERSION}/' < debian/signing-template/rules.in > debian/signing-template/rules
 	sed -e 's/@@KVNAME@@/${KVNAME}/g' < debian/proxmox-kernel.prerm.in > debian/signing-template/prerm

@@ -50,7 +50,7 @@ Package: proxmox-headers-@KVNAME@
 Section: devel
 Priority: optional
 Architecture: any
-Provides: linux-headers-@KVNAME@-amd64, pve-headers-@KVNAME@
+Provides: linux-headers-@KVNAME@-@ARCH@, pve-headers-@KVNAME@
 Depends: ${misc:Depends},
 Description: Proxmox Kernel Headers
  This package contains the linux kernel headers
@@ -59,10 +59,10 @@ Package: proxmox-kernel-@KVNAME@
 Section: admin
 Priority: optional
 Architecture: any
-Provides: linux-image-@KVNAME@-amd64, pve-kernel-@KVNAME@
+Provides: linux-image-@KVNAME@-@ARCH@, pve-kernel-@KVNAME@
 Suggests: pve-firmware,
 Depends: busybox, initramfs-tools | linux-initramfs-tool, ${misc:Depends},
-Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub-efi-arm64,
+Recommends: @GRUB_RECOMMENDS@,
 Description: Proxmox Kernel Image
  This package contains the linux kernel and initial ramdisk used for booting
 
@@ -81,7 +81,7 @@ Description: Proxmox Kernel debug image
  in their unstripped version.
 
 Package: proxmox-kernel-@KVNAME@-signed-template
-Architecture: amd64
+Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, make | build-essential | dpkg-dev
 Description: Template for signed kernel package
  This package is used to control code signing by the Proxmox signing
@@ -101,9 +101,9 @@ Description: Linux support headers for userspace development
  are used by the installed headers for GNU libc and other system libraries.
 
 Package: proxmox-headers-@KVMAJMIN@
-Architecture: all
+Architecture: any
 Section: admin
-Provides: linux-headers-amd64, linux-headers-generic, pve-headers-@KVMAJMIN@
+Provides: linux-headers-@ARCH@, linux-headers-generic, pve-headers-@KVMAJMIN@
 Replaces: pve-headers-@KVMAJMIN@
 Priority: optional
 Depends: proxmox-headers-@KVNAME@, ${misc:Depends},
@@ -113,9 +113,9 @@ Description: Latest Proxmox Kernel Headers
  series.
 
 Package: proxmox-kernel-@KVMAJMIN@
-Architecture: all
+Architecture: any
 Section: admin
-Provides: linux-image-amd64, linux-image-generic, wireguard-modules (=1.0.0), pve-kernel-@KVMAJMIN@
+Provides: linux-image-@ARCH@, linux-image-generic, wireguard-modules (=1.0.0), pve-kernel-@KVMAJMIN@
 Replaces: pve-kernel-@KVMAJMIN@
 Priority: optional
 Depends: pve-firmware, proxmox-kernel-@KVNAME@-signed | proxmox-kernel-@KVNAME@, ${misc:Depends},

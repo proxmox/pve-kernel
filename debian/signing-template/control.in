@@ -12,7 +12,7 @@ Package: proxmox-kernel-@KVNAME@-signed
 Section: admin
 Priority: optional
 Architecture: any
-Provides: linux-image-@KVNAME@-amd64, proxmox-kernel-@KVNAME@
+Provides: linux-image-@KVNAME@-@ARCH@, proxmox-kernel-@KVNAME@
 Depends: ${unsigned:Depends}, ${misc:Depends}
 Recommends: ${unsigned:Recommends}
 Suggests: ${unsigned:Suggests}
