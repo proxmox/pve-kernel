@@ -85,8 +85,8 @@ sbuild: $(DSC)
 	sbuild $(DSC)
 
 $(BUILD_DIR).prepared: $(addsuffix .prepared,$(KERNEL_SRC) $(MODULES) debian)
-	cp -a fwlist-previous $(BUILD_DIR)/
-	cp -a abi-prev-* $(BUILD_DIR)/
+	test -f fwlist-previous-$(ARCH) && cp -a fwlist-previous-$(ARCH) $(BUILD_DIR)/ || touch $(BUILD_DIR)/fwlist-previous-$(ARCH)
+	cp -a abi-prev-*-$(ARCH) $(BUILD_DIR)/ 2>/dev/null || true
 	cp -a abi-blacklist $(BUILD_DIR)/
 	touch $@
 
@@ -157,20 +157,20 @@ submodule:
 
 # call after ABI bump with header deb in working directory
 .PHONY: abiupdate
-abiupdate: abi-prev-$(KVNAME)
-abi-prev-$(KVNAME): abi-tmp-$(KVNAME)
+abiupdate: abi-prev-$(KVNAME)-$(ARCH)
+abi-prev-$(KVNAME)-$(ARCH): abi-tmp-$(KVNAME)-$(ARCH)
 ifneq ($(strip $(shell git status --untracked-files=no --porcelain -z)),)
 	@echo "working directory unclean, aborting!"
 	@false
 else
-	git rm "abi-prev-*"
+	git rm "abi-prev-*-$(ARCH)"
 	mv $< $@
 	git add $@
-	git commit -s -m "update ABI file for $(KVNAME)" -m "(generated with debian/scripts/abi-generate)"
-	@echo "update abi-prev-$(KVNAME) committed!"
+	git commit -s -m "update ABI file for $(KVNAME) ($(ARCH))" -m "(generated with debian/scripts/abi-generate)"
+	@echo "update abi-prev-$(KVNAME)-$(ARCH) committed!"
 endif
 
-abi-tmp-$(KVNAME):
+abi-tmp-$(KVNAME)-$(ARCH):
 	@ test -e $(HDR_DEB) || (echo "need $(HDR_DEB) to extract ABI data!" && false)
 	debian/scripts/abi-generate $(HDR_DEB) $@ $(KVNAME) 1
 

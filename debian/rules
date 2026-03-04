@@ -247,26 +247,36 @@ $(MODULES)/zfs.ko: .compile_mark
 	cp $(MODULES)/$(ZFSDIR)/module/zfs.ko $(MODULES)/
 	cp $(MODULES)/$(ZFSDIR)/module/spl.ko $(MODULES)/
 
-fwlist-$(KVNAME): .compile_mark .modules_compile_mark
+fwlist-$(KVNAME)-$(DEB_BUILD_ARCH): .compile_mark .modules_compile_mark
 	debian/scripts/find-firmware.pl debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME) >fwlist.tmp
 	mv fwlist.tmp $@
 
+HAVE_FWLIST_PREV := $(shell test -s fwlist-previous-$(DEB_BUILD_ARCH) && echo yes)
 .PHONY: fwcheck
-fwcheck: fwlist-$(KVNAME) fwlist-previous
+fwcheck: fwlist-$(KVNAME)-$(DEB_BUILD_ARCH)
+ifeq ($(HAVE_FWLIST_PREV),)
+	@echo "II: No previous firmware list for $(DEB_BUILD_ARCH), skipping check"
+else
 	@echo "checking fwlist for changes since last built firmware package.."
-	@echo "if this check fails, add fwlist-$(KVNAME) to the pve-firmware repository and upload a new firmware package together with the $(KVNAME) kernel"
-	LC_ALL=C.utf8 sort fwlist-previous | uniq > fwlist-previous.sorted
-	LC_ALL=C.utf8 sort fwlist-$(KVNAME) | uniq > fwlist-$(KVNAME).sorted
-	diff -up -N fwlist-previous.sorted fwlist-$(KVNAME).sorted > fwlist.diff
-	rm fwlist.diff fwlist-previous.sorted fwlist-$(KVNAME).sorted
+	@echo "if this check fails, add fwlist-$(KVNAME)-$(DEB_BUILD_ARCH) to the pve-firmware repository and upload a new firmware package together with the $(KVNAME) kernel"
+	LC_ALL=C.utf8 sort fwlist-previous-$(DEB_BUILD_ARCH) | uniq > fwlist-previous.sorted
+	LC_ALL=C.utf8 sort fwlist-$(KVNAME)-$(DEB_BUILD_ARCH) | uniq > fwlist-$(KVNAME)-$(DEB_BUILD_ARCH).sorted
+	diff -up -N fwlist-previous.sorted fwlist-$(KVNAME)-$(DEB_BUILD_ARCH).sorted > fwlist.diff
+	rm fwlist.diff fwlist-previous.sorted fwlist-$(KVNAME)-$(DEB_BUILD_ARCH).sorted
 	@echo "done, no need to rebuild pve-firmware"
+endif
 
 
-abi-$(KVNAME): .compile_mark
-	debian/scripts/abi-generate debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/Module.symvers abi-$(KVNAME) $(KVNAME)
+abi-$(KVNAME)-$(DEB_BUILD_ARCH): .compile_mark
+	debian/scripts/abi-generate debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/Module.symvers abi-$(KVNAME)-$(DEB_BUILD_ARCH) $(KVNAME)
 
+HAVE_ABI_PREV := $(wildcard abi-prev-*-$(DEB_BUILD_ARCH))
 .PHONY: abicheck
-abicheck: debian/scripts/abi-check abi-$(KVNAME) abi-prev-* abi-blacklist
-	debian/scripts/abi-check abi-$(KVNAME) abi-prev-* $(SKIPABI)
+abicheck: debian/scripts/abi-check abi-$(KVNAME)-$(DEB_BUILD_ARCH) $(HAVE_ABI_PREV) abi-blacklist
+ifeq ($(HAVE_ABI_PREV),)
+	@echo "II: No previous ABI for $(DEB_BUILD_ARCH), skipping check"
+else
+	debian/scripts/abi-check abi-$(KVNAME)-$(DEB_BUILD_ARCH) $(HAVE_ABI_PREV) $(SKIPABI)
+endif
 
 .PHONY: clean
