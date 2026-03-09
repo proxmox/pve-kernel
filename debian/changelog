@@ -1,3 +1,16 @@
+proxmox-kernel-7.0 (7.0.0-1~rc3+1) trixie; urgency=medium
+
+  * update submodule and patches to Ubuntu-7.0.0-7.7 based on 7.0~rc3.
+    This will be Ubuntu's kernel for it's upcoming 26.04 Resolute release and
+    thus quite likely a future default kernel of ours too.
+
+  * Drop the whole TCP revert series, as there are some new fixes that should
+    address this now included. While we need further confirmation by affected
+    users, it's worth a shot and it's simply not viable to keep that huge
+    revert without a big regression potential.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Mar 2026 19:51:10 +0100
+
 proxmox-kernel-6.17 (6.17.13-2) trixie; urgency=medium
 
   * update kernel to 6.17.13 based on Ubuntu-6.17.0-19.19
