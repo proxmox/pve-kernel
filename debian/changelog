@@ -1,3 +1,10 @@
+proxmox-kernel-6.8 (6.8.12-20) bookworm; urgency=medium
+
+  * update submodule to Ubuntu-6.8.0-106.106 fixing the "Crackarmor" AppArmor
+    security vulnerabilities.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 13 Mar 2026 09:15:16 +0100
+
 proxmox-kernel-6.8 (6.8.12-19) bookworm; urgency=medium
 
   * update submodule to Ubuntu-6.8.0-104.104 and refresh patches
