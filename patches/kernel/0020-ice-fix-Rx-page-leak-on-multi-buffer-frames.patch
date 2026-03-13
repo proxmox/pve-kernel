@@ -1,4 +1,4 @@
-From 0064fddbc81c14ae6868a9cc0964cd7b1048557a Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Jacob Keller <jacob.e.keller@intel.com>
 Date: Mon, 25 Aug 2025 16:00:14 -0700
 Subject: [PATCH] ice: fix Rx page leak on multi-buffer frames
@@ -82,7 +82,7 @@ Signed-off-by: Friedrich Weber <f.weber@proxmox.com>
  2 files changed, 34 insertions(+), 47 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ice/ice_txrx.c b/drivers/net/ethernet/intel/ice/ice_txrx.c
-index 380ba1e8b3b2..dc3be5a76c6c 100644
+index 380ba1e8b3b2c833363430e61e67fb6969b1a156..dc3be5a76c6c4231f07a9eb1b1a2aee63076cc82 100644
 --- a/drivers/net/ethernet/intel/ice/ice_txrx.c
 +++ b/drivers/net/ethernet/intel/ice/ice_txrx.c
 @@ -865,10 +865,6 @@ ice_add_xdp_frag(struct ice_rx_ring *rx_ring, struct xdp_buff *xdp,
@@ -255,7 +255,7 @@ index 380ba1e8b3b2..dc3be5a76c6c 100644
  		if (!skb)
  			break;
 diff --git a/drivers/net/ethernet/intel/ice/ice_txrx.h b/drivers/net/ethernet/intel/ice/ice_txrx.h
-index 806bce701df3..72954b7655c8 100644
+index 806bce701df349fd963902c16e4a12990310fe98..72954b7655c80e5693b59d5e77137f937424cde1 100644
 --- a/drivers/net/ethernet/intel/ice/ice_txrx.h
 +++ b/drivers/net/ethernet/intel/ice/ice_txrx.h
 @@ -357,7 +357,6 @@ struct ice_rx_ring {
@@ -266,6 +266,3 @@ index 806bce701df3..72954b7655c8 100644
  	u16 max_frame;
  	u16 rx_buf_len;
  	dma_addr_t dma;			/* physical address of ring */
--- 
-2.47.3
-
