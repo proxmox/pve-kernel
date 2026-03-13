@@ -1,0 +1,86 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Massimiliano Pellizzer <massimiliano.pellizzer@canonical.com>
+Date: Tue, 13 Jan 2026 09:09:43 +0100
+Subject: [PATCH] apparmor: replace recursive profile removal with iterative
+ approach
+
+The profile removal code uses recursion when removing nested profiles,
+which can lead to kernel stack exhaustion and system crashes.
+
+Reproducer:
+  $ pf='a'; for ((i=0; i<1024; i++)); do
+      echo -e "profile $pf { \n }" | apparmor_parser -K -a;
+      pf="$pf//x";
+  done
+  $ echo -n a > /sys/kernel/security/apparmor/.remove
+
+Replace the recursive __aa_profile_list_release() approach with an
+iterative approach in __remove_profile(). The function repeatedly
+finds and removes leaf profiles until the entire subtree is removed,
+maintaining the same removal semantic without recursion.
+
+Fixes: c88d4c7b049e ("AppArmor: core policy routines")
+Reported-by: Qualys Security Advisory <qsa@qualys.com>
+Tested-by: Salvatore Bonaccorso <carnil@debian.org>
+Reviewed-by: Georgia Garcia <georgia.garcia@canonical.com>
+Reviewed-by: Cengiz Can <cengiz.can@canonical.com>
+Signed-off-by: Massimiliano Pellizzer <massimiliano.pellizzer@canonical.com>
+Signed-off-by: John Johansen <john.johansen@canonical.com>
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Signed-off-by: Mehmet Basaran <mehmet.basaran@canonical.com>
+(cherry picked from commit 8f48dd19211b827483d14eba4309cb861d53b0fd)
+---
+ security/apparmor/policy.c | 30 +++++++++++++++++++++++++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/security/apparmor/policy.c b/security/apparmor/policy.c
+index cfc7fa077ecf53306ba93804b396528c120b0644..8e2fc7d65495c2180cdb310800d2e346835b4439 100644
+--- a/security/apparmor/policy.c
++++ b/security/apparmor/policy.c
+@@ -187,19 +187,43 @@ static void __list_remove_profile(struct aa_profile *profile)
+ }
+ 
+ /**
+- * __remove_profile - remove old profile, and children
+- * @profile: profile to be replaced  (NOT NULL)
++ * __remove_profile - remove profile, and children
++ * @profile: profile to be removed  (NOT NULL)
+  *
+  * Requires: namespace list lock be held, or list not be shared
+  */
+ static void __remove_profile(struct aa_profile *profile)
+ {
++	struct aa_profile *curr, *to_remove;
++
+ 	AA_BUG(!profile);
+ 	AA_BUG(!profile->ns);
+ 	AA_BUG(!mutex_is_locked(&profile->ns->lock));
+ 
+ 	/* release any children lists first */
+-	__aa_profile_list_release(&profile->base.profiles);
++	if (!list_empty(&profile->base.profiles)) {
++		curr = list_first_entry(&profile->base.profiles, struct aa_profile, base.list);
++
++		while (curr != profile) {
++
++			while (!list_empty(&curr->base.profiles))
++				curr = list_first_entry(&curr->base.profiles,
++							struct aa_profile, base.list);
++
++			to_remove = curr;
++			if (!list_is_last(&to_remove->base.list,
++					  &aa_deref_parent(curr)->base.profiles))
++				curr = list_next_entry(to_remove, base.list);
++			else
++				curr = aa_deref_parent(curr);
++
++			/* released by free_profile */
++			aa_label_remove(&to_remove->label);
++			__aafs_profile_rmdir(to_remove);
++			__list_remove_profile(to_remove);
++		}
++	}
++
+ 	/* released by free_profile */
+ 	aa_label_remove(&profile->label);
+ 	__aafs_profile_rmdir(profile);

@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Massimiliano Pellizzer <massimiliano.pellizzer@canonical.com>
+Date: Thu, 15 Jan 2026 15:30:50 +0100
+Subject: [PATCH] apparmor: validate DFA start states are in bounds in
+ unpack_pdb
+
+Start states are read from untrusted data and used as indexes into the
+DFA state tables. The aa_dfa_next() function call in unpack_pdb() will
+access dfa->tables[YYTD_ID_BASE][start], and if the start state exceeds
+the number of states in the DFA, this results in an out-of-bound read.
+
+==================================================================
+ BUG: KASAN: slab-out-of-bounds in aa_dfa_next+0x2a1/0x360
+ Read of size 4 at addr ffff88811956fb90 by task su/1097
+ ...
+
+Reject policies with out-of-bounds start states during unpacking
+to prevent the issue.
+
+Fixes: ad5ff3db53c6 ("AppArmor: Add ability to load extended policy")
+Reported-by: Qualys Security Advisory <qsa@qualys.com>
+Tested-by: Salvatore Bonaccorso <carnil@debian.org>
+Reviewed-by: Georgia Garcia <georgia.garcia@canonical.com>
+Reviewed-by: Cengiz Can <cengiz.can@canonical.com>
+Signed-off-by: Massimiliano Pellizzer <massimiliano.pellizzer@canonical.com>
+Signed-off-by: John Johansen <john.johansen@canonical.com>
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Signed-off-by: Mehmet Basaran <mehmet.basaran@canonical.com>
+(cherry picked from commit 1b408cd261eb70f7b7462e424180603167a4a87f)
+---
+ security/apparmor/policy_unpack.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/security/apparmor/policy_unpack.c b/security/apparmor/policy_unpack.c
+index 2f21bb3b5de2fd52938d95e496db98822d9d86ed..594168a7b2517031f032a23d42881ffa0722510e 100644
+--- a/security/apparmor/policy_unpack.c
++++ b/security/apparmor/policy_unpack.c
+@@ -781,7 +781,17 @@ static int unpack_pdb(struct aa_ext *e, struct aa_policydb **policy,
+ 		if (!aa_unpack_u32(e, &pdb->start[AA_CLASS_FILE], "dfa_start")) {
+ 			/* default start state for xmatch and file dfa */
+ 			pdb->start[AA_CLASS_FILE] = DFA_START;
+-		}	/* setup class index */
++		}
++
++		size_t state_count = pdb->dfa->tables[YYTD_ID_BASE]->td_lolen;
++
++		if (pdb->start[0] >= state_count ||
++		    pdb->start[AA_CLASS_FILE] >= state_count) {
++			*info = "invalid dfa start state";
++			goto fail;
++		}
++
++		/* setup class index */
+ 		for (i = AA_CLASS_FILE + 1; i <= AA_CLASS_LAST; i++) {
+ 			pdb->start[i] = aa_dfa_next(pdb->dfa, pdb->start[0],
+ 						    i);

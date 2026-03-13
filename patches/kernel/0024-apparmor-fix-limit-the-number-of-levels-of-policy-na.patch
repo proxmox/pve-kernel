@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Johansen <john.johansen@canonical.com>
+Date: Tue, 3 Mar 2026 11:08:02 -0800
+Subject: [PATCH] apparmor: fix: limit the number of levels of policy
+ namespaces
+
+Currently the number of policy namespaces is not bounded relying on
+the user namespace limit. However policy namespaces aren't strictly
+tied to user namespaces and it is possible to create them and nest
+them arbitrarily deep which can be used to exhaust system resource.
+
+Hard cap policy namespaces to the same depth as user namespaces.
+
+Fixes: c88d4c7b049e8 ("AppArmor: core policy routines")
+Reported-by: Qualys Security Advisory <qsa@qualys.com>
+Reviewed-by: Ryan Lee <ryan.lee@canonical.com>
+Reviewed-by: Cengiz Can <cengiz.can@canonical.com>
+Signed-off-by: John Johansen <john.johansen@canonical.com>
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Signed-off-by: Mehmet Basaran <mehmet.basaran@canonical.com>
+(cherry picked from commit 943464c110ef05d991ff3d40e6e6b33ce8884325)
+---
+ security/apparmor/include/policy_ns.h | 2 ++
+ security/apparmor/policy_ns.c         | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/security/apparmor/include/policy_ns.h b/security/apparmor/include/policy_ns.h
+index 733046c132cab8945c4982e0a0ddacac36fad6dc..bd30b39f31efa0130cf253053bb90faf7244ff96 100644
+--- a/security/apparmor/include/policy_ns.h
++++ b/security/apparmor/include/policy_ns.h
+@@ -19,6 +19,8 @@
+ #include "label.h"
+ #include "policy.h"
+ 
++/* Match max depth of user namespaces */
++#define MAX_NS_DEPTH 32
+ 
+ /* struct aa_ns_acct - accounting of profiles in namespace
+  * @max_size: maximum space allowed for all profiles in namespace
+diff --git a/security/apparmor/policy_ns.c b/security/apparmor/policy_ns.c
+index 9d923901ee8084e9ba9ff4842cbb1541ccf07731..a2e8eedaed8802995cf27358da8d899f8d698917 100644
+--- a/security/apparmor/policy_ns.c
++++ b/security/apparmor/policy_ns.c
+@@ -226,6 +226,8 @@ static struct aa_ns *__aa_create_ns(struct aa_ns *parent, const char *name,
+ 	AA_BUG(!name);
+ 	AA_BUG(!mutex_is_locked(&parent->lock));
+ 
++	if (parent->level > MAX_NS_DEPTH)
++		return ERR_PTR(-ENOSPC);
+ 	ns = alloc_ns(parent->base.hname, name);
+ 	if (!ns)
+ 		return ERR_PTR(-ENOMEM);
