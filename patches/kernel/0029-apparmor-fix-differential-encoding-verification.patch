@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Johansen <john.johansen@canonical.com>
+Date: Fri, 17 Oct 2025 01:53:00 -0700
+Subject: [PATCH] apparmor: fix differential encoding verification
+
+Differential encoding allows loops to be created if it is abused. To
+prevent this the unpack should verify that a diff-encode chain
+terminates.
+
+Unfortunately the differential encode verification had two bugs.
+
+1. it conflated states that had gone through check and already been
+   marked, with states that were currently being checked and marked.
+   This means that loops in the current chain being verified are treated
+   as a chain that has already been verified.
+
+2. the order bailout on already checked states compared current chain
+   check iterators j,k instead of using the outer loop iterator i.
+   Meaning a step backwards in states in the current chain verification
+   was being mistaken for moving to an already verified state.
+
+Move to a double mark scheme where already verified states get a
+different mark, than the current chain being kept. This enables us
+to also drop the backwards verification check that was the cause of
+the second error as any already verified state is already marked.
+
+Fixes: 031dcc8f4e84 ("apparmor: dfa add support for state differential encoding")
+Reported-by: Qualys Security Advisory <qsa@qualys.com>
+Tested-by: Salvatore Bonaccorso <carnil@debian.org>
+Reviewed-by: Georgia Garcia <georgia.garcia@canonical.com>
+Reviewed-by: Cengiz Can <cengiz.can@canonical.com>
+Signed-off-by: John Johansen <john.johansen@canonical.com>
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Signed-off-by: Mehmet Basaran <mehmet.basaran@canonical.com>
+(cherry picked from commit 36b4187bfaafa6a2b7f54081d0ea42cc533e475a)
+---
+ security/apparmor/include/match.h |  1 +
+ security/apparmor/match.c         | 23 +++++++++++++++++++----
+ 2 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/security/apparmor/include/match.h b/security/apparmor/include/match.h
+index 27cf23b0396bc85a9993b91ddda910c932a434fc..854c242b6237f78792d17aab4296e75deedb6261 100644
+--- a/security/apparmor/include/match.h
++++ b/security/apparmor/include/match.h
+@@ -183,6 +183,7 @@ static inline void aa_put_dfa(struct aa_dfa *dfa)
+ #define MATCH_FLAG_DIFF_ENCODE 0x80000000
+ #define MARK_DIFF_ENCODE 0x40000000
+ #define MATCH_FLAG_OOB_TRANSITION 0x20000000
++#define MARK_DIFF_ENCODE_VERIFIED 0x10000000
+ #define MATCH_FLAGS_MASK 0xff000000
+ #define MATCH_FLAGS_VALID (MATCH_FLAG_DIFF_ENCODE | MATCH_FLAG_OOB_TRANSITION)
+ #define MATCH_FLAGS_INVALID (MATCH_FLAGS_MASK & ~MATCH_FLAGS_VALID)
+diff --git a/security/apparmor/match.c b/security/apparmor/match.c
+index 3daf6d5df321e69898add050390f6c51426bf8ec..4d889c1177fb54012e3ab49f20c807079013cc90 100644
+--- a/security/apparmor/match.c
++++ b/security/apparmor/match.c
+@@ -202,16 +202,31 @@ static int verify_dfa(struct aa_dfa *dfa)
+ 		size_t j, k;
+ 
+ 		for (j = i;
+-		     (BASE_TABLE(dfa)[j] & MATCH_FLAG_DIFF_ENCODE) &&
+-		     !(BASE_TABLE(dfa)[j] & MARK_DIFF_ENCODE);
++		     ((BASE_TABLE(dfa)[j] & MATCH_FLAG_DIFF_ENCODE) &&
++		      !(BASE_TABLE(dfa)[j] & MARK_DIFF_ENCODE_VERIFIED));
+ 		     j = k) {
++			if (BASE_TABLE(dfa)[j] & MARK_DIFF_ENCODE)
++				/* loop in current chain */
++				goto out;
+ 			k = DEFAULT_TABLE(dfa)[j];
+ 			if (j == k)
++				/* self loop */
+ 				goto out;
+-			if (k < j)
+-				break;		/* already verified */
+ 			BASE_TABLE(dfa)[j] |= MARK_DIFF_ENCODE;
+ 		}
++		/* move mark to verified */
++		for (j = i;
++		     (BASE_TABLE(dfa)[j] & MATCH_FLAG_DIFF_ENCODE);
++		     j = k) {
++			k = DEFAULT_TABLE(dfa)[j];
++			if (j < i)
++				/* jumps to state/chain that has been
++				 * verified
++				 */
++				break;
++			BASE_TABLE(dfa)[j] &= ~MARK_DIFF_ENCODE;
++			BASE_TABLE(dfa)[j] |= MARK_DIFF_ENCODE_VERIFIED;
++		}
+ 	}
+ 	error = 0;
+ 
