@@ -1,3 +1,11 @@
+proxmox-kernel-6.17 (6.17.13-2) trixie; urgency=medium
+
+  * update kernel to 6.17.13 based on Ubuntu-6.17.0-19.19
+
+  * fix "Crackarmor" AppArmor vulnerabilities
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 13 Mar 2026 09:06:01 +0100
+
 proxmox-kernel-6.17 (6.17.13-1) trixie; urgency=medium
 
   * update kernel to 6.17.13 based on Ubuntu-6.17.0-16.16.
