@@ -1,3 +1,11 @@
+proxmox-kernel-7.0 (7.0.0-1~rc4+1) trixie; urgency=medium
+
+  * update submodule and patches to Ubuntu-7.0.0-8.8 based on 7.0~rc4.
+
+  * backport tcp series for RFC 7323-compliant window retraction handling.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Mar 2026 22:02:50 +0100
+
 proxmox-kernel-7.0 (7.0.0-1~rc3+1) trixie; urgency=medium
 
   * update submodule and patches to Ubuntu-7.0.0-7.7 based on 7.0~rc3.
