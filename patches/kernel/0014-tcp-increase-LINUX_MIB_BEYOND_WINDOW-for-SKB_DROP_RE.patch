@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Simon Baatz <gmbnomis@gmail.com>
+Date: Mon, 9 Mar 2026 09:02:28 +0100
+Subject: [PATCH] tcp: increase LINUX_MIB_BEYOND_WINDOW for
+ SKB_DROP_REASON_TCP_OVERWINDOW
+
+Since commit 9ca48d616ed7 ("tcp: do not accept packets beyond
+window"), the path leading to SKB_DROP_REASON_TCP_OVERWINDOW in
+tcp_data_queue() is probably dead. However, it can be reached now when
+tcp_max_receive_window() is larger than tcp_receive_window(). In that
+case, increment LINUX_MIB_BEYOND_WINDOW as done in tcp_sequence().
+
+Signed-off-by: Simon Baatz <gmbnomis@gmail.com>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+Link: https://lore.kernel.org/20260309-tcp_rfc7323_retract_wnd_rfc-v3-3-4c7f96b1ec69@gmail.com
+---
+ net/ipv4/tcp_input.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c108b8fd7664139e004a3d8f8a4ca6d1a696b1bd..a1d94526fb649df0a5eb000dcf8759125a1e3da2 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5732,6 +5732,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 	if (!before(TCP_SKB_CB(skb)->seq,
+ 		    tp->rcv_nxt + tcp_receive_window(tp))) {
+ 		reason = SKB_DROP_REASON_TCP_OVERWINDOW;
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_BEYOND_WINDOW);
+ 		goto out_of_window;
+ 	}
+ 

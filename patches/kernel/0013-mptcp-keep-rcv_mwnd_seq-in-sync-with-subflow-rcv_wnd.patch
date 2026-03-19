@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Simon Baatz <gmbnomis@gmail.com>
+Date: Mon, 9 Mar 2026 09:02:27 +0100
+Subject: [PATCH] mptcp: keep rcv_mwnd_seq in sync with subflow rcv_wnd
+
+MPTCP shares a receive window across subflows and applies it at the
+subflow level by adjusting each subflow's rcv_wnd when needed.  With
+the new TCP tracking of the maximum advertised window sequence,
+rcv_mwnd_seq must stay consistent with these subflow-level rcv_wnd
+adjustments.
+
+Signed-off-by: Simon Baatz <gmbnomis@gmail.com>
+Reviewed-by: Matthieu Baerts (NGI0) <matttbe@kernel.org>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+Link: https://lore.kernel.org/20260309-tcp_rfc7323_retract_wnd_rfc-v3-2-4c7f96b1ec69@gmail.com
+---
+ net/mptcp/options.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/mptcp/options.c b/net/mptcp/options.c
+index 43df4293f58bfbd8a8df6bf24b9f15e0f9e238f6..8a1c5698983cff3082d68290626dd8f1e044527f 100644
+--- a/net/mptcp/options.c
++++ b/net/mptcp/options.c
+@@ -1076,6 +1076,7 @@ static void rwin_update(struct mptcp_sock *msk, struct sock *ssk,
+ 	 * resync.
+ 	 */
+ 	tp->rcv_wnd += mptcp_rcv_wnd - subflow->rcv_wnd_sent;
++	tcp_update_max_rcv_wnd_seq(tp);
+ 	subflow->rcv_wnd_sent = mptcp_rcv_wnd;
+ }
+ 
+@@ -1338,8 +1339,9 @@ static void mptcp_set_rwin(struct tcp_sock *tp, struct tcphdr *th)
+ 		 */
+ 		rcv_wnd_new = rcv_wnd_old;
+ 		win = rcv_wnd_old - ack_seq;
+-		tp->rcv_wnd = min_t(u64, win, U32_MAX);
+-		new_win = tp->rcv_wnd;
++		new_win = min_t(u64, win, U32_MAX);
++		tp->rcv_wnd = new_win;
++		tcp_update_max_rcv_wnd_seq(tp);
+ 
+ 		/* Make sure we do not exceed the maximum possible
+ 		 * scaled window.
