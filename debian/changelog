@@ -1,3 +1,12 @@
+proxmox-kernel-6.17 (6.17.13-3) trixie; urgency=medium
+
+  * update kernel to 6.17.13 based on Ubuntu-6.17.0-22.22
+
+  * cherry-pick fix for NULL pointer dereference in ceph_mds_auth_match()
+    affecting external CephFS.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 31 Mar 2026 23:50:02 +0200
+
 proxmox-kernel-6.17 (6.17.13-2) trixie; urgency=medium
 
   * update kernel to 6.17.13 based on Ubuntu-6.17.0-19.19
