@@ -1,0 +1,189 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Viacheslav Dubeyko <Slava.Dubeyko@ibm.com>
+Date: Tue, 3 Feb 2026 14:54:46 -0800
+Subject: [PATCH] ceph: fix NULL pointer dereference in ceph_mds_auth_match()
+
+The CephFS kernel client has regression starting from 6.18-rc1.
+We have issue in ceph_mds_auth_match() if fs_name == NULL:
+
+    const char fs_name = mdsc->fsc->mount_options->mds_namespace;
+    ...
+    if (auth->match.fs_name && strcmp(auth->match.fs_name, fs_name)) {
+            / fsname mismatch, try next one */
+            return 0;
+    }
+
+Patrick Donnelly suggested that: In summary, we should definitely start
+decoding `fs_name` from the MDSMap and do strict authorizations checks
+against it. Note that the `-o mds_namespace=foo` should only be used for
+selecting the file system to mount and nothing else. It's possible
+no mds_namespace is specified but the kernel will mount the only
+file system that exists which may have name "foo".
+
+This patch reworks ceph_mdsmap_decode() and namespace_equals() with
+the goal of supporting the suggested concept. Now struct ceph_mdsmap
+contains m_fs_name field that receives copy of extracted FS name
+by ceph_extract_encoded_string(). For the case of "old" CephFS file
+systems, it is used "cephfs" name.
+
+[ idryomov: replace redundant %*pE with %s in ceph_mdsmap_decode(),
+  get rid of a series of strlen() calls in ceph_namespace_match(),
+  drop changes to namespace_equals() body to avoid treating empty
+  mds_namespace as equal, drop changes to ceph_mdsc_handle_fsmap()
+  as namespace_equals() isn't an equivalent substitution there ]
+
+Cc: stable@vger.kernel.org
+Fixes: 22c73d52a6d0 ("ceph: fix multifs mds auth caps issue")
+Link: https://tracker.ceph.com/issues/73886
+Signed-off-by: Viacheslav Dubeyko <Slava.Dubeyko@ibm.com>
+Reviewed-by: Patrick Donnelly <pdonnell@ibm.com>
+Tested-by: Patrick Donnelly <pdonnell@ibm.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+(cherry picked from commit 7987cce375ac8ce98e170a77aa2399f2cf6eb99f)
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/ceph/mds_client.c         |  5 +++--
+ fs/ceph/mdsmap.c             | 26 +++++++++++++++++++-------
+ fs/ceph/mdsmap.h             |  1 +
+ fs/ceph/super.h              | 16 ++++++++++++++--
+ include/linux/ceph/ceph_fs.h |  6 ++++++
+ 5 files changed, 43 insertions(+), 11 deletions(-)
+
+diff --git a/fs/ceph/mds_client.c b/fs/ceph/mds_client.c
+index 3efbc11596e003193021f08b4f0d75ef36a7da7a..2d0bdb223db6714d253d76b8c0fd1a8347da33e5 100644
+--- a/fs/ceph/mds_client.c
++++ b/fs/ceph/mds_client.c
+@@ -5649,7 +5649,7 @@ static int ceph_mds_auth_match(struct ceph_mds_client *mdsc,
+ 	u32 caller_uid = from_kuid(&init_user_ns, cred->fsuid);
+ 	u32 caller_gid = from_kgid(&init_user_ns, cred->fsgid);
+ 	struct ceph_client *cl = mdsc->fsc->client;
+-	const char *fs_name = mdsc->fsc->mount_options->mds_namespace;
++	const char *fs_name = mdsc->mdsmap->m_fs_name;
+ 	const char *spath = mdsc->fsc->mount_options->server_path;
+ 	bool gid_matched = false;
+ 	u32 gid, tlen, len;
+@@ -5657,7 +5657,8 @@ static int ceph_mds_auth_match(struct ceph_mds_client *mdsc,
+ 
+ 	doutc(cl, "fsname check fs_name=%s  match.fs_name=%s\n",
+ 	      fs_name, auth->match.fs_name ? auth->match.fs_name : "");
+-	if (auth->match.fs_name && strcmp(auth->match.fs_name, fs_name)) {
++
++	if (!ceph_namespace_match(auth->match.fs_name, fs_name)) {
+ 		/* fsname mismatch, try next one */
+ 		return 0;
+ 	}
+diff --git a/fs/ceph/mdsmap.c b/fs/ceph/mdsmap.c
+index e82f09e50a8e7f7026b0602e8799f93f4a112692..dbe9f40cb262763c7877dbd73da9e97c7d5182b7 100644
+--- a/fs/ceph/mdsmap.c
++++ b/fs/ceph/mdsmap.c
+@@ -354,22 +354,33 @@ struct ceph_mdsmap *ceph_mdsmap_decode(struct ceph_mds_client *mdsc, void **p,
+ 		__decode_and_drop_type(p, end, u8, bad_ext);
+ 	}
+ 	if (mdsmap_ev >= 8) {
+-		u32 fsname_len;
++		size_t fsname_len;
++
+ 		/* enabled */
+ 		ceph_decode_8_safe(p, end, m->m_enabled, bad_ext);
++
+ 		/* fs_name */
+-		ceph_decode_32_safe(p, end, fsname_len, bad_ext);
++		m->m_fs_name = ceph_extract_encoded_string(p, end,
++							   &fsname_len,
++							   GFP_NOFS);
++		if (IS_ERR(m->m_fs_name)) {
++			m->m_fs_name = NULL;
++			goto nomem;
++		}
+ 
+ 		/* validate fsname against mds_namespace */
+-		if (!namespace_equals(mdsc->fsc->mount_options, *p,
++		if (!namespace_equals(mdsc->fsc->mount_options, m->m_fs_name,
+ 				      fsname_len)) {
+-			pr_warn_client(cl, "fsname %*pE doesn't match mds_namespace %s\n",
+-				       (int)fsname_len, (char *)*p,
++			pr_warn_client(cl, "fsname %s doesn't match mds_namespace %s\n",
++				       m->m_fs_name,
+ 				       mdsc->fsc->mount_options->mds_namespace);
+ 			goto bad;
+ 		}
+-		/* skip fsname after validation */
+-		ceph_decode_skip_n(p, end, fsname_len, bad);
++	} else {
++		m->m_enabled = false;
++		m->m_fs_name = kstrdup(CEPH_OLD_FS_NAME, GFP_NOFS);
++		if (!m->m_fs_name)
++			goto nomem;
+ 	}
+ 	/* damaged */
+ 	if (mdsmap_ev >= 9) {
+@@ -431,6 +442,7 @@ void ceph_mdsmap_destroy(struct ceph_mdsmap *m)
+ 		kfree(m->m_info);
+ 	}
+ 	kfree(m->m_data_pg_pools);
++	kfree(m->m_fs_name);
+ 	kfree(m);
+ }
+ 
+diff --git a/fs/ceph/mdsmap.h b/fs/ceph/mdsmap.h
+index 1f2171dd01bfa34a404eef00113646bdcb978980..d48d07c3516d447a8f3e684f6ded1f1ca1674417 100644
+--- a/fs/ceph/mdsmap.h
++++ b/fs/ceph/mdsmap.h
+@@ -45,6 +45,7 @@ struct ceph_mdsmap {
+ 	bool m_enabled;
+ 	bool m_damaged;
+ 	int m_num_laggy;
++	char *m_fs_name;
+ };
+ 
+ static inline struct ceph_entity_addr *
+diff --git a/fs/ceph/super.h b/fs/ceph/super.h
+index 4ac6561285b18a48c1e24f0752296b88e51c7971..7b67853c0ffe5e391e9098a76ced3b0a4fda94cc 100644
+--- a/fs/ceph/super.h
++++ b/fs/ceph/super.h
+@@ -104,14 +104,26 @@ struct ceph_mount_options {
+ 	struct fscrypt_dummy_policy dummy_enc_policy;
+ };
+ 
++#define CEPH_NAMESPACE_WILDCARD		"*"
++
++static inline bool ceph_namespace_match(const char *pattern,
++					const char *target)
++{
++	if (!pattern || !pattern[0] ||
++	    !strcmp(pattern, CEPH_NAMESPACE_WILDCARD))
++		return true;
++
++	return !strcmp(pattern, target);
++}
++
+ /*
+  * Check if the mds namespace in ceph_mount_options matches
+  * the passed in namespace string. First time match (when
+  * ->mds_namespace is NULL) is treated specially, since
+  * ->mds_namespace needs to be initialized by the caller.
+  */
+-static inline int namespace_equals(struct ceph_mount_options *fsopt,
+-				   const char *namespace, size_t len)
++static inline bool namespace_equals(struct ceph_mount_options *fsopt,
++				    const char *namespace, size_t len)
+ {
+ 	return !(fsopt->mds_namespace &&
+ 		 (strlen(fsopt->mds_namespace) != len ||
+diff --git a/include/linux/ceph/ceph_fs.h b/include/linux/ceph/ceph_fs.h
+index c7f2c63b3bc3fb3c6a1ec0d114fcaf9cd7489de3..08e5dbe15ca4446081779f035d64f0a6bc34b382 100644
+--- a/include/linux/ceph/ceph_fs.h
++++ b/include/linux/ceph/ceph_fs.h
+@@ -31,6 +31,12 @@
+ #define CEPH_INO_CEPH   2            /* hidden .ceph dir */
+ #define CEPH_INO_GLOBAL_SNAPREALM  3 /* global dummy snaprealm */
+ 
++/*
++ * name for "old" CephFS file systems,
++ * see ceph.git e2b151d009640114b2565c901d6f41f6cd5ec652
++ */
++#define CEPH_OLD_FS_NAME	"cephfs"
++
+ /* arbitrary limit on max # of monitors (cluster of 3 is typical) */
+ #define CEPH_MAX_MON   31
+ 
