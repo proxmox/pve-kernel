@@ -2059,6 +2059,7 @@ ql2500_fw.bin kernel/drivers/scsi/qla2xxx/qla2xxx.ko
 qlogic/1040.bin kernel/drivers/scsi/qla1280.ko
 qlogic/12160.bin kernel/drivers/scsi/qla1280.ko
 qlogic/1280.bin kernel/drivers/scsi/qla1280.ko
+qt2025-2.0.3.3.fw kernel/drivers/net/phy/qt2025.ko
 radeon/ARUBA_me.bin kernel/drivers/gpu/drm/radeon/radeon.ko
 radeon/ARUBA_pfp.bin kernel/drivers/gpu/drm/radeon/radeon.ko
 radeon/ARUBA_rlc.bin kernel/drivers/gpu/drm/radeon/radeon.ko
