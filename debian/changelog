@@ -13,6 +13,8 @@ proxmox-kernel-6.17 (6.17.13-2) trixie; urgency=medium
 
   * fix "Crackarmor" AppArmor vulnerabilities
 
+  * update ZFS to 2.4.1.
+
  -- Proxmox Support Team <support@proxmox.com>  Fri, 13 Mar 2026 09:06:01 +0100
 
 proxmox-kernel-6.17 (6.17.13-1) trixie; urgency=medium
