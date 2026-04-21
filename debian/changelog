@@ -1,3 +1,11 @@
+proxmox-kernel-6.17 (6.17.13-4) trixie; urgency=medium
+
+  * backport "mpt3sas: Limit NVMe request size to 2 MiB".
+
+  * update submodule and patches to Ubuntu-6.17.0-24.24.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 22 Apr 2026 00:03:09 +0200
+
 proxmox-kernel-6.17 (6.17.13-3) trixie; urgency=medium
 
   * update kernel to 6.17.13 based on Ubuntu-6.17.0-22.22
