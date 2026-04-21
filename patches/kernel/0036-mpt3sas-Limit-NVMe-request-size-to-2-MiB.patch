@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ranjan Kumar <ranjan.kumar@broadcom.com>
+Date: Tue, 14 Apr 2026 16:38:11 +0530
+Subject: [PATCH] mpt3sas: Limit NVMe request size to 2 MiB
+
+The HBA firmware reports NVMe MDTS values based on the underlying drive
+capability. However, because the driver allocates a fixed 4K buffer for
+the PRP list, accommodating at most 512 entries, the driver supports a
+maximum I/O transfer size of 2 MiB.
+
+Limit max_hw_sectors to the smaller of the reported MDTS and the
+2 MiB driver limit to prevent issuing oversized I/O that may lead
+to a kernel oops.
+
+Cc: stable@vger.kernel.org
+Fixes: 9b8b84879d4a ("block: Increase BLK_DEF_MAX_SECTORS_CAP")
+Reported-by: Mira Limbeck <m.limbeck@proxmox.com>
+Closes: https://lore.kernel.org/r/291f78bf-4b4a-40dd-867d-053b36c564b3@proxmox.com
+Link: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=9b8b84879d4a
+Suggested-by: Keith Busch <kbusch@kernel.org>
+Signed-off-by: Ranjan Kumar <ranjan.kumar@broadcom.com>
+Tested-by: Mira Limbeck <m.limbeck@proxmox.com>
+Link: https://lore.kernel.org/20260414110811.85156-1-ranjan.kumar@broadcom.com
+---
+ drivers/scsi/mpt3sas/mpt3sas_scsih.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/mpt3sas/mpt3sas_scsih.c b/drivers/scsi/mpt3sas/mpt3sas_scsih.c
+index 967af259118e72df4dc76feacdd660be30037059..4388d33a559bbe3363c76f4273100d3a8b345b9e 100644
+--- a/drivers/scsi/mpt3sas/mpt3sas_scsih.c
++++ b/drivers/scsi/mpt3sas/mpt3sas_scsih.c
+@@ -2681,8 +2681,20 @@ scsih_sdev_configure(struct scsi_device *sdev, struct queue_limits *lim)
+ 				pcie_device->enclosure_level,
+ 				pcie_device->connector_name);
+ 
++		/*
++		 * The HBA firmware passes the NVMe drive's MDTS
++		 * (Maximum Data Transfer Size) up to the driver. However,
++		 * the driver hardcodes a 4K buffer size for the PRP list,
++		 * accommodating at most 512 entries. This strictly limits
++		 * the maximum supported NVMe I/O transfer to 2 MiB.
++		 *
++		 * Cap max_hw_sectors to the smaller of the drive's reported
++		 * MDTS or the 2 MiB driver limit to prevent kernel oopses.
++		 */
++		lim->max_hw_sectors = SZ_2M >> SECTOR_SHIFT;
+ 		if (pcie_device->nvme_mdts)
+-			lim->max_hw_sectors = pcie_device->nvme_mdts / 512;
++			lim->max_hw_sectors = min(lim->max_hw_sectors,
++					pcie_device->nvme_mdts >> SECTOR_SHIFT);
+ 
+ 		pcie_device_put(pcie_device);
+ 		spin_unlock_irqrestore(&ioc->pcie_device_lock, flags);
