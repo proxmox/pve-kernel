@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leo Yan <leo.yan@arm.com>
+Date: Fri, 23 Jan 2026 13:32:03 +0000
+Subject: [PATCH] tools: Fix bitfield dependency failure
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A perf build failure was reported by Thomas Voegtle on stable kernel
+v6.6.120:
+
+    CC      tests/sample-parsing.o
+    CC      util/intel-pt-decoder/intel-pt-pkt-decoder.o
+    CC      util/perf-regs-arch/perf_regs_csky.o
+    CC      util/arm-spe-decoder/arm-spe-pkt-decoder.o
+    CC      util/perf-regs-arch/perf_regs_loongarch.o
+  In file included from util/arm-spe-decoder/arm-spe-pkt-decoder.h:10,
+                   from util/arm-spe-decoder/arm-spe-pkt-decoder.c:14:
+  /local/git/linux-stable-rc/tools/include/linux/bitfield.h: In function ‘le16_encode_bits’:
+  /local/git/linux-stable-rc/tools/include/linux/bitfield.h:166:31: error: implicit declaration of
+  function ‘cpu_to_le16’; did you mean ‘htole16’? [-Werror=implicit-function-declaration]
+    ____MAKE_OP(le##size,u##size,cpu_to_le##size,le##size##_to_cpu) \
+                                 ^~~~~~~~~
+  /local/git/linux-stable-rc/tools/include/linux/bitfield.h:149:9: note: in definition of macro
+  ‘____MAKE_OP’
+    return to((v & field_mask(field)) * field_multiplier(field)); \
+           ^~
+  /local/git/linux-stable-rc/tools/include/linux/bitfield.h:170:1: note: in expansion of macro
+  ‘__MAKE_OP’
+   __MAKE_OP(16)
+
+Fix this by including linux/kernel.h, which provides the required
+definitions.
+
+The issue was not found on the mainline due to the relevant C files have
+included kernel.h.  It'd be good to merge this change on mainline
+as well for robustness.
+
+Closes: https://lore.kernel.org/stable/3a44500b-d7c8-179f-61f6-e51cb50d3512@lio96.de/
+Fixes: 64d86c03e1441742 ("perf arm-spe: Extend branch operations")
+Reported-by: Hamza Mahfooz <hamzamahfooz@linux.microsoft.com>
+Reported-by: Thomas Voegtle <tv@lio96.de>
+Signed-off-by: Leo Yan <leo.yan@arm.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Ian Rogers <irogers@google.com>
+Cc: James Clark <james.clark@linaro.org>
+Cc: Leo Yan <leo.yan@arm.com>
+Cc: Namhyung Kim <namhyung@kernel.org>
+To: Sasha Levin <sashal@kernel.org>
+Cc: stable@vger.kernel.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+(cherry picked from commit a537c0da168a08b0b6a7f7bd9e75f4cc8d45ff57)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ tools/include/linux/bitfield.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tools/include/linux/bitfield.h b/tools/include/linux/bitfield.h
+index 6093fa6db2600b3246007b2236d7c0076b02343b..ddf81f24956ba069b2c1a7b096a6c9bf92fc9182 100644
+--- a/tools/include/linux/bitfield.h
++++ b/tools/include/linux/bitfield.h
+@@ -8,6 +8,7 @@
+ #define _LINUX_BITFIELD_H
+ 
+ #include <linux/build_bug.h>
++#include <linux/kernel.h>
+ #include <asm/byteorder.h>
+ 
+ /*
