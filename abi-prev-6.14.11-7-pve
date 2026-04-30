@@ -12904,7 +12904,7 @@ EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xfcc28966	kvm_cpu_has_interrupt
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xfd152f29	__SCT__tp_func_kvm_skinit
 EXPORT_SYMBOL_GPL crypto/af_alg 0x068c1194	af_alg_alloc_areq
 EXPORT_SYMBOL_GPL crypto/af_alg 0x1a66b412	af_alg_poll
-EXPORT_SYMBOL_GPL crypto/af_alg 0x2482ba0d	af_alg_pull_tsgl
+EXPORT_SYMBOL_GPL crypto/af_alg 0x324a370f	af_alg_count_tsgl
 EXPORT_SYMBOL_GPL crypto/af_alg 0x4c3f741c	af_alg_async_cb
 EXPORT_SYMBOL_GPL crypto/af_alg 0x54e5501b	af_alg_register_type
 EXPORT_SYMBOL_GPL crypto/af_alg 0x54e5501b	af_alg_unregister_type
@@ -12914,8 +12914,8 @@ EXPORT_SYMBOL_GPL crypto/af_alg 0x79243373	af_alg_release_parent
 EXPORT_SYMBOL_GPL crypto/af_alg 0x79243373	af_alg_wmem_wakeup
 EXPORT_SYMBOL_GPL crypto/af_alg 0x87bae64d	af_alg_free_sg
 EXPORT_SYMBOL_GPL crypto/af_alg 0x96d577bf	af_alg_sendmsg
+EXPORT_SYMBOL_GPL crypto/af_alg 0xad07bb42	af_alg_pull_tsgl
 EXPORT_SYMBOL_GPL crypto/af_alg 0xada1924f	af_alg_accept
-EXPORT_SYMBOL_GPL crypto/af_alg 0xd104538c	af_alg_count_tsgl
 EXPORT_SYMBOL_GPL crypto/af_alg 0xe0b120c1	af_alg_get_rsgl
 EXPORT_SYMBOL_GPL crypto/af_alg 0xe65779ab	af_alg_release
 EXPORT_SYMBOL_GPL crypto/aria_generic 0x0418b907	aria_decrypt
@@ -22089,6 +22089,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x1ab72f5c	pci_epc_set_bar
 EXPORT_SYMBOL_GPL vmlinux 0x1ac46980	nvmem_device_put
 EXPORT_SYMBOL_GPL vmlinux 0x1ac46980	nvmem_unregister
 EXPORT_SYMBOL_GPL vmlinux 0x1ac75b8a	icc_put
+EXPORT_SYMBOL_GPL vmlinux 0x1acb3f6f	memcpy_sglist
 EXPORT_SYMBOL_GPL vmlinux 0x1af9b511	bpf_crypto_register_type
 EXPORT_SYMBOL_GPL vmlinux 0x1af9b511	bpf_crypto_unregister_type
 EXPORT_SYMBOL_GPL vmlinux 0x1afdfd05	gpiod_count
