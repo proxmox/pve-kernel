@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Taeyang Lee <0wn@theori.io>
+Date: Fri, 16 Jan 2026 16:03:58 +0900
+Subject: [PATCH] crypto: authencesn - reject too-short AAD (assoclen<8) to
+ match ESP/ESN spec
+
+authencesn assumes an ESP/ESN-formatted AAD. When assoclen is shorter than
+the minimum expected length, crypto_authenc_esn_decrypt() can advance past
+the end of the destination scatterlist and trigger a NULL pointer dereference
+in scatterwalk_map_and_copy(), leading to a kernel panic (DoS).
+
+Add a minimum AAD length check to fail fast on invalid inputs.
+
+Fixes: 104880a6b470 ("crypto: authencesn - Convert to new AEAD interface")
+Reported-By: Taeyang Lee <0wn@theori.io>
+Signed-off-by: Taeyang Lee <0wn@theori.io>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+(cherry picked from commit 2397e9264676be7794f8f7f1e9763d90bd3c7335)
+---
+ crypto/authencesn.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/crypto/authencesn.c b/crypto/authencesn.c
+index 2cc933e2f79011076be98ed53354b3363b3d0fb8..e08032e80f1885dea00f6f345ef2a8434eab8c77 100644
+--- a/crypto/authencesn.c
++++ b/crypto/authencesn.c
+@@ -185,6 +185,9 @@ static int crypto_authenc_esn_encrypt(struct aead_request *req)
+ 	struct scatterlist *src, *dst;
+ 	int err;
+ 
++	if (assoclen < 8)
++		return -EINVAL;
++
+ 	sg_init_table(areq_ctx->src, 2);
+ 	src = scatterwalk_ffwd(areq_ctx->src, req->src, assoclen);
+ 	dst = src;
+@@ -275,6 +278,9 @@ static int crypto_authenc_esn_decrypt(struct aead_request *req)
+ 	u32 tmp[2];
+ 	int err;
+ 
++	if (assoclen < 8)
++		return -EINVAL;
++
+ 	cryptlen -= authsize;
+ 
+ 	if (req->src != dst) {
