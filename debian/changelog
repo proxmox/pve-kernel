@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-22) bookworm; urgency=medium
+
+  * Fix "copy.fail" Local Privilege Escalation / CVE-2026-31431:
+    An unprivileged local user can write 4 controlled bytes into the page
+    cache of any readable file on a Linux system, and use that to gain root.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 30 Apr 2026 09:01:51 +0200
+
 proxmox-kernel-6.8 (6.8.12-21) bookworm; urgency=medium
 
   * update submodule to Ubuntu-6.8.0-116.116 and refresh patches.
