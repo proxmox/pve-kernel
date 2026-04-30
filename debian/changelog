@@ -1,3 +1,9 @@
+proxmox-kernel-6.17 (6.17.13-6) trixie; urgency=medium
+
+  * cherry-pick follow-up commits for copy.fail fixes
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 30 Apr 2026 10:48:21 +0200
+
 proxmox-kernel-6.17 (6.17.13-5) trixie; urgency=medium
 
   * Fix "copy.fail" Local Privilage Escalation / CVE-2026-31431:
