@@ -1,0 +1,120 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 27 Mar 2026 15:04:17 +0900
+Subject: [PATCH] crypto: authencesn - Do not place hiseq at end of dst for
+ out-of-place decryption
+
+When decrypting data that is not in-place (src != dst), there is
+no need to save the high-order sequence bits in dst as it could
+simply be re-copied from the source.
+
+However, the data to be hashed need to be rearranged accordingly.
+
+Reported-by: Taeyang Lee <0wn@theori.io>
+Fixes: 104880a6b470 ("crypto: authencesn - Convert to new AEAD interface")
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+(cherry picked from commit e02494114ebf7c8b42777c6cd6982f113bfdbec7)
+---
+ crypto/authencesn.c | 48 +++++++++++++++++++++++++++------------------
+ 1 file changed, 29 insertions(+), 19 deletions(-)
+
+diff --git a/crypto/authencesn.c b/crypto/authencesn.c
+index 542a978663b9e7230cbe6546507579e0782b5d37..c0a01d738d9bc3922b35e23231edcb4e9a7921f9 100644
+--- a/crypto/authencesn.c
++++ b/crypto/authencesn.c
+@@ -207,6 +207,7 @@ static int crypto_authenc_esn_decrypt_tail(struct aead_request *req,
+ 	u8 *ohash = areq_ctx->tail;
+ 	unsigned int cryptlen = req->cryptlen - authsize;
+ 	unsigned int assoclen = req->assoclen;
++	struct scatterlist *src = req->src;
+ 	struct scatterlist *dst = req->dst;
+ 	u8 *ihash = ohash + crypto_ahash_digestsize(auth);
+ 	u32 tmp[2];
+@@ -214,23 +215,27 @@ static int crypto_authenc_esn_decrypt_tail(struct aead_request *req,
+ 	if (!authsize)
+ 		goto decrypt;
+ 
+-	/* Move high-order bits of sequence number back. */
+-	scatterwalk_map_and_copy(tmp, dst, 4, 4, 0);
+-	scatterwalk_map_and_copy(tmp + 1, dst, assoclen + cryptlen, 4, 0);
+-	scatterwalk_map_and_copy(tmp, dst, 0, 8, 1);
++	if (src == dst) {
++		/* Move high-order bits of sequence number back. */
++		scatterwalk_map_and_copy(tmp, dst, 4, 4, 0);
++		scatterwalk_map_and_copy(tmp + 1, dst, assoclen + cryptlen, 4, 0);
++		scatterwalk_map_and_copy(tmp, dst, 0, 8, 1);
++	} else
++		memcpy_sglist(dst, src, assoclen);
+ 
+ 	if (crypto_memneq(ihash, ohash, authsize))
+ 		return -EBADMSG;
+ 
+ decrypt:
+ 
+-	sg_init_table(areq_ctx->dst, 2);
++	if (src != dst)
++		src = scatterwalk_ffwd(areq_ctx->src, src, assoclen);
+ 	dst = scatterwalk_ffwd(areq_ctx->dst, dst, assoclen);
+ 
+ 	skcipher_request_set_tfm(skreq, ctx->enc);
+ 	skcipher_request_set_callback(skreq, flags,
+ 				      req->base.complete, req->base.data);
+-	skcipher_request_set_crypt(skreq, dst, dst, cryptlen, req->iv);
++	skcipher_request_set_crypt(skreq, src, dst, cryptlen, req->iv);
+ 
+ 	return crypto_skcipher_decrypt(skreq);
+ }
+@@ -255,6 +260,7 @@ static int crypto_authenc_esn_decrypt(struct aead_request *req)
+ 	unsigned int assoclen = req->assoclen;
+ 	unsigned int cryptlen = req->cryptlen;
+ 	u8 *ihash = ohash + crypto_ahash_digestsize(auth);
++	struct scatterlist *src = req->src;
+ 	struct scatterlist *dst = req->dst;
+ 	u32 tmp[2];
+ 	int err;
+@@ -262,24 +268,28 @@ static int crypto_authenc_esn_decrypt(struct aead_request *req)
+ 	if (assoclen < 8)
+ 		return -EINVAL;
+ 
+-	cryptlen -= authsize;
+-
+-	if (req->src != dst)
+-		memcpy_sglist(dst, req->src, assoclen + cryptlen);
++	if (!authsize)
++		goto tail;
+ 
++	cryptlen -= authsize;
+ 	scatterwalk_map_and_copy(ihash, req->src, assoclen + cryptlen,
+ 				 authsize, 0);
+ 
+-	if (!authsize)
+-		goto tail;
+-
+ 	/* Move high-order bits of sequence number to the end. */
+-	scatterwalk_map_and_copy(tmp, dst, 0, 8, 0);
+-	scatterwalk_map_and_copy(tmp, dst, 4, 4, 1);
+-	scatterwalk_map_and_copy(tmp + 1, dst, assoclen + cryptlen, 4, 1);
+-
+-	sg_init_table(areq_ctx->dst, 2);
+-	dst = scatterwalk_ffwd(areq_ctx->dst, dst, 4);
++	scatterwalk_map_and_copy(tmp, src, 0, 8, 0);
++	if (src == dst) {
++		scatterwalk_map_and_copy(tmp, dst, 4, 4, 1);
++		scatterwalk_map_and_copy(tmp + 1, dst, assoclen + cryptlen, 4, 1);
++		dst = scatterwalk_ffwd(areq_ctx->dst, dst, 4);
++	} else {
++		scatterwalk_map_and_copy(tmp, dst, 0, 4, 1);
++		scatterwalk_map_and_copy(tmp + 1, dst, assoclen + cryptlen - 4, 4, 1);
++
++		src = scatterwalk_ffwd(areq_ctx->src, src, 8);
++		dst = scatterwalk_ffwd(areq_ctx->dst, dst, 4);
++		memcpy_sglist(dst, src, assoclen + cryptlen - 8);
++		dst = req->dst;
++	}
+ 
+ 	ahash_request_set_tfm(ahreq, auth);
+ 	ahash_request_set_crypt(ahreq, dst, ohash, assoclen + cryptlen);

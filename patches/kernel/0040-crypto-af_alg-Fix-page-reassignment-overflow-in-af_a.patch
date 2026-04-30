@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 4 Apr 2026 08:29:58 +0800
+Subject: [PATCH] crypto: af_alg - Fix page reassignment overflow in
+ af_alg_pull_tsgl
+
+When page reassignment was added to af_alg_pull_tsgl the original
+loop wasn't updated so it may try to reassign one more page than
+necessary.
+
+Add the check to the reassignment so that this does not happen.
+
+Also update the comment which still refers to the obsolete offset
+argument.
+
+Reported-by: syzbot+d23888375c2737c17ba5@syzkaller.appspotmail.com
+Fixes: e870456d8e7c ("crypto: algif_skcipher - overhaul memory management")
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+(cherry picked from commit 31d00156e50ecad37f2cb6cbf04aaa9a260505ef)
+---
+ crypto/af_alg.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/crypto/af_alg.c b/crypto/af_alg.c
+index c1306b3cb67d0b091f79e9d530e0f492fc20abf0..9cedb4671e4e0e500e1a94091c427023183cf43d 100644
+--- a/crypto/af_alg.c
++++ b/crypto/af_alg.c
+@@ -703,8 +703,8 @@ void af_alg_pull_tsgl(struct sock *sk, size_t used, struct scatterlist *dst)
+ 			 * Assumption: caller created af_alg_count_tsgl(len)
+ 			 * SG entries in dst.
+ 			 */
+-			if (dst) {
+-				/* reassign page to dst after offset */
++			if (dst && plen) {
++				/* reassign page to dst */
+ 				get_page(page);
+ 				sg_set_page(dst + j, page, plen, sg[i].offset);
+ 				j++;
