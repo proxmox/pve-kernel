@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:17 -0400
+Subject: [PATCH] KVM: nSVM: enable GMET for guests
+
+All that needs to be done is moving the GMET bit from vmcb12 to vmcb02.
+The only new thing is that __nested_copy_vmcb_control_to_cache now
+ensures that ignored-if-unavailable bits are zero in svm->nested.ctl.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 0cd666f1b567c059fb1b7c4de7d3c7a55e1d56e6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/svm/nested.c | 6 +++++-
+ arch/x86/kvm/svm/svm.c    | 3 +++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index 3c8368364890298f62de263e74cbf177cfae5abe..01f01727115f67316f456e10a83457cbadd45638 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -458,11 +458,14 @@ void __nested_copy_vmcb_control_to_cache(struct kvm_vcpu *vcpu,
+ 	nested_svm_sanitize_intercept(vcpu, to, SKINIT);
+ 	nested_svm_sanitize_intercept(vcpu, to, RDPRU);
+ 
+-	/* Always clear SVM_MISC_ENABLE_NP if the guest cannot use NPTs */
++	/* Always clear misc_ctl bits that the guest cannot use */
+ 	to->misc_ctl = from->misc_ctl;
+ 	if (!guest_cpu_cap_has(vcpu, X86_FEATURE_NPT))
+ 		to->misc_ctl &= ~SVM_MISC_ENABLE_NP;
+ 
++	if (!gmet_enabled || !guest_cpu_cap_has(vcpu, X86_FEATURE_GMET))
++		to->misc_ctl &= ~SVM_MISC_ENABLE_GMET;
++
+ 	to->iopm_base_pa        = from->iopm_base_pa;
+ 	to->msrpm_base_pa       = from->msrpm_base_pa;
+ 	to->tsc_offset          = from->tsc_offset;
+@@ -845,6 +848,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm,
+ 	/* Use vmcb01 MMU and format if guest does not use nNPT */
+ 	if (nested_npt_enabled(svm)) {
+ 		vmcb02->control.misc_ctl &= ~SVM_MISC_ENABLE_GMET;
++		vmcb02->control.misc_ctl |= (svm->nested.ctl.misc_ctl & SVM_MISC_ENABLE_GMET);
+ 
+ 		nested_svm_init_mmu_context(vcpu);
+ 	}
+diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
+index 422ad480726b0b36603c7ae0efce8442d060c72b..aaf95b4b23643c2cb4e6b1e0b3c3c412b0c1cf3a 100644
+--- a/arch/x86/kvm/svm/svm.c
++++ b/arch/x86/kvm/svm/svm.c
+@@ -5373,6 +5373,9 @@ static __init void svm_set_cpu_caps(void)
+ 		if (boot_cpu_has(X86_FEATURE_PFTHRESHOLD))
+ 			kvm_cpu_cap_set(X86_FEATURE_PFTHRESHOLD);
+ 
++		if (gmet_enabled)
++			kvm_cpu_cap_set(X86_FEATURE_GMET);
++
+ 		if (vgif)
+ 			kvm_cpu_cap_set(X86_FEATURE_VGIF);
+ 

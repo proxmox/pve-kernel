@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Mon, 27 Apr 2026 11:30:56 -0400
+Subject: [PATCH] KVM: x86/mmu: hard code more bits in kvm_init_shadow_npt_mmu
+
+The host CR0 does not really reflect onto the NPT format because
+hCR0.PG=1 must be set and hCR0.WP is ignored.  Carve that in stone
+by removing the cr0 argument from kvm_init_shadow_npt_mmu.
+
+Pass in WP=1 as well; it does not matter for GMET disabled because
+PFERR_USER_MASK is always set, but a cleared W bit in the nested page
+tables cannot be overridden in supervisor mode when GMET is enabled,
+either.  In fact, since CR0.WP=0 is the weird "extra accesses allowed"
+mode, it is acutally easier think about it being always set.
+
+Likewise, clear X86_CR4_SMAP to avoid that KVM erroneously faults on
+supervisor accesses to an U=1 page.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit f14c111c7587a823939181ac3ea150ca54f70949)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu.h        | 4 ++--
+ arch/x86/kvm/mmu/mmu.c    | 8 ++++----
+ arch/x86/kvm/svm/nested.c | 2 +-
+ 3 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
+index e1e3869f568b5101ca99a238b44680529838395c..1b354e1f2d812f34286446f33be3df6ba5f5dc47 100644
+--- a/arch/x86/kvm/mmu.h
++++ b/arch/x86/kvm/mmu.h
+@@ -96,8 +96,8 @@ void kvm_mmu_set_me_spte_mask(u64 me_value, u64 me_mask);
+ void kvm_mmu_set_ept_masks(bool has_ad_bits);
+ 
+ void kvm_init_mmu(struct kvm_vcpu *vcpu);
+-void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
+-			     unsigned long cr4, u64 efer, gpa_t nested_cr3);
++void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr4,
++			     u64 efer, gpa_t nested_cr3);
+ void kvm_init_shadow_ept_mmu(struct kvm_vcpu *vcpu, bool execonly,
+ 			     int huge_page_level, bool accessed_dirty,
+ 			     bool mbec, gpa_t new_eptp);
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index 74b6fb7f783615b850fb5c7d66c8a875b92e0072..7918f26ef6c0b10388ca1a4007d77970d5c2c7d7 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -5930,13 +5930,13 @@ static void kvm_init_shadow_mmu(struct kvm_vcpu *vcpu,
+ 	shadow_mmu_init_context(vcpu, context, cpu_role, root_role);
+ }
+ 
+-void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
+-			     unsigned long cr4, u64 efer, gpa_t nested_cr3)
++void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr4,
++			     u64 efer, gpa_t nested_cr3)
+ {
+ 	struct kvm_mmu *context = &vcpu->arch.guest_mmu;
+ 	struct kvm_mmu_role_regs regs = {
+-		.cr0 = cr0,
+-		.cr4 = cr4 & ~X86_CR4_PKE,
++		.cr0 = X86_CR0_PG | X86_CR0_WP,
++		.cr4 = cr4 & ~(X86_CR4_PKE | X86_CR4_SMAP),
+ 		.efer = efer,
+ 	};
+ 	union kvm_cpu_role cpu_role = kvm_calc_cpu_role(vcpu, &regs);
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index 4f6d39412b2d2c49ce3d2a1d6f7f604bca7fef60..4822b825f40afe4daace0974dd42ae2599e18edd 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -93,7 +93,7 @@ static void nested_svm_init_mmu_context(struct kvm_vcpu *vcpu)
+ 	 * when called via KVM_SET_NESTED_STATE, that state may _not_ match current
+ 	 * vCPU state.  CR0.WP is explicitly ignored, while CR0.PG is required.
+ 	 */
+-	kvm_init_shadow_npt_mmu(vcpu, X86_CR0_PG, svm->vmcb01.ptr->save.cr4,
++	kvm_init_shadow_npt_mmu(vcpu, svm->vmcb01.ptr->save.cr4,
+ 				svm->vmcb01.ptr->save.efer,
+ 				svm->nested.ctl.nested_cr3);
+ 	vcpu->arch.mmu->get_guest_pgd     = nested_svm_get_tdp_cr3;

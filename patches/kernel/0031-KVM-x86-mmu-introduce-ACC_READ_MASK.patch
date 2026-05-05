@@ -19,21 +19,22 @@ processor, shadow EPT will generate an EPT misconfig vmexit if the XWR
 bits represent a non-readable page, and therefore the pte_access argument
 to make_spte() will also always have ACC_READ_MASK set.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-9-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 4e6f3b85892327c973fb5e7bf4633dce9ea63ec5)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- arch/x86/include/asm/kvm_host.h | 12 +++++-----
+ arch/x86/include/asm/kvm_host.h | 12 ++++-----
  arch/x86/kvm/mmu.h              |  2 +-
- arch/x86/kvm/mmu/mmu.c          | 39 +++++++++++++++++++++------------
+ arch/x86/kvm/mmu/mmu.c          | 43 ++++++++++++++++++++-------------
  arch/x86/kvm/mmu/mmutrace.h     |  3 ++-
- arch/x86/kvm/mmu/paging_tmpl.h  | 35 +++++++++++++++++------------
- arch/x86/kvm/mmu/spte.c         | 18 ++++++---------
- arch/x86/kvm/mmu/spte.h         |  5 +++--
- arch/x86/kvm/vmx/capabilities.h |  5 -----
- arch/x86/kvm/vmx/common.h       |  5 +----
+ arch/x86/kvm/mmu/paging_tmpl.h  | 35 ++++++++++++++++-----------
+ arch/x86/kvm/mmu/spte.c         | 18 ++++++--------
+ arch/x86/kvm/mmu/spte.h         |  5 ++--
+ arch/x86/kvm/vmx/capabilities.h |  5 ----
+ arch/x86/kvm/vmx/common.h       |  5 +---
  arch/x86/kvm/vmx/vmx.c          |  3 +--
- 10 files changed, 67 insertions(+), 60 deletions(-)
+ 10 files changed, 68 insertions(+), 63 deletions(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
 index 6e4e3ef9b8c72b828e00663f1b20455418c27d0a..65671d3769f0f2ab6168bf7bbb8f3a329c63d4d0 100644
@@ -103,7 +104,7 @@ index 830f46145692aec3e19a5e976b17b7bb04369809..23f37535c0ce1d1e8e855ef3f94cae97
  void kvm_init_mmu(struct kvm_vcpu *vcpu);
  void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index d4bb693b3555c3c77d86834a590372ba94fb6e78..72c0e2c806c3bf407c41e4694a14ac265036a77d 100644
+index 4d313a8f7ea0b2b718080f39b0daf45c0e49a169..a26514124fe5bec6fe954ee1f340b3ee40103137 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -2033,7 +2033,7 @@ static bool kvm_sync_page_check(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp)
@@ -124,7 +125,7 @@ index d4bb693b3555c3c77d86834a590372ba94fb6e78..72c0e2c806c3bf407c41e4694a14ac26
   * combinations of ACC_* bits.
   */
  #define ACC_BITS_MASK(access) \
-@@ -5540,15 +5540,24 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+@@ -5540,15 +5540,23 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
  	 (4 & (access) ? 1 << 4 : 0) | \
  	 (5 & (access) ? 1 << 5 : 0) | \
  	 (6 & (access) ? 1 << 6 : 0) | \
@@ -148,12 +149,11 @@ index d4bb693b3555c3c77d86834a590372ba94fb6e78..72c0e2c806c3bf407c41e4694a14ac26
 -	const u8 u = ACC_BITS_MASK(ACC_USER_MASK);
 +	const u16 x = ACC_BITS_MASK(ACC_EXEC_MASK);
 +	const u16 w = ACC_BITS_MASK(ACC_WRITE_MASK);
-+	const u16 u = ACC_BITS_MASK(ACC_USER_MASK);
 +	const u16 r = ACC_BITS_MASK(ACC_READ_MASK);
  
  	bool cr4_smep = is_cr4_smep(mmu);
  	bool cr4_smap = is_cr4_smap(mmu);
-@@ -5571,24 +5580,26 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5571,32 +5579,33 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  		unsigned pfec = byte << 1;
  
  		/*
@@ -162,40 +162,42 @@ index d4bb693b3555c3c77d86834a590372ba94fb6e78..72c0e2c806c3bf407c41e4694a14ac26
  		 * that causes a fault with the given PFEC.
  		 */
  
-+		/* Faults from reads to non-readable pages */
+ 		/* Faults from reads to non-readable pages */
+-		u8 rf = 0;
 +		u16 rf = (pfec & (PFERR_WRITE_MASK|PFERR_FETCH_MASK)) ? 0 : (u16)~r;
  		/* Faults from writes to non-writable pages */
 -		u8 wf = (pfec & PFERR_WRITE_MASK) ? (u8)~w : 0;
 +		u16 wf = (pfec & PFERR_WRITE_MASK) ? (u16)~w : 0;
  		/* Faults from user mode accesses to supervisor pages */
--		u8 uf = (pfec & PFERR_USER_MASK) ? (u8)~u : 0;
-+		u16 uf = (pfec & PFERR_USER_MASK) ? (u16)~u : 0;
- 		/* Faults from fetches of non-executable pages*/
--		u8 ff = (pfec & PFERR_FETCH_MASK) ? (u8)~x : 0;
-+		u16 ff = (pfec & PFERR_FETCH_MASK) ? (u16)~x : 0;
- 		/* Faults from kernel mode fetches of user pages */
--		u8 smepf = 0;
-+		u16 smepf = 0;
+-		u8 uf = 0;
++		u16 uf = 0;
+ 		/* Faults from fetches of non-executable pages */
+-		u8 ff = 0;
++		u16 ff = 0;
  		/* Faults from kernel mode accesses of user pages */
 -		u8 smapf = 0;
 +		u16 smapf = 0;
  
- 		if (!ept) {
+ 		if (ept) {
+-			rf = (pfec & PFERR_USER_MASK) ? (u8)~u : 0;
+-			ff = (pfec & PFERR_FETCH_MASK) ? (u8)~x : 0;
++			ff = (pfec & PFERR_FETCH_MASK) ? (u16)~x : 0;
+ 		} else {
++			const u16 u = ACC_BITS_MASK(ACC_USER_MASK);
++
  			/* Faults from kernel mode accesses to user pages */
 -			u8 kf = (pfec & PFERR_USER_MASK) ? 0 : u;
 +			u16 kf = (pfec & PFERR_USER_MASK) ? 0 : u;
  
- 			/* Not really needed: !nx will cause pte.nx to fault */
- 			if (!efer_nx)
-@@ -5621,7 +5632,7 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
- 				smapf = (pfec & (PFERR_RSVD_MASK|PFERR_FETCH_MASK)) ? 0 : kf;
- 		}
+-			uf = (pfec & PFERR_USER_MASK) ? (u8)~u : 0;
++			uf = (pfec & PFERR_USER_MASK) ? (u16)~u : 0;
  
--		mmu->permissions[byte] = ff | uf | wf | smepf | smapf;
-+		mmu->permissions[byte] = ff | uf | wf | rf | smepf | smapf;
- 	}
- }
+ 			if (efer_nx)
+-				ff = (pfec & PFERR_FETCH_MASK) ? (u8)~x : 0;
++				ff = (pfec & PFERR_FETCH_MASK) ? (u16)~x : 0;
  
+ 			/* Allow supervisor writes if !cr0.wp */
+ 			if (!cr0_wp)
 diff --git a/arch/x86/kvm/mmu/mmutrace.h b/arch/x86/kvm/mmu/mmutrace.h
 index 764e3015d021b41b7111de68a618cc53d7aa158a..dcfdfedfc4e9ef7a5feb7bf4dd20efb07a679ade 100644
 --- a/arch/x86/kvm/mmu/mmutrace.h

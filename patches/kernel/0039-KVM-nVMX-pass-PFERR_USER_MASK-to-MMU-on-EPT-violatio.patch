@@ -9,9 +9,10 @@ page tables; this is consistent with how MBEC differentiates
 between XS and XU.  This is available through the
 "advanced vmexit information for EPT violations" feature.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-18-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 9f4442eb155351a6e56c9dc4496d2e4696ab3cda)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/vmx/common.h |  6 +++++-
  arch/x86/kvm/vmx/vmx.c    | 10 ++++++++++
@@ -37,7 +38,7 @@ index 40fa72f31fc7990735a1d142ee48ba25187ebe94..48520fa1c8e84a0d5b294b661adc469c
  	if (vt_is_tdx_private_gpa(vcpu->kvm, gpa))
  		error_code |= PFERR_PRIVATE_ACCESS;
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index 3905bc85a46c5c8aa5429614307da47d949b48e2..53dc7806665098e00b3335ec8498396235a17034 100644
+index e030548f4b63f4d180e6b5d95889bb23393412fc..f91e9e99e6a98ea84f2ae4aaaec53ef84d7a5bd8 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
 @@ -2826,6 +2826,16 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,

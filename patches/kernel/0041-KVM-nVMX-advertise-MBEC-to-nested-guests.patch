@@ -12,17 +12,19 @@ into the VMCS02's secondary VM execution controls.
 
 Signed-off-by: Jon Kohler <jon@nutanix.com>
 Message-ID: <20251223054806.1611168-9-jon@nutanix.com>
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-20-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 6ee40dc40a8470be2640962ba232015c0e665ff6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/mmu.h        |  2 +-
  arch/x86/kvm/mmu/mmu.c    |  7 ++++---
+ arch/x86/kvm/mmu/spte.c   | 10 ++++++----
  arch/x86/kvm/vmx/nested.c | 11 +++++++++++
- 3 files changed, 16 insertions(+), 4 deletions(-)
+ 4 files changed, 22 insertions(+), 8 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
-index d15f908d048f52d9f2f4e4decfe5f1d3fca92bda..9031f7ef8e4e8d7d5a7b03e4579b1e195599ebfb 100644
+index 23bc5b18efd079df68cd750665e3153d4e438bf0..e1e3869f568b5101ca99a238b44680529838395c 100644
 --- a/arch/x86/kvm/mmu.h
 +++ b/arch/x86/kvm/mmu.h
 @@ -100,7 +100,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
@@ -35,10 +37,10 @@ index d15f908d048f52d9f2f4e4decfe5f1d3fca92bda..9031f7ef8e4e8d7d5a7b03e4579b1e19
  int kvm_handle_page_fault(struct kvm_vcpu *vcpu, u64 error_code,
  				u64 fault_address, char *insn, int insn_len);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 07bdc8f9b0cbb3db819d4d5b5a45705ab6f89a74..3ecc571a1de0475d50787741f47c3636533c213d 100644
+index f2b8140d85d2c7648ed99b37c9c5ac166699b95d..2a2a5c291c15611097670aa5cab93d88caa69f53 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5944,7 +5944,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_init_shadow_npt_mmu);
+@@ -5950,7 +5950,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_init_shadow_npt_mmu);
  
  static union kvm_cpu_role
  kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
@@ -47,7 +49,7 @@ index 07bdc8f9b0cbb3db819d4d5b5a45705ab6f89a74..3ecc571a1de0475d50787741f47c3636
  {
  	union kvm_cpu_role role = {0};
  
-@@ -5954,6 +5954,7 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+@@ -5960,6 +5960,7 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
  	 */
  	WARN_ON_ONCE(is_smm(vcpu));
  	role.base.level = level;
@@ -55,7 +57,7 @@ index 07bdc8f9b0cbb3db819d4d5b5a45705ab6f89a74..3ecc571a1de0475d50787741f47c3636
  	role.base.has_4_byte_gpte = false;
  	role.base.direct = false;
  	role.base.ad_disabled = !accessed_dirty;
-@@ -5969,13 +5970,13 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+@@ -5975,13 +5976,13 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
  
  void kvm_init_shadow_ept_mmu(struct kvm_vcpu *vcpu, bool execonly,
  			     int huge_page_level, bool accessed_dirty,
@@ -71,6 +73,27 @@ index 07bdc8f9b0cbb3db819d4d5b5a45705ab6f89a74..3ecc571a1de0475d50787741f47c3636
  
  	if (new_mode.as_u64 != context->cpu_role.as_u64) {
  		/* EPT, and thus nested EPT, does not consume CR0, CR4, nor EFER. */
+diff --git a/arch/x86/kvm/mmu/spte.c b/arch/x86/kvm/mmu/spte.c
+index 15571bbeaf34d8bf42747997a1aeddf2b2865ce5..ec521f31176c4a56c5427dabac0c9385e6bbff4a 100644
+--- a/arch/x86/kvm/mmu/spte.c
++++ b/arch/x86/kvm/mmu/spte.c
+@@ -517,10 +517,12 @@ void kvm_mmu_set_ept_masks(bool has_ad_bits)
+ 	 * host's MBEC setting does not matter.  On hardware without MBEC
+ 	 * the XU bit is reserved-as-ignored, and setting it does no harm.
+ 	 *
+-	 * For nested EPT MBEC is not supported, but bit 10 of the gPTE has
+-	 * no effect because (a) is_present_gpte() does not treat it as a
+-	 * present bit, and (b) permission_fault() uses an mmu->permissions[]
+-	 * array that effectively ignores ACC_USER_EXEC_MASK.
++	 * For nested EPT, when MBEC is disabled by L1, correctness relies
++	 * on (a) ignoring bit 10 of the gPTE in is_present_gpte(), rather
++	 * than treating it as a present bit, and (b) permission_fault()
++	 * using an mmu->permissions[] array that effectively ignores
++	 * ACC_USER_EXEC_MASK.  Bit 10 of the gPTE does end up mirrored
++	 * in the sPTEs but is ignored because L2 runs with MBEC disabled.
+ 	 */
+ 	shadow_xu_mask		= VMX_EPT_USER_EXECUTABLE_MASK;
+ 	shadow_present_mask	= VMX_EPT_SUPPRESS_VE_BIT;
 diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
 index 925dfa7f54df2aa12f96960cec81499e2bf1cbf8..564165262073cb0403468b1225526c65adbb5d38 100644
 --- a/arch/x86/kvm/vmx/nested.c

@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yosry Ahmed <yosry@kernel.org>
+Date: Tue, 3 Mar 2026 00:34:19 +0000
+Subject: [PATCH] KVM: nSVM: Only copy SVM_MISC_ENABLE_NP from VMCB01's
+ misc_ctl
+
+The 'misc_ctl' field in VMCB02 is taken as-is from VMCB01. However, the
+only bit that needs to copied is SVM_MISC_ENABLE_NP, as all other known
+bits in misc_ctl are related to SEV guests, and KVM doesn't support
+nested virtualization for SEV guests.
+
+Only copy SVM_MISC_ENABLE_NP to harden against future bugs if/when other
+bits are set for L1 but should not be set for L2.
+
+Opportunistically add a comment explaining why SVM_MISC_ENABLE_NP is
+taken from VMCB01 and not VMCB02.
+
+Suggested-by: Jim Mattson <jmattson@google.com>
+Signed-off-by: Yosry Ahmed <yosry@kernel.org>
+Link: https://patch.msgid.link/20260303003421.2185681-26-yosry@kernel.org
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit b6dc21d896a02b5fd305f505a4ec4dad50ecd8fb)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/svm/nested.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index 06a8f27f8bb660e6ee341fd5939a9a4e0bb893f2..babca4d38dfd77e7cc989b5f8ee1a40217e4c403 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -795,8 +795,16 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm,
+ 						V_NMI_BLOCKING_MASK);
+ 	}
+ 
+-	/* Copied from vmcb01.  msrpm_base can be overwritten later.  */
+-	vmcb02->control.misc_ctl = vmcb01->control.misc_ctl;
++	/*
++	 * Copied from vmcb01.  msrpm_base can be overwritten later.
++	 *
++	 * SVM_MISC_ENABLE_NP in vmcb12 is only used for consistency checks.  If
++	 * L1 enables NPTs, KVM shadows L1's NPTs and uses those to run L2. If
++	 * L1 disables NPT, KVM runs L2 with the same NPTs used to run L1. For
++	 * the latter, L1 runs L2 with shadow page tables that translate L2 GVAs
++	 * to L1 GPAs, so the same NPTs can be used for L1 and L2.
++	 */
++	vmcb02->control.misc_ctl = vmcb01->control.misc_ctl & SVM_MISC_ENABLE_NP;
+ 	vmcb02->control.iopm_base_pa = vmcb01->control.iopm_base_pa;
+ 	vmcb02->control.msrpm_base_pa = vmcb01->control.msrpm_base_pa;
+ 	vmcb_mark_dirty(vmcb02, VMCB_PERM_MAP);

@@ -5,9 +5,10 @@ Subject: [PATCH] KVM: x86/mmu: remove SPTE_EPT_*
 
 spte.h is already including vmx.h, use the constants it defines.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-6-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 6896bc190ed247ab8613362aa218f682bdab31ce)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/mmu/spte.h | 8 ++------
  1 file changed, 2 insertions(+), 6 deletions(-)

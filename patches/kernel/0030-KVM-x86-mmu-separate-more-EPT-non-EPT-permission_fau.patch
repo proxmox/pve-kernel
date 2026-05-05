@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 29 Apr 2026 03:43:31 -0400
+Subject: [PATCH] KVM: x86/mmu: separate more EPT/non-EPT permission_fault()
+
+Move more of EPT handling entirely in the existing "if (!ept)"
+conditional.  Use a new "rf" variable instead of uf for read permissions
+for clarity.
+
+Merge smepf and ff into a single variable because EPT's "SMEP" (actually
+MBEC) is defined differently and does not need smepf.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit e02588c84a2d3aab13049cd3636fdcb6682d8f13)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/mmu.c | 26 +++++++++++++++-----------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index d4bb693b3555c3c77d86834a590372ba94fb6e78..4d313a8f7ea0b2b718080f39b0daf45c0e49a169 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -5575,24 +5575,28 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+ 		 * that causes a fault with the given PFEC.
+ 		 */
+ 
++		/* Faults from reads to non-readable pages */
++		u8 rf = 0;
+ 		/* Faults from writes to non-writable pages */
+ 		u8 wf = (pfec & PFERR_WRITE_MASK) ? (u8)~w : 0;
+ 		/* Faults from user mode accesses to supervisor pages */
+-		u8 uf = (pfec & PFERR_USER_MASK) ? (u8)~u : 0;
+-		/* Faults from fetches of non-executable pages*/
+-		u8 ff = (pfec & PFERR_FETCH_MASK) ? (u8)~x : 0;
+-		/* Faults from kernel mode fetches of user pages */
+-		u8 smepf = 0;
++		u8 uf = 0;
++		/* Faults from fetches of non-executable pages */
++		u8 ff = 0;
+ 		/* Faults from kernel mode accesses of user pages */
+ 		u8 smapf = 0;
+ 
+-		if (!ept) {
++		if (ept) {
++			rf = (pfec & PFERR_USER_MASK) ? (u8)~u : 0;
++			ff = (pfec & PFERR_FETCH_MASK) ? (u8)~x : 0;
++		} else {
+ 			/* Faults from kernel mode accesses to user pages */
+ 			u8 kf = (pfec & PFERR_USER_MASK) ? 0 : u;
+ 
+-			/* Not really needed: !nx will cause pte.nx to fault */
+-			if (!efer_nx)
+-				ff = 0;
++			uf = (pfec & PFERR_USER_MASK) ? (u8)~u : 0;
++
++			if (efer_nx)
++				ff = (pfec & PFERR_FETCH_MASK) ? (u8)~x : 0;
+ 
+ 			/* Allow supervisor writes if !cr0.wp */
+ 			if (!cr0_wp)
+@@ -5600,7 +5604,7 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+ 
+ 			/* Disallow supervisor fetches of user code if cr4.smep */
+ 			if (cr4_smep)
+-				smepf = (pfec & PFERR_FETCH_MASK) ? kf : 0;
++				ff |= (pfec & PFERR_FETCH_MASK) ? kf : 0;
+ 
+ 			/*
+ 			 * SMAP:kernel-mode data accesses from user-mode
+@@ -5621,7 +5625,7 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+ 				smapf = (pfec & (PFERR_RSVD_MASK|PFERR_FETCH_MASK)) ? 0 : kf;
+ 		}
+ 
+-		mmu->permissions[byte] = ff | uf | wf | smepf | smapf;
++		mmu->permissions[byte] = ff | uf | wf | rf | smapf;
+ 	}
+ }
+ 

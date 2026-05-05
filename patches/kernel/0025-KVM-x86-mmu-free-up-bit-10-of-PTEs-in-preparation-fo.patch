@@ -14,10 +14,11 @@ MMIO generation that is stored in page tables.
 Cc: Kai Huang <kai.huang@intel.com>
 Signed-off-by: Jon Kohler <jon@nutanix.com>
 Message-ID: <20251223054806.1611168-4-jon@nutanix.com>
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Reviewed-by: Kai Huang <kai.huang@intel.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-4-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 9a67ab74021b4bfb2ad3c9f30af9dbab1127eb99)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/include/asm/vmx.h |  2 ++
  arch/x86/kvm/mmu/spte.h    | 20 +++++++++++---------

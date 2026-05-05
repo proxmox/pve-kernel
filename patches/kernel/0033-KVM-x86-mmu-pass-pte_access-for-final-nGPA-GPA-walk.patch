@@ -8,17 +8,18 @@ U bit from the page walk itself.  This is available in the page walker
 as pte_access & ACC_USER_MASK but not available to translate_nested_gpa,
 so pass it down.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-12-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit b235c63f9b626e7bdda79092e50bcdfb036c7147)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/hyperv.c          |  2 +-
  arch/x86/kvm/mmu.h             | 15 ++++++++++++---
- arch/x86/kvm/mmu/mmu.c         |  2 +-
+ arch/x86/kvm/mmu/mmu.c         |  8 +++++++-
  arch/x86/kvm/mmu/paging_tmpl.h |  4 ++--
  arch/x86/kvm/mmu/spte.h        |  6 ------
  arch/x86/kvm/x86.c             |  5 +++--
- 6 files changed, 19 insertions(+), 15 deletions(-)
+ 6 files changed, 25 insertions(+), 15 deletions(-)
 
 diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
 index cf9dd565b8946b052060668ca8bf71f9c909e69e..53688f7b76eb9f7fc8dc29e10d6ad8ae87bfce27 100644
@@ -74,12 +75,19 @@ index 23f37535c0ce1d1e8e855ef3f94cae97cbb9c33c..635c2e5d8513dc0327f2d221007d21cf
  
  static inline bool kvm_has_mirrored_tdp(const struct kvm *kvm)
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index a459177c0480c32c64f700864c3b1fdf3391adfd..f911f75786130befe7b2ca2bfdf815d9ebd03b4b 100644
+index a459177c0480c32c64f700864c3b1fdf3391adfd..d9236a6c07edb320356230869623c74da86bbd79 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -4340,7 +4340,7 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+@@ -4339,8 +4339,14 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+ {
  	if (exception)
  		exception->error_code = 0;
++	/*
++	 * EPT MBEC uses the effective access bits from the PTE to distinguish
++	 * user and supervisor accesses, and treats every linear address as a
++	 * user-mode address if CR0.PG=0.  Therefore *include* ACC_USER_MASK in
++	 * the last argument to kvm_translate_gpa (which NPT does not use).
++	 */
  	return kvm_translate_gpa(vcpu, mmu, vaddr, access | PFERR_GUEST_FINAL_MASK,
 -				 exception);
 +				 exception, ACC_ALL);
@@ -87,7 +95,7 @@ index a459177c0480c32c64f700864c3b1fdf3391adfd..f911f75786130befe7b2ca2bfdf815d9
  
  static bool mmio_info_in_cache(struct kvm_vcpu *vcpu, u64 addr, bool direct)
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 567f8b77ffe05752d2e7bbac39a9d2b342d36b05..de8770d2fcfc7cb1a6b80f1d0dd4bf347f424db6 100644
+index 567f8b77ffe05752d2e7bbac39a9d2b342d36b05..8dd9d510fc34d6eaa972b6641bc108afa3f154b7 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -377,7 +377,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
@@ -104,7 +112,7 @@ index 567f8b77ffe05752d2e7bbac39a9d2b342d36b05..de8770d2fcfc7cb1a6b80f1d0dd4bf34
  	real_gpa = kvm_translate_gpa(vcpu, mmu, gfn_to_gpa(gfn),
  				     access | PFERR_GUEST_FINAL_MASK,
 -				     &walker->fault);
-+				     &walker->fault, pte_access);
++				     &walker->fault, walker->pte_access);
  	if (real_gpa == INVALID_GPA)
  		return 0;
  

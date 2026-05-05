@@ -8,23 +8,27 @@ so that supervisor and user-mode execution can be controlled
 independently (ACC_USER_MASK would not allow a setting similar to
 XU=0 XS=1 W=1 R=1).
 
-Replace shadow_x_mask with shadow_xs_mask/shadow_xu_mask, to allow
-setting XS and XU bits separately in EPT entries.
+Replace shadow_x_mask with shadow_xs_mask/shadow_xu_mask, to allow setting
+XS and XU bits separately in EPT entries.
 
-Note that ACC_USER_EXEC_MASK is already set through ACC_ALL in
-the kvm_mmu_page roles, but it does not propagate to the XU bit
-because (for now) shadow_xs_mask == shadow_xu_mask.
+In fact, ACC_USER_EXEC_MASK is already set through ACC_ALL in the
+kvm_mmu_page roles and propagates to the XU bit of sPTEs even if
+MBEC is not (yet) enabled in the execution controls.  This is fine,
+because the XU bit is ignored by the processor, and even once KVM
+supports MBEC this mode will remain for processors that lack the
+feature.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-14-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 7c851191f795dfc1d7fc9f9a6648b26d3580ef86)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- arch/x86/kvm/mmu.h          |  3 ++-
+ arch/x86/kvm/mmu.h          |  3 +-
  arch/x86/kvm/mmu/mmu.c      |  2 +-
- arch/x86/kvm/mmu/mmutrace.h |  6 ++---
- arch/x86/kvm/mmu/spte.c     | 44 +++++++++++++++++++++++--------------
- arch/x86/kvm/mmu/spte.h     | 11 ++++++++--
- 5 files changed, 42 insertions(+), 24 deletions(-)
+ arch/x86/kvm/mmu/mmutrace.h |  6 ++--
+ arch/x86/kvm/mmu/spte.c     | 62 ++++++++++++++++++++++++++-----------
+ arch/x86/kvm/mmu/spte.h     | 16 +++++++---
+ 5 files changed, 62 insertions(+), 27 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
 index 63be5c5efed98ab97977c4c5f1b2f75fb7c5791c..d8c13e43c2d7967811f9f995c5615f3edc7dc2ae 100644
@@ -41,10 +45,10 @@ index 63be5c5efed98ab97977c4c5f1b2f75fb7c5791c..d8c13e43c2d7967811f9f995c5615f3e
  #define ACC_ALL          (ACC_EXEC_MASK | ACC_WRITE_MASK | ACC_USER_MASK | ACC_READ_MASK)
  
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index f911f75786130befe7b2ca2bfdf815d9ebd03b4b..ff87dca46cc616e470f5ece787dc90ee432e67c9 100644
+index d9236a6c07edb320356230869623c74da86bbd79..25ee4d04e5cef081fd2cd863f078a4f65224cfa3 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5476,7 +5476,7 @@ static void reset_shadow_zero_bits_mask(struct kvm_vcpu *vcpu,
+@@ -5482,7 +5482,7 @@ static void reset_shadow_zero_bits_mask(struct kvm_vcpu *vcpu,
  static inline bool boot_cpu_is_amd(void)
  {
  	WARN_ON_ONCE(!tdp_enabled);
@@ -78,7 +82,7 @@ index dcfdfedfc4e9ef7a5feb7bf4dd20efb07a679ade..3429c1413f423b8ad709eaaa858a0fff
  	)
  );
 diff --git a/arch/x86/kvm/mmu/spte.c b/arch/x86/kvm/mmu/spte.c
-index 7b5f118ae21108d16e705e079e8c56292c40facc..779ee44893b0efe5307452f5684540180b5b7850 100644
+index 7b5f118ae21108d16e705e079e8c56292c40facc..15571bbeaf34d8bf42747997a1aeddf2b2865ce5 100644
 --- a/arch/x86/kvm/mmu/spte.c
 +++ b/arch/x86/kvm/mmu/spte.c
 @@ -29,8 +29,9 @@ bool __read_mostly kvm_ad_enabled;
@@ -155,17 +159,37 @@ index 7b5f118ae21108d16e705e079e8c56292c40facc..779ee44893b0efe5307452f568454018
  
  	if (ad_disabled)
  		spte |= SPTE_TDP_AD_DISABLED;
-@@ -497,7 +505,8 @@ void kvm_mmu_set_ept_masks(bool has_ad_bits)
+@@ -497,10 +505,27 @@ void kvm_mmu_set_ept_masks(bool has_ad_bits)
  	shadow_accessed_mask	= VMX_EPT_ACCESS_BIT;
  	shadow_dirty_mask	= VMX_EPT_DIRTY_BIT;
  	shadow_nx_mask		= 0ull;
 -	shadow_x_mask		= VMX_EPT_EXECUTABLE_MASK;
 +	shadow_xs_mask		= VMX_EPT_EXECUTABLE_MASK;
-+	shadow_xu_mask		= VMX_EPT_EXECUTABLE_MASK;
++
++	/*
++	 * The MMU always maps ACC_EXEC_MASK and ACC_USER_EXEC_MASK to the
++	 * XS and XU bits of shadow EPT entries, regardless of whether MBEC
++	 * is available on the host or enabled in the VMCS.
++	 *
++	 * For the non-nested case, pages are mapped with ACC_EXEC_MASK
++	 * and ACC_USER_EXEC_MASK set in tandem, so XS == XU and the
++	 * host's MBEC setting does not matter.  On hardware without MBEC
++	 * the XU bit is reserved-as-ignored, and setting it does no harm.
++	 *
++	 * For nested EPT MBEC is not supported, but bit 10 of the gPTE has
++	 * no effect because (a) is_present_gpte() does not treat it as a
++	 * present bit, and (b) permission_fault() uses an mmu->permissions[]
++	 * array that effectively ignores ACC_USER_EXEC_MASK.
++	 */
++	shadow_xu_mask		= VMX_EPT_USER_EXECUTABLE_MASK;
  	shadow_present_mask	= VMX_EPT_SUPPRESS_VE_BIT;
  
- 	shadow_acc_track_mask	= VMX_EPT_RWX_MASK;
-@@ -548,7 +557,8 @@ void kvm_mmu_reset_all_pte_masks(void)
+-	shadow_acc_track_mask	= VMX_EPT_RWX_MASK;
++	shadow_acc_track_mask	= VMX_EPT_RWX_MASK | VMX_EPT_USER_EXECUTABLE_MASK;
+ 	shadow_host_writable_mask = EPT_SPTE_HOST_WRITABLE;
+ 	shadow_mmu_writable_mask  = EPT_SPTE_MMU_WRITABLE;
+ 
+@@ -548,7 +573,8 @@ void kvm_mmu_reset_all_pte_masks(void)
  	shadow_accessed_mask	= PT_ACCESSED_MASK;
  	shadow_dirty_mask	= PT_DIRTY_MASK;
  	shadow_nx_mask		= PT64_NX_MASK;
@@ -176,10 +200,29 @@ index 7b5f118ae21108d16e705e079e8c56292c40facc..779ee44893b0efe5307452f568454018
  
  	shadow_acc_track_mask	= 0;
 diff --git a/arch/x86/kvm/mmu/spte.h b/arch/x86/kvm/mmu/spte.h
-index 8a4c09c5cdbfb3000670b92fe94047387f0ad3c2..0ed690f78e175e8545b0e51c2ba9acb280b801ac 100644
+index 8a4c09c5cdbfb3000670b92fe94047387f0ad3c2..f5261d993eac0316e5115f3cc63ae53d9989f625 100644
 --- a/arch/x86/kvm/mmu/spte.h
 +++ b/arch/x86/kvm/mmu/spte.h
-@@ -178,8 +178,9 @@ extern bool __read_mostly kvm_ad_enabled;
+@@ -24,7 +24,7 @@
+  * - bits 55 (EPT only): MMU-writable
+  * - bits 56-59: unused
+  * - bits 60-61: type of A/D tracking
+- * - bits 62: unused
++ * - bits 62 (EPT only): saved XU bit for disabled AD
+  */
+ 
+ /*
+@@ -65,7 +65,8 @@ static_assert(SPTE_TDP_AD_ENABLED == 0);
+  * must not overlap the A/D type mask.
+  */
+ #define SHADOW_ACC_TRACK_SAVED_BITS_MASK (VMX_EPT_READABLE_MASK | \
+-					  VMX_EPT_EXECUTABLE_MASK)
++					  VMX_EPT_EXECUTABLE_MASK | \
++					  VMX_EPT_USER_EXECUTABLE_MASK)
+ #define SHADOW_ACC_TRACK_SAVED_BITS_SHIFT 52
+ #define SHADOW_ACC_TRACK_SAVED_MASK	(SHADOW_ACC_TRACK_SAVED_BITS_MASK << \
+ 					 SHADOW_ACC_TRACK_SAVED_BITS_SHIFT)
+@@ -178,8 +179,9 @@ extern bool __read_mostly kvm_ad_enabled;
  extern u64 __read_mostly shadow_host_writable_mask;
  extern u64 __read_mostly shadow_mmu_writable_mask;
  extern u64 __read_mostly shadow_nx_mask;
@@ -190,7 +233,7 @@ index 8a4c09c5cdbfb3000670b92fe94047387f0ad3c2..0ed690f78e175e8545b0e51c2ba9acb2
  extern u64 __read_mostly shadow_accessed_mask;
  extern u64 __read_mostly shadow_dirty_mask;
  extern u64 __read_mostly shadow_mmio_value;
-@@ -357,7 +358,13 @@ static inline bool is_last_spte(u64 pte, int level)
+@@ -357,7 +359,13 @@ static inline bool is_last_spte(u64 pte, int level)
  
  static inline bool is_executable_pte(u64 spte)
  {

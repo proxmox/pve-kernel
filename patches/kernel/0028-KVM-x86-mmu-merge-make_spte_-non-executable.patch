@@ -6,9 +6,10 @@ Subject: [PATCH] KVM: x86/mmu: merge make_spte_{non,}executable
 As the logic will become more complicated with the introduction
 of MBEC, at least write it only once.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-7-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 1d86dc794e207ca4fcdcfee3245b077acaaa38ec)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/mmu/spte.c | 20 +++++++++++---------
  1 file changed, 11 insertions(+), 9 deletions(-)

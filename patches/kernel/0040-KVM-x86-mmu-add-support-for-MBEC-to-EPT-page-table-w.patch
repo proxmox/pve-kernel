@@ -14,9 +14,10 @@ because the MMU uses explicit ACC_USER_EXEC_MASK/shadow_xu_mask even for
 the non-nested EPT; the only difference is that ACC_USER_EXEC_MASK and
 ACC_EXEC_MASK will always be set in tandem outside the nested scenario.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-19-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 0f90bd6a06ef2185ea1e05167138e6b07637bd8d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/mmu/mmu.c         | 13 +++++++++++--
  arch/x86/kvm/mmu/paging_tmpl.h | 27 +++++++++++++++++++++------
@@ -25,10 +26,10 @@ Link: https://lore.kernel.org/20260408154217.458420-19-pbonzini@redhat.com
  4 files changed, 43 insertions(+), 8 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index c4da7a42c77fc9fe158b71ea31a24292b3093e46..07bdc8f9b0cbb3db819d4d5b5a45705ab6f89a74 100644
+index e72baca6fea0be8bfe111c1d8acadf23631de504..f2b8140d85d2c7648ed99b37c9c5ac166699b95d 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5555,7 +5555,6 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5561,7 +5561,6 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  {
  	unsigned byte;
  
@@ -36,7 +37,7 @@ index c4da7a42c77fc9fe158b71ea31a24292b3093e46..07bdc8f9b0cbb3db819d4d5b5a45705a
  	const u16 w = ACC_BITS_MASK(ACC_WRITE_MASK);
  	const u16 r = ACC_BITS_MASK(ACC_READ_MASK);
  
-@@ -5596,8 +5595,18 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5602,8 +5601,18 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  		u16 smapf = 0;
  
  		if (ept) {
@@ -57,7 +58,7 @@ index c4da7a42c77fc9fe158b71ea31a24292b3093e46..07bdc8f9b0cbb3db819d4d5b5a45705a
  
  			/* Faults from kernel mode accesses to user pages */
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index f5f9e745f21dd3e3e37e959bbfdad4df33abfa8a..7d7c617885fae3a5a3142b79aca1900e1d347738 100644
+index d4ce55195a7c051cafeab19c92163a723982c179..f741f7d4cc2df9463bcecae04a79c9023bea9d12 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -124,12 +124,17 @@ static inline void FNAME(protect_clean_gpte)(struct kvm_mmu *mmu, unsigned *acce

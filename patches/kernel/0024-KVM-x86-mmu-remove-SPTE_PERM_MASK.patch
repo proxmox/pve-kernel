@@ -7,9 +7,10 @@ SPTE_PERM_MASK is no longer referenced by anything in the kernel.
 
 Signed-off-by: Jon Kohler <jon@nutanix.com>
 Message-ID: <20251223054806.1611168-3-jon@nutanix.com>
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-3-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 2f4d934df00f63e736edf9437022db4bfae6f70f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/mmu/spte.h | 3 ---
  1 file changed, 3 deletions(-)

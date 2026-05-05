@@ -11,9 +11,10 @@ While at it, remove PFERR_USER_MASK from the VMX version of the
 function, since it is actually ignored by the tables that
 update_permission_bitmask() generates for EPT.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-13-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 6a430c5dc9f2dd5fae730285699d1012573bf197)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/include/asm/kvm_host.h |  4 ++++
  arch/x86/kvm/hyperv.c           |  3 ++-
@@ -80,10 +81,10 @@ index 635c2e5d8513dc0327f2d221007d21cf9235e860..63be5c5efed98ab97977c4c5f1b2f75f
  
  static inline bool kvm_has_mirrored_tdp(const struct kvm *kvm)
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index b36c33255bed66f1a61a787a78402bb9d1be5e26..3b670ee4eb2600f6262d6b2e0b637930ed147854 100644
+index babca4d38dfd77e7cc989b5f8ee1a40217e4c403..4f6d39412b2d2c49ce3d2a1d6f7f604bca7fef60 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -1968,8 +1968,23 @@ static bool svm_get_nested_state_pages(struct kvm_vcpu *vcpu)
+@@ -1981,8 +1981,23 @@ static bool svm_get_nested_state_pages(struct kvm_vcpu *vcpu)
  	return true;
  }
  

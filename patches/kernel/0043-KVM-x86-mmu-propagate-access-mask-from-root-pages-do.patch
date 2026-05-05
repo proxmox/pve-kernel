@@ -16,9 +16,10 @@ Do that, and pass the required access to the
 kvm_mmu_spte_requested tracepoint since it's not ACC_ALL
 anymore.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-22-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 63fffe111f036d5566d4535ce56e714ec69c3829)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/mmu/mmu.c         |  9 +++++----
  arch/x86/kvm/mmu/mmutrace.h    | 10 ++++++----
@@ -27,7 +28,7 @@ Link: https://lore.kernel.org/20260408154217.458420-22-pbonzini@redhat.com
  4 files changed, 15 insertions(+), 12 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 3ecc571a1de0475d50787741f47c3636533c213d..4374784f1154918e109399cb9746f76b8efe92ba 100644
+index 2a2a5c291c15611097670aa5cab93d88caa69f53..51c605cd15c80829e74173a5fde794ec7dfbea9f 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -3437,12 +3437,13 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
@@ -99,7 +100,7 @@ index 3429c1413f423b8ad709eaaa858a0fff7b37220e..fa01719baf8d4f046e90dc0676109145
  );
  
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 7d7c617885fae3a5a3142b79aca1900e1d347738..9ad2b05a0f44d5c65b53d230a17789afe7146f5d 100644
+index f741f7d4cc2df9463bcecae04a79c9023bea9d12..047400af924d2e8f1263dfc77df0681afce500ea 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -734,7 +734,7 @@ static int FNAME(fetch)(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault,

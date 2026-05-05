@@ -4,25 +4,31 @@ Date: Wed, 8 Apr 2026 11:42:05 -0400
 Subject: [PATCH] KVM: VMX: enable use of MBEC
 
 If available, set SECONDARY_EXEC_MODE_BASED_EPT_EXEC in the secondary
-execution controls and configure XS and XU separately (even if they
-are always used together).
+execution controls.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+The changes are limited because the MMU is designed to create the same
+sPTEs independent of the MBEC setting.  On hosts lacking support for
+MBEC, and in nested guests which cannot enable it as of this commit,
+the XU bit is ignored by the processor.
+
+Note that, as of this patch, MBEC is not available to L1 hypervisors
+for their guests.
+
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-16-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit a0bdba68547c2b0ce9f1bb511f486225def6d103)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/include/asm/vmx.h      |  3 +++
- arch/x86/kvm/mmu.h              |  7 ++++++-
- arch/x86/kvm/mmu/spte.c         |  6 +++---
- arch/x86/kvm/mmu/spte.h         |  5 +++--
+ arch/x86/kvm/mmu.h              |  5 +++++
  arch/x86/kvm/vmx/capabilities.h |  7 +++++++
  arch/x86/kvm/vmx/common.h       | 10 +++++-----
  arch/x86/kvm/vmx/main.c         |  9 +++++++++
  arch/x86/kvm/vmx/nested.c       |  1 +
- arch/x86/kvm/vmx/vmx.c          | 16 +++++++++++++++-
+ arch/x86/kvm/vmx/vmx.c          | 14 ++++++++++++++
  arch/x86/kvm/vmx/vmx.h          |  1 +
  arch/x86/kvm/vmx/x86_ops.h      |  1 +
- 11 files changed, 54 insertions(+), 12 deletions(-)
+ 9 files changed, 46 insertions(+), 5 deletions(-)
 
 diff --git a/arch/x86/include/asm/vmx.h b/arch/x86/include/asm/vmx.h
 index 59e3b095a315973a9dfd4d3107ac52e462010858..2b449a3948d3061f0eb973768067100f6a9813d2 100644
@@ -42,10 +48,10 @@ index 59e3b095a315973a9dfd4d3107ac52e462010858..2b449a3948d3061f0eb973768067100f
  /*
   * Exit Qualifications for NOTIFY VM EXIT
 diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
-index d8c13e43c2d7967811f9f995c5615f3edc7dc2ae..d15f908d048f52d9f2f4e4decfe5f1d3fca92bda 100644
+index d8c13e43c2d7967811f9f995c5615f3edc7dc2ae..23bc5b18efd079df68cd750665e3153d4e438bf0 100644
 --- a/arch/x86/kvm/mmu.h
 +++ b/arch/x86/kvm/mmu.h
-@@ -83,12 +83,17 @@ static inline gfn_t kvm_mmu_max_gfn(void)
+@@ -83,6 +83,11 @@ static inline gfn_t kvm_mmu_max_gfn(void)
  	return (1ULL << (max_gpa_bits - PAGE_SHIFT)) - 1;
  }
  
@@ -57,62 +63,6 @@ index d8c13e43c2d7967811f9f995c5615f3edc7dc2ae..d15f908d048f52d9f2f4e4decfe5f1d3
  u8 kvm_mmu_get_max_tdp_level(void);
  
  void kvm_mmu_set_mmio_spte_mask(u64 mmio_value, u64 mmio_mask, u64 access_mask);
- void kvm_mmu_set_mmio_spte_value(struct kvm *kvm, u64 mmio_value);
- void kvm_mmu_set_me_spte_mask(u64 me_value, u64 me_mask);
--void kvm_mmu_set_ept_masks(bool has_ad_bits);
-+void kvm_mmu_set_ept_masks(bool has_ad_bits, bool has_mbec);
- 
- void kvm_init_mmu(struct kvm_vcpu *vcpu);
- void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
-diff --git a/arch/x86/kvm/mmu/spte.c b/arch/x86/kvm/mmu/spte.c
-index 779ee44893b0efe5307452f5684540180b5b7850..6da5c73d1004c9fc6ca780678d70fdffa85433ae 100644
---- a/arch/x86/kvm/mmu/spte.c
-+++ b/arch/x86/kvm/mmu/spte.c
-@@ -497,7 +497,7 @@ void kvm_mmu_set_me_spte_mask(u64 me_value, u64 me_mask)
- }
- EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_mmu_set_me_spte_mask);
- 
--void kvm_mmu_set_ept_masks(bool has_ad_bits)
-+void kvm_mmu_set_ept_masks(bool has_ad_bits, bool has_mbec)
- {
- 	kvm_ad_enabled		= has_ad_bits;
- 
-@@ -506,10 +506,10 @@ void kvm_mmu_set_ept_masks(bool has_ad_bits)
- 	shadow_dirty_mask	= VMX_EPT_DIRTY_BIT;
- 	shadow_nx_mask		= 0ull;
- 	shadow_xs_mask		= VMX_EPT_EXECUTABLE_MASK;
--	shadow_xu_mask		= VMX_EPT_EXECUTABLE_MASK;
-+	shadow_xu_mask		= has_mbec ? VMX_EPT_USER_EXECUTABLE_MASK : VMX_EPT_EXECUTABLE_MASK;
- 	shadow_present_mask	= VMX_EPT_SUPPRESS_VE_BIT;
- 
--	shadow_acc_track_mask	= VMX_EPT_RWX_MASK;
-+	shadow_acc_track_mask	= VMX_EPT_RWX_MASK | shadow_xu_mask;
- 	shadow_host_writable_mask = EPT_SPTE_HOST_WRITABLE;
- 	shadow_mmu_writable_mask  = EPT_SPTE_MMU_WRITABLE;
- 
-diff --git a/arch/x86/kvm/mmu/spte.h b/arch/x86/kvm/mmu/spte.h
-index 0ed690f78e175e8545b0e51c2ba9acb280b801ac..f5261d993eac0316e5115f3cc63ae53d9989f625 100644
---- a/arch/x86/kvm/mmu/spte.h
-+++ b/arch/x86/kvm/mmu/spte.h
-@@ -24,7 +24,7 @@
-  * - bits 55 (EPT only): MMU-writable
-  * - bits 56-59: unused
-  * - bits 60-61: type of A/D tracking
-- * - bits 62: unused
-+ * - bits 62 (EPT only): saved XU bit for disabled AD
-  */
- 
- /*
-@@ -65,7 +65,8 @@ static_assert(SPTE_TDP_AD_ENABLED == 0);
-  * must not overlap the A/D type mask.
-  */
- #define SHADOW_ACC_TRACK_SAVED_BITS_MASK (VMX_EPT_READABLE_MASK | \
--					  VMX_EPT_EXECUTABLE_MASK)
-+					  VMX_EPT_EXECUTABLE_MASK | \
-+					  VMX_EPT_USER_EXECUTABLE_MASK)
- #define SHADOW_ACC_TRACK_SAVED_BITS_SHIFT 52
- #define SHADOW_ACC_TRACK_SAVED_MASK	(SHADOW_ACC_TRACK_SAVED_BITS_MASK << \
- 					 SHADOW_ACC_TRACK_SAVED_BITS_SHIFT)
 diff --git a/arch/x86/kvm/vmx/capabilities.h b/arch/x86/kvm/vmx/capabilities.h
 index 609477f190e8efc24c0741f0e31fefe38eef8463..83d68028d41477c274edf373a3ffeb2bb23662dd 100644
 --- a/arch/x86/kvm/vmx/capabilities.h
@@ -201,7 +151,7 @@ index e4cb317807abda2f0daa613b75d32aa57bda7f59..cdc35a2728d945bf2202093a07e1af21
  
  		if (nested_cpu_has(vmcs12,
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index e27868fa4eb70397f422944496063f34815865ed..3905bc85a46c5c8aa5429614307da47d949b48e2 100644
+index e27868fa4eb70397f422944496063f34815865ed..e030548f4b63f4d180e6b5d95889bb23393412fc 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
 @@ -113,6 +113,9 @@ module_param(emulate_invalid_guest_state, bool, 0444);
@@ -244,24 +194,15 @@ index e27868fa4eb70397f422944496063f34815865ed..3905bc85a46c5c8aa5429614307da47d
  static void vmcs_set_secondary_exec_control(struct vcpu_vmx *vmx, u32 new_ctl)
  {
  	/*
-@@ -8779,6 +8791,8 @@ __init int vmx_hardware_setup(void)
- 		ple_window_shrink = 0;
- 	}
+@@ -8737,6 +8749,8 @@ __init int vmx_hardware_setup(void)
  
-+	if (!cpu_has_ept_mbec())
+ 	if (!cpu_has_vmx_ept_ad_bits() || !enable_ept)
+ 		enable_ept_ad_bits = 0;
++	if (!cpu_has_ept_mbec() || !enable_ept)
 +		enable_mbec = 0;
- 	if (!cpu_has_vmx_apicv())
- 		enable_apicv = 0;
- 	if (!enable_apicv)
-@@ -8798,7 +8812,7 @@ __init int vmx_hardware_setup(void)
- 	set_bit(0, vmx_vpid_bitmap); /* 0 is reserved for host */
  
- 	if (enable_ept)
--		kvm_mmu_set_ept_masks(enable_ept_ad_bits);
-+		kvm_mmu_set_ept_masks(enable_ept_ad_bits, enable_mbec);
- 	else
- 		vt_x86_ops.get_mt_mask = NULL;
- 
+ 	if (!cpu_has_vmx_unrestricted_guest() || !enable_ept)
+ 		enable_unrestricted_guest = 0;
 diff --git a/arch/x86/kvm/vmx/vmx.h b/arch/x86/kvm/vmx/vmx.h
 index 70bfe81dea540338849acb3e49f01f177dacd7c1..594717e619d9c7d18b659cd3ad8646a3aa4f8c68 100644
 --- a/arch/x86/kvm/vmx/vmx.h

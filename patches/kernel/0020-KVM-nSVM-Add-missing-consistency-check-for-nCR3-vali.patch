@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yosry Ahmed <yosry@kernel.org>
+Date: Tue, 3 Mar 2026 00:34:09 +0000
+Subject: [PATCH] KVM: nSVM: Add missing consistency check for nCR3 validity
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+From the APM Volume #2, 15.25.4 (24593—Rev. 3.42—March 2024):
+
+  When VMRUN is executed with nested paging enabled (NP_ENABLE = 1), the
+  following conditions are considered illegal state combinations, in
+  addition to those mentioned in “Canonicalization and Consistency Checks”:
+      • Any MBZ bit of nCR3 is set.
+      • Any G_PAT.PA field has an unsupported type encoding or any
+        reserved field in G_PAT has a nonzero value.
+
+Add the consistency check for nCR3 being a legal GPA with no MBZ bits
+set.  Note, the G_PAT.PA check is being handled separately[*].
+
+Link: https://lore.kernel.org/kvm/20260205214326.1029278-3-jmattson@google.com [*]
+Fixes: 4b16184c1cca ("KVM: SVM: Initialize Nested Nested MMU context on VMRUN")
+Cc: stable@vger.kernel.org
+Signed-off-by: Yosry Ahmed <yosry@kernel.org>
+Link: https://patch.msgid.link/20260303003421.2185681-16-yosry@kernel.org
+[sean: capture everything in CC(), massage changelog formatting]
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit b71138fcc362c67ebe66747bb22cb4e6b4d6a651)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/svm/nested.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index 7da5fa2add08564178f676674042445dbb513dca..e7bf3f745d4bbc6e911f7f481b7966925e991c56 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -348,6 +348,10 @@ static bool __nested_vmcb_check_controls(struct kvm_vcpu *vcpu,
+ 	if (CC(control->asid == 0))
+ 		return false;
+ 
++	if (CC((control->nested_ctl & SVM_NESTED_CTL_NP_ENABLE) &&
++	       !kvm_vcpu_is_legal_gpa(vcpu, control->nested_cr3)))
++		return false;
++
+ 	if (CC(!nested_svm_check_bitmap_pa(vcpu, control->msrpm_base_pa,
+ 					   MSRPM_SIZE)))
+ 		return false;

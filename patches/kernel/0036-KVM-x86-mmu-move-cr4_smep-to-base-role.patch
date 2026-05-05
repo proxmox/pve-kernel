@@ -11,9 +11,10 @@ is off, and bits 0-2 + bit 10 when MBEC is on.
 In preparation for enabling MBEC, move cr4_smep to the base role.
 This makes the smep_andnot_wp bit redundant, so remove it.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-15-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 357fc1099f48aeecbdd623d618e989aeee7e372d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  Documentation/virt/kvm/x86/mmu.rst | 10 ++++------
  arch/x86/include/asm/kvm-x86-ops.h |  1 +
@@ -129,7 +130,7 @@ index a20263a4e7270984b9d6398db85f99ea66180bd4..8b4a55cc0918ebd093aeaf435de7cfe1
  	void (*load_mmu_pgd)(struct kvm_vcpu *vcpu, hpa_t root_hpa,
  			     int root_level);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index ff87dca46cc616e470f5ece787dc90ee432e67c9..c4da7a42c77fc9fe158b71ea31a24292b3093e46 100644
+index 25ee4d04e5cef081fd2cd863f078a4f65224cfa3..e72baca6fea0be8bfe111c1d8acadf23631de504 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -227,7 +227,7 @@ static inline bool __maybe_unused is_##reg##_##name(struct kvm_mmu *mmu)	\
@@ -141,7 +142,7 @@ index ff87dca46cc616e470f5ece787dc90ee432e67c9..c4da7a42c77fc9fe158b71ea31a24292
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, smap);
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, pke);
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
-@@ -5749,7 +5749,7 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5755,7 +5755,7 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  
  	role.base.efer_nx = ____is_efer_nx(regs);
  	role.base.cr0_wp = ____is_cr0_wp(regs);
@@ -150,7 +151,7 @@ index ff87dca46cc616e470f5ece787dc90ee432e67c9..c4da7a42c77fc9fe158b71ea31a24292
  	role.base.smap_andnot_wp = ____is_cr4_smap(regs) && !____is_cr0_wp(regs);
  	role.base.has_4_byte_gpte = !____is_cr4_pae(regs);
  
-@@ -5761,7 +5761,6 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5767,7 +5767,6 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  	else
  		role.base.level = PT32_ROOT_LEVEL;
  
@@ -158,7 +159,7 @@ index ff87dca46cc616e470f5ece787dc90ee432e67c9..c4da7a42c77fc9fe158b71ea31a24292
  	role.ext.cr4_smap = ____is_cr4_smap(regs);
  	role.ext.cr4_pse = ____is_cr4_pse(regs);
  
-@@ -5820,6 +5819,7 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5826,6 +5825,7 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  
  	role.access = ACC_ALL;
  	role.cr0_wp = true;

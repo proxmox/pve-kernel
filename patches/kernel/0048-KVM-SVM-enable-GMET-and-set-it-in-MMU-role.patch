@@ -6,21 +6,22 @@ Subject: [PATCH] KVM: SVM: enable GMET and set it in MMU role
 Set the GMET bit in the nested control field.  This has effectively
 no impact as long as NPT page tables are changed to have U=0.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-26-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 535a39e7c6c610f77530b4b8a9b3ca4802ee9336)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/mmu/mmu.c    |  6 +++++-
- arch/x86/kvm/svm/nested.c |  7 +++++--
+ arch/x86/kvm/svm/nested.c |  9 ++++++---
  arch/x86/kvm/svm/svm.c    | 16 ++++++++++++++++
  arch/x86/kvm/svm/svm.h    |  1 +
- 4 files changed, 27 insertions(+), 3 deletions(-)
+ 4 files changed, 28 insertions(+), 4 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 354f8af5d90aedcfa5ccf2fa54173f5d3d138850..14c0c2da75bbc2c47e7ee31232858018d9a14a92 100644
+index 67479bada0754447a89c729cec4e5b55223c6531..8e99c6a002ab4352b7a38b6ea59489e1a5de5e07 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5840,7 +5840,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5846,7 +5846,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  {
  	union kvm_mmu_page_role role = {0};
  
@@ -28,7 +29,7 @@ index 354f8af5d90aedcfa5ccf2fa54173f5d3d138850..14c0c2da75bbc2c47e7ee31232858018
  	role.cr0_wp = true;
  	role.cr4_smep = kvm_x86_call(tdp_has_smep)(vcpu->kvm);
  	role.efer_nx = true;
-@@ -5851,6 +5850,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5857,6 +5856,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  	role.direct = true;
  	role.has_4_byte_gpte = false;
  
@@ -41,10 +42,19 @@ index 354f8af5d90aedcfa5ccf2fa54173f5d3d138850..14c0c2da75bbc2c47e7ee31232858018
  }
  
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index a76f2b8cbef9a43904e05e391b4e0c5e2ff5ad8a..863040ecec0e7770a6dad924246e2ae5dcd7682c 100644
+index 7b17e1f18ac53d0469188b73cd50f03f95a240af..3c8368364890298f62de263e74cbf177cfae5abe 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -829,9 +829,12 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm,
+@@ -805,7 +805,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm,
+ 	 * the latter, L1 runs L2 with shadow page tables that translate L2 GVAs
+ 	 * to L1 GPAs, so the same NPTs can be used for L1 and L2.
+ 	 */
+-	vmcb02->control.misc_ctl = vmcb01->control.misc_ctl & SVM_MISC_ENABLE_NP;
++	vmcb02->control.misc_ctl = vmcb01->control.misc_ctl & (SVM_MISC_ENABLE_NP | SVM_MISC_ENABLE_GMET);
+ 	vmcb02->control.iopm_base_pa = vmcb01->control.iopm_base_pa;
+ 	vmcb02->control.msrpm_base_pa = vmcb01->control.msrpm_base_pa;
+ 	vmcb_mark_dirty(vmcb02, VMCB_PERM_MAP);
+@@ -842,9 +842,12 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm,
  	/* Also overwritten later if necessary.  */
  	vmcb02->control.tlb_ctl = TLB_CONTROL_DO_NOTHING;
  
@@ -52,7 +62,7 @@ index a76f2b8cbef9a43904e05e391b4e0c5e2ff5ad8a..863040ecec0e7770a6dad924246e2ae5
 -	if (nested_npt_enabled(svm))
 +	/* Use vmcb01 MMU and format if guest does not use nNPT */
 +	if (nested_npt_enabled(svm)) {
-+		vmcb02->control.nested_ctl &= ~SVM_NESTED_CTL_GMET_ENABLE;
++		vmcb02->control.misc_ctl &= ~SVM_MISC_ENABLE_GMET;
 +
  		nested_svm_init_mmu_context(vcpu);
 +	}
@@ -60,7 +70,7 @@ index a76f2b8cbef9a43904e05e391b4e0c5e2ff5ad8a..863040ecec0e7770a6dad924246e2ae5
  	vcpu->arch.tsc_offset = kvm_calc_nested_tsc_offset(
  			vcpu->arch.l1_tsc_offset,
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index e6477affac9a049d841b561bb11099afbbd1c6e0..1705e3cafcb0903b62ddd779b36f22ab74e79991 100644
+index 187eae6616d9264756f11fabc8a04ad9622f36ad..8390a77f1789d0e0078d7bd088445085c1850f0a 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
 @@ -135,6 +135,9 @@ module_param(pause_filter_count_max, ushort, 0444);
@@ -79,7 +89,7 @@ index e6477affac9a049d841b561bb11099afbbd1c6e0..1705e3cafcb0903b62ddd779b36f22ab
  	}
 +
 +	if (gmet_enabled)
-+		control->nested_ctl |= SVM_NESTED_CTL_GMET_ENABLE;
++		control->misc_ctl |= SVM_MISC_ENABLE_GMET;
 +
  	svm->current_vmcb->asid_generation = 0;
  	svm->asid = 0;
@@ -115,7 +125,7 @@ index e6477affac9a049d841b561bb11099afbbd1c6e0..1705e3cafcb0903b62ddd779b36f22ab
  	kvm_configure_mmu(npt_enabled, get_npt_level(),
  			  get_npt_level(), PG_LEVEL_1G);
 diff --git a/arch/x86/kvm/svm/svm.h b/arch/x86/kvm/svm/svm.h
-index 6942e6b0eda67e36bdfae8e891b4eeb27a88291e..41042379aa48ba63693911fd6037a8c05937c592 100644
+index 45b5136b66151abf8ed5c31e6fd9d89f7ebab868..7b614c5b078cf356a80837365f1b6f609b0555b6 100644
 --- a/arch/x86/kvm/svm/svm.h
 +++ b/arch/x86/kvm/svm/svm.h
 @@ -44,6 +44,7 @@ static inline struct page *__sme_pa_to_page(unsigned long pa)

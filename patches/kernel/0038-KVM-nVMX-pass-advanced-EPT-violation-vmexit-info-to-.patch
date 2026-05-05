@@ -7,9 +7,10 @@ KVM will use advanced vmexit information for EPT violations to
 virtualize MBEC.  Pass it to the guest since it is easy and allows
 testing nested nested.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-17-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit f899ebca44351d96e7d9a4f28b63b9be150b004f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/include/asm/vmx.h     |  4 ++++
  arch/x86/kvm/mmu/paging_tmpl.h |  2 +-
@@ -39,7 +40,7 @@ index 2b449a3948d3061f0eb973768067100f6a9813d2..fcd6237193344f55941dfefc87e04820
  #define EPT_VIOLATION_RWX_TO_PROT(__epte) (((__epte) & VMX_EPT_RWX_MASK) << 3)
  #define EPT_VIOLATION_USER_EXEC_TO_PROT(__epte) (((__epte) & VMX_EPT_USER_EXECUTABLE_MASK) >> 4)
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index de8770d2fcfc7cb1a6b80f1d0dd4bf347f424db6..f5f9e745f21dd3e3e37e959bbfdad4df33abfa8a 100644
+index 8dd9d510fc34d6eaa972b6641bc108afa3f154b7..d4ce55195a7c051cafeab19c92163a723982c179 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -494,7 +494,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,

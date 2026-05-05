@@ -11,9 +11,10 @@ because they're reads and writes only), it is clearer and less hackish
 to only apply MBEC to PFERR_GUEST_FINAL_MASK.  Allow kvm-intel.ko to
 distinguish the two cases.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-11-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 11e72886fe79e8bad3f564f82ce31f60b7712768)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/hyperv.c          | 3 ++-
  arch/x86/kvm/mmu/mmu.c         | 3 ++-

@@ -11,9 +11,10 @@ high bits so that access tracking will use bits 52, 54 and 62.
 As a side effect, the free bits are compacted slightly, with
 56-59 still unused.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-5-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit be4e45f360a2963ff4a1e17312ccbb273fa79bab)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/mmu/spte.h | 20 +++++++++++++++-----
  1 file changed, 15 insertions(+), 5 deletions(-)

@@ -12,9 +12,10 @@ to be another place where the host CR4.SMEP is read from; just merge it
 with EFER.NXE into a new cpu_role bit that tells paging_tmpl.h whether
 to set the I/D bit at all.
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Tested-by: David Riley <d.riley@proxmox.com>
-Link: https://lore.kernel.org/20260408154217.458420-23-pbonzini@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 9af3f1ff6a96a05a684e85631d1379b744bf99d3)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/include/asm/kvm_host.h | 7 +++++++
  arch/x86/kvm/mmu/mmu.c          | 8 ++++++++
@@ -40,7 +41,7 @@ index 8b4a55cc0918ebd093aeaf435de7cfe18e382e18..e20f729f6eb2ee5a36edeb3decd6a2bb
  };
  
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 4374784f1154918e109399cb9746f76b8efe92ba..290537b0f36c678a43d4abd08980ce6b6be518a3 100644
+index 51c605cd15c80829e74173a5fde794ec7dfbea9f..74b6fb7f783615b850fb5c7d66c8a875b92e0072 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -234,6 +234,11 @@ BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
@@ -55,7 +56,7 @@ index 4374784f1154918e109399cb9746f76b8efe92ba..290537b0f36c678a43d4abd08980ce6b
  static inline bool is_cr0_pg(struct kvm_mmu *mmu)
  {
          return mmu->cpu_role.base.level > 0;
-@@ -5778,6 +5783,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5784,6 +5789,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  	role.ext.cr4_pke = ____is_efer_lma(regs) && ____is_cr4_pke(regs);
  	role.ext.cr4_la57 = ____is_efer_lma(regs) && ____is_cr4_la57(regs);
  	role.ext.efer_lma = ____is_efer_lma(regs);
@@ -64,7 +65,7 @@ index 4374784f1154918e109399cb9746f76b8efe92ba..290537b0f36c678a43d4abd08980ce6b
  	return role;
  }
  
-@@ -5931,6 +5938,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
+@@ -5937,6 +5944,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
  
  	/* NPT requires CR0.PG=1. */
  	WARN_ON_ONCE(cpu_role.base.direct || !cpu_role.base.guest_mode);
@@ -73,7 +74,7 @@ index 4374784f1154918e109399cb9746f76b8efe92ba..290537b0f36c678a43d4abd08980ce6b
  	root_role = cpu_role.base;
  	root_role.level = kvm_mmu_get_tdp_level(vcpu);
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 9ad2b05a0f44d5c65b53d230a17789afe7146f5d..ad0e5f43b8adabac8eac25e5f0e6d2f16b267226 100644
+index 047400af924d2e8f1263dfc77df0681afce500ea..07100bbfc270178dcc48aa0db7a63b4f563c550e 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -489,7 +489,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
