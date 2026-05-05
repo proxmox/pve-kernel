@@ -133,10 +133,10 @@ index 937aeb474af7dc18630213fcb922bc5f0281d1a9..e4cb317807abda2f0daa613b75d32aa5
  	.check_events = vmx_check_nested_events,
  	.has_events = vmx_has_nested_events,
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 15c1b2de3d9355745b4ce5f40da4af71746eb533..0757b93e528da15e38233f7c731ae2050b6cb5b4 100644
+index 46678feb791d1daea4ebe407d61047eec82cb8ca..499b3f4ae9042dcb722701d329a0755075cc8345 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7823,22 +7823,6 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
+@@ -7836,22 +7836,6 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
  	kvm_x86_call(get_segment)(vcpu, var, seg);
  }
  
