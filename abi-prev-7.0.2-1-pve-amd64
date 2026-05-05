@@ -7620,7 +7620,6 @@ EXPORT_SYMBOL vmlinux 0x329fc928	in6_pton
 EXPORT_SYMBOL vmlinux 0x32a75d98	__drm_atomic_helper_private_obj_duplicate_state
 EXPORT_SYMBOL vmlinux 0x32bd98e2	alloc_skb_with_frags
 EXPORT_SYMBOL vmlinux 0x32c46ba0	drm_gem_simple_kms_reset_shadow_plane
-EXPORT_SYMBOL vmlinux 0x32c518df	fuse_mount_destroy
 EXPORT_SYMBOL vmlinux 0x32ca6cfe	mmc_get_card
 EXPORT_SYMBOL vmlinux 0x32ca6cfe	mmc_put_card
 EXPORT_SYMBOL vmlinux 0x32f5cde2	__mdiobus_c45_read
@@ -8635,6 +8634,7 @@ EXPORT_SYMBOL vmlinux 0x5993d834	i2c_smbus_read_block_data
 EXPORT_SYMBOL vmlinux 0x59c5f726	drm_edid_free
 EXPORT_SYMBOL vmlinux 0x59d0b826	generic_error_remove_folio
 EXPORT_SYMBOL vmlinux 0x59dc5e6d	mini_qdisc_pair_swap
+EXPORT_SYMBOL vmlinux 0x59e0af6e	copy_to_nontemporal
 EXPORT_SYMBOL vmlinux 0x59fdbf60	folio_set_bh
 EXPORT_SYMBOL vmlinux 0x5a0b7541	msrs_free
 EXPORT_SYMBOL vmlinux 0x5a17cf5f	drm_client_rotation
@@ -10098,7 +10098,6 @@ EXPORT_SYMBOL vmlinux 0x9293635f	pcix_set_mmrbc
 EXPORT_SYMBOL vmlinux 0x92a1d790	glob_match
 EXPORT_SYMBOL vmlinux 0x92b0bc27	i2c_register_driver
 EXPORT_SYMBOL vmlinux 0x92b25c00	pcie_relaxed_ordering_enabled
-EXPORT_SYMBOL vmlinux 0x92ba8891	hid_ops
 EXPORT_SYMBOL vmlinux 0x92c2e8ea	nf_register_net_hooks
 EXPORT_SYMBOL vmlinux 0x92d7bb07	trace_print_hex_seq
 EXPORT_SYMBOL vmlinux 0x92e46065	mipi_dsi_dcs_set_column_address_multi
@@ -10155,6 +10154,7 @@ EXPORT_SYMBOL vmlinux 0x94be0c44	dcb_getrewr_prio_pcp_mask_map
 EXPORT_SYMBOL vmlinux 0x94bf8c1e	udp6_seq_ops
 EXPORT_SYMBOL vmlinux 0x94c54752	genphy_c45_eee_is_active
 EXPORT_SYMBOL vmlinux 0x94d77bc6	dpll_netdev_pin_set
+EXPORT_SYMBOL vmlinux 0x94da6dfe	fuse_mount_destroy
 EXPORT_SYMBOL vmlinux 0x94dcb02c	nf_ct_get_tuple_skb
 EXPORT_SYMBOL vmlinux 0x94e8fc09	keyring_search
 EXPORT_SYMBOL vmlinux 0x9502f0fd	__xa_alloc_cyclic
@@ -10489,7 +10489,6 @@ EXPORT_SYMBOL vmlinux 0xa05bbf80	mount_subtree
 EXPORT_SYMBOL vmlinux 0xa06287a8	acpi_ut_status_exit
 EXPORT_SYMBOL vmlinux 0xa065e42a	utf8_strncasecmp_folded
 EXPORT_SYMBOL vmlinux 0xa06938d4	page_frag_cache_drain
-EXPORT_SYMBOL vmlinux 0xa077a467	__copy_user_nocache
 EXPORT_SYMBOL vmlinux 0xa0791719	lookup_noperm
 EXPORT_SYMBOL vmlinux 0xa0791719	lookup_noperm_positive_unlocked
 EXPORT_SYMBOL vmlinux 0xa0791719	lookup_noperm_unlocked
@@ -10702,6 +10701,7 @@ EXPORT_SYMBOL vmlinux 0xaa260f51	single_release
 EXPORT_SYMBOL vmlinux 0xaa28435a	acpi_run_osc
 EXPORT_SYMBOL vmlinux 0xaa3ad974	utf8_casefold_hash
 EXPORT_SYMBOL vmlinux 0xaa40b356	acpi_check_region
+EXPORT_SYMBOL vmlinux 0xaa417b6a	hid_ops
 EXPORT_SYMBOL vmlinux 0xaa5775c7	mpage_read_folio
 EXPORT_SYMBOL vmlinux 0xaa5b7333	dma_fence_match_context
 EXPORT_SYMBOL vmlinux 0xaa6ee500	skb_ensure_writable
@@ -13014,27 +13014,28 @@ EXPORT_SYMBOL_GPL arch/x86/crypto/twofish-x86_64-3way 0xb1caabdf	__twofish_enc_b
 EXPORT_SYMBOL_GPL arch/x86/crypto/twofish-x86_64-3way 0xcc475e10	twofish_dec_blk_3way
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x064cf62a	__traceiter_kvm_vmgexit_enter
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x064cf62a	__traceiter_kvm_vmgexit_exit
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x077449be	__SCT__tp_func_kvm_entry
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x08d76766	__SCT__tp_func_kvm_invlpga
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x0e79c81d	__traceiter_kvm_exit
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x0e79c81d	__traceiter_kvm_nested_vmexit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x162b4827	__SCT__tp_func_kvm_msr
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x1aa63f9c	__SCT__tp_func_kvm_page_fault
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x1d0591e0	__SCT__tp_func_kvm_avic_kick_vcpu_slowpath
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x21292d79	__SCT__tp_func_kvm_nested_intercepts
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x21f22d59	__traceiter_kvm_inj_virq
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x2356a437	__traceiter_kvm_vmgexit_msr_protocol_exit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x283d101a	__SCT__tp_func_kvm_nested_vmexit_inject
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x291afd2c	__SCT__tp_func_kvm_nested_vmenter_failed
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x327f6b8c	kvm_get_kvm_safe
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x31057ce7	kvm_get_kvm_safe
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x385f33e8	__SCT__tp_func_kvm_cr
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x3a45512b	__SCT__tp_func_kvm_pml_full
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x3b2fda52	__SCT__tp_func_kvm_vmgexit_msr_protocol_exit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x415431ea	__traceiter_kvm_avic_ga_log
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x4ac1786e	__SCT__tp_func_kvm_page_fault
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x4c528af0	__SCT__tp_func_kvm_inj_virq
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x519674ba	__SCT__tp_func_kvm_rmp_fault
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x53f710ff	__traceiter_kvm_nested_vmexit_inject
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x54098542	__SCT__kvm_x86_cache_reg
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x55b37f63	__SCT__tp_func_kvm_apicv_accept_irq
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x57c570f2	__SCT__kvm_x86_cache_reg
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x60f0fa03	__traceiter_kvm_ple_window_update
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x655cdf28	__traceiter_kvm_page_fault
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x69d1b017	__traceiter_kvm_cr
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x6d87faa0	__SCT__tp_func_kvm_mmio
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x6d87faa0	__traceiter_kvm_mmio
@@ -13071,10 +13072,11 @@ EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x6e2fb402	__tracepoint_kvm_write_tsc_offset
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x72bec5d5	__traceiter_kvm_nested_intercepts
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x758c5e86	__traceiter_kvm_write_tsc_offset
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x760ad322	kvm_page_track_register_notifier
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x775a7b44	__traceiter_kvm_rmp_fault
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x779b6c38	kvm_get_kvm
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x779b6c38	kvm_put_kvm
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x78723ea7	kvm_write_track_add_gfn
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x78723ea7	kvm_write_track_remove_gfn
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x79e242b6	__traceiter_kvm_page_fault
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x7b0b2f21	__SCT__kvm_x86_get_cs_db_l_bits
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x7b359076	__traceiter_kvm_avic_unaccelerated_access
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x7c75289f	__traceiter_kvm_avic_incomplete_ipi
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x809f338a	kvm_page_track_unregister_notifier
@@ -13082,21 +13084,19 @@ EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x8ce2e6de	__SCT__tp_func_kvm_vmgexit_msr_pro
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x91d38b44	__SCT__tp_func_kvm_avic_unaccelerated_access
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x95d4ae0c	__SCT__tp_func_kvm_avic_doorbell
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x95d4ae0c	__SCT__tp_func_kvm_avic_ga_log
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x95d772aa	__traceiter_kvm_entry
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x978c2360	__SCT__kvm_x86_get_cs_db_l_bits
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x98a81be5	__traceiter_kvm_skinit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0x9b6658ce	__traceiter_kvm_nested_vmenter_failed
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa0ac7992	__SCT__tp_func_kvm_fast_mmio
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa2fb4c5f	__traceiter_kvm_fast_mmio
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa4fdc37f	__SCT__tp_func_kvm_exit
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa4fdc37f	__SCT__tp_func_kvm_nested_vmexit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa64477f8	__SCT__tp_func_kvm_avic_incomplete_ipi
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa67ae499	__SCT__tp_func_kvm_vmgexit_enter
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa67ae499	__SCT__tp_func_kvm_vmgexit_exit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa6b837ac	__traceiter_kvm_vmgexit_msr_protocol_enter
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xa9425768	__traceiter_kvm_rmp_fault
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xaa4e378f	__SCT__tp_func_kvm_entry
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xad1cd8ac	__SCT__tp_func_kvm_write_tsc_offset
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xb57a26e2	kvm_get_kvm
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xb57a26e2	kvm_put_kvm
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xb56bef7c	__traceiter_kvm_entry
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xb586c528	__SCT__tp_func_kvm_rmp_fault
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xbefb73b6	__SCK__kvm_x86_cache_reg
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xbefb73b6	__SCK__kvm_x86_get_cs_db_l_bits
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xbefb73b6	__SCK__tp_func_kvm_apicv_accept_irq
@@ -13131,8 +13131,6 @@ EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xbefb73b6	__SCK__tp_func_kvm_vmgexit_msr_pro
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xbefb73b6	__SCK__tp_func_kvm_write_tsc_offset
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xc94e9716	__SCT__tp_func_kvm_nested_intr_vmexit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xcb994e97	__traceiter_kvm_pml_full
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xcf64d3f3	__traceiter_kvm_exit
-EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xcf64d3f3	__traceiter_kvm_nested_vmexit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xd10b17df	__traceiter_kvm_avic_kick_vcpu_slowpath
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xd1b12ed0	__traceiter_kvm_apicv_accept_irq
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xd9a3d00f	__traceiter_kvm_msr
@@ -13141,6 +13139,8 @@ EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xe6e6e944	__SCT__tp_func_kvm_ple_window_upda
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xe7e64431	__traceiter_kvm_nested_vmenter
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xe888dd45	__SCT__tp_func_kvm_nested_vmenter
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xf210170e	__traceiter_kvm_nested_intr_vmexit
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xf90bb415	__SCT__tp_func_kvm_exit
+EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xf90bb415	__SCT__tp_func_kvm_nested_vmexit
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xfb377b7b	__traceiter_kvm_invlpga
 EXPORT_SYMBOL_GPL arch/x86/kvm/kvm 0xfd152f29	__SCT__tp_func_kvm_skinit
 EXPORT_SYMBOL_GPL crypto/af_alg 0x1f572fa7	af_alg_release_parent
@@ -14083,7 +14083,6 @@ EXPORT_SYMBOL_GPL drivers/hid/hid 0x2588c5ad	hid_quirks_exit
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x29dba346	hidinput_get_led_field
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x2a9a601e	hid_dump_device
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x2dc11b87	hid_input_report
-EXPORT_SYMBOL_GPL drivers/hid/hid 0x2dc11b87	hid_report_raw_event
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x31a55114	hid_haptic_init
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x33ad749a	hid_compare_device_paths
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x3ded9a2f	hid_dump_input
@@ -14102,6 +14101,8 @@ EXPORT_SYMBOL_GPL drivers/hid/hid 0x71fcfd20	hid_output_report
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x851792ea	hid_debug_event
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x8a43bdb7	__hid_register_driver
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x8bfecb27	hid_setup_resolution_multiplier
+EXPORT_SYMBOL_GPL drivers/hid/hid 0x8ea6a681	hid_report_raw_event
+EXPORT_SYMBOL_GPL drivers/hid/hid 0x8ea6a681	hid_safe_input_report
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x8f6e74a5	hid_allocate_device
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x953c6874	hid_match_id
 EXPORT_SYMBOL_GPL drivers/hid/hid 0x9a713848	hidinput_count_leds
@@ -21882,6 +21883,8 @@ EXPORT_SYMBOL_GPL vmlinux 0x0275f2af	blk_mq_complete_request_remote
 EXPORT_SYMBOL_GPL vmlinux 0x0275f2af	blk_rq_is_poll
 EXPORT_SYMBOL_GPL vmlinux 0x0276c2e2	usb_match_one_id
 EXPORT_SYMBOL_GPL vmlinux 0x0284a4a1	pci_p2pdma_distance_many
+EXPORT_SYMBOL_GPL vmlinux 0x0285f2e2	fuse_conn_put
+EXPORT_SYMBOL_GPL vmlinux 0x0285f2e2	fuse_free_conn
 EXPORT_SYMBOL_GPL vmlinux 0x028f3b72	rust_helper_task_euid
 EXPORT_SYMBOL_GPL vmlinux 0x028f3b72	rust_helper_task_uid
 EXPORT_SYMBOL_GPL vmlinux 0x028fe9b7	tpm1_getcap
@@ -21942,7 +21945,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x0456220d	device_get_dma_attr
 EXPORT_SYMBOL_GPL vmlinux 0x04565c94	regmap_mmio_detach_clk
 EXPORT_SYMBOL_GPL vmlinux 0x045749c4	iopf_queue_remove_device
 EXPORT_SYMBOL_GPL vmlinux 0x046155bd	_RNvXNtNtCscn3nBroPwlz_4core3ops5rangeNtB2_9RangeFullNtNtB6_3fmt5Debug3fmt
-EXPORT_SYMBOL_GPL vmlinux 0x0462d266	dispatch_hid_bpf_device_event
 EXPORT_SYMBOL_GPL vmlinux 0x04713e89	hyperv_report_panic
 EXPORT_SYMBOL_GPL vmlinux 0x0472dc35	nf_queue_entry_get_refs
 EXPORT_SYMBOL_GPL vmlinux 0x04735f35	scsi_queue_work
@@ -22566,7 +22568,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x174f0148	rust_helper_devm_add_action
 EXPORT_SYMBOL_GPL vmlinux 0x174f0148	rust_helper_devm_add_action_or_reset
 EXPORT_SYMBOL_GPL vmlinux 0x175323c3	_RNvXs9_NtNtCscn3nBroPwlz_4core4char7convertNtB5_16CharTryFromErrorNtNtB9_3fmt7Display3fmt
 EXPORT_SYMBOL_GPL vmlinux 0x17639569	fat_get_dotdot_entry
-EXPORT_SYMBOL_GPL vmlinux 0x17848b2b	fuse_simple_background
 EXPORT_SYMBOL_GPL vmlinux 0x178a635d	backing_file_user_path
 EXPORT_SYMBOL_GPL vmlinux 0x178a8976	lwtunnel_output
 EXPORT_SYMBOL_GPL vmlinux 0x178f18da	gpiochip_generic_config
@@ -22577,6 +22578,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x17935605	bpf_prog_put
 EXPORT_SYMBOL_GPL vmlinux 0x1793a70b	drm_gem_shmem_prime_import_no_map
 EXPORT_SYMBOL_GPL vmlinux 0x1796a4ba	md5_update
 EXPORT_SYMBOL_GPL vmlinux 0x17979063	simple_attr_release
+EXPORT_SYMBOL_GPL vmlinux 0x17a90e41	fuse_dev_fiq_ops
 EXPORT_SYMBOL_GPL vmlinux 0x17acd5b5	sha256_zero_message_hash
 EXPORT_SYMBOL_GPL vmlinux 0x17b3a427	key_type_asymmetric
 EXPORT_SYMBOL_GPL vmlinux 0x17b85709	public_key_signature_free
@@ -23368,7 +23370,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x32b186eb	bpf_trace_run9
 EXPORT_SYMBOL_GPL vmlinux 0x32b8c907	sysfs_remove_link_from_group
 EXPORT_SYMBOL_GPL vmlinux 0x32c1ed16	ata_timing_find_mode
 EXPORT_SYMBOL_GPL vmlinux 0x32c4a52a	drm_bridge_hpd_enable
-EXPORT_SYMBOL_GPL vmlinux 0x32c518df	fuse_conn_destroy
 EXPORT_SYMBOL_GPL vmlinux 0x32d3029b	gpiod_direction_output
 EXPORT_SYMBOL_GPL vmlinux 0x32d3029b	gpiod_direction_output_raw
 EXPORT_SYMBOL_GPL vmlinux 0x32d3029b	gpiod_set_raw_value
@@ -23605,6 +23606,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x39b83b19	noop_backing_dev_info
 EXPORT_SYMBOL_GPL vmlinux 0x39b8ed36	vring_transport_features
 EXPORT_SYMBOL_GPL vmlinux 0x39bd38b5	security_kernel_post_read_file
 EXPORT_SYMBOL_GPL vmlinux 0x39ceda63	devm_hwrng_register
+EXPORT_SYMBOL_GPL vmlinux 0x39d52493	fuse_dev_free
 EXPORT_SYMBOL_GPL vmlinux 0x39e6078f	_RNvXs1o_NtNtCscn3nBroPwlz_4core3num11niche_typesNtB6_16NonZeroI128InnerNtNtBa_3fmt5Debug3fmt
 EXPORT_SYMBOL_GPL vmlinux 0x39e996b5	cppc_get_auto_act_window
 EXPORT_SYMBOL_GPL vmlinux 0x39f4b7bc	copy_bpf_fprog_from_user
@@ -23640,6 +23642,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x3ab64c6e	pci_pio_to_address
 EXPORT_SYMBOL_GPL vmlinux 0x3abe2f5b	crypto_register_shashes
 EXPORT_SYMBOL_GPL vmlinux 0x3ac04553	gpiod_add_lookup_table
 EXPORT_SYMBOL_GPL vmlinux 0x3ac04553	gpiod_remove_lookup_table
+EXPORT_SYMBOL_GPL vmlinux 0x3ac0dd4b	fuse_sync_release
 EXPORT_SYMBOL_GPL vmlinux 0x3acd0619	devl_register
 EXPORT_SYMBOL_GPL vmlinux 0x3acd0619	devl_trylock
 EXPORT_SYMBOL_GPL vmlinux 0x3ad6b07f	gnttab_unmap_refs_async
@@ -23697,7 +23700,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x3c4bd967	serdev_device_set_baudrate
 EXPORT_SYMBOL_GPL vmlinux 0x3c5e9975	irq_domain_create_simple
 EXPORT_SYMBOL_GPL vmlinux 0x3ca383ca	gnttab_grant_foreign_access
 EXPORT_SYMBOL_GPL vmlinux 0x3ca633b5	_RNvMsa_NtCscn3nBroPwlz_4core3fmtNtB5_9Formatter11debug_tuple
-EXPORT_SYMBOL_GPL vmlinux 0x3caf529c	fuse_dev_free
 EXPORT_SYMBOL_GPL vmlinux 0x3cb2c0cf	to_nvdimm_bus
 EXPORT_SYMBOL_GPL vmlinux 0x3cb87123	smp_call_function_any
 EXPORT_SYMBOL_GPL vmlinux 0x3cbfb442	device_del
@@ -24029,6 +24031,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x45695c90	fscrypt_parse_test_dummy_encryption
 EXPORT_SYMBOL_GPL vmlinux 0x457238ca	spi_async
 EXPORT_SYMBOL_GPL vmlinux 0x457238ca	spi_sync
 EXPORT_SYMBOL_GPL vmlinux 0x457238ca	spi_sync_locked
+EXPORT_SYMBOL_GPL vmlinux 0x45782ca2	fuse_simple_background
 EXPORT_SYMBOL_GPL vmlinux 0x45994e81	xfrm_audit_policy_add
 EXPORT_SYMBOL_GPL vmlinux 0x45994e81	xfrm_audit_policy_delete
 EXPORT_SYMBOL_GPL vmlinux 0x45a350bc	io_uring_cmd_sock
@@ -24220,6 +24223,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x4a2dfea5	rust_helper_atomic64_cmpxchg
 EXPORT_SYMBOL_GPL vmlinux 0x4a2dfea5	rust_helper_atomic64_cmpxchg_acquire
 EXPORT_SYMBOL_GPL vmlinux 0x4a2dfea5	rust_helper_atomic64_cmpxchg_relaxed
 EXPORT_SYMBOL_GPL vmlinux 0x4a2dfea5	rust_helper_atomic64_cmpxchg_release
+EXPORT_SYMBOL_GPL vmlinux 0x4a2e4b78	fuse_dax_cancel_work
 EXPORT_SYMBOL_GPL vmlinux 0x4a40874f	gpiochip_generic_request
 EXPORT_SYMBOL_GPL vmlinux 0x4a40874f	gpiochip_lock_as_irq
 EXPORT_SYMBOL_GPL vmlinux 0x4a40874f	gpiochip_reqres_irq
@@ -24231,6 +24235,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x4a6f8f66	fsverity_verify_bio
 EXPORT_SYMBOL_GPL vmlinux 0x4a7cbbe4	drm_gem_shmem_init
 EXPORT_SYMBOL_GPL vmlinux 0x4a7fd3e8	work_on_cpu_key
 EXPORT_SYMBOL_GPL vmlinux 0x4a82eca2	devm_namespace_disable
+EXPORT_SYMBOL_GPL vmlinux 0x4a896015	fuse_conn_get
 EXPORT_SYMBOL_GPL vmlinux 0x4a903201	debugfs_get_aux
 EXPORT_SYMBOL_GPL vmlinux 0x4a941c1c	intel_pmic_install_opregion_handler
 EXPORT_SYMBOL_GPL vmlinux 0x4aa497a4	pci_set_pcie_reset_state
@@ -24299,7 +24304,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x4c6a5324	sock_diag_destroy
 EXPORT_SYMBOL_GPL vmlinux 0x4c6ad752	drop_reasons_unregister_subsys
 EXPORT_SYMBOL_GPL vmlinux 0x4c724518	em_dev_update_chip_binning
 EXPORT_SYMBOL_GPL vmlinux 0x4c7fc91f	pci_probe_reset_bus
-EXPORT_SYMBOL_GPL vmlinux 0x4c820a8c	fuse_do_open
 EXPORT_SYMBOL_GPL vmlinux 0x4c82a85d	nl_table
 EXPORT_SYMBOL_GPL vmlinux 0x4c858272	devm_phy_create
 EXPORT_SYMBOL_GPL vmlinux 0x4c858272	phy_create
@@ -24351,7 +24355,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x4da77c57	regmap_field_bulk_alloc
 EXPORT_SYMBOL_GPL vmlinux 0x4daec6b4	_RNvXs0_NtNtCscn3nBroPwlz_4core3fmt8buildersNtB5_10PadAdapterNtB7_5Write10write_char
 EXPORT_SYMBOL_GPL vmlinux 0x4dc041a5	kthread_freezable_should_stop
 EXPORT_SYMBOL_GPL vmlinux 0x4dc2be81	usb_create_hcd
-EXPORT_SYMBOL_GPL vmlinux 0x4dd6f6bd	fuse_send_init
 EXPORT_SYMBOL_GPL vmlinux 0x4dd8b57d	_RNvXs8_NtCs8KvHkEcZaCa_6kernel12module_paramxNtB5_11ModuleParam18try_from_param_arg
 EXPORT_SYMBOL_GPL vmlinux 0x4dd8b57d	_RNvXsa_NtCs8KvHkEcZaCa_6kernel12module_paramiNtB5_11ModuleParam18try_from_param_arg
 EXPORT_SYMBOL_GPL vmlinux 0x4dda38a1	fat_free_fc
@@ -24401,7 +24404,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x4f291d88	dw_pcie_find_rasdes_capability
 EXPORT_SYMBOL_GPL vmlinux 0x4f309403	_RNvXs20_NtNtCscn3nBroPwlz_4core3str4iterNtB6_11EscapeDebugNtNtBa_3fmt7Display3fmt
 EXPORT_SYMBOL_GPL vmlinux 0x4f4014a0	fat_flush_inodes
 EXPORT_SYMBOL_GPL vmlinux 0x4f4883c3	_RNvXs3_NtNtCscn3nBroPwlz_4core3num5errorNtB5_13ParseIntErrorNtNtB9_3fmt7Display3fmt
-EXPORT_SYMBOL_GPL vmlinux 0x4f56ddb4	fuse_request_assign_unique
 EXPORT_SYMBOL_GPL vmlinux 0x4f6b1be0	usb_deregister
 EXPORT_SYMBOL_GPL vmlinux 0x4f8f1865	br_vlan_get_proto
 EXPORT_SYMBOL_GPL vmlinux 0x4f974913	rust_helper_cpumask_weight
@@ -24817,7 +24819,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x5b48837d	xenbus_watch_pathfmt
 EXPORT_SYMBOL_GPL vmlinux 0x5b4fda3e	clk_hw_set_parent
 EXPORT_SYMBOL_GPL vmlinux 0x5b51365d	mas_empty_area
 EXPORT_SYMBOL_GPL vmlinux 0x5b51365d	mas_empty_area_rev
-EXPORT_SYMBOL_GPL vmlinux 0x5b538ca1	fuse_get_unique
 EXPORT_SYMBOL_GPL vmlinux 0x5b5a623c	drm_gem_shmem_print_info
 EXPORT_SYMBOL_GPL vmlinux 0x5b5c12db	input_ff_upload
 EXPORT_SYMBOL_GPL vmlinux 0x5b789d2e	_RNvNCNCNvMs0_NtCs8KvHkEcZaCa_6kernel8configfsINtBb_9SubsystempE3news_005CLASS
@@ -25092,7 +25093,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x617e1f15	__srcu_read_unlock
 EXPORT_SYMBOL_GPL vmlinux 0x61814fcd	devl_health_reporter_create
 EXPORT_SYMBOL_GPL vmlinux 0x61814fcd	devlink_health_reporter_create
 EXPORT_SYMBOL_GPL vmlinux 0x61912065	pci_enable_pasid
-EXPORT_SYMBOL_GPL vmlinux 0x619bb8ca	fuse_mount_remove
 EXPORT_SYMBOL_GPL vmlinux 0x61aa247f	acpi_dev_pm_attach
 EXPORT_SYMBOL_GPL vmlinux 0x61aaad56	acpi_pmtmr_register_suspend_resume_callback
 EXPORT_SYMBOL_GPL vmlinux 0x61c51044	fwnode_graph_get_endpoint_count
@@ -25383,11 +25383,11 @@ EXPORT_SYMBOL_GPL vmlinux 0x69dd310c	spi_optimize_message
 EXPORT_SYMBOL_GPL vmlinux 0x69e0927a	usb_alloc_dev
 EXPORT_SYMBOL_GPL vmlinux 0x69e101b4	dma_max_mapping_size
 EXPORT_SYMBOL_GPL vmlinux 0x69e101b4	dma_opt_mapping_size
+EXPORT_SYMBOL_GPL vmlinux 0x69e18307	fuse_request_end
 EXPORT_SYMBOL_GPL vmlinux 0x69e7ce7d	region_intersects
 EXPORT_SYMBOL_GPL vmlinux 0x69e89845	blk_trace_remove
 EXPORT_SYMBOL_GPL vmlinux 0x69ef098d	cpci_hp_register_bus
 EXPORT_SYMBOL_GPL vmlinux 0x69f72e78	unregister_kprobes
-EXPORT_SYMBOL_GPL vmlinux 0x69f8544b	fuse_dax_cancel_work
 EXPORT_SYMBOL_GPL vmlinux 0x69f95cd2	dm_accept_partial_bio
 EXPORT_SYMBOL_GPL vmlinux 0x6a158105	usb_hub_find_child
 EXPORT_SYMBOL_GPL vmlinux 0x6a255a85	spi_get_device_id
@@ -25399,8 +25399,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x6a307f87	ata_bmdma_port_intr
 EXPORT_SYMBOL_GPL vmlinux 0x6a307f87	ata_sff_port_intr
 EXPORT_SYMBOL_GPL vmlinux 0x6a40ed7e	rhashtable_free_and_destroy
 EXPORT_SYMBOL_GPL vmlinux 0x6a5b0303	firmware_upload_register
-EXPORT_SYMBOL_GPL vmlinux 0x6a5de7fb	fuse_conn_put
-EXPORT_SYMBOL_GPL vmlinux 0x6a5de7fb	fuse_free_conn
 EXPORT_SYMBOL_GPL vmlinux 0x6a618ad4	fat_remove_entries
 EXPORT_SYMBOL_GPL vmlinux 0x6a846c33	rio_register_mport
 EXPORT_SYMBOL_GPL vmlinux 0x6a846c33	rio_unregister_mport
@@ -25520,7 +25518,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x6dff78e0	fsnotify_find_mark
 EXPORT_SYMBOL_GPL vmlinux 0x6e010194	regcache_sort_defaults
 EXPORT_SYMBOL_GPL vmlinux 0x6e0713ed	_RNvXs1_NtNtCscn3nBroPwlz_4core3ffi5c_strNtB5_4CStrNtNtB9_3fmt5Debug3fmt
 EXPORT_SYMBOL_GPL vmlinux 0x6e0713ed	_RNvXs6_NtCs8KvHkEcZaCa_6kernel3strNtNtNtCscn3nBroPwlz_4core3ffi5c_str4CStrNtNtB7_3fmt7Display3fmt
-EXPORT_SYMBOL_GPL vmlinux 0x6e118802	fuse_conn_init
 EXPORT_SYMBOL_GPL vmlinux 0x6e14b686	_RNvMNtCs8KvHkEcZaCa_6kernel5errorNtB2_5Error13to_blk_status
 EXPORT_SYMBOL_GPL vmlinux 0x6e1c6472	kthread_cancel_delayed_work_sync
 EXPORT_SYMBOL_GPL vmlinux 0x6e21bce1	pci_epc_get_first_free_bar
@@ -25578,7 +25575,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x6fbccb9e	crypto_alloc_sig
 EXPORT_SYMBOL_GPL vmlinux 0x6fbe655e	iomap_get_folio
 EXPORT_SYMBOL_GPL vmlinux 0x6fc2b9e3	skb_mpls_dec_ttl
 EXPORT_SYMBOL_GPL vmlinux 0x6fc2e0ec	xenbus_read_otherend_details
-EXPORT_SYMBOL_GPL vmlinux 0x6fc5b796	fuse_dev_alloc_install
 EXPORT_SYMBOL_GPL vmlinux 0x6ff9360d	component_add_typed
 EXPORT_SYMBOL_GPL vmlinux 0x6ff93ce5	_RNvXs1_NtNtCscn3nBroPwlz_4core6marker8varianceNtB5_24PhantomCovariantLifetimeNtNtB9_3fmt5Debug3fmt
 EXPORT_SYMBOL_GPL vmlinux 0x6ffd0bde	uv_bios_enum_objs
@@ -25830,6 +25826,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x77b817c7	tps6586x_set_bits
 EXPORT_SYMBOL_GPL vmlinux 0x77bcf22d	bsg_job_put
 EXPORT_SYMBOL_GPL vmlinux 0x77bedeb4	vcap_add_rule
 EXPORT_SYMBOL_GPL vmlinux 0x77bedeb4	vcap_mod_rule
+EXPORT_SYMBOL_GPL vmlinux 0x77c2f92a	dispatch_hid_bpf_device_event
 EXPORT_SYMBOL_GPL vmlinux 0x77dd620f	_RNvMNtCs8KvHkEcZaCa_6kernel5errorNtB2_5Error4name
 EXPORT_SYMBOL_GPL vmlinux 0x77e1ebd5	vivaldi_function_row_physmap_show
 EXPORT_SYMBOL_GPL vmlinux 0x77e8ef0f	pci_epc_write_header
@@ -26068,6 +26065,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x7dec35ee	sha512
 EXPORT_SYMBOL_GPL vmlinux 0x7def4666	pkcs7_verify
 EXPORT_SYMBOL_GPL vmlinux 0x7dfa0543	device_remove_software_node
 EXPORT_SYMBOL_GPL vmlinux 0x7e11f9d8	skb_zerocopy
+EXPORT_SYMBOL_GPL vmlinux 0x7e1b83ef	fuse_dev_alloc_install
 EXPORT_SYMBOL_GPL vmlinux 0x7e23234a	vcap_keyset_list_add
 EXPORT_SYMBOL_GPL vmlinux 0x7e284fb8	_RNvXsn_NtNtCscn3nBroPwlz_4core3num11niche_typesNtB5_14NonZeroU8InnerNtNtB9_3fmt5Debug3fmt
 EXPORT_SYMBOL_GPL vmlinux 0x7e2e994c	devl_port_unregister
@@ -26204,7 +26202,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x81ff0807	badrange_init
 EXPORT_SYMBOL_GPL vmlinux 0x82017aa6	ip6_sk_dst_lookup_flow
 EXPORT_SYMBOL_GPL vmlinux 0x821516a4	_RNvXs4_NtNtNtCs8KvHkEcZaCa_6kernel3net3phy3regNtB5_3C45NtB5_8Register4read
 EXPORT_SYMBOL_GPL vmlinux 0x821bd07b	xfrm_nat_keepalive_fini
-EXPORT_SYMBOL_GPL vmlinux 0x821ca9ed	fuse_abort_conn
 EXPORT_SYMBOL_GPL vmlinux 0x82205a75	rust_helper_mt_init_flags
 EXPORT_SYMBOL_GPL vmlinux 0x822ef5b9	dev_pm_opp_get
 EXPORT_SYMBOL_GPL vmlinux 0x825345c8	ksm_madvise
@@ -26377,7 +26374,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x86f7c063	blk_zone_cond_str
 EXPORT_SYMBOL_GPL vmlinux 0x86ffe4d7	pci_epc_notify_pending_init
 EXPORT_SYMBOL_GPL vmlinux 0x8702cce1	vp_legacy_get_driver_features
 EXPORT_SYMBOL_GPL vmlinux 0x8702cce1	vp_legacy_get_features
-EXPORT_SYMBOL_GPL vmlinux 0x87039978	fuse_dev_alloc
 EXPORT_SYMBOL_GPL vmlinux 0x87296c01	rtc_initialize_alarm
 EXPORT_SYMBOL_GPL vmlinux 0x87296c01	rtc_read_alarm
 EXPORT_SYMBOL_GPL vmlinux 0x87296c01	rtc_set_alarm
@@ -26451,6 +26447,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x89770b19	usb_phy_roothub_exit
 EXPORT_SYMBOL_GPL vmlinux 0x89770b19	usb_phy_roothub_init
 EXPORT_SYMBOL_GPL vmlinux 0x89770b19	usb_phy_roothub_power_on
 EXPORT_SYMBOL_GPL vmlinux 0x897adedb	_RNvXs4_NtNtCscn3nBroPwlz_4core3str5lossyNtB5_10Utf8ChunksNtNtB9_3fmt5Debug3fmt
+EXPORT_SYMBOL_GPL vmlinux 0x897c5aff	fuse_send_init
 EXPORT_SYMBOL_GPL vmlinux 0x898769d2	gnttab_end_foreign_access
 EXPORT_SYMBOL_GPL vmlinux 0x898fae20	iova_domain_init_rcaches
 EXPORT_SYMBOL_GPL vmlinux 0x8991f1a2	seq_buf_putc
@@ -26817,6 +26814,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x94b368c8	fsstack_copy_attr_all
 EXPORT_SYMBOL_GPL vmlinux 0x94ba749e	crypto_register_skcipher
 EXPORT_SYMBOL_GPL vmlinux 0x94c201f2	gpiod_is_shared
 EXPORT_SYMBOL_GPL vmlinux 0x94cb57a8	fat_alloc_new_dir
+EXPORT_SYMBOL_GPL vmlinux 0x94da6dfe	fuse_conn_destroy
 EXPORT_SYMBOL_GPL vmlinux 0x94e7a6a6	pinctrl_pm_select_default_state
 EXPORT_SYMBOL_GPL vmlinux 0x94e7a6a6	pinctrl_pm_select_idle_state
 EXPORT_SYMBOL_GPL vmlinux 0x94e7a6a6	pinctrl_pm_select_init_state
@@ -26991,7 +26989,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x9aa6980d	mutex_lock_io
 EXPORT_SYMBOL_GPL vmlinux 0x9aa6980d	rust_helper_mutex_destroy
 EXPORT_SYMBOL_GPL vmlinux 0x9aa6980d	rust_helper_mutex_lock
 EXPORT_SYMBOL_GPL vmlinux 0x9aab1b43	drm_gem_fb_get_obj
-EXPORT_SYMBOL_GPL vmlinux 0x9aabcad3	fuse_dev_fiq_ops
 EXPORT_SYMBOL_GPL vmlinux 0x9ac8a86d	iomap_init_ioend
 EXPORT_SYMBOL_GPL vmlinux 0x9ac8e32a	_RNvMs1_NtCs8KvHkEcZaCa_6kernel7uaccessNtB5_15UserSliceWriter19write_slice_partial
 EXPORT_SYMBOL_GPL vmlinux 0x9ae33aa4	__SCT__tp_func_udp_fail_queue_rcv_skb
@@ -27088,6 +27085,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x9e2fefaf	dev_pm_qos_update_request
 EXPORT_SYMBOL_GPL vmlinux 0x9e306d4b	sdev_evt_send_simple
 EXPORT_SYMBOL_GPL vmlinux 0x9e32825f	usb_decode_ctrl
 EXPORT_SYMBOL_GPL vmlinux 0x9e38ce71	class_interface_register
+EXPORT_SYMBOL_GPL vmlinux 0x9e3a446f	fuse_do_open
 EXPORT_SYMBOL_GPL vmlinux 0x9e5a43eb	_RNvXs0_NtNtNtCs8KvHkEcZaCa_6kernel5alloc4kvec6errorsNtB5_11RemoveErrorNtNtCscn3nBroPwlz_4core3fmt5Debug3fmt
 EXPORT_SYMBOL_GPL vmlinux 0x9e5cb9cc	_RNvXsa_NtNtCscn3nBroPwlz_4core3net6parserNtNtB7_11socket_addr10SocketAddrNtNtNtB9_3str6traits7FromStr8from_str
 EXPORT_SYMBOL_GPL vmlinux 0x9e5d68e9	gpiod_add_hogs
@@ -27367,6 +27365,7 @@ EXPORT_SYMBOL_GPL vmlinux 0xa6638d6e	_RNvXsw_NtNtNtCscn3nBroPwlz_4core3fmt3num3i
 EXPORT_SYMBOL_GPL vmlinux 0xa6638d6e	_RNvXsy_NtNtNtCscn3nBroPwlz_4core3fmt3num3impmNtB9_8UpperExp3fmt
 EXPORT_SYMBOL_GPL vmlinux 0xa67f9894	sfp_module_insert
 EXPORT_SYMBOL_GPL vmlinux 0xa6935e7f	bdev_discard_alignment
+EXPORT_SYMBOL_GPL vmlinux 0xa69968a1	fuse_dev_alloc
 EXPORT_SYMBOL_GPL vmlinux 0xa6b3253b	pci_epf_alloc_doorbell
 EXPORT_SYMBOL_GPL vmlinux 0xa6bc60c9	mmc_crypto_prepare_req
 EXPORT_SYMBOL_GPL vmlinux 0xa6c03b0e	bind_evtchn_to_irqhandler
@@ -27722,6 +27721,7 @@ EXPORT_SYMBOL_GPL vmlinux 0xb0e69f4d	devl_port_register_with_ops
 EXPORT_SYMBOL_GPL vmlinux 0xb0e69f4d	devlink_port_register_with_ops
 EXPORT_SYMBOL_GPL vmlinux 0xb0e6a5ce	pcie_ptm_destroy_debugfs
 EXPORT_SYMBOL_GPL vmlinux 0xb0e72b8e	dax_zero_page_range
+EXPORT_SYMBOL_GPL vmlinux 0xb0f99e25	fuse_abort_conn
 EXPORT_SYMBOL_GPL vmlinux 0xb0fc35b6	mmc_get_ext_csd
 EXPORT_SYMBOL_GPL vmlinux 0xb1014594	sock_inuse_get
 EXPORT_SYMBOL_GPL vmlinux 0xb101ab3f	thp_get_unmapped_area
@@ -27769,7 +27769,6 @@ EXPORT_SYMBOL_GPL vmlinux 0xb21b55a4	device_driver_attach
 EXPORT_SYMBOL_GPL vmlinux 0xb21e72e4	devm_kasprintf
 EXPORT_SYMBOL_GPL vmlinux 0xb22bbf34	_copy_mc_to_iter
 EXPORT_SYMBOL_GPL vmlinux 0xb22ffd06	edac_device_alloc_ctl_info
-EXPORT_SYMBOL_GPL vmlinux 0xb23fe057	fuse_dev_install
 EXPORT_SYMBOL_GPL vmlinux 0xb2493e11	dev_pm_opp_get_power
 EXPORT_SYMBOL_GPL vmlinux 0xb2493e11	dev_pm_opp_get_voltage
 EXPORT_SYMBOL_GPL vmlinux 0xb24be3f8	hmac_sha224_init_usingrawkey
@@ -27911,7 +27910,6 @@ EXPORT_SYMBOL_GPL vmlinux 0xb71e5c5a	fwnode_property_present
 EXPORT_SYMBOL_GPL vmlinux 0xb71e5c5a	fwnode_property_read_bool
 EXPORT_SYMBOL_GPL vmlinux 0xb725cdcb	dax_write_cache
 EXPORT_SYMBOL_GPL vmlinux 0xb730487b	add_wait_queue_priority
-EXPORT_SYMBOL_GPL vmlinux 0xb7344b58	fuse_conn_get
 EXPORT_SYMBOL_GPL vmlinux 0xb736fea1	serdev_device_add
 EXPORT_SYMBOL_GPL vmlinux 0xb736fea1	serdev_device_get_tiocm
 EXPORT_SYMBOL_GPL vmlinux 0xb736fea1	serdev_device_open
@@ -27955,7 +27953,6 @@ EXPORT_SYMBOL_GPL vmlinux 0xb8957b1d	spi_delay_to_ns
 EXPORT_SYMBOL_GPL vmlinux 0xb8b62e2b	ip_route_output_key_hash
 EXPORT_SYMBOL_GPL vmlinux 0xb8bbf27e	call_srcu
 EXPORT_SYMBOL_GPL vmlinux 0xb8cd8e52	xenbus_register_driver_common
-EXPORT_SYMBOL_GPL vmlinux 0xb8d52244	fuse_request_end
 EXPORT_SYMBOL_GPL vmlinux 0xb8db4b0b	devlink_fmsg_u8_pair_put
 EXPORT_SYMBOL_GPL vmlinux 0xb8dd06b1	asn1_encode_octet_string
 EXPORT_SYMBOL_GPL vmlinux 0xb8de4927	power_supply_set_property
@@ -27994,7 +27991,6 @@ EXPORT_SYMBOL_GPL vmlinux 0xb9fcd065	call_rcu
 EXPORT_SYMBOL_GPL vmlinux 0xb9fcd065	call_rcu_hurry
 EXPORT_SYMBOL_GPL vmlinux 0xba043c8d	_RNvXs8_NtNtCscn3nBroPwlz_4core3net11socket_addrNtB5_12SocketAddrV6NtNtB9_3fmt7Display3fmt
 EXPORT_SYMBOL_GPL vmlinux 0xba1abe49	ms_hyperv
-EXPORT_SYMBOL_GPL vmlinux 0xba27d1cb	fuse_sync_release
 EXPORT_SYMBOL_GPL vmlinux 0xba3d6847	evtchn_put
 EXPORT_SYMBOL_GPL vmlinux 0xba45c99f	trace_array_put
 EXPORT_SYMBOL_GPL vmlinux 0xba54c648	find_get_pid
@@ -28349,6 +28345,7 @@ EXPORT_SYMBOL_GPL vmlinux 0xc48adaf9	thermal_acpi_critical_trip_temp
 EXPORT_SYMBOL_GPL vmlinux 0xc48adaf9	thermal_acpi_hot_trip_temp
 EXPORT_SYMBOL_GPL vmlinux 0xc48adaf9	thermal_acpi_passive_trip_temp
 EXPORT_SYMBOL_GPL vmlinux 0xc4990a6d	sfp_get_module_eeprom_by_page
+EXPORT_SYMBOL_GPL vmlinux 0xc4a54207	fuse_dev_install
 EXPORT_SYMBOL_GPL vmlinux 0xc4afd343	ghes_estatus_pool_region_free
 EXPORT_SYMBOL_GPL vmlinux 0xc4b1e174	edac_device_add_device
 EXPORT_SYMBOL_GPL vmlinux 0xc4c933d6	irq_force_affinity
@@ -28740,6 +28737,7 @@ EXPORT_SYMBOL_GPL vmlinux 0xd152186a	gnttab_empty_grant_references
 EXPORT_SYMBOL_GPL vmlinux 0xd15aff0f	register_md_submodule
 EXPORT_SYMBOL_GPL vmlinux 0xd16062af	add_disk_fwnode
 EXPORT_SYMBOL_GPL vmlinux 0xd161f0d4	_RNvMs0_NtCs8KvHkEcZaCa_6kernel7uaccessNtB5_15UserSliceReader10read_slice
+EXPORT_SYMBOL_GPL vmlinux 0xd162f310	fuse_request_assign_unique
 EXPORT_SYMBOL_GPL vmlinux 0xd16bb682	_RNvXs_NtNtCs8KvHkEcZaCa_6kernel3clk10common_clkNtB4_3ClkNtNtNtCscn3nBroPwlz_4core3ops4drop4Drop4drop
 EXPORT_SYMBOL_GPL vmlinux 0xd16f5775	extcon_get_property_capability
 EXPORT_SYMBOL_GPL vmlinux 0xd16f5775	extcon_set_property_capability
@@ -29017,6 +29015,7 @@ EXPORT_SYMBOL_GPL vmlinux 0xd4f14e88	rust_helper_atomic_i16_try_cmpxchg_release
 EXPORT_SYMBOL_GPL vmlinux 0xd4f2c9d9	gpiochip_dup_line_label
 EXPORT_SYMBOL_GPL vmlinux 0xd4f35d75	icc_set_tag
 EXPORT_SYMBOL_GPL vmlinux 0xd50fe96c	skb_tstamp_tx
+EXPORT_SYMBOL_GPL vmlinux 0xd5289a52	fuse_get_unique
 EXPORT_SYMBOL_GPL vmlinux 0xd52ad864	dw_pcie_ep_reset_bar
 EXPORT_SYMBOL_GPL vmlinux 0xd534d797	tcp_plb_update_state
 EXPORT_SYMBOL_GPL vmlinux 0xd5473f92	drm_gem_shmem_vunmap_locked
@@ -29210,6 +29209,7 @@ EXPORT_SYMBOL_GPL vmlinux 0xdae3d02a	pci_epf_add_vepf
 EXPORT_SYMBOL_GPL vmlinux 0xdae6b327	sysfs_break_active_protection
 EXPORT_SYMBOL_GPL vmlinux 0xdaed8e37	usb_get_dr_mode
 EXPORT_SYMBOL_GPL vmlinux 0xdaed8e37	usb_get_role_switch_default_mode
+EXPORT_SYMBOL_GPL vmlinux 0xdaee624c	fuse_mount_remove
 EXPORT_SYMBOL_GPL vmlinux 0xdaf751ab	_RNvXs2k_NtNtCscn3nBroPwlz_4core3num11niche_typesNtB6_14UsizeNoHighBitNtNtBa_3fmt5Debug3fmt
 EXPORT_SYMBOL_GPL vmlinux 0xdb043283	dax_recovery_write
 EXPORT_SYMBOL_GPL vmlinux 0xdb1517ab	compat_only_sysfs_link_entry_to_kobj
@@ -29294,6 +29294,7 @@ EXPORT_SYMBOL_GPL vmlinux 0xdcdf892a	tps6586x_read
 EXPORT_SYMBOL_GPL vmlinux 0xdcf07768	input_event_to_user
 EXPORT_SYMBOL_GPL vmlinux 0xdcf8ccae	i2c_freq_mode_string
 EXPORT_SYMBOL_GPL vmlinux 0xdcfa79aa	iopf_queue_free
+EXPORT_SYMBOL_GPL vmlinux 0xdd0d01d9	fuse_conn_init
 EXPORT_SYMBOL_GPL vmlinux 0xdd122070	__SCK__tp_func_cpu_frequency
 EXPORT_SYMBOL_GPL vmlinux 0xdd122070	__SCK__tp_func_cpu_idle
 EXPORT_SYMBOL_GPL vmlinux 0xdd122070	__SCK__tp_func_suspend_resume
@@ -32409,39 +32410,54 @@ module:kvm,kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe9f08389	x86_perf_get_lbr	vmlin
 module:kvm,kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xed0df0a5	wbinvd_on_cpus_mask	vmlinux
 module:kvm,kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xed0df0a5	wbnoinvd_on_cpus_mask	vmlinux
 module:kvm,kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xfe785458	kvm_set_posted_intr_wakeup_handler	vmlinux
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0036bba1	kvm_init_shadow_ept_mmu	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x00a26373	kvm_post_set_cr4	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x00c41c87	kvm_host	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0179799b	kvm_emulate_instruction	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x02569817	kvm_read_guest_virt	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x02569817	kvm_write_guest_virt_system	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x05a1dcec	kvm_vcpu_yield_to	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x06b8e1ae	kvm_init_shadow_npt_mmu	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x06bc33ee	kvm_apic_write_nodecode	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x08446c42	kvm_vcpu_read_guest	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x08446c42	kvm_vcpu_read_guest_atomic	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x08c88842	kvm_tdp_mmu_map_private_pfn	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0948e73d	kvm_set_or_clear_apicv_inhibit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x037ddc82	kvm_alloc_apic_access_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0795fabd	kvm_mmu_gva_to_gpa_read	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0795fabd	kvm_mmu_gva_to_gpa_write	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x084fa078	kvm_emulate_instruction	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0906561d	____kvm_emulate_hypercall	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0b5b2dbb	kvm_spec_ctrl_test_value	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0d2fda7b	kvm_vcpu_wake_up	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0ee459ff	kvm_apic_update_irr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1283841a	kvm_inject_realmode_interrupt	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0d5ab50c	kvm_apic_ack_interrupt	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0d5ab50c	kvm_apic_set_eoi_accelerated	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x0fc493a1	kvm_io_bus_get_dev	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x102614cd	kvm_vcpu_write_guest_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x10fa39a0	__kvm_prepare_emulation_failure_exit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x11c837d4	kvm_handle_page_fault	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1535e7be	kvm_pmu_cap	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x17aa3e52	kvm_read_guest_page	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x17ecaa41	kvm_handle_page_fault	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1abc09a9	kvm_get_user_return_msr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1badfdd2	kvm_sev_es_string_io	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1c9d7c6a	kvm_fast_pio	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1e8b889c	kvm_init_mmu	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1e8b889c	kvm_mmu_free_obsolete_roots	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1e8b889c	kvm_mmu_reset_context	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x209fe3da	kvm_gfn_to_hva_cache_init	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x20acf644	kvm_mmu_invalidate_addr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x21f6f8a6	kvm_prepare_event_vectoring_exit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1b0c0f6c	gfn_to_hva	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1de01625	kvm_set_or_clear_apicv_inhibit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1f60a26a	kvm_emulate_cpuid	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1f9c65ca	kvm_mmu_page_fault	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x1ffcf5cd	kvm_post_set_cr0	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x22e7037d	kvm_sev_es_mmio_read	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x22e7037d	kvm_sev_es_mmio_write	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x233762c8	kvm_apic_match_dest	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x23bdde1d	kvm_write_guest	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x23c1ab8d	kvm_vcpu_yield_to	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x24327acb	hv_flush_remote_tlbs	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x26c97886	kvm_io_bus_read	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x28e4d2a8	__kvm_vcpu_map	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x295e25a6	__gfn_to_page	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2a1e3d9c	kvm_vcpu_write_guest_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x247857ee	kvm_x86_vendor_init	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x250f0f2e	kvm_mmu_print_sptes	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x254eec7b	kvm_mmu_new_pgd	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x27ad89bf	kvm_apic_update_ppr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x27ad89bf	kvm_lapic_expired_hv_timer	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x27ad89bf	kvm_lapic_set_eoi	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x27ad89bf	kvm_wait_lapic_expire	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x28e68f41	__kvm_vcpu_update_apicv	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x28e68f41	kvm_prepare_emulation_failure_exit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x28e68f41	kvm_service_local_tlb_flush_requests	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x28e68f41	kvm_update_dr7	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2a7f9b95	__kvm_vcpu_kick	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2b579ef4	kvm_mmu_invalidate_addr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2d136e7c	pmc_write_counter	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2d4e0728	kvm_pmu_recalc_pmc_emulation	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2e68f3c4	kvm_vcpu_apicv_activated	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2e68f3c4	kvm_vcpu_has_events	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2e68f3c4	kvm_vcpu_is_reset_bsp	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2f1e3767	kvm_irq_has_notifier	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x2ff043cb	kvm_msr_allowed	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x31057ce7	kvm_are_all_memslots_empty	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3239fbdb	allow_smaller_maxphyaddr	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3239fbdb	enable_apicv	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3239fbdb	enable_device_posted_irqs	arch/x86/kvm/kvm
@@ -32456,198 +32472,183 @@ module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3239fbdb	kvm_rebooting	arch/x86/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3239fbdb	report_ignored_msrs	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3239fbdb	tdp_mmu_enabled	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3254735d	kvm_configure_mmu	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x327f6b8c	kvm_are_all_memslots_empty	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x32f7c2fe	kvm_cpuid	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x331640d3	kvm_lmsw	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3374a377	kvm_mmu_free_roots	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3a859b1b	kvm_alloc_apic_access_page	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3cdc552f	kvm_mmu_free_guest_mode_roots	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3408f76c	kvm_queue_exception	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x391cae47	kvm_apic_has_interrupt	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x391cae47	kvm_hv_get_assist_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x391cae47	kvm_lapic_find_highest_irr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x39e6fc66	kvm_is_visible_gfn	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3a5ef36d	kvm_emulate_instruction_from_buffer	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3b38e127	kvm_need_perf_global_ctrl_intercept	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3b38e127	kvm_need_rdpmc_intercept	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3e3795f1	kvm_read_guest	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3e854f6e	kvm_cpuid	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3e980619	kvm_mmu_set_ept_masks	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3eacf7a2	kvm_set_user_return_msr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x40f5ea93	kvm_get_cr8	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x40f5ea93	kvm_get_linear_rip	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x40f5ea93	kvm_get_rflags	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x41717a0f	kvm_vcpu_deliver_sipi_vector	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x41f95ddc	kvm_pmu_recalc_pmc_emulation	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x43d199e0	kvm_apic_send_ipi	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x44ba3ed5	kvm_vcpu_is_visible_gfn	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x474ff39a	____kvm_emulate_hypercall	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3eb5ddca	kvm_lock_all_vcpus	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3eb5ddca	kvm_trylock_all_vcpus	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x3fbb95df	kvm_apic_set_base	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x405196d2	kvm_complete_insn_gp	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x412ef3a1	kvm_valid_efer	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x41b8048f	kvm_sev_es_string_io	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x426a2c18	kvm_deliver_exception_payload	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4581df28	kvm_requeue_exception	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x459ef371	kvm_set_cr8	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4958dfe6	kvm_read_l1_tsc	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x49eb5be9	kvm_get_running_vcpu	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4b3c1add	kvm_io_bus_read	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4d321b72	kvm_mmu_set_mmio_spte_value	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4fb8488a	kvm_apic_has_interrupt	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4fb8488a	kvm_hv_get_assist_page	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4fb8488a	kvm_lapic_find_highest_irr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4fbee479	kvm_lapic_readable_reg_mask	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x51aded63	kvm_mmu_page_fault	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5257597c	kvm_set_cr3	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5257597c	load_pdptrs	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x54040792	kvm_vcpu_reset	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x541aacf5	kvm_requeue_exception	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a1fa831	kvm_write_guest	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5b32b718	kvm_mmu_new_pgd	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5c967246	kvm_vcpu_on_spin	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x64b1e68b	__kvm_emulate_msr_write	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x64b1e68b	kvm_emulate_msr_write	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x6ac77364	kvm_queue_exception_e	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4f1f27ac	kvm_io_bus_write	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x4f8ede94	kvm_apic_send_ipi	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x500fb2cd	kvm_read_guest_cached	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x500fb2cd	kvm_write_guest_cached	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x53ae06f7	kvm_fast_pio	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5500a8ec	kvm_smm_changed	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5759b886	__kvm_emulate_msr_read	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5759b886	kvm_emulate_msr_read	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x59266138	kvm_vcpu_gfn_to_hva	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5978a2d6	kvm_set_cr0	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	handle_ud	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_ap_reset_hold	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_halt	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_halt_noskip	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_hypercall	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_invd	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_monitor	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_mwait	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_rdmsr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_rdpmc	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_wbinvd	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_wrmsr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_emulate_xsetbv	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_handle_invalid_op	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5a5e1be2	kvm_skip_emulated_instruction	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5b824e5e	kvm_mmu_free_roots	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5b863177	kvm_vcpu_reset	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5c7ca579	kvm_task_switch	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x5fdaf7e1	kvm_require_dr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x600f5f99	__kvm_emulate_msr_write	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x600f5f99	kvm_emulate_msr_write	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x60ad0f00	kvm_queue_exception_p	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x60fa1cab	kvm_vcpu_mark_page_dirty	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x62978fe2	kvm_make_all_cpus_request	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x62f664f2	kvm_vcpu_write_guest	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x644ae701	__gfn_to_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x669b6710	kvm_get_dr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x66b3dc43	kvm_set_cr3	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x66b3dc43	load_pdptrs	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x6d77c2c5	__kvm_apic_update_irr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x6d9c27e9	kvm_set_cr0	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x6de78c92	kvm_read_guest	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x6f6bdafa	kvm_read_guest_cached	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x6f6bdafa	kvm_write_guest_cached	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x717a764e	kvm_set_cr8	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x71dbb977	kvm_vcpu_apicv_activated	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x71dbb977	kvm_vcpu_has_events	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x71dbb977	kvm_vcpu_is_reset_bsp	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7308fdd3	kvm_fixup_and_inject_pf_error	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	handle_ud	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_ap_reset_hold	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_halt	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_halt_noskip	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_hypercall	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_invd	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_monitor	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_mwait	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_rdmsr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_rdpmc	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_wbinvd	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_wrmsr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_emulate_xsetbv	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_handle_invalid_op	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x735c8a87	kvm_skip_emulated_instruction	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x73639998	kvm_cpu_get_extint	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x73639998	kvm_cpu_has_injectable_intr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x73639998	kvm_cpu_has_interrupt	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x74a948a0	kvm_read_l1_tsc	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7693ef3a	kvm_vcpu_read_guest_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x6ec8dd84	kvm_read_guest_offset_cached	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x6ec8dd84	kvm_write_guest_offset_cached	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x70b4ff55	kvm_read_guest_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x71763021	kvm_pmu_branch_retired	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x71763021	kvm_pmu_instruction_retired	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7370b4b2	kvm_apic_write_nodecode	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x779b6c38	kvm_destroy_vcpus	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x779b6c38	kvm_flush_remote_tlbs	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x779b6c38	kvm_put_kvm_no_destroy	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x779b6c38	kvm_unlock_all_vcpus	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x77dded3c	kvm_gfn_to_hva_cache_init	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7851be11	kvm_enable_virtualization	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7b2a6fc3	kvm_write_guest_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7b9caab6	kvm_set_internal_memslot	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7d82ed00	kvm_emulate_rdmsr_imm	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7d82ed00	kvm_emulate_wrmsr_imm	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7e85ba62	kvm_find_cpuid_entry2	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7f0b70c4	kvm_deliver_exception_payload	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x81535ad7	kvm_set_rflags	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7efa5545	kvm_fixup_and_inject_pf_error	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7f148ee8	kvm_get_msr_common	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x7f148ee8	kvm_set_msr_common	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x802b70b2	kvm_vcpu_gfn_to_memslot	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x82427ef8	__kvm_faultin_pfn	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8398f2cc	gfn_to_hva	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8633c98b	kvm_queue_exception_p	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x879ce46a	kvm_add_user_return_msr	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x879ce46a	kvm_find_user_return_msr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x88a46e9b	pmc_write_counter	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x87e467bc	kvm_inject_realmode_interrupt	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x88c5c26e	hv_flush_remote_tlbs_range	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8b80c547	kvm_vcpu_write_guest	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8dc939d4	kvm_mmu_gva_to_gpa_read	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8dc939d4	kvm_mmu_gva_to_gpa_write	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8e578c1a	kvm_set_cr4	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8f546810	kvm_set_internal_memslot	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9443bfd6	x86_decode_emulated_instruction	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x94e0366c	handle_fastpath_hlt	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x94e0366c	handle_fastpath_invd	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x94e0366c	handle_fastpath_wrmsr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x897c9686	kvm_is_linear_rip	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x89b8edd6	kvm_prepare_event_vectoring_exit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8dca6324	kvm_hv_assist_page_enabled	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x8f08958c	kvm_inject_emulated_page_fault	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x908a2d7e	kvm_init_shadow_npt_mmu	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x909a7e52	kvm_get_cr8	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x909a7e52	kvm_get_linear_rip	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x909a7e52	kvm_get_rflags	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x94f8eaef	kvm_mmu_set_mmio_spte_mask	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x95130cb0	x86_decode_emulated_instruction	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x96e42277	kvm_read_guest_virt	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x96e42277	kvm_write_guest_virt_system	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x975a6107	kvm_gmem_get_pfn	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x97b2e9ab	mark_page_dirty	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9873d8ae	kvm_inject_emulated_page_fault	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x995bd384	kvm_apic_match_dest	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9979baa8	kvm_apic_update_ppr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9979baa8	kvm_lapic_expired_hv_timer	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9979baa8	kvm_lapic_set_eoi	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9979baa8	kvm_wait_lapic_expire	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9b2575f7	kvm_msr_allowed	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9b729667	kvm_emulate_rdmsr_imm	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9b729667	kvm_emulate_wrmsr_imm	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9bbe4468	kvm_smm_changed	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9becd2d6	kvm_pmu_branch_retired	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9becd2d6	kvm_pmu_instruction_retired	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x976d1e20	hv_track_root_tdp	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9bb9da08	__kvm_set_xcr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9c9262dd	kvm_queue_exception_e	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9d060985	kvm_lapic_readable_reg_mask	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9d801e79	kvm_mmu_set_me_spte_mask	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9edcfd4b	kvm_vcpu_gfn_to_hva	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa21a5c8b	kvm_valid_efer	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0x9f97619c	kvm_handle_invpcid	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa0233388	kvm_apicv_activated	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa0233388	kvm_arch_has_noncoherent_dma	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa0975ef3	__x86_set_memory_region	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa1777d39	mark_page_dirty_in_slot	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa217eb2a	handle_fastpath_hlt	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa217eb2a	handle_fastpath_invd	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa217eb2a	handle_fastpath_wrmsr	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa3245ca6	kvm_cpu_caps	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa4e9ea34	kvm_x86_vendor_init	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa6691ce5	kvm_sev_es_mmio_read	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa6691ce5	kvm_sev_es_mmio_write	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa92b75bb	kvm_get_msr_common	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa92b75bb	kvm_set_msr_common	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa9ffe340	kvm_need_perf_global_ctrl_intercept	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa9ffe340	kvm_need_rdpmc_intercept	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xab51cff9	kvm_handle_memory_failure	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xadc5b651	kvm_write_guest_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xa74f7fc2	kvm_init_shadow_ept_mmu	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xaba58a00	kvm_vcpu_read_guest	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xaba58a00	kvm_vcpu_read_guest_atomic	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xac87de3f	kvm_apic_update_irr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xacf99dd5	kvm_set_rflags	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xae7dfc5e	kvm_enable_efer_bits	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb1a9c3e1	__kvm_emulate_msr_read	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb1a9c3e1	kvm_emulate_msr_read	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb3ec5923	kvm_complete_insn_gp	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb41dca5a	kvm_is_linear_rip	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb51c4eb7	kvm_emulate_instruction_from_buffer	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb57a26e2	kvm_destroy_vcpus	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb57a26e2	kvm_flush_remote_tlbs	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb57a26e2	kvm_put_kvm_no_destroy	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb57a26e2	kvm_unlock_all_vcpus	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb59b415b	kvm_vcpu_unmap	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb6f94df3	__kvm_vcpu_update_apicv	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb6f94df3	kvm_prepare_emulation_failure_exit	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb6f94df3	kvm_service_local_tlb_flush_requests	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb6f94df3	kvm_update_dr7	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb9499277	kvm_vcpu_mark_page_dirty	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb3bf687c	kvm_tdp_mmu_map_private_pfn	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb752caa3	kvm_apic_clear_irr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xb9fa1795	kvm_set_dr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xbab30925	kvm_set_cr4	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xbc4ebf70	kvm_lmsw	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xbd31b543	kvm_gmem_populate	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xbe2ee7ff	kvm_vcpu_gfn_to_memslot	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xbe6a4af2	hv_track_root_tdp	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc10cea4c	__kvm_prepare_emulation_failure_exit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xbe39c5f1	kvm_vcpu_read_guest_page	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc0bc2163	mark_page_dirty	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc1007c66	kvm_intr_is_single_vcpu	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc11a6953	kvm_calc_nested_tsc_multiplier	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc38da982	kvm_io_bus_write	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc428f62b	kvm_emulate_cpuid	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc8b38741	handle_fastpath_wrmsr_imm	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc8ce1f19	kvm_task_switch	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xca72e961	kvm_intr_is_single_vcpu	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xcb1196ca	kvm_make_all_cpus_request	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc200abb1	handle_fastpath_wrmsr_imm	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xc668702a	kvm_zap_gfn_range	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xcc1a6a07	kvm_prefetch_pages	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xcd4d994a	gfn_to_memslot	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd11d272b	kvm_io_bus_get_dev	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xcce01958	kvm_vcpu_unmap	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd009b48d	kvm_mmu_free_guest_mode_roots	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd1dd0b97	kvm_handle_memory_failure	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd272d446	kvm_disable_virtualization	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd272d446	kvm_exit	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd272d446	kvm_initialize_cpu_caps	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd272d446	kvm_setup_xss_caps	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd272d446	kvm_spurious_fault	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd272d446	kvm_x86_vendor_exit	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd2ed7fbe	kvm_hv_assist_page_enabled	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd6c38cbd	mark_page_dirty_in_slot	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd770b469	kvm_apic_set_base	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd8977c29	kvm_prepare_unexpected_reason_exit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd7154acc	kvm_prepare_unexpected_reason_exit	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd9b29338	kvm_init_mmu	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd9b29338	kvm_mmu_free_obsolete_roots	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xd9b29338	kvm_mmu_reset_context	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xdaf526b2	gfn_to_hva_memslot	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xdb3d08a4	kvm_zap_gfn_range	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xdc3fed50	kvm_is_visible_gfn	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xdda2098b	kvm_caps	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xde2e4cc5	kvm_init	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xde5a8ec4	kvm_mmu_print_sptes	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xdf736ee2	kvm_set_dr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe1595f79	kvm_read_guest_offset_cached	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe1595f79	kvm_write_guest_offset_cached	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe203ed7c	kvm_clear_guest	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe0ef3687	__kvm_vcpu_map	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe215d244	file_is_kvm	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe270a096	kvm_post_set_cr4	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe41d877f	kvm_mmu_invlpg	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe459c92c	kvm_nr_uret_msrs	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe47ef99e	kvm_mmu_invlpg	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe5179ac5	kvm_has_noapic_vcpu	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe5ad1291	__x86_set_memory_region	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe881a43e	kvm_calc_nested_tsc_offset	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe9295805	kvm_vcpu_halt	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe9295805	vcpu_load	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe9295805	vcpu_put	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xea73cf65	kvm_get_running_vcpu	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xeb0fc1dd	kvm_require_dr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xecc7a479	kvm_get_dr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf1ea9142	kvm_lock_all_vcpus	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf1ea9142	kvm_trylock_all_vcpus	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe93f6f7f	kvm_vcpu_deliver_sipi_vector	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xe977fde1	kvm_vcpu_is_visible_gfn	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xed63a978	kvm_cpu_get_extint	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xed63a978	kvm_cpu_has_injectable_intr	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xed63a978	kvm_cpu_has_interrupt	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf296206e	halt_poll_ns	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf296206e	halt_poll_ns_grow	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf296206e	halt_poll_ns_grow_start	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf296206e	halt_poll_ns_shrink	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf2ac568f	kvm_apicv_activated	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf2ac568f	kvm_arch_has_noncoherent_dma	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf347e83d	kvm_mmu_set_ept_masks	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf3cc1549	__kvm_vcpu_kick	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf6df120a	kvm_release_page_clean	arch/x86/kvm/kvm
 module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf6df120a	kvm_release_page_dirty	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf6ead317	kvm_handle_invpcid	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf8fb96f2	kvm_queue_exception	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf9b062d1	kvm_apic_ack_interrupt	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf9b062d1	kvm_apic_set_eoi_accelerated	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xfa841568	kvm_apic_clear_irr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xfd2e3628	kvm_post_set_cr0	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xfe26dd8e	__kvm_set_xcr	arch/x86/kvm/kvm
-module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xff1b940c	kvm_irq_has_notifier	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf713a526	kvm_clear_guest	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf851b7a9	gfn_to_memslot	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xf8b47245	kvm_vcpu_wake_up	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xfa5fbdee	kvm_vcpu_halt	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xfa5fbdee	vcpu_load	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xfa5fbdee	vcpu_put	arch/x86/kvm/kvm
+module:kvm-amd,kvm-intel EXPORT_SYMBOL_GPL 0xfff5b399	kvm_vcpu_on_spin	arch/x86/kvm/kvm
 module:mshv_vtl EXPORT_SYMBOL_GPL 0x853b6fd2	hv_post_message	drivers/hv/hv_vmbus
 module:mshv_vtl EXPORT_SYMBOL_GPL 0xae6aceb2	hv_context	drivers/hv/hv_vmbus
 module:mshv_vtl EXPORT_SYMBOL_GPL 0xd272d446	vmbus_isr	drivers/hv/hv_vmbus
