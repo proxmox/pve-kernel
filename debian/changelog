@@ -1,3 +1,14 @@
+proxmox-kernel-7.0 (7.0.2-1) trixie; urgency=medium
+
+  * update submodule and patches to Ubuntu-7.0.0-17.17 based on 7.0.2.
+
+  * update MBEC/GMET backport to queued v5.
+
+  * fix #7550: backport fixes for USB HID regression that could affect, among
+    other things, APC UPS communication.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 05 May 2026 21:23:54 +0200
+
 proxmox-kernel-7.0 (7.0.0-3) trixie; urgency=medium
 
   * update ZFS to include some more recent 7.0 compatibility fixes like for
