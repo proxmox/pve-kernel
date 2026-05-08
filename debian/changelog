@@ -1,3 +1,9 @@
+proxmox-kernel-6.14 (6.14.11-8) trixie; urgency=medium
+
+  * cherry-pick fixes for "DirtyFrag" local privilege escalation issue
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 08 May 2026 12:10:07 +0200
+
 proxmox-kernel-6.14 (6.14.11-7) trixie; urgency=medium
 
   * Fix "copy.fail" Local Privilage Escalation / CVE-2026-31431:
