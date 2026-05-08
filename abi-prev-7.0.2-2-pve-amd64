@@ -5530,7 +5530,6 @@ EXPORT_SYMBOL net/rxrpc/rxrpc 0x2fbbbe50	rxrpc_kernel_remote_srx
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x4dc7fbae	rxrpc_kernel_set_tx_length
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x516a5cc3	rxrpc_kernel_remote_addr
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x56368182	rxrpc_kernel_get_srtt
-EXPORT_SYMBOL net/rxrpc/rxrpc 0x6b120a70	rxrpc_kernel_reject_challenge
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x739b424f	rxrpc_kernel_charge_accept
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x76ef8d78	rxrpc_kernel_get_peer
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x7c428e15	rxrpc_kernel_set_peer_data
@@ -5538,10 +5537,11 @@ EXPORT_SYMBOL net/rxrpc/rxrpc 0x892a97f7	rxrpc_kernel_dequeue_oob
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x8a543dd8	rxrpc_kernel_query_challenge
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x8f4d28a1	rxrpc_sock_set_min_security_level
 EXPORT_SYMBOL net/rxrpc/rxrpc 0x93de9eab	rxrpc_kernel_set_notifications
-EXPORT_SYMBOL net/rxrpc/rxrpc 0xa85f890d	rxrpc_kernel_abort_call
+EXPORT_SYMBOL net/rxrpc/rxrpc 0xa338e6ea	rxrpc_kernel_abort_call
 EXPORT_SYMBOL net/rxrpc/rxrpc 0xb6d2afcd	rxrpc_debug_id
 EXPORT_SYMBOL net/rxrpc/rxrpc 0xb6e39d54	rxrpc_kernel_get_peer_data
 EXPORT_SYMBOL net/rxrpc/rxrpc 0xc4d7c4a7	rxgk_kernel_query_challenge
+EXPORT_SYMBOL net/rxrpc/rxrpc 0xc51d3c71	rxrpc_kernel_reject_challenge
 EXPORT_SYMBOL net/rxrpc/rxrpc 0xc5d3f1f7	rxkad_kernel_respond_to_challenge
 EXPORT_SYMBOL net/rxrpc/rxrpc 0xc92d62c2	rxrpc_kernel_free_oob
 EXPORT_SYMBOL net/rxrpc/rxrpc 0xd368b3b1	rxrpc_sock_set_security_keyring
