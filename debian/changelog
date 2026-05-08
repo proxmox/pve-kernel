@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.12-23) bookworm; urgency=medium
+
+  * cherry-pick fixes for "DirtyFrag" local privilege escalation issue
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 08 May 2026 10:00:51 +0200
+
 proxmox-kernel-6.8 (6.8.12-22) bookworm; urgency=medium
 
   * Fix "copy.fail" Local Privilege Escalation / CVE-2026-31431:
