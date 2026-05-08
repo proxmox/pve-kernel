@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 22 Apr 2026 17:14:31 +0100
+Subject: [PATCH] rxrpc: Fix rxkad crypto unalignment handling
+
+commit def304aae2edf321d2671fd6ca766a93c21f877e upstream.
+
+Fix handling of a packet with a misaligned crypto length.  Also handle
+non-ENOMEM errors from decryption by aborting.  Further, remove the
+WARN_ON_ONCE() so that it can't be remotely triggered (a trace line can
+still be emitted).
+
+Fixes: f93af41b9f5f ("rxrpc: Fix missing error checks for rxkad encryption/decryption failure")
+Closes: https://sashiko.dev/#/patchset/20260408121252.2249051-1-dhowells%40redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Jeffrey Altman <jaltman@auristor.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260422161438.2593376-3-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit af9271eb666d07b6f65612dc160a47f7cb5220ed)
+---
+ include/trace/events/rxrpc.h | 1 +
+ net/rxrpc/rxkad.c            | 9 +++++++--
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
+index 8d77828b75155154b7216c7d910a5a90a79a1cea..13b9d017f8e177239c47e2ba425f8dcdafd48a2b 100644
+--- a/include/trace/events/rxrpc.h
++++ b/include/trace/events/rxrpc.h
+@@ -37,6 +37,7 @@
+ 	EM(rxkad_abort_1_short_encdata,		"rxkad1-short-encdata")	\
+ 	EM(rxkad_abort_1_short_header,		"rxkad1-short-hdr")	\
+ 	EM(rxkad_abort_2_short_check,		"rxkad2-short-check")	\
++	EM(rxkad_abort_2_crypto_unaligned,	"rxkad2-crypto-unaligned") \
+ 	EM(rxkad_abort_2_short_data,		"rxkad2-short-data")	\
+ 	EM(rxkad_abort_2_short_header,		"rxkad2-short-hdr")	\
+ 	EM(rxkad_abort_2_short_len,		"rxkad2-short-len")	\
+diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
+index 5a720222854fac82838e1cf30e55fb265beb22a8..cba7935977f0ba063c82db9f4889c1527f548255 100644
+--- a/net/rxrpc/rxkad.c
++++ b/net/rxrpc/rxkad.c
+@@ -510,6 +510,9 @@ static int rxkad_verify_packet_2(struct rxrpc_call *call, struct sk_buff *skb,
+ 		return rxrpc_abort_eproto(call, skb, RXKADSEALEDINCON,
+ 					  rxkad_abort_2_short_header);
+ 
++	/* Don't let the crypto algo see a misaligned length. */
++	sp->len = round_down(sp->len, 8);
++
+ 	/* Decrypt the skbuff in-place.  TODO: We really want to decrypt
+ 	 * directly into the target buffer.
+ 	 */
+@@ -543,8 +546,10 @@ static int rxkad_verify_packet_2(struct rxrpc_call *call, struct sk_buff *skb,
+ 	if (sg != _sg)
+ 		kfree(sg);
+ 	if (ret < 0) {
+-		WARN_ON_ONCE(ret != -ENOMEM);
+-		return ret;
++		if (ret == -ENOMEM)
++			return ret;
++		return rxrpc_abort_eproto(call, skb, RXKADSEALEDINCON,
++					  rxkad_abort_2_crypto_unaligned);
+ 	}
+ 
+ 	/* Extract the decrypted packet length */

@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 23 Apr 2026 21:09:08 +0100
+Subject: [PATCH] rxrpc: Fix error handling in rxgk_extract_token()
+
+commit 3476c8bb960f48e49355d6f93fb7673211e0163f upstream.
+
+Fix a missing bit of error handling in rxgk_extract_token(): in the event
+that rxgk_decrypt_skb() returns -ENOMEM, it should just return that rather
+than continuing on (for anything else, it generates an abort).
+
+Fixes: 64863f4ca494 ("rxrpc: Fix unhandled errors in rxgk_verify_packet_integrity()")
+Closes: https://sashiko.dev/#/patchset/20260422161438.2593376-4-dhowells@redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Jeffrey Altman <jaltman@auristor.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260423200909.3049438-4-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit c52803e925604e2a17962ab0c99dce2d3f7238db)
+---
+ net/rxrpc/rxgk_app.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/rxrpc/rxgk_app.c b/net/rxrpc/rxgk_app.c
+index 30275cb5ba3e25d8798272150ceef35fcbade7fe..30b6701a986702f014795d6b1b15fb041e7d8e1c 100644
+--- a/net/rxrpc/rxgk_app.c
++++ b/net/rxrpc/rxgk_app.c
+@@ -245,6 +245,7 @@ int rxgk_extract_token(struct rxrpc_connection *conn, struct sk_buff *skb,
+ 		if (ret != -ENOMEM)
+ 			return rxrpc_abort_conn(conn, skb, ec, ret,
+ 						rxgk_abort_resp_tok_dec);
++		return ret;
+ 	}
+ 
+ 	ret = conn->security->default_decode_ticket(conn, skb, ticket_offset,
