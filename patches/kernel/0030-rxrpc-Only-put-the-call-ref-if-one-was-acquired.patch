@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Douya Le <ldy3087146292@gmail.com>
+Date: Wed, 8 Apr 2026 13:12:38 +0100
+Subject: [PATCH] rxrpc: Only put the call ref if one was acquired
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 6331f1b24a3e85465f6454e003a3e6c22005a5c5 upstream.
+
+rxrpc_input_packet_on_conn() can process a to-client packet after the
+current client call on the channel has already been torn down.  In that
+case chan->call is NULL, rxrpc_try_get_call() returns NULL and there is
+no reference to drop.
+
+The client-side implicit-end error path does not account for that and
+unconditionally calls rxrpc_put_call().  This turns a protocol error
+path into a kernel crash instead of rejecting the packet.
+
+Only drop the call reference if one was actually acquired.  Keep the
+existing protocol error handling unchanged.
+
+Fixes: 5e6ef4f1017c ("rxrpc: Make the I/O thread take over the call and local processor work")
+Reported-by: Yifan Wu <yifanwucs@gmail.com>
+Reported-by: Juefei Pu <tomapufckgml@gmail.com>
+Signed-off-by: Douya Le <ldy3087146292@gmail.com>
+Co-developed-by: Yuan Tan <tanyuan98@gmail.com>
+Signed-off-by: Yuan Tan <tanyuan98@gmail.com>
+Suggested-by: Xin Liu <bird@lzu.edu.cn>
+Signed-off-by: Ao Zhou <n05ec@lzu.edu.cn>
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260408121252.2249051-11-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 0c156aff8a2d4fa0d61db7837641975cf0e5452d)
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ net/rxrpc/io_thread.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/rxrpc/io_thread.c b/net/rxrpc/io_thread.c
+index d7e72bae4d2b2c0a8438485540e8c99582919067..0491f2bbf61e08d11d35feda43b65d56f8fb6e66 100644
+--- a/net/rxrpc/io_thread.c
++++ b/net/rxrpc/io_thread.c
+@@ -389,7 +389,8 @@ static int rxrpc_input_packet_on_conn(struct rxrpc_connection *conn,
+ 
+ 	if (sp->hdr.callNumber > chan->call_id) {
+ 		if (rxrpc_to_client(sp)) {
+-			rxrpc_put_call(call, rxrpc_call_put_input);
++			if (call)
++				rxrpc_put_call(call, rxrpc_call_put_input);
+ 			return rxrpc_protocol_error(skb,
+ 						    rxrpc_eproto_unexpected_implicit_end);
+ 		}

@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yuqi Xu <xuyuqiabc@gmail.com>
+Date: Wed, 8 Apr 2026 13:12:39 +0100
+Subject: [PATCH] rxrpc: reject undecryptable rxkad response tickets
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit fe4447cd95623b1cfacc15f280aab73a6d7340b2 upstream.
+
+rxkad_decrypt_ticket() decrypts the RXKAD response ticket and then
+parses the buffer as plaintext without checking whether
+crypto_skcipher_decrypt() succeeded.
+
+A malformed RESPONSE can therefore use a non-block-aligned ticket
+length, make the decrypt operation fail, and still drive the ticket
+parser with attacker-controlled bytes.
+
+Check the decrypt result and abort the connection with RXKADBADTICKET
+when ticket decryption fails.
+
+Fixes: 17926a79320a ("[AF_RXRPC]: Provide secure RxRPC sockets for use by userspace and kernel both")
+Reported-by: Yifan Wu <yifanwucs@gmail.com>
+Reported-by: Juefei Pu <tomapufckgml@gmail.com>
+Co-developed-by: Yuan Tan <yuantan098@gmail.com>
+Signed-off-by: Yuan Tan <yuantan098@gmail.com>
+Suggested-by: Xin Liu <bird@lzu.edu.cn>
+Tested-by: Ren Wei <enjou1224z@gmail.com>
+Signed-off-by: Yuqi Xu <xuyuqiabc@gmail.com>
+Signed-off-by: Ren Wei <n05ec@lzu.edu.cn>
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260408121252.2249051-12-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit a149dcae23309df9de1c3b6b5d468610ef5ab7de)
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ net/rxrpc/rxkad.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
+index ad6c57a9f27c7747953df9d4e9f545739583223f..7fddf186f1cf33296828ae1f53bfec1d980f0429 100644
+--- a/net/rxrpc/rxkad.c
++++ b/net/rxrpc/rxkad.c
+@@ -869,6 +869,7 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
+ 	struct in_addr addr;
+ 	unsigned int life;
+ 	time64_t issue, now;
++	int ret;
+ 	bool little_endian;
+ 	u8 *p, *q, *name, *end;
+ 
+@@ -888,8 +889,11 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
+ 	sg_init_one(&sg[0], ticket, ticket_len);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+ 	skcipher_request_set_crypt(req, sg, sg, ticket_len, iv.x);
+-	crypto_skcipher_decrypt(req);
++	ret = crypto_skcipher_decrypt(req);
+ 	skcipher_request_free(req);
++	if (ret < 0)
++		return rxrpc_abort_conn(conn, skb, RXKADBADTICKET, -EPROTO,
++					rxkad_abort_resp_tkt_short);
+ 
+ 	p = ticket;
+ 	end = p + ticket_len;
