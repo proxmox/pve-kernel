@@ -1,3 +1,13 @@
+proxmox-kernel-7.0 (7.0.2-2) trixie; urgency=medium
+
+  * cherry-pick fixes for "DirtyFrag" local privilege escalation issue
+  * cherry-pick fix for ZFS panic when a process was OOM-killed because a
+    cgroup exceeded its memory limits
+    
+    Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 08 May 2026 08:08:10 +0200
+
 proxmox-kernel-7.0 (7.0.2-1) trixie; urgency=medium
 
   * update submodule and patches to Ubuntu-7.0.0-17.17 based on 7.0.2.
