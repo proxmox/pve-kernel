@@ -5067,7 +5067,6 @@ EXPORT_SYMBOL	 net/rxrpc/rxrpc 0x13345541	rxrpc_kernel_remote_addr
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0x14546cb2	rxrpc_kernel_put_call
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0x282811d3	rxrpc_kernel_get_call_peer
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0x31bf3ca3	rxrpc_debug_id
-EXPORT_SYMBOL	 net/rxrpc/rxrpc 0x388643ea	rxrpc_kernel_abort_call
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0x3b860db0	rxrpc_kernel_set_tx_length
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0x4a4b5be0	rxrpc_kernel_put_peer
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0x5cb8979a	rxrpc_sock_set_min_security_level
@@ -5086,6 +5085,7 @@ EXPORT_SYMBOL	 net/rxrpc/rxrpc 0xb8067154	rxrpc_kernel_recv_data
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0xb9d6e9a6	rxrpc_kernel_get_peer
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0xcedc9c75	rxrpc_kernel_remote_srx
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0xd5a7062f	rxrpc_kernel_get_epoch
+EXPORT_SYMBOL	 net/rxrpc/rxrpc 0xd72d149b	rxrpc_kernel_abort_call
 EXPORT_SYMBOL	 net/rxrpc/rxrpc 0xef6e4099	rxrpc_kernel_shutdown_call
 EXPORT_SYMBOL	 net/sctp/sctp 0x2ab16e7e	sctp_do_peeloff
 EXPORT_SYMBOL	 net/smc/smc 0x060f8b32	__tracepoint_smc_switch_to_fallback
@@ -12660,20 +12660,20 @@ EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xfb7c89e3	kvm_queue_exception
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xfb964195	__SCK__tp_func_kvm_msr
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xfdc7c2e3	kvm_set_msr_common
 EXPORT_SYMBOL_GPL	 arch/x86/kvm/kvm 0xff9d9f4c	kvm_emulate_hypercall
-EXPORT_SYMBOL_GPL	 crypto/af_alg 0x165c3722	af_alg_count_tsgl
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x27e92408	af_alg_async_cb
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x2d1b21a5	af_alg_unregister_type
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x4678b9ea	af_alg_release_parent
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x54170eea	af_alg_free_resources
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x5e66d83b	af_alg_wait_for_data
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x634264a9	af_alg_free_sg
+EXPORT_SYMBOL_GPL	 crypto/af_alg 0x6bfb996c	af_alg_count_tsgl
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x6e4e196c	af_alg_get_rsgl
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x813ceac5	af_alg_sendmsg
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x994203ef	af_alg_poll
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0x9d68a167	af_alg_accept
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0xaba48be6	af_alg_wmem_wakeup
+EXPORT_SYMBOL_GPL	 crypto/af_alg 0xb12743d2	af_alg_pull_tsgl
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0xc5012519	af_alg_release
-EXPORT_SYMBOL_GPL	 crypto/af_alg 0xdee11081	af_alg_pull_tsgl
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0xec90a575	af_alg_register_type
 EXPORT_SYMBOL_GPL	 crypto/af_alg 0xf4930dbc	af_alg_alloc_areq
 EXPORT_SYMBOL_GPL	 crypto/aria_generic 0x4a61978a	aria_encrypt
@@ -22315,6 +22315,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x3373a65b	ata_slave_link_init
 EXPORT_SYMBOL_GPL	 vmlinux 0x33783c01	folio_alloc_buffers
 EXPORT_SYMBOL_GPL	 vmlinux 0x33789ad5	fuse_dev_release
 EXPORT_SYMBOL_GPL	 vmlinux 0x3382ca97	vmbus_driver_unregister
+EXPORT_SYMBOL_GPL	 vmlinux 0x3388720a	memcpy_sglist
 EXPORT_SYMBOL_GPL	 vmlinux 0x338e444d	dm_table_device_name
 EXPORT_SYMBOL_GPL	 vmlinux 0x338fc195	genphy_c45_read_lpa
 EXPORT_SYMBOL_GPL	 vmlinux 0x33bbb926	iomap_release_folio
