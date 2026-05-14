@@ -58,10 +58,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 10 insertions(+)
 
 diff --git a/net/core/gro.c b/net/core/gro.c
-index 31d21de5b15a76439239d15f10d0fd6b6c8ab328..9f8960789b2cfbc397c944044af07ee167598ad1 100644
+index b350e5b69549d51a56f3f011ce59bf235dbb3fdf..26a419e0eef9b04ab2c2809152873fc051c47622 100644
 --- a/net/core/gro.c
 +++ b/net/core/gro.c
-@@ -213,10 +213,12 @@ int skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
+@@ -214,10 +214,12 @@ int skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
  	p->data_len += len;
  	p->truesize += delta_truesize;
  	p->len += len;
@@ -74,7 +74,7 @@ index 31d21de5b15a76439239d15f10d0fd6b6c8ab328..9f8960789b2cfbc397c944044af07ee1
  	}
  	NAPI_GRO_CB(skb)->same_flow = 1;
  	return 0;
-@@ -244,6 +246,8 @@ int skb_gro_receive_list(struct sk_buff *p, struct sk_buff *skb)
+@@ -245,6 +247,8 @@ int skb_gro_receive_list(struct sk_buff *p, struct sk_buff *skb)
  	p->truesize += skb->truesize;
  	p->len += skb->len;
  
@@ -84,10 +84,10 @@ index 31d21de5b15a76439239d15f10d0fd6b6c8ab328..9f8960789b2cfbc397c944044af07ee1
  
  	return 0;
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 43ee86dcf2eaf37f949e8feefd677b449d7749cf..4cfb4886e1b2cce7ff2d764f15b88993f31921b4 100644
+index 1c0279b9cb9f48bf87dc625db9a894f4f6969424..760c13b7715919bfaf0d44b7693f633ee3e73ba9 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -2258,6 +2258,7 @@ struct sk_buff *__pskb_copy_fclone(struct sk_buff *skb, int headroom,
+@@ -2190,6 +2190,7 @@ struct sk_buff *__pskb_copy_fclone(struct sk_buff *skb, int headroom,
  			skb_frag_ref(skb, i);
  		}
  		skb_shinfo(n)->nr_frags = i;
@@ -95,7 +95,7 @@ index 43ee86dcf2eaf37f949e8feefd677b449d7749cf..4cfb4886e1b2cce7ff2d764f15b88993
  	}
  
  	if (skb_has_frag_list(skb)) {
-@@ -4373,6 +4374,8 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
+@@ -4301,6 +4302,8 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
  	tgt->ip_summed = CHECKSUM_PARTIAL;
  	skb->ip_summed = CHECKSUM_PARTIAL;
  
@@ -104,7 +104,7 @@ index 43ee86dcf2eaf37f949e8feefd677b449d7749cf..4cfb4886e1b2cce7ff2d764f15b88993
  	skb_len_add(skb, -shiftlen);
  	skb_len_add(tgt, shiftlen);
  
-@@ -6226,6 +6229,8 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+@@ -6131,6 +6134,8 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
  	       from_shinfo->frags,
  	       from_shinfo->nr_frags * sizeof(skb_frag_t));
  	to_shinfo->nr_frags += from_shinfo->nr_frags;
@@ -114,10 +114,10 @@ index 43ee86dcf2eaf37f949e8feefd677b449d7749cf..4cfb4886e1b2cce7ff2d764f15b88993
  	if (!skb_cloned(from))
  		from_shinfo->nr_frags = 0;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 0f1eddb307458fcdee5396f3f90007eb794c0495..10e23f1aecfb9a6cf86db55729c08bff9431c8ee 100644
+index 8c4ccb26681fc9ecea5c26ec27e90d0885a0cd1c..4d9c1adf7d70ec4709ac912829893c258e468022 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -2608,6 +2608,7 @@ static int tcp_clone_payload(struct sock *sk, struct sk_buff *to,
+@@ -2391,6 +2391,7 @@ static int tcp_clone_payload(struct sock *sk, struct sk_buff *to,
  			todo = min_t(int, skb_frag_size(fragfrom),
  				     probe_size - len);
  			len += todo;
