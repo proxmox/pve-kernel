@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hyunwoo Kim <imv4bel@gmail.com>
+Date: Thu, 14 May 2026 20:57:48 +0900
+Subject: [PATCH] net: skbuff: propagate shared-frag marker through
+ frag-transfer helpers
+
+Three frag-transfer helpers (__pskb_copy_fclone(), skb_try_coalesce(),
+and skb_shift()) fail to propagate the SKBFL_SHARED_FRAG bit in
+skb_shinfo()->flags when moving frags from source to destination.
+__pskb_copy_fclone() defers the rest of the shinfo metadata to
+skb_copy_header() after copying frag descriptors, but that helper
+only carries over gso_{size,segs,type} and never touches
+skb_shinfo()->flags; skb_try_coalesce() and skb_shift() move frag
+descriptors directly and leave flags untouched.  As a result, the
+destination skb keeps a reference to the same externally-owned or
+page-cache-backed pages while reporting skb_has_shared_frag() as
+false.
+
+The mismatch is harmful in any in-place writer that uses
+skb_has_shared_frag() to decide whether shared pages must be detoured
+through skb_cow_data().  ESP input is one such writer (esp4.c,
+esp6.c), and a single nft 'dup to <local>' rule -- or any other
+nf_dup_ipv4() / xt_TEE caller -- is enough to land a pskb_copy()'d
+skb in esp_input() with the marker stripped, letting an unprivileged
+user write into the page cache of a root-owned read-only file via
+authencesn-ESN stray writes.
+
+Set SKBFL_SHARED_FRAG on the destination whenever frag descriptors
+were actually moved from the source.  skb_copy() and skb_copy_expand()
+share skb_copy_header() too but linearize all paged data into freshly
+allocated head storage and emerge with nr_frags == 0, so
+skb_has_shared_frag() returns false on its own; they need no change.
+
+The same omission exists in skb_gro_receive() and skb_gro_receive_list().
+The former moves the incoming skb's frag descriptors into the
+accumulator's last sub-skb via two paths (a direct frag-move loop and
+the head_frag + memcpy path); the latter chains the incoming skb whole
+onto p's frag_list.  Downstream skb_segment() reads only
+skb_shinfo(p)->flags, and skb_segment_list() reuses each sub-skb's
+shinfo as the nskb -- both p and lp must carry the marker.
+
+Fixes: cef401de7be8 ("net: fix possible wrong checksum generation")
+Fixes: f4c50a4034e6 ("xfrm: esp: avoid in-place decrypt on shared skb frags")
+Reported-by: William Bowling <vakzz@zellic.io>
+Reported-by: Hyunwoo Kim <imv4bel@gmail.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Hyunwoo Kim <imv4bel@gmail.com>
+Link: https://lore.kernel.org/agW4vC0r8QOUKtRT@v4bel
+ [TL: Also propagate the marker in tcp_clone_payload(), which
+  assembles MTU probe skbs from frag descriptors taken off
+  sk->sk_write_queue and so loses SKBFL_SHARED_FRAG on the probe in
+  the same way.]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/gro.c        | 4 ++++
+ net/core/skbuff.c     | 5 +++++
+ net/ipv4/tcp_output.c | 1 +
+ 3 files changed, 10 insertions(+)
+
+diff --git a/net/core/gro.c b/net/core/gro.c
+index 31d21de5b15a76439239d15f10d0fd6b6c8ab328..9f8960789b2cfbc397c944044af07ee167598ad1 100644
+--- a/net/core/gro.c
++++ b/net/core/gro.c
+@@ -213,10 +213,12 @@ int skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
+ 	p->data_len += len;
+ 	p->truesize += delta_truesize;
+ 	p->len += len;
++	skb_shinfo(p)->flags |= skbinfo->flags & SKBFL_SHARED_FRAG;
+ 	if (lp != p) {
+ 		lp->data_len += len;
+ 		lp->truesize += delta_truesize;
+ 		lp->len += len;
++		skb_shinfo(lp)->flags |= skbinfo->flags & SKBFL_SHARED_FRAG;
+ 	}
+ 	NAPI_GRO_CB(skb)->same_flow = 1;
+ 	return 0;
+@@ -244,6 +246,8 @@ int skb_gro_receive_list(struct sk_buff *p, struct sk_buff *skb)
+ 	p->truesize += skb->truesize;
+ 	p->len += skb->len;
+ 
++	skb_shinfo(p)->flags |= skb_shinfo(skb)->flags & SKBFL_SHARED_FRAG;
++
+ 	NAPI_GRO_CB(skb)->same_flow = 1;
+ 
+ 	return 0;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 43ee86dcf2eaf37f949e8feefd677b449d7749cf..4cfb4886e1b2cce7ff2d764f15b88993f31921b4 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2258,6 +2258,7 @@ struct sk_buff *__pskb_copy_fclone(struct sk_buff *skb, int headroom,
+ 			skb_frag_ref(skb, i);
+ 		}
+ 		skb_shinfo(n)->nr_frags = i;
++		skb_shinfo(n)->flags |= skb_shinfo(skb)->flags & SKBFL_SHARED_FRAG;
+ 	}
+ 
+ 	if (skb_has_frag_list(skb)) {
+@@ -4373,6 +4374,8 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
+ 	tgt->ip_summed = CHECKSUM_PARTIAL;
+ 	skb->ip_summed = CHECKSUM_PARTIAL;
+ 
++	skb_shinfo(tgt)->flags |= skb_shinfo(skb)->flags & SKBFL_SHARED_FRAG;
++
+ 	skb_len_add(skb, -shiftlen);
+ 	skb_len_add(tgt, shiftlen);
+ 
+@@ -6226,6 +6229,8 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+ 	       from_shinfo->frags,
+ 	       from_shinfo->nr_frags * sizeof(skb_frag_t));
+ 	to_shinfo->nr_frags += from_shinfo->nr_frags;
++	if (from_shinfo->nr_frags)
++		to_shinfo->flags |= from_shinfo->flags & SKBFL_SHARED_FRAG;
+ 
+ 	if (!skb_cloned(from))
+ 		from_shinfo->nr_frags = 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 0f1eddb307458fcdee5396f3f90007eb794c0495..10e23f1aecfb9a6cf86db55729c08bff9431c8ee 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2608,6 +2608,7 @@ static int tcp_clone_payload(struct sock *sk, struct sk_buff *to,
+ 			todo = min_t(int, skb_frag_size(fragfrom),
+ 				     probe_size - len);
+ 			len += todo;
++			skb_shinfo(to)->flags |= skb_shinfo(skb)->flags & SKBFL_SHARED_FRAG;
+ 			if (lastfrag &&
+ 			    skb_frag_page(fragfrom) == skb_frag_page(lastfrag) &&
+ 			    skb_frag_off(fragfrom) == skb_frag_off(lastfrag) +
