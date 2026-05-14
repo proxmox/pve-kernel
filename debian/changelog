@@ -1,3 +1,15 @@
+proxmox-kernel-6.17 (6.17.13-8) trixie; urgency=medium
+
+  * cherry-pick "net: skbuff: propagate shared-frag marker through
+    frag-transfer helpers" to harden some variants of "DirtyFrag".
+
+  * update ZFS to 2.4.2 for consistency with the 7.0 based kernel.
+
+  * update submodule and patches to Ubuntu-6.17.0-30.30, which mostly allows
+    dropping some of the recent security fixes from our downstream patches.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 15 May 2026 00:48:25 +0200
+
 proxmox-kernel-6.17 (6.17.13-7) trixie; urgency=medium
 
   * cherry-pick fixes for "DirtyFrag" local privilege escalation issue
