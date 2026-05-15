@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-24) bookworm; urgency=medium
+
+  * cherry-pick "net: skbuff: propagate shared-frag marker through
+    frag-transfer helpers" to harden some variants of "DirtyFrag".
+  * cherry-pick fix for "ssh-keysign-pwn"
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 15 May 2026 10:11:43 +0200
+
 proxmox-kernel-6.8 (6.8.12-23) bookworm; urgency=medium
 
   * cherry-pick fixes for "DirtyFrag" local privilege escalation issue
