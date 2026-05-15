@@ -1,3 +1,9 @@
+proxmox-kernel-6.17 (6.17.13-9) trixie; urgency=medium
+
+  * cherry-pick fix for "ssh-keysign-pwn"
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 15 May 2026 10:46:21 +0200
+
 proxmox-kernel-6.17 (6.17.13-8) trixie; urgency=medium
 
   * cherry-pick "net: skbuff: propagate shared-frag marker through
