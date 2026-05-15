@@ -1,0 +1,45 @@
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH] drm/atomic: Increase timeout in
+ drm_atomic_helper_wait_for_vblanks()
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Tue, 09 Dec 2025 15:33:18 +0100
+Message-Id: <20251209143325.102056-1-tzimmermann@suse.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Increase the timeout for vblank events from 100 ms to 1000 ms. This
+is the same fix as in commit f050da08a4ed ("drm/vblank: Increase
+timeout in drm_wait_one_vblank()") for another vblank timeout.
+
+After merging generic DRM vblank timers [1] and converting several
+DRM drivers for virtual hardware, these drivers synchronize their
+vblank events to the display refresh rate. This can trigger timeouts
+within the DRM framework.
+
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Link: https://lore.kernel.org/dri-devel/20250904145806.430568-1-tzimmermann@suse.de/ # [1]
+Reported-by: syzbot+fcede535e7eb57cf5b43@syzkaller.appspotmail.com
+Closes: https://lore.kernel.org/dri-devel/69381d6c.050a0220.4004e.0017.GAE@google.com/
+Fixes: 74afeb812850 ("drm/vblank: Add vblank timer")
+Reviewed-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
+---
+ drivers/gpu/drm/drm_atomic_helper.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/drm_atomic_helper.c b/drivers/gpu/drm/drm_atomic_helper.c
+index e641fcf8c568..e108f91bc3dd 100644
+--- a/drivers/gpu/drm/drm_atomic_helper.c
++++ b/drivers/gpu/drm/drm_atomic_helper.c
+@@ -1839,7 +1839,7 @@ drm_atomic_helper_wait_for_vblanks(struct drm_device *dev,
+ 		ret = wait_event_timeout(*queue,
+ 					 state->crtcs[i].last_vblank_count !=
+ 						drm_crtc_vblank_count(crtc),
+-					 msecs_to_jiffies(100));
++					 msecs_to_jiffies(1000));
+ 
+ 		WARN(!ret, "[CRTC:%d:%s] vblank wait timed out\n",
+ 		     crtc->base.id, crtc->name);
+-- 
+2.52.0
+
