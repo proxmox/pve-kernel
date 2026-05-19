@@ -132,6 +132,8 @@ endif
 	ls debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)/kernel/drivers/watchdog/ > watchdog-blacklist.tmp
 	echo ipmi_watchdog.ko >> watchdog-blacklist.tmp
 	cat watchdog-blacklist.tmp|sed -e 's/^/blacklist /' -e 's/.ko$$//'|sort -u > debian/$(PMX_KERNEL_PKG)/usr/lib/modprobe.d/blacklist_$(PMX_KERNEL_PKG).conf
+
+	cp debian/proxmox_prevent_autoload.conf debian/$(PMX_KERNEL_PKG)/usr/lib/modprobe.d/proxmox_prevent_autoload_$(PMX_KERNEL_PKG).conf
 	rm -f debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)/source
 	rm -f debian/$(PMX_KERNEL_PKG)/usr/lib/modules/$(KVNAME)/build
 
