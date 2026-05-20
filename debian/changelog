@@ -1,3 +1,13 @@
+proxmox-kernel-7.0 (7.0.2-6) trixie; urgency=medium
+
+  * build: also ship autoload modprobe.d snippet in -signed package
+
+  * zfs: cherry-pick fix for (benign) vmalloc warning
+
+  * fix #7585: backport increased vblank timeout
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 20 May 2026 10:55:26 +0200
+
 proxmox-kernel-7.0 (7.0.2-5) trixie; urgency=medium
 
   * cherry-pick fix for "pintheft"
