@@ -37,6 +37,7 @@ binary-arch:
 	rsync -ar /lib/modules/$(KERNEL_VERSION)/ $(PACKAGE_DIR)/lib/modules/$(KERNEL_VERSION)/
 	mkdir -p $(PACKAGE_DIR)/lib/modprobe.d/
 	cp /lib/modprobe.d/blacklist_$(IMAGE_PACKAGE_NAME).conf $(PACKAGE_DIR)/lib/modprobe.d/
+	cp /lib/modprobe.d/proxmox_prevent_autoload_$(IMAGE_PACKAGE_NAME).conf $(PACKAGE_DIR)/lib/modprobe.d/
 	dh_install
 	dh_installchangelogs
 	dh_installdocs -A debian/copyright debian/SOURCE
