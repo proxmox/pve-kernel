@@ -1,3 +1,9 @@
+proxmox-kernel-6.17 (6.17.13-11) trixie; urgency=medium
+
+  * build: also ship autoload modprobe.d snippet in -signed package
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 20 May 2026 11:37:37 +0200
+
 proxmox-kernel-6.17 (6.17.13-10) trixie; urgency=medium
 
   * cherry-pick fix for "pintheft"
