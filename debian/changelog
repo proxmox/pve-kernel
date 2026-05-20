@@ -1,3 +1,10 @@
+proxmox-kernel-6.8 (6.8.12-25) bookworm; urgency=medium
+
+  * cherry-pick fix for "pintheft"
+  * prevent autoloading of certain network protocols via modprobe.d
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 20 May 2026 12:12:59 +0200
+
 proxmox-kernel-6.8 (6.8.12-24) bookworm; urgency=medium
 
   * cherry-pick "net: skbuff: propagate shared-frag marker through
