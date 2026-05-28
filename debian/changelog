@@ -1,3 +1,10 @@
+proxmox-kernel-7.0 (7.0.6-1) trixie; urgency=medium
+
+  * update submodule and patches to Ubuntu-7.0.0-21.21 based on 7.0.6 with
+    previously released (security) fixes on top.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 28 May 2026 21:43:33 +0200
+
 proxmox-kernel-7.0 (7.0.2-7) trixie; urgency=medium
 
   * cherry-pick fix for "CIFSwitch" local privilege escalation
