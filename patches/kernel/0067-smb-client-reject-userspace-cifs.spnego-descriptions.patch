@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Asim Viladi Oglu Manizada <manizada@pm.me>
+Date: Sat, 16 May 2026 21:15:39 +0000
+Subject: [PATCH] smb: client: reject userspace cifs.spnego descriptions
+
+cifs.spnego key descriptions contain authority-bearing fields such as
+pid, uid, creduid, and upcall_target that cifs.upcall treats as
+kernel-originating inputs. However, userspace can also create keys of
+this type through request_key(2) or add_key(2), allowing those fields to
+be supplied without CIFS origin.
+
+Only accept cifs.spnego descriptions while CIFS is using its private
+spnego_cred to request the key.
+
+Fixes: f1d662a7d5e5 ("[CIFS] Add upcall files for cifs to use spnego/kerberos")
+Assisted-by: avom-custom-harness:gpt-5.5-qwen3.6-mod-mix
+Reviewed-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Asim Viladi Oglu Manizada <manizada@pm.me>
+Signed-off-by: Steve French <stfrench@microsoft.com>
+(cherry picked from commit 3da1fdf4efbc490041eb4f836bf596201203f8f2)
+---
+ fs/smb/client/cifs_spnego.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/fs/smb/client/cifs_spnego.c b/fs/smb/client/cifs_spnego.c
+index 3a41bbada04c763a4137f0e8af3b8eb967d55ba7..44c40727568042470f66dc119d84af886ca9367f 100644
+--- a/fs/smb/client/cifs_spnego.c
++++ b/fs/smb/client/cifs_spnego.c
+@@ -8,6 +8,7 @@
+  */
+ 
+ #include <linux/list.h>
++#include <linux/cred.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+ #include <keys/user-type.h>
+@@ -40,12 +41,27 @@ cifs_spnego_key_destroy(struct key *key)
+ 	kfree(key->payload.data[0]);
+ }
+ 
++static int
++cifs_spnego_key_vet_description(const char *description)
++{
++	/*
++	 * cifs.spnego descriptions are authority-bearing inputs to cifs.upcall.
++	 * They are only valid when produced by CIFS while using the private
++	 * spnego_cred installed below.  Do not let userspace create this type
++	 * of key through request_key(2)/add_key(2), since the helper treats
++	 * pid/uid/creduid/upcall_target as kernel-originating fields.
++	 */
++	if (current_cred() != spnego_cred)
++		return -EPERM;
++	return 0;
++}
+ 
+ /*
+  * keytype for CIFS spnego keys
+  */
+ struct key_type cifs_spnego_key_type = {
+ 	.name		= "cifs.spnego",
++	.vet_description = cifs_spnego_key_vet_description,
+ 	.instantiate	= cifs_spnego_key_instantiate,
+ 	.destroy	= cifs_spnego_key_destroy,
+ 	.describe	= user_describe,
