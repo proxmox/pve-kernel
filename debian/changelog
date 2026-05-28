@@ -1,3 +1,9 @@
+proxmox-kernel-7.0 (7.0.2-7) trixie; urgency=medium
+
+  * cherry-pick fix for "CIFSwitch" local privilege escalation
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 28 May 2026 10:16:52 +0200
+
 proxmox-kernel-7.0 (7.0.2-6) trixie; urgency=medium
 
   * build: also ship autoload modprobe.d snippet in -signed package
