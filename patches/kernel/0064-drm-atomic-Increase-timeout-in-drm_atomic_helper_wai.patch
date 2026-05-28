@@ -1,11 +1,10 @@
-From git@z Thu Jan  1 00:00:00 1970
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Tue, 9 Dec 2025 15:33:18 +0100
 Subject: [PATCH] drm/atomic: Increase timeout in
  drm_atomic_helper_wait_for_vblanks()
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Tue, 09 Dec 2025 15:33:18 +0100
-Message-Id: <20251209143325.102056-1-tzimmermann@suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
 Increase the timeout for vblank events from 100 ms to 1000 ms. This
@@ -28,10 +27,10 @@ Reviewed-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/drm_atomic_helper.c b/drivers/gpu/drm/drm_atomic_helper.c
-index e641fcf8c568..e108f91bc3dd 100644
+index af02c409c2f60b31a22053c0fefced5b2361a41e..75e87c0b51f7e45623f8d1792e80d76e38576b93 100644
 --- a/drivers/gpu/drm/drm_atomic_helper.c
 +++ b/drivers/gpu/drm/drm_atomic_helper.c
-@@ -1839,7 +1839,7 @@ drm_atomic_helper_wait_for_vblanks(struct drm_device *dev,
+@@ -1916,7 +1916,7 @@ drm_atomic_helper_wait_for_vblanks(struct drm_device *dev,
  		ret = wait_event_timeout(*queue,
  					 state->crtcs[i].last_vblank_count !=
  						drm_crtc_vblank_count(crtc),
@@ -40,6 +39,3 @@ index e641fcf8c568..e108f91bc3dd 100644
  
  		WARN(!ret, "[CRTC:%d:%s] vblank wait timed out\n",
  		     crtc->base.id, crtc->name);
--- 
-2.52.0
-
