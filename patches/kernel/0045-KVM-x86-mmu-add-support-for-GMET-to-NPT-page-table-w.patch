@@ -116,7 +116,7 @@ index 7918f26ef6c0b10388ca1a4007d77970d5c2c7d7..67479bada0754447a89c729cec4e5b55
  		reset_rsvds_bits_mask_ept(vcpu, context, execonly, huge_page_level);
  		reset_ept_shadow_zero_bits_mask(context, execonly);
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index 4822b825f40afe4daace0974dd42ae2599e18edd..7b17e1f18ac53d0469188b73cd50f03f95a240af 100644
+index d5917f29999ec59d2a1589b234ecdf88fdcce6e0..a94c35190dc8884441444a407e0e711831f741d2 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
 @@ -95,7 +95,8 @@ static void nested_svm_init_mmu_context(struct kvm_vcpu *vcpu)
@@ -129,7 +129,7 @@ index 4822b825f40afe4daace0974dd42ae2599e18edd..7b17e1f18ac53d0469188b73cd50f03f
  	vcpu->arch.mmu->get_guest_pgd     = nested_svm_get_tdp_cr3;
  	vcpu->arch.mmu->get_pdptr         = nested_svm_get_tdp_pdptr;
  	vcpu->arch.mmu->inject_page_fault = nested_svm_inject_npf_exit;
-@@ -1986,12 +1987,15 @@ static gpa_t svm_translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa,
+@@ -2010,12 +2011,15 @@ static gpa_t svm_translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa,
  				      struct x86_exception *exception,
  				      u64 pte_access)
  {

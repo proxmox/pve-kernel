@@ -81,10 +81,10 @@ index 635c2e5d8513dc0327f2d221007d21cf9235e860..63be5c5efed98ab97977c4c5f1b2f75f
  
  static inline bool kvm_has_mirrored_tdp(const struct kvm *kvm)
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index babca4d38dfd77e7cc989b5f8ee1a40217e4c403..4f6d39412b2d2c49ce3d2a1d6f7f604bca7fef60 100644
+index 486df8043311c9e76e1c592bdc29294f00014a2f..dabb932bf012fd093f6d1899888a7b57e09dc5b5 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -1981,8 +1981,23 @@ static bool svm_get_nested_state_pages(struct kvm_vcpu *vcpu)
+@@ -2005,8 +2005,23 @@ static bool svm_get_nested_state_pages(struct kvm_vcpu *vcpu)
  	return true;
  }
  
@@ -134,10 +134,10 @@ index 937aeb474af7dc18630213fcb922bc5f0281d1a9..e4cb317807abda2f0daa613b75d32aa5
  	.check_events = vmx_check_nested_events,
  	.has_events = vmx_has_nested_events,
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 46678feb791d1daea4ebe407d61047eec82cb8ca..499b3f4ae9042dcb722701d329a0755075cc8345 100644
+index 5a8982820996f270489fe6d8d05ef2489d33a991..1b396301d0509366dd8f979ed7e5803bf93daec6 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7836,22 +7836,6 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
+@@ -7853,22 +7853,6 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
  	kvm_x86_call(get_segment)(vcpu, var, seg);
  }
  

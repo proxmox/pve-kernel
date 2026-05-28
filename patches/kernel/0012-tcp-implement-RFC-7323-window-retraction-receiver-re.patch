@@ -210,7 +210,7 @@ index dafb63b923d0d08cb1a0e9a37d8ec025386a960a..d350d794a959720853ffd8937cfdc34c
  	if (newtp->rx_opt.wscale_ok) {
  		newtp->rx_opt.snd_wscale = ireq->snd_wscale;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 326b58ff1118d02fc396753d56f210f9d3007c7f..0f1eddb307458fcdee5396f3f90007eb794c0495 100644
+index 691fc76c55083807a60a05a61d7f8a36f6de0c24..10e23f1aecfb9a6cf86db55729c08bff9431c8ee 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -293,6 +293,7 @@ static u16 tcp_select_window(struct sock *sk)
@@ -229,7 +229,7 @@ index 326b58ff1118d02fc396753d56f210f9d3007c7f..0f1eddb307458fcdee5396f3f90007eb
  
  	/* Make sure we do not exceed the maximum possible
  	 * scaled window.
-@@ -4169,6 +4171,7 @@ static void tcp_connect_init(struct sock *sk)
+@@ -4170,6 +4172,7 @@ static void tcp_connect_init(struct sock *sk)
  	else
  		tp->rcv_tstamp = tcp_jiffies32;
  	tp->rcv_wup = tp->rcv_nxt;

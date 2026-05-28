@@ -17,10 +17,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index 3c8368364890298f62de263e74cbf177cfae5abe..01f01727115f67316f456e10a83457cbadd45638 100644
+index ceaace3a2f500b01f183612107f9c24b05e4b7f2..cd446f86ce4e9e134ff2cab6cdc9ea649873efa9 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -458,11 +458,14 @@ void __nested_copy_vmcb_control_to_cache(struct kvm_vcpu *vcpu,
+@@ -457,11 +457,14 @@ void __nested_copy_vmcb_control_to_cache(struct kvm_vcpu *vcpu,
  	nested_svm_sanitize_intercept(vcpu, to, SKINIT);
  	nested_svm_sanitize_intercept(vcpu, to, RDPRU);
  
@@ -36,7 +36,7 @@ index 3c8368364890298f62de263e74cbf177cfae5abe..01f01727115f67316f456e10a83457cb
  	to->iopm_base_pa        = from->iopm_base_pa;
  	to->msrpm_base_pa       = from->msrpm_base_pa;
  	to->tsc_offset          = from->tsc_offset;
-@@ -845,6 +848,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm,
+@@ -851,6 +854,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
  	/* Use vmcb01 MMU and format if guest does not use nNPT */
  	if (nested_npt_enabled(svm)) {
  		vmcb02->control.misc_ctl &= ~SVM_MISC_ENABLE_GMET;
@@ -45,10 +45,10 @@ index 3c8368364890298f62de263e74cbf177cfae5abe..01f01727115f67316f456e10a83457cb
  		nested_svm_init_mmu_context(vcpu);
  	}
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 422ad480726b0b36603c7ae0efce8442d060c72b..aaf95b4b23643c2cb4e6b1e0b3c3c412b0c1cf3a 100644
+index b30e760e46eff6386fbc1d5dd87a9a4f15b1bb3d..e448c1d9e85f9c635d5a88036ee3a3d537b5981b 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -5373,6 +5373,9 @@ static __init void svm_set_cpu_caps(void)
+@@ -5471,6 +5471,9 @@ static __init void svm_set_cpu_caps(void)
  		if (boot_cpu_has(X86_FEATURE_PFTHRESHOLD))
  			kvm_cpu_cap_set(X86_FEATURE_PFTHRESHOLD);
  

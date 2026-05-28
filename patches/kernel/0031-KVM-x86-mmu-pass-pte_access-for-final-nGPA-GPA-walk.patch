@@ -134,7 +134,7 @@ index 121bfb2217e83d5c2926e2155cb9ded5ff5d3b00..8a4c09c5cdbfb3000670b92fe9404738
  #define SPTE_LEVEL_SHIFT(level)		__PT_LEVEL_SHIFT(level, SPTE_LEVEL_BITS)
  #define SPTE_INDEX(address, level)	__PT_INDEX(address, level, SPTE_LEVEL_BITS)
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index eeb1158d5e55ecda0378d267ce5899c57ef06fd6..46678feb791d1daea4ebe407d61047eec82cb8ca 100644
+index 5490325712f9cfd8181933079fa606e13f912fd5..5a8982820996f270489fe6d8d05ef2489d33a991 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -1071,7 +1071,7 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
@@ -146,7 +146,7 @@ index eeb1158d5e55ecda0378d267ce5899c57ef06fd6..46678feb791d1daea4ebe407d61047ee
  	if (real_gpa == INVALID_GPA)
  		return 0;
  
-@@ -7837,7 +7837,8 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
+@@ -7854,7 +7854,8 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
  }
  
  gpa_t translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa, u64 access,

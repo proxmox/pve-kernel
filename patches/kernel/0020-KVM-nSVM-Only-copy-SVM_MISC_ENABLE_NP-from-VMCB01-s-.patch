@@ -26,10 +26,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index 06a8f27f8bb660e6ee341fd5939a9a4e0bb893f2..babca4d38dfd77e7cc989b5f8ee1a40217e4c403 100644
+index 03fe24886ec6bc3d6df1ba1b0b5c163237397111..486df8043311c9e76e1c592bdc29294f00014a2f 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -795,8 +795,16 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm,
+@@ -801,8 +801,16 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
  						V_NMI_BLOCKING_MASK);
  	}
  

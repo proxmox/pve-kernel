@@ -76,7 +76,7 @@ index fb1b5d8b23e5cb4a473ee5ee0e82018f843e6753..567f8b77ffe05752d2e7bbac39a9d2b3
  		return 0;
  
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index c460b622e7240bf836dc8e4d38111f5c31359f17..eeb1158d5e55ecda0378d267ce5899c57ef06fd6 100644
+index 2acda1f7097a79be2b6c515989a9da6efb2d3516..5490325712f9cfd8181933079fa606e13f912fd5 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -1070,7 +1070,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)

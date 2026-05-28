@@ -54,10 +54,10 @@ index edde36097ddc31a32fe1e2491efe46c000970c5e..983db6575141df31491aade7f8ba2870
  
  #define SVM_TSC_RATIO_RSVD	0xffffff0000000000ULL
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index e7bf3f745d4bbc6e911f7f481b7966925e991c56..06a8f27f8bb660e6ee341fd5939a9a4e0bb893f2 100644
+index b3565ebdc7decbdde4fdb2f86c310e7f1bc0d59e..03fe24886ec6bc3d6df1ba1b0b5c163237397111 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -348,7 +348,7 @@ static bool __nested_vmcb_check_controls(struct kvm_vcpu *vcpu,
+@@ -343,7 +343,7 @@ static bool __nested_vmcb_check_controls(struct kvm_vcpu *vcpu,
  	if (CC(control->asid == 0))
  		return false;
  
@@ -66,7 +66,7 @@ index e7bf3f745d4bbc6e911f7f481b7966925e991c56..06a8f27f8bb660e6ee341fd5939a9a4e
  	       !kvm_vcpu_is_legal_gpa(vcpu, control->nested_cr3)))
  		return false;
  
-@@ -457,10 +457,10 @@ void __nested_copy_vmcb_control_to_cache(struct kvm_vcpu *vcpu,
+@@ -456,10 +456,10 @@ void __nested_copy_vmcb_control_to_cache(struct kvm_vcpu *vcpu,
  	nested_svm_sanitize_intercept(vcpu, to, SKINIT);
  	nested_svm_sanitize_intercept(vcpu, to, RDPRU);
  
@@ -80,7 +80,7 @@ index e7bf3f745d4bbc6e911f7f481b7966925e991c56..06a8f27f8bb660e6ee341fd5939a9a4e
  
  	to->iopm_base_pa        = from->iopm_base_pa;
  	to->msrpm_base_pa       = from->msrpm_base_pa;
-@@ -796,7 +796,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm,
+@@ -802,7 +802,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
  	}
  
  	/* Copied from vmcb01.  msrpm_base can be overwritten later.  */
@@ -89,7 +89,7 @@ index e7bf3f745d4bbc6e911f7f481b7966925e991c56..06a8f27f8bb660e6ee341fd5939a9a4e
  	vmcb02->control.iopm_base_pa = vmcb01->control.iopm_base_pa;
  	vmcb02->control.msrpm_base_pa = vmcb01->control.msrpm_base_pa;
  	vmcb_mark_dirty(vmcb02, VMCB_PERM_MAP);
-@@ -956,7 +956,7 @@ int enter_svm_guest_mode(struct kvm_vcpu *vcpu, u64 vmcb12_gpa,
+@@ -962,7 +962,7 @@ int enter_svm_guest_mode(struct kvm_vcpu *vcpu, u64 vmcb12_gpa,
  				 vmcb12->save.rip,
  				 vmcb12->control.int_ctl,
  				 vmcb12->control.event_inj,
@@ -98,7 +98,7 @@ index e7bf3f745d4bbc6e911f7f481b7966925e991c56..06a8f27f8bb660e6ee341fd5939a9a4e
  				 vmcb12->control.nested_cr3,
  				 vmcb12->save.cr3,
  				 KVM_ISA_SVM);
-@@ -1734,7 +1734,7 @@ static void nested_copy_vmcb_cache_to_control(struct vmcb_control_area *dst,
+@@ -1749,7 +1749,7 @@ static void nested_copy_vmcb_cache_to_control(struct vmcb_control_area *dst,
  	dst->exit_info_2          = from->exit_info_2;
  	dst->exit_int_info        = from->exit_int_info;
  	dst->exit_int_info_err    = from->exit_int_info_err;
@@ -130,10 +130,10 @@ index fb278fb1652d8db2312c5f6ee460e0eacd8b4942..adc2da164c844d33e7d67887a101e374
  
  	/*
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index e6477affac9a049d841b561bb11099afbbd1c6e0..187eae6616d9264756f11fabc8a04ad9622f36ad 100644
+index cb0a89da99d097510e7881e18b03f89d4c26a2b8..6fd0bf1ad4ff3abfc6781fee43fd7f9b4d5fdf00 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -1162,7 +1162,7 @@ static void init_vmcb(struct kvm_vcpu *vcpu, bool init_event)
+@@ -1152,7 +1152,7 @@ static void init_vmcb(struct kvm_vcpu *vcpu, bool init_event)
  
  	if (npt_enabled) {
  		/* Setup VMCB for Nested Paging */
@@ -142,7 +142,7 @@ index e6477affac9a049d841b561bb11099afbbd1c6e0..187eae6616d9264756f11fabc8a04ad9
  		svm_clr_intercept(svm, INTERCEPT_INVLPG);
  		clr_exception_intercept(svm, PF_VECTOR);
  		svm_clr_intercept(svm, INTERCEPT_CR3_READ);
-@@ -3354,7 +3354,7 @@ static void dump_vmcb(struct kvm_vcpu *vcpu)
+@@ -3391,7 +3391,7 @@ static void dump_vmcb(struct kvm_vcpu *vcpu)
  	pr_err("%-20s%016llx\n", "exit_info2:", control->exit_info_2);
  	pr_err("%-20s%08x\n", "exit_int_info:", control->exit_int_info);
  	pr_err("%-20s%08x\n", "exit_int_info_err:", control->exit_int_info_err);
@@ -152,10 +152,10 @@ index e6477affac9a049d841b561bb11099afbbd1c6e0..187eae6616d9264756f11fabc8a04ad9
  	pr_err("%-20s%016llx\n", "avic_vapic_bar:", control->avic_vapic_bar);
  	pr_err("%-20s%016llx\n", "ghcb:", control->ghcb_gpa);
 diff --git a/arch/x86/kvm/svm/svm.h b/arch/x86/kvm/svm/svm.h
-index 6942e6b0eda67e36bdfae8e891b4eeb27a88291e..45b5136b66151abf8ed5c31e6fd9d89f7ebab868 100644
+index 521787ad1224ac47b7bc71429dfe2a877e422e02..1315802416c93e49915df28dba26ddffc754b291 100644
 --- a/arch/x86/kvm/svm/svm.h
 +++ b/arch/x86/kvm/svm/svm.h
-@@ -166,7 +166,7 @@ struct vmcb_ctrl_area_cached {
+@@ -167,7 +167,7 @@ struct vmcb_ctrl_area_cached {
  	u64 exit_info_2;
  	u32 exit_int_info;
  	u32 exit_int_info_err;
@@ -164,7 +164,7 @@ index 6942e6b0eda67e36bdfae8e891b4eeb27a88291e..45b5136b66151abf8ed5c31e6fd9d89f
  	u32 event_inj;
  	u32 event_inj_err;
  	u64 next_rip;
-@@ -578,7 +578,7 @@ static inline bool gif_set(struct vcpu_svm *svm)
+@@ -579,7 +579,7 @@ static inline bool gif_set(struct vcpu_svm *svm)
  
  static inline bool nested_npt_enabled(struct vcpu_svm *svm)
  {

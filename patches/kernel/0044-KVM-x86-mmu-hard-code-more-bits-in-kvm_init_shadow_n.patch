@@ -63,7 +63,7 @@ index 74b6fb7f783615b850fb5c7d66c8a875b92e0072..7918f26ef6c0b10388ca1a4007d77970
  	};
  	union kvm_cpu_role cpu_role = kvm_calc_cpu_role(vcpu, &regs);
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index 4f6d39412b2d2c49ce3d2a1d6f7f604bca7fef60..4822b825f40afe4daace0974dd42ae2599e18edd 100644
+index dabb932bf012fd093f6d1899888a7b57e09dc5b5..d5917f29999ec59d2a1589b234ecdf88fdcce6e0 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
 @@ -93,7 +93,7 @@ static void nested_svm_init_mmu_context(struct kvm_vcpu *vcpu)
