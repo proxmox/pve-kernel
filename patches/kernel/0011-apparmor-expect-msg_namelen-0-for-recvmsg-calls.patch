@@ -18,10 +18,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/security/apparmor/af_inet.c b/security/apparmor/af_inet.c
-index 7e46e4711b639989bf128aba141da0515bd2ea95..2ef942568adae34209e1a98d26ec7594b8ba5c62 100644
+index f287b8cfd5e7dceac2d1880c2a0ebd10a4dd6b85..15a48d039ae5d01e9f4f6d8e23f2eb5baef48578 100644
 --- a/security/apparmor/af_inet.c
 +++ b/security/apparmor/af_inet.c
-@@ -738,7 +738,7 @@ int aa_inet_msg_perm(const char *op, u32 request, struct socket *sock,
+@@ -739,7 +739,7 @@ int aa_inet_msg_perm(const char *op, u32 request, struct socket *sock,
  	/* do we need early bailout for !family ... */
  	return sk_has_perm2(sock->sk, op, request, profile, ad,
  			    map_sock_addr(sock, ADDR_LOCAL, &laddr, &ad),
