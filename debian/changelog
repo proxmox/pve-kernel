@@ -1,3 +1,10 @@
+proxmox-kernel-7.0 (7.0.6-2) trixie; urgency=medium
+
+  * update submodule and patches to Ubuntu-7.0.0-26.26, picking up a net GRO
+    security fix and several AppArmor CVE fixes
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 29 May 2026 13:08:27 +0200
+
 proxmox-kernel-7.0 (7.0.6-1) trixie; urgency=medium
 
   * update submodule and patches to Ubuntu-7.0.0-21.21 based on 7.0.6 with
