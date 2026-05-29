@@ -18,6 +18,7 @@ Reviewed-by: David Howells <dhowells@redhat.com>
 Signed-off-by: Asim Viladi Oglu Manizada <manizada@pm.me>
 Signed-off-by: Steve French <stfrench@microsoft.com>
 (cherry picked from commit 3da1fdf4efbc490041eb4f836bf596201203f8f2)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  fs/smb/client/cifs_spnego.c | 16 ++++++++++++++++
  1 file changed, 16 insertions(+)

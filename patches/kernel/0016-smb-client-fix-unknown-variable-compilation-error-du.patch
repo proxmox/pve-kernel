@@ -18,10 +18,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/fs/smb/client/smbdirect.c b/fs/smb/client/smbdirect.c
-index bff06a7a924c70c13664343498938be3bcc6aea7..6b5c133c1faa5b939dd020998003e82f54557d86 100644
+index 43da29cd9864b826cc8795f49ac76cf120aec2fa..a7b5ea75b4f656ca0c5c82886c878885c4ff9b9e 100644
 --- a/fs/smb/client/smbdirect.c
 +++ b/fs/smb/client/smbdirect.c
-@@ -891,7 +891,7 @@ static int smbd_post_send_iter(struct smbd_connection *info,
+@@ -906,7 +906,7 @@ static int smbd_post_send_iter(struct smbd_connection *info,
  			.direction	= DMA_TO_DEVICE,
  		};
  		size_t payload_len = umin(*_remaining_data_length,
