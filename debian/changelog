@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.12-29) bookworm; urgency=medium
+
+  * update submodule to Ubuntu-6.8.0-130.130 and refresh patches.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 29 May 2026 19:48:50 +0200
+
 proxmox-kernel-6.8 (6.8.12-28) bookworm; urgency=medium
 
   * update submodule to Ubuntu-6.8.0-124.124 and refresh patches, dropping
