@@ -1,3 +1,11 @@
+proxmox-kernel-6.17 (6.17.13-13) trixie; urgency=medium
+
+  * update submodule and patches to Ubuntu-6.17.0-38.38, dropping some of the
+    recent security fixes from our downstream patches, adding fixes for
+    various CVEs in netfilter, bonding, apparmor and ktls code
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 29 May 2026 12:08:25 +0200
+
 proxmox-kernel-6.17 (6.17.13-12) trixie; urgency=medium
 
   * cherry-pick fix for "CIFSwitch" local privilege escalation
