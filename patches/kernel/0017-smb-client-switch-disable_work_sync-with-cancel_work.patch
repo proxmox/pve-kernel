@@ -19,10 +19,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/fs/smb/client/smbdirect.c b/fs/smb/client/smbdirect.c
-index a7b5ea75b4f656ca0c5c82886c878885c4ff9b9e..62e15c05c29c02ddcd765d79b33dd9e8888841ba 100644
+index 6b5c133c1faa5b939dd020998003e82f54557d86..581e86b7c1194075d6b7a4f3b1e97adaac4b6579 100644
 --- a/fs/smb/client/smbdirect.c
 +++ b/fs/smb/client/smbdirect.c
-@@ -1317,7 +1317,7 @@ void smbd_destroy(struct TCP_Server_Info *server)
+@@ -1302,7 +1302,7 @@ void smbd_destroy(struct TCP_Server_Info *server)
  	}
  
  	log_rdma_event(INFO, "cancelling post_send_credits_work\n");
