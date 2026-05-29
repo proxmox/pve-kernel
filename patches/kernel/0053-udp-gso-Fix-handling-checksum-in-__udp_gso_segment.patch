@@ -2,6 +2,9 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alice Mikityanska <alice@isovalent.com>
 Date: Mon, 18 May 2026 09:22:49 +0300
 Subject: [PATCH] udp: gso: Fix handling checksum in __udp_gso_segment
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 The cited commit started using msslen for uh->len, but still uses newlen
 to adjust uh->check. Although the checksum is ignored in most cases due
