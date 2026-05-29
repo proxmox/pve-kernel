@@ -1,6 +1,8 @@
-proxmox-kernel-6.8 (6.8.12-28) UNRELEASED; urgency=medium
+proxmox-kernel-6.8 (6.8.12-28) bookworm; urgency=medium
 
-  * update submodule to Ubuntu-6.8.0-119.119 and refresh patches
+  * update submodule to Ubuntu-6.8.0-124.124 and refresh patches, dropping
+    some downstream security fixes and picking up AppArmor CVE fixes and net
+    GRO security fix
 
  -- Proxmox Support Team <support@proxmox.com>  Thu, 28 May 2026 14:14:57 +0200
 
