@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.12-28.1) bookworm; urgency=medium
+
+  * cherry-pick bonding regression fix
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 01 Jun 2026 09:54:31 +0200
+
 proxmox-kernel-6.8 (6.8.12-28) bookworm; urgency=medium
 
   * update submodule to Ubuntu-6.8.0-124.124 and refresh patches, dropping
