@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Tonghao Zhang <tonghao@bamaicloud.com>
+Date: Mon, 25 May 2026 13:10:10 +0200
+Subject: [PATCH] net: bonding: update the slave array for broadcast mode
+
+BugLink: https://bugs.launchpad.net/bugs/2153556
+
+This patch fixes ce7a381697cb ("net: bonding: add broadcast_neighbor option for 802.3ad").
+Before this commit, on the broadcast mode, all devices were traversed using the
+bond_for_each_slave_rcu. This patch supports traversing devices by using all_slaves.
+Therefore, we need to update the slave array when enslave or release slave.
+
+Fixes: ce7a381697cb ("net: bonding: add broadcast_neighbor option for 802.3ad")
+Cc: Simon Horman <horms@kernel.org>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: Andrew Lunn <andrew+netdev@lunn.ch>
+Cc: <stable@vger.kernel.org>
+Reported-by: Jiri Slaby <jirislaby@kernel.org>
+Tested-by: Jiri Slaby <jirislaby@kernel.org>
+Link: https://lore.kernel.org/all/a97e6e1e-81bc-4a79-8352-9e4794b0d2ca@kernel.org/
+Signed-off-by: Tonghao Zhang <tonghao@bamaicloud.com>
+Reviewed-by: Hangbin Liu <liuhangbin@gmail.com>
+Reviewed-by: Nikolay Aleksandrov <razor@blackwall.org>
+Acked-by: Jay Vosburgh <jv@jvosburgh.net>
+Link: https://patch.msgid.link/20251016125136.16568-1-tonghao@bamaicloud.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit e0caeb24f538c3c9c94f471882ceeb43d9dc2739)
+Acked-by: Mehmet Basaran <mehmet.basaran@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Signed-off-by: Edoardo Canepa <edoardo.canepa@canonical.com>
+---
+ drivers/net/bonding/bond_main.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 33d017ff97a718612e97c31bfffe58c792f53407..fd80e3938d231d7f6bae0f8cfd596bb559bed0f3 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2302,7 +2302,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
+ 		unblock_netpoll_tx();
+ 	}
+ 
+-	if (bond_mode_can_use_xmit_hash(bond))
++	/* broadcast mode uses the all_slaves to loop through slaves. */
++	if (bond_mode_can_use_xmit_hash(bond) ||
++	    BOND_MODE(bond) == BOND_MODE_BROADCAST)
+ 		bond_update_slave_arr(bond, NULL);
+ 
+ 	if (!slave_dev->netdev_ops->ndo_bpf ||
+@@ -2478,7 +2480,8 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 
+ 	bond_upper_dev_unlink(bond, slave);
+ 
+-	if (bond_mode_can_use_xmit_hash(bond))
++	if (bond_mode_can_use_xmit_hash(bond) ||
++	    BOND_MODE(bond) == BOND_MODE_BROADCAST)
+ 		bond_update_slave_arr(bond, slave);
+ 
+ 	slave_info(bond_dev, slave_dev, "Releasing %s interface\n",

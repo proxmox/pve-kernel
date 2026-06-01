@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hangbin Liu <liuhangbin@gmail.com>
+Date: Mon, 25 May 2026 13:10:11 +0200
+Subject: [PATCH] bonding: do not set usable_slaves for broadcast mode
+
+BugLink: https://bugs.launchpad.net/bugs/2153556
+
+After commit e0caeb24f538 ("net: bonding: update the slave array for broadcast mode"),
+broadcast mode will also set all_slaves and usable_slaves during
+bond_enslave(). But if we also set updelay, during enslave, the
+slave init state will be BOND_LINK_BACK. And later
+bond_update_slave_arr() will alloc usable_slaves but add nothing.
+This will cause bond_miimon_inspect() to have ignore_updelay
+always true. So the updelay will be always ignored. e.g.
+
+[    6.498368] bond0: (slave veth2): link status definitely down, disabling slave
+[    7.536371] bond0: (slave veth2): link status up, enabling it in 0 ms
+[    7.536402] bond0: (slave veth2): link status definitely up, 10000 Mbps full duplex
+
+To fix it, we can either always call bond_update_slave_arr() on every
+place when link changes. Or, let's just not set usable_slaves for
+broadcast mode.
+
+Fixes: e0caeb24f538 ("net: bonding: update the slave array for broadcast mode")
+Reported-by: Liang Li <liali@redhat.com>
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+Link: https://patch.msgid.link/20260304-b4-bond_updelay-v1-1-f72eb2e454d0@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 45fc134bcfadde456639c1b1e206e6918d69a553)
+Acked-by: Mehmet Basaran <mehmet.basaran@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Signed-off-by: Edoardo Canepa <edoardo.canepa@canonical.com>
+---
+ drivers/net/bonding/bond_main.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index fd80e3938d231d7f6bae0f8cfd596bb559bed0f3..35501cb98e2ed6936cf485ebef2caf5abb206be3 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -5117,13 +5117,18 @@ static void bond_set_slave_arr(struct bonding *bond,
+ {
+ 	struct bond_up_slave *usable, *all;
+ 
+-	usable = rtnl_dereference(bond->usable_slaves);
+-	rcu_assign_pointer(bond->usable_slaves, usable_slaves);
+-	kfree_rcu(usable, rcu);
+-
+ 	all = rtnl_dereference(bond->all_slaves);
+ 	rcu_assign_pointer(bond->all_slaves, all_slaves);
+ 	kfree_rcu(all, rcu);
++
++	if (BOND_MODE(bond) == BOND_MODE_BROADCAST) {
++		kfree_rcu(usable_slaves, rcu);
++		return;
++	}
++
++	usable = rtnl_dereference(bond->usable_slaves);
++	rcu_assign_pointer(bond->usable_slaves, usable_slaves);
++	kfree_rcu(usable, rcu);
+ }
+ 
+ static void bond_reset_slave_arr(struct bonding *bond)
