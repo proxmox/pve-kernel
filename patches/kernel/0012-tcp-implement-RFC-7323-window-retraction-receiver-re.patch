@@ -75,7 +75,7 @@ index 563daea10d6c5c074f004cb1b8574f5392157abb..fecf61166a54ee2f64bcef5312c81dcc
  u32                           notsent_lowat           read_mostly                             tcp_stream_memory_free
  u32                           pushed_seq              read_write                              tcp_mark_push,forced_push
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index f72eef31fa23cc584f2f0cefacdc35cae43aa52d..73aa2e0ccd1d7a6314a00c27950b019b62a3851c 100644
+index c44cf9ae8d16f5cc7808a6ca78c1dad03354dccf..139024106364407ab3a55825baafdd02c1dd7d48 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
 @@ -316,6 +316,9 @@ struct tcp_sock {
@@ -89,10 +89,10 @@ index f72eef31fa23cc584f2f0cefacdc35cae43aa52d..73aa2e0ccd1d7a6314a00c27950b019b
  /*
   *      Options received (usually on last packet, some only on SYN packets).
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 978eea2d5df04f378dceb251025bee3101120f69..f7e66ff46c484bd7f53b21b9b6ae0822178d7d94 100644
+index e29d73118d82e3b00af65e2c2dd3fd736fea933e..68c82d8697c9eacfeabe0b6821459a895e536e23 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -915,6 +915,28 @@ static inline u32 tcp_receive_window(const struct tcp_sock *tp)
+@@ -913,6 +913,28 @@ static inline u32 tcp_receive_window(const struct tcp_sock *tp)
  	return (u32) win;
  }
  
@@ -122,10 +122,10 @@ index 978eea2d5df04f378dceb251025bee3101120f69..f7e66ff46c484bd7f53b21b9b6ae0822
   * scaling applied to the result.  The caller does these things
   * if necessary.  This is a "raw" window selection.
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 202a4e57a218851ed5bfa433896913e010e03af9..b8d9fa942d2a2696ae3aa1b9532590663abfd6b2 100644
+index f27f50111172c2a055ac30620ee88c263a168c04..50257721322160d51a7ae057f343426618ce254b 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -3579,6 +3579,7 @@ static int tcp_repair_set_window(struct tcp_sock *tp, sockptr_t optbuf, int len)
+@@ -3576,6 +3576,7 @@ static int tcp_repair_set_window(struct tcp_sock *tp, sockptr_t optbuf, int len)
  
  	tp->rcv_wnd	= opt.rcv_wnd;
  	tp->rcv_wup	= opt.rcv_wup;
@@ -133,7 +133,7 @@ index 202a4e57a218851ed5bfa433896913e010e03af9..b8d9fa942d2a2696ae3aa1b953259066
  
  	return 0;
  }
-@@ -5239,6 +5240,7 @@ static void __init tcp_struct_check(void)
+@@ -5248,6 +5249,7 @@ static void __init tcp_struct_check(void)
  	CACHELINE_ASSERT_GROUP_MEMBER(struct tcp_sock, tcp_sock_write_txrx, received_ecn_bytes);
  	CACHELINE_ASSERT_GROUP_MEMBER(struct tcp_sock, tcp_sock_write_txrx, app_limited);
  	CACHELINE_ASSERT_GROUP_MEMBER(struct tcp_sock, tcp_sock_write_txrx, rcv_wnd);
@@ -154,10 +154,10 @@ index 9fdc19accafd23c6ab74bd82f7a7d82de1d60b90..4e389d609f919c17435509c5007bc3b2
  	 * and queues the child into listener accept queue.
  	 */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index cba89733d1216bc2663758b4bda21984835e6055..c108b8fd7664139e004a3d8f8a4ca6d1a696b1bd 100644
+index a8b626ac1ade18a62d392a1c21f781de4a18bb55..7c90832f4c30007194fa3679d7969b7b56d4b855 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -4862,20 +4862,18 @@ static enum skb_drop_reason tcp_sequence(const struct sock *sk,
+@@ -4868,20 +4868,18 @@ static enum skb_drop_reason tcp_sequence(const struct sock *sk,
  					 const struct tcphdr *th)
  {
  	const struct tcp_sock *tp = tcp_sk(sk);
@@ -181,7 +181,7 @@ index cba89733d1216bc2663758b4bda21984835e6055..c108b8fd7664139e004a3d8f8a4ca6d1
  			return SKB_DROP_REASON_TCP_INVALID_SEQUENCE;
  
  		/* Only accept this packet if receive queue is empty. */
-@@ -6957,6 +6955,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+@@ -6963,6 +6961,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
  		 */
  		WRITE_ONCE(tp->rcv_nxt, TCP_SKB_CB(skb)->seq + 1);
  		tp->rcv_wup = TCP_SKB_CB(skb)->seq + 1;
@@ -189,7 +189,7 @@ index cba89733d1216bc2663758b4bda21984835e6055..c108b8fd7664139e004a3d8f8a4ca6d1
  
  		/* RFC1323: The window in SYN & SYN/ACK segments is
  		 * never scaled.
-@@ -7069,6 +7068,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+@@ -7075,6 +7074,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
  		WRITE_ONCE(tp->rcv_nxt, TCP_SKB_CB(skb)->seq + 1);
  		WRITE_ONCE(tp->copied_seq, tp->rcv_nxt);
  		tp->rcv_wup = TCP_SKB_CB(skb)->seq + 1;
@@ -210,7 +210,7 @@ index dafb63b923d0d08cb1a0e9a37d8ec025386a960a..d350d794a959720853ffd8937cfdc34c
  	if (newtp->rx_opt.wscale_ok) {
  		newtp->rx_opt.snd_wscale = ireq->snd_wscale;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 691fc76c55083807a60a05a61d7f8a36f6de0c24..10e23f1aecfb9a6cf86db55729c08bff9431c8ee 100644
+index a51186b42be93362f2d53af85dd6540a1fbb2f09..db16cd6fa47de477193d8677926c90039fbfe081 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -293,6 +293,7 @@ static u16 tcp_select_window(struct sock *sk)
@@ -229,7 +229,7 @@ index 691fc76c55083807a60a05a61d7f8a36f6de0c24..10e23f1aecfb9a6cf86db55729c08bff
  
  	/* Make sure we do not exceed the maximum possible
  	 * scaled window.
-@@ -4170,6 +4172,7 @@ static void tcp_connect_init(struct sock *sk)
+@@ -4148,6 +4150,7 @@ static void tcp_connect_init(struct sock *sk)
  	else
  		tp->rcv_tstamp = tcp_jiffies32;
  	tp->rcv_wup = tp->rcv_nxt;

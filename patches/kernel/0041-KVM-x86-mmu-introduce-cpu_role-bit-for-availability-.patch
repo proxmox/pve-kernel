@@ -41,10 +41,10 @@ index 8b4a55cc0918ebd093aeaf435de7cfe18e382e18..e20f729f6eb2ee5a36edeb3decd6a2bb
  };
  
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 51c605cd15c80829e74173a5fde794ec7dfbea9f..74b6fb7f783615b850fb5c7d66c8a875b92e0072 100644
+index c33bc216c7af2e4d67f254e4affa4f4bfa6a046d..5be58e312bc60ecbcaa67fdfcaffa80661c69cda 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -234,6 +234,11 @@ BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
+@@ -236,6 +236,11 @@ BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
  BUILD_MMU_ROLE_ACCESSOR(base, efer, nx);
  BUILD_MMU_ROLE_ACCESSOR(ext,  efer, lma);
  
@@ -56,7 +56,7 @@ index 51c605cd15c80829e74173a5fde794ec7dfbea9f..74b6fb7f783615b850fb5c7d66c8a875
  static inline bool is_cr0_pg(struct kvm_mmu *mmu)
  {
          return mmu->cpu_role.base.level > 0;
-@@ -5784,6 +5789,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5777,6 +5782,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  	role.ext.cr4_pke = ____is_efer_lma(regs) && ____is_cr4_pke(regs);
  	role.ext.cr4_la57 = ____is_efer_lma(regs) && ____is_cr4_la57(regs);
  	role.ext.efer_lma = ____is_efer_lma(regs);
@@ -65,7 +65,7 @@ index 51c605cd15c80829e74173a5fde794ec7dfbea9f..74b6fb7f783615b850fb5c7d66c8a875
  	return role;
  }
  
-@@ -5937,6 +5944,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
+@@ -5930,6 +5937,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
  
  	/* NPT requires CR0.PG=1. */
  	WARN_ON_ONCE(cpu_role.base.direct || !cpu_role.base.guest_mode);

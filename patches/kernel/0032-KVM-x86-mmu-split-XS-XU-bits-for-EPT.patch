@@ -45,10 +45,10 @@ index 63be5c5efed98ab97977c4c5f1b2f75fb7c5791c..d8c13e43c2d7967811f9f995c5615f3e
  #define ACC_ALL          (ACC_EXEC_MASK | ACC_WRITE_MASK | ACC_USER_MASK | ACC_READ_MASK)
  
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index d9236a6c07edb320356230869623c74da86bbd79..25ee4d04e5cef081fd2cd863f078a4f65224cfa3 100644
+index 2bc72ec4f534b997893a46c2d70f85b9cd8fd8cb..b8964d7a900750224a4a3a6fee581a5eccf078db 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5482,7 +5482,7 @@ static void reset_shadow_zero_bits_mask(struct kvm_vcpu *vcpu,
+@@ -5475,7 +5475,7 @@ static void reset_shadow_zero_bits_mask(struct kvm_vcpu *vcpu,
  static inline bool boot_cpu_is_amd(void)
  {
  	WARN_ON_ONCE(!tdp_enabled);

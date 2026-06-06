@@ -18,10 +18,10 @@ Link: https://lore.kernel.org/20260309-tcp_rfc7323_retract_wnd_rfc-v3-3-4c7f96b1
  1 file changed, 1 insertion(+)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c108b8fd7664139e004a3d8f8a4ca6d1a696b1bd..a1d94526fb649df0a5eb000dcf8759125a1e3da2 100644
+index 7c90832f4c30007194fa3679d7969b7b56d4b855..47fbcfde3827ec8cb27c24a43088f20a91af405f 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -5732,6 +5732,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+@@ -5738,6 +5738,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
  	if (!before(TCP_SKB_CB(skb)->seq,
  		    tp->rcv_nxt + tcp_receive_window(tp))) {
  		reason = SKB_DROP_REASON_TCP_OVERWINDOW;

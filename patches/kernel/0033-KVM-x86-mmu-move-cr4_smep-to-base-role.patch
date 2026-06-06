@@ -130,10 +130,10 @@ index a20263a4e7270984b9d6398db85f99ea66180bd4..8b4a55cc0918ebd093aeaf435de7cfe1
  	void (*load_mmu_pgd)(struct kvm_vcpu *vcpu, hpa_t root_hpa,
  			     int root_level);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 25ee4d04e5cef081fd2cd863f078a4f65224cfa3..e72baca6fea0be8bfe111c1d8acadf23631de504 100644
+index b8964d7a900750224a4a3a6fee581a5eccf078db..3f284959d22f7df31391b1b47b8a1eef3aa54b37 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -227,7 +227,7 @@ static inline bool __maybe_unused is_##reg##_##name(struct kvm_mmu *mmu)	\
+@@ -229,7 +229,7 @@ static inline bool __maybe_unused is_##reg##_##name(struct kvm_mmu *mmu)	\
  }
  BUILD_MMU_ROLE_ACCESSOR(base, cr0, wp);
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, pse);
@@ -142,7 +142,7 @@ index 25ee4d04e5cef081fd2cd863f078a4f65224cfa3..e72baca6fea0be8bfe111c1d8acadf23
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, smap);
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, pke);
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
-@@ -5755,7 +5755,7 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5748,7 +5748,7 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  
  	role.base.efer_nx = ____is_efer_nx(regs);
  	role.base.cr0_wp = ____is_cr0_wp(regs);
@@ -151,7 +151,7 @@ index 25ee4d04e5cef081fd2cd863f078a4f65224cfa3..e72baca6fea0be8bfe111c1d8acadf23
  	role.base.smap_andnot_wp = ____is_cr4_smap(regs) && !____is_cr0_wp(regs);
  	role.base.has_4_byte_gpte = !____is_cr4_pae(regs);
  
-@@ -5767,7 +5767,6 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5760,7 +5760,6 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  	else
  		role.base.level = PT32_ROOT_LEVEL;
  
@@ -159,7 +159,7 @@ index 25ee4d04e5cef081fd2cd863f078a4f65224cfa3..e72baca6fea0be8bfe111c1d8acadf23
  	role.ext.cr4_smap = ____is_cr4_smap(regs);
  	role.ext.cr4_pse = ____is_cr4_pse(regs);
  
-@@ -5826,6 +5825,7 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5819,6 +5818,7 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  
  	role.access = ACC_ALL;
  	role.cr0_wp = true;

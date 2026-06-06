@@ -40,13 +40,13 @@ index 65671d3769f0f2ab6168bf7bbb8f3a329c63d4d0..a20263a4e7270984b9d6398db85f99ea
  	int (*enable_evmcs)(struct kvm_vcpu *vcpu,
  			    uint16_t *vmcs_version);
 diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
-index 53688f7b76eb9f7fc8dc29e10d6ad8ae87bfce27..f35fae3a7b3dd27ebc9c5e1b3a445615d2bfa463 100644
+index 12cecc6bfbfe760d07aec5927deda5771b89455d..015c6947b462ecafa0de9a71a4183f5c449674b7 100644
 --- a/arch/x86/kvm/hyperv.c
 +++ b/arch/x86/kvm/hyperv.c
 @@ -2041,7 +2041,8 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
  	 * read with kvm_read_guest().
  	 */
- 	if (!hc->fast && is_guest_mode(vcpu)) {
+ 	if (!hc->fast && mmu_is_nested(vcpu)) {
 -		hc->ingpa = translate_nested_gpa(vcpu, hc->ingpa,
 +		hc->ingpa = kvm_x86_ops.nested_ops->translate_nested_gpa(
 +					vcpu, hc->ingpa,

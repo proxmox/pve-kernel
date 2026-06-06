@@ -26,10 +26,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 43 insertions(+), 8 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index e72baca6fea0be8bfe111c1d8acadf23631de504..f2b8140d85d2c7648ed99b37c9c5ac166699b95d 100644
+index 3f284959d22f7df31391b1b47b8a1eef3aa54b37..44de0729e5c1ff5836ea9ede40b77f82626dbee3 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5561,7 +5561,6 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5554,7 +5554,6 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  {
  	unsigned byte;
  
@@ -37,7 +37,7 @@ index e72baca6fea0be8bfe111c1d8acadf23631de504..f2b8140d85d2c7648ed99b37c9c5ac16
  	const u16 w = ACC_BITS_MASK(ACC_WRITE_MASK);
  	const u16 r = ACC_BITS_MASK(ACC_READ_MASK);
  
-@@ -5602,8 +5601,18 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5595,8 +5594,18 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  		u16 smapf = 0;
  
  		if (ept) {

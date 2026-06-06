@@ -104,10 +104,10 @@ index 830f46145692aec3e19a5e976b17b7bb04369809..23f37535c0ce1d1e8e855ef3f94cae97
  void kvm_init_mmu(struct kvm_vcpu *vcpu);
  void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 4d313a8f7ea0b2b718080f39b0daf45c0e49a169..a26514124fe5bec6fe954ee1f340b3ee40103137 100644
+index 5faa005beb689cb817fc97b0226f737424f896b9..b373347fbfa0e3e1a43b734574edc5b8645da03a 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -2033,7 +2033,7 @@ static bool kvm_sync_page_check(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp)
+@@ -2022,7 +2022,7 @@ static bool kvm_sync_page_check(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp)
  	 */
  	const union kvm_mmu_page_role sync_role_ign = {
  		.level = 0xf,
@@ -116,7 +116,7 @@ index 4d313a8f7ea0b2b718080f39b0daf45c0e49a169..a26514124fe5bec6fe954ee1f340b3ee
  		.quadrant = 0x3,
  		.passthrough = 0x1,
  	};
-@@ -5530,7 +5530,7 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+@@ -5523,7 +5523,7 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
   * update_permission_bitmask() builds what is effectively a
   * two-dimensional array of bools.  The second dimension is
   * provided by individual bits of permissions[pfec >> 1], and
@@ -125,7 +125,7 @@ index 4d313a8f7ea0b2b718080f39b0daf45c0e49a169..a26514124fe5bec6fe954ee1f340b3ee
   * combinations of ACC_* bits.
   */
  #define ACC_BITS_MASK(access) \
-@@ -5540,15 +5540,23 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+@@ -5533,15 +5533,23 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
  	 (4 & (access) ? 1 << 4 : 0) | \
  	 (5 & (access) ? 1 << 5 : 0) | \
  	 (6 & (access) ? 1 << 6 : 0) | \
@@ -153,7 +153,7 @@ index 4d313a8f7ea0b2b718080f39b0daf45c0e49a169..a26514124fe5bec6fe954ee1f340b3ee
  
  	bool cr4_smep = is_cr4_smep(mmu);
  	bool cr4_smap = is_cr4_smap(mmu);
-@@ -5571,32 +5579,33 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5564,32 +5572,33 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  		unsigned pfec = byte << 1;
  
  		/*

@@ -19,10 +19,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 68 deletions(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index fd0730375b46e99fb003245a42400a2518affb40..f26ea387934f000de565ea67ade7fc74ccc8c280 100644
+index ef2d57939001cf98c185a61f5219a13da8352279..786a8d15743fb016846beb23a4a5d888f8fc8a65 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
-@@ -4003,74 +4003,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
+@@ -4008,74 +4008,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163A, quirk_iommu_igfx);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163D, quirk_iommu_igfx);
  

@@ -19,10 +19,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 15 insertions(+), 11 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index d4bb693b3555c3c77d86834a590372ba94fb6e78..4d313a8f7ea0b2b718080f39b0daf45c0e49a169 100644
+index 218f767bacda71e6b6d6ca1cf75ac5c54a5fd522..5faa005beb689cb817fc97b0226f737424f896b9 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5575,24 +5575,28 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5568,24 +5568,28 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  		 * that causes a fault with the given PFEC.
  		 */
  
@@ -60,7 +60,7 @@ index d4bb693b3555c3c77d86834a590372ba94fb6e78..4d313a8f7ea0b2b718080f39b0daf45c
  
  			/* Allow supervisor writes if !cr0.wp */
  			if (!cr0_wp)
-@@ -5600,7 +5604,7 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5593,7 +5597,7 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  
  			/* Disallow supervisor fetches of user code if cr4.smep */
  			if (cr4_smep)
@@ -69,7 +69,7 @@ index d4bb693b3555c3c77d86834a590372ba94fb6e78..4d313a8f7ea0b2b718080f39b0daf45c
  
  			/*
  			 * SMAP:kernel-mode data accesses from user-mode
-@@ -5621,7 +5625,7 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5614,7 +5618,7 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  				smapf = (pfec & (PFERR_RSVD_MASK|PFERR_FETCH_MASK)) ? 0 : kf;
  		}
  
