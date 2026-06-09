@@ -1,8 +1,8 @@
-proxmox-kernel-7.0 (7.0.11-1) trixie; urgency=medium
+proxmox-kernel-7.0 (7.0.12-1) trixie; urgency=medium
 
-  * update submodule and patches for Proxmox-7.0.11-1.
+  * update submodule and patches for Proxmox-7.0.12-1.
 
- -- Proxmox Support Team <support@proxmox.com>  Sat, 06 Jun 2026 14:02:58 +0200
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 09 Jun 2026 23:07:01 +0200
 
 proxmox-kernel-7.0 (7.0.6-2) trixie; urgency=medium
 
