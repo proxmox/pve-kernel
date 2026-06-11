@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.12-30) bookworm; urgency=medium
+
+  * fix IOMMU regression
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 11 Jun 2026 12:10:01 +0200
+
 proxmox-kernel-6.8 (6.8.12-29) bookworm; urgency=medium
 
   * update submodule to Ubuntu-6.8.0-130.130 and refresh patches.
