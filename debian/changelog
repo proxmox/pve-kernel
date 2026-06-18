@@ -1,3 +1,13 @@
+proxmox-kernel-6.8 (6.8.12-31) bookworm; urgency=medium
+
+  * update submodule to Ubuntu-6.8.0-130.130i1 and refresh patches
+    - sync upstream stable kernel changes 6.6.129-6.6.140
+    - sync upstream stable kernel changes 6.12.76-6.12.90
+
+  * update ZFS to 2.2.10
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Jun 2026 11:06:52 +0200
+
 proxmox-kernel-6.8 (6.8.12-30) bookworm; urgency=medium
 
   * fix IOMMU regression
