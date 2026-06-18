@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fabian=20Gr=C3=BCnbichler?= <f.gruenbichler@proxmox.com>
+Date: Thu, 18 Jun 2026 11:37:01 +0200
+Subject: [PATCH] Revert "perf annotate: Use jump__delete when freeing
+ LoongArch jumps"
+
+This reverts commit c760ca126deb7523c2911875b8ad6876f4225dfd for now.
+
+It got pulled in by Ubuntu via 6.12, but does not work in 6.8 which is lacking
+98f69a573c668a18cfda41b3976118e04521a196 (6.10+).
+---
+ tools/perf/arch/loongarch/annotate/instructions.c | 1 -
+ tools/perf/util/annotate.c                        | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/tools/perf/arch/loongarch/annotate/instructions.c b/tools/perf/arch/loongarch/annotate/instructions.c
+index 7a383d67e0211ca93862f51c42e5233a60163023..21cc7e4149f721d7d0a28f715df89a991fc3d606 100644
+--- a/tools/perf/arch/loongarch/annotate/instructions.c
++++ b/tools/perf/arch/loongarch/annotate/instructions.c
+@@ -93,7 +93,6 @@ static int loongarch_jump__parse(struct arch *arch, struct ins_operands *ops, st
+ }
+ 
+ static struct ins_ops loongarch_jump_ops = {
+-	.free	   = jump__delete,
+ 	.parse	   = loongarch_jump__parse,
+ 	.scnprintf = jump__scnprintf,
+ };
+diff --git a/tools/perf/util/annotate.c b/tools/perf/util/annotate.c
+index 69348078b6c028dbe3a166b30732e57d8c3bbbe3..6db5019976f6dbc701f0efa722788806b9be6868 100644
+--- a/tools/perf/util/annotate.c
++++ b/tools/perf/util/annotate.c
+@@ -71,7 +71,6 @@ static int call__scnprintf(struct ins *ins, char *bf, size_t size,
+ 			  struct ins_operands *ops, int max_ins_name);
+ static int jump__scnprintf(struct ins *ins, char *bf, size_t size,
+ 			  struct ins_operands *ops, int max_ins_name);
+-static int jump__delete(struct ins_operands *ops);
+ 
+ struct arch {
+ 	const char	*name;
