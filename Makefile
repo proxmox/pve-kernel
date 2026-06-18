@@ -24,7 +24,7 @@ KVNAME=$(KERNEL_VER)$(EXTRAVERSION)
 PACKAGE=proxmox-kernel-$(KVNAME)
 HDRPACKAGE=proxmox-headers-$(KVNAME)
 
-ARCH=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
+ARCH=$(shell dpkg-architecture -qDEB_HOST_ARCH)
 
 SUPPORTED_ARCHS = amd64 arm64
 ifeq ($(filter $(ARCH),$(SUPPORTED_ARCHS)),)
