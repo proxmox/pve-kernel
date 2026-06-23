@@ -24,10 +24,10 @@ index 4487094e6fa5aec66446c4c7b0386e86675a8b63..da7aae370001031f0591a23e030214ea
  tcp_challenge_ack_limit - INTEGER
  	Limits number of Challenge ACK sent per second, as recommended
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 84d3d556ed8062d07fe7019bc0dadd90d3b80d96..fdec015f4731742b554a63e9d3d2a0da460833ef 100644
+index e20ca38f1b49e27cd89c01df62792c929c9d04b4..7186ba7cc05e897d00f033e129168e93731d601c 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -3630,8 +3630,8 @@ static int __net_init tcp_sk_init(struct net *net)
+@@ -3631,8 +3631,8 @@ static int __net_init tcp_sk_init(struct net *net)
  	 * which are too large can cause TCP streams to be bursty.
  	 */
  	net->ipv4.sysctl_tcp_tso_win_divisor = 3;

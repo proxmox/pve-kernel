@@ -71,6 +71,8 @@ that includes that change; so we should rather only drop it if the
 maintenance burden is high.
 
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+FG: rebase on top of b45f721775947 (x86/fpu: Clear XSTATE_BV[i] in guest XSAVE state whenever XFD[i]=1, 2025-12-31)
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  arch/x86/kvm/cpuid.c |  5 +++++
  arch/x86/kvm/cpuid.h |  3 +++
@@ -109,12 +111,12 @@ index d3f5ae15a7ca314675ad0b4e7347ddd2c205a69f..d9d3f24eca4ec7f48680933ef7291c52
  
  int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu);
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 0535914fedd7776fa737a5db9cd3cf693087a7e4..e4bdd8894794c7ce8873d01a23d02e574aaa3347 100644
+index a9faf45af6e9d03ab768b84e87256961ded3ba71..153167d42d2c1053e82d924dcda753429ffb2a3b 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -5704,6 +5704,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
- 	if (fpstate_is_confidential(&vcpu->arch.guest_fpu))
- 		return vcpu->kvm->arch.has_protected_state ? -EINVAL : 0;
+@@ -5713,6 +5713,19 @@ static int kvm_vcpu_ioctl_x86_set_xsave(struct kvm_vcpu *vcpu,
+ 	 */
+ 	xstate->xsave.header.xfeatures &= ~vcpu->arch.guest_fpu.fpstate->xfd;
  
 +	if (!vcpu_supports_xsave_pkru(vcpu)) {
 +		void *buf = guest_xsave->region;

@@ -23,10 +23,10 @@ index 9756d16e3df1400626ce24726feceaeefa5da523..4487094e6fa5aec66446c4c7b0386e86
  tcp_sack - BOOLEAN
  	Enable select acknowledgments (SACKS).
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index f421cad69d8c94ecf39fd47a56b2593b282ba7db..deeb05db0f139be46468976458037365ffbfe621 100644
+index 62e6c80f96f6df12dbd2ac81a6130dba689ac085..2bef1672d25836283a572d1258be910cfee24cdf 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -5237,7 +5237,7 @@ void __init tcp_init(void)
+@@ -5236,7 +5236,7 @@ void __init tcp_init(void)
  	/* Set per-socket limits to no more than 1/128 the pressure threshold */
  	limit = nr_free_buffer_pages() << (PAGE_SHIFT - 7);
  	max_wshare = min(4UL*1024*1024, limit);
