@@ -1,3 +1,12 @@
+proxmox-kernel-6.17 (6.17.13-14) trixie; urgency=medium
+
+  * update submodule and patches to Ubuntu-6.17.0-41.41
+    - includes upstream 6.12.66-6.12.69 changes
+    - includes upstream 6.18.5-6.18.9 changes
+    - drop CIFSwitch fix now included upstream
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 23 Jun 2026 14:24:29 +0200
+
 proxmox-kernel-6.17 (6.17.13-13) trixie; urgency=medium
 
   * update submodule and patches to Ubuntu-6.17.0-38.38, dropping some of the
