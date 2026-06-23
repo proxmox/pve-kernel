@@ -11,7 +11,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
-index 1e40824b1ba1c26a569ae46b15cb50864a12e95b..c38de475a6ef5cc13d63294c05c64229fb998754 100644
+index c059361c5a54fa3826934c30e4ec91a868ec2080..4faf830b2167ff2faf15357e92d6fc89146010ad 100644
 --- a/drivers/iommu/intel/iommu.c
 +++ b/drivers/iommu/intel/iommu.c
 @@ -234,6 +234,7 @@ static int dmar_map_gfx = 1;
