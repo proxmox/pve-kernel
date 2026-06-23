@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-32) bookworm; urgency=medium
+
+  * update submodule to Ubuntu-6.8.0-132.132 and refresh patches
+    - sync upstream stable kernel changes 6.6.141
+    - sync upstream stable kernel changes 6.12.91
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 23 Jun 2026 11:50:48 +0200
+
 proxmox-kernel-6.8 (6.8.12-31) bookworm; urgency=medium
 
   * update submodule to Ubuntu-6.8.0-130.130i1 and refresh patches
