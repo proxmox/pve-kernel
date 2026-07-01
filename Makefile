@@ -3,7 +3,7 @@ include /usr/share/dpkg/pkg-info.mk
 # also bump proxmox-kernel-meta if the default MAJ.MIN version changes!
 KERNEL_MAJ=7
 KERNEL_MIN=0
-KERNEL_PATCHLEVEL=12
+KERNEL_PATCHLEVEL=14
 # increment KREL for every published package release!
 # rebuild packages with new KREL and run 'make abiupdate'
 KREL=1
