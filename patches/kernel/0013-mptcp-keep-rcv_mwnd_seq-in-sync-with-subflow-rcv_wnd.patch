@@ -18,10 +18,10 @@ Link: https://lore.kernel.org/20260309-tcp_rfc7323_retract_wnd_rfc-v3-2-4c7f96b1
  1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/net/mptcp/options.c b/net/mptcp/options.c
-index 43df4293f58bfbd8a8df6bf24b9f15e0f9e238f6..8a1c5698983cff3082d68290626dd8f1e044527f 100644
+index 845860311ea672c0d8af5d291175bc24ff7cbeca..0a53e03915ebd025a3ff859393decb60d857797d 100644
 --- a/net/mptcp/options.c
 +++ b/net/mptcp/options.c
-@@ -1076,6 +1076,7 @@ static void rwin_update(struct mptcp_sock *msk, struct sock *ssk,
+@@ -1063,6 +1063,7 @@ static void rwin_update(struct mptcp_sock *msk, struct sock *ssk,
  	 * resync.
  	 */
  	tp->rcv_wnd += mptcp_rcv_wnd - subflow->rcv_wnd_sent;
@@ -29,7 +29,7 @@ index 43df4293f58bfbd8a8df6bf24b9f15e0f9e238f6..8a1c5698983cff3082d68290626dd8f1
  	subflow->rcv_wnd_sent = mptcp_rcv_wnd;
  }
  
-@@ -1338,8 +1339,9 @@ static void mptcp_set_rwin(struct tcp_sock *tp, struct tcphdr *th)
+@@ -1320,8 +1321,9 @@ static u64 mptcp_set_rwin(struct mptcp_sock *msk, struct tcp_sock *tp,
  		 */
  		rcv_wnd_new = rcv_wnd_old;
  		win = rcv_wnd_old - ack_seq;
