@@ -1,3 +1,9 @@
+proxmox-kernel-7.0 (7.0.14-2) trixie; urgency=medium
+
+  * update ZFS to 2.4.3.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 01 Jul 2026 20:40:24 +0200
+
 proxmox-kernel-7.0 (7.0.14-1) trixie; urgency=medium
 
   * update submodule and patches for Proxmox-7.0.14-1.
