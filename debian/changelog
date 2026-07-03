@@ -1,3 +1,11 @@
+proxmox-kernel-7.0 (7.0.14-3) trixie; urgency=medium
+
+  * revert the recently added AMD display Idle State Manager (ISM), which
+    triggered a kernel NULL-pointer dereference and a hung VM start when an
+    amdgpu GPU was unbound for PCIe passthrough.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 03 Jul 2026 21:51:44 +0200
+
 proxmox-kernel-7.0 (7.0.14-2) trixie; urgency=medium
 
   * update ZFS to 2.4.3.
