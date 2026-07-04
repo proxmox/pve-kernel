@@ -1,0 +1,142 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Srinivasan Shanmugam <srinivasan.shanmugam@amd.com>
+Date: Wed, 15 Apr 2026 06:33:33 +0530
+Subject: [PATCH] drm/amd/display: Fix ISM teardown crash from NULL dc
+ dereference
+
+The Idle State Manager (ISM) uses delayed work to apply display idle
+optimizations later, instead of immediately. This helps avoid rapid idle
+transitions that can hurt power or performance.
+
+A crash was seen during driver teardown. The system boots normally and
+the driver loads successfully. Later, when the GPU is being stopped, the
+log shows:
+
+  amdgpu 0000:0e:00.0: finishing device.
+  Workqueue: events_unbound dm_ism_sso_delayed_work_func [amdgpu]
+
+After this, delayed ISM work still runs and reaches:
+
+  dm_ism_sso_delayed_work_func()
+    -> amdgpu_dm_ism_commit_event()
+    -> dm_ism_commit_idle_optimization_state()
+    -> dc_allow_idle_optimizations_internal()
+
+The crash report showed:
+  KASAN: null-ptr-deref in range [0x690-0x697]
+
+Signature:
+	[22601.113316] KASAN: null-ptr-deref in range [0x0000000000000690-0x0000000000000697]
+	...
+	[22601.113368] Workqueue: events_unbound dm_ism_sso_delayed_work_func [amdgpu]
+	[22601.113930] RIP: 0010:dc_allow_idle_optimizations_internal+0xa6/0xc40 [amdgpu]
+	...
+	[22601.114491] RDX: dffffc0000000000 RSI: 0000000000000000 RDI: 0000000000000690
+	...
+	[22601.114561] Call Trace:
+	[22601.114566]  <TASK>
+	[22601.114572]  ? srso_alias_return_thunk+0x5/0xfbef5
+	[22601.114582]  ? update_load_avg+0x1b6/0x20b0
+	[22601.114593]  ? __pfx_dc_allow_idle_optimizations_internal+0x10/0x10 [amdgpu]
+	[22601.114932]  ? psi_group_change+0x4ed/0x8d0
+	[22601.114942]  dm_ism_commit_idle_optimization_state+0x214/0x570 [amdgpu]
+	[22601.115268]  amdgpu_dm_ism_commit_event+0xe1d/0x15a0 [amdgpu]
+	[22601.115588]  ? srso_alias_return_thunk+0x5/0xfbef5
+	[22601.115595]  ? __kasan_check_write+0x18/0x20
+	[22601.115603]  ? srso_alias_return_thunk+0x5/0xfbef5
+	[22601.115610]  ? mutex_lock+0x83/0xc0
+	[22601.115620]  dm_ism_sso_delayed_work_func+0x64/0x90 [amdgpu]
+
+GDB resolved dc_allow_idle_optimizations_internal+0xa6 to:
+
+  struct dc_state *context = dc->current_state;
+
+The matching disassembly showed:
+
+  mov %rdi, %r12
+  mov 0x690(%r12), %r13
+
+where r12 holds the dc pointer. A GDB layout dump of struct dc showed:
+
+  /* 1680 | 8 */ struct dc_state *current_state;
+
+Since 1680 decimal is 0x690, this confirms that current_state is at
+offset 0x690. The faulting access was effectively:
+
+  dc + 0x690
+
+which indicates that dc was NULL at the time of dereference.
+
+This shows that ISM work can still run during teardown after dc has
+been cleared.
+
+ISM is not expected to run after dc is destroyed. Fix this by disabling
+ISM under dc_lock in amdgpu_dm_fini() before dc_destroy(), ensuring no
+further ISM work runs after dc teardown.
+
+Also add ASSERT(dm->dc) in amdgpu_dm_ism_commit_event() to enforce this
+invariant, and ASSERT(mutex_is_locked(&dm->dc_lock)) in
+amdgpu_dm_ism_disable() to clarify the locking requirement.
+
+Fixes: 754003486c3c ("drm/amd/display: Add Idle state manager(ISM)")
+Suggested-by: Leo Li <sunpeng.li@amd.com>
+Cc: Ray Wu <ray.wu@amd.com>
+Cc: Roman Li <roman.li@amd.com>
+Cc: Alex Hung <alex.hung@amd.com>
+Cc: Tom Chung <chiahsuan.chung@amd.com>
+Cc: Harry Wentland <harry.wentland@amd.com>
+Cc: Aurabindo Pillai <aurabindo.pillai@amd.com>
+Cc: Mario Limonciello (AMD) <superm1@kernel.org>
+Signed-off-by: Srinivasan Shanmugam <srinivasan.shanmugam@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit 732a8adde033fb084f16409206b7d9ee9c3849c9)
+[ adapted to the Ubuntu SAUCE tree, whose amdgpu_dm_fini() lacks the
+  per-CRTC amdgpu_dm_ism_fini() loop that upstream rewrote; only the
+  amdgpu_dm_ism_disable() call is added, the ASSERTs apply unchanged.
+  Same crash seen on a Radeon RX 9070 XT passed through to a guest,
+  faulting at dc + 0xb4 rather than 0x690. ]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c     | 4 ++++
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c | 5 +++++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 37cdd7e5e95d..80d373669bdd 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2242,6 +2242,10 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
+ 		adev->dm.idle_workqueue = NULL;
+ 	}
+ 
++	/* Disable ISM before dc_destroy() invalidates dm->dc */
++	scoped_guard(mutex, &adev->dm.dc_lock)
++		amdgpu_dm_ism_disable(&adev->dm);
++
+ 	amdgpu_dm_destroy_drm_device(&adev->dm);
+ 
+ #if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c
+index 65a5cfe1e106..065fa8a92bee 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c
+@@ -463,6 +463,9 @@ void amdgpu_dm_ism_commit_event(struct amdgpu_dm_ism *ism,
+ 	/* ISM transitions must be called with mutex acquired */
+ 	ASSERT(mutex_is_locked(&dm->dc_lock));
+ 
++	/* ISM should not run after dc is destroyed */
++	ASSERT(dm->dc);
++
+ 	if (!acrtc_state) {
+ 		trace_amdgpu_dm_ism_event(acrtc->crtc_id, "NO_STATE",
+ 					  "NO_STATE", "N/A");
+@@ -536,6 +539,8 @@ void amdgpu_dm_ism_disable(struct amdgpu_display_manager *dm)
+ 	struct amdgpu_crtc *acrtc;
+ 	struct amdgpu_dm_ism *ism;
+ 
++	ASSERT(mutex_is_locked(&dm->dc_lock));
++
+ 	drm_for_each_crtc(crtc, dm->ddev) {
+ 		acrtc = to_amdgpu_crtc(crtc);
+ 		ism = &acrtc->ism;
