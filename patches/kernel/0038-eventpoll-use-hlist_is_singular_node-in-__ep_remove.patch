@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Brauner <brauner@kernel.org>
+Date: Thu, 23 Apr 2026 11:56:04 +0200
+Subject: [PATCH] eventpoll: use hlist_is_singular_node() in __ep_remove()
+
+[ Upstream commit 3d9fd0abc94d8cd430cc7cd7d37ce5e5aae2cd2b ]
+
+Replace the open-coded "epi is the only entry in file->f_ep" check
+with hlist_is_singular_node(). Same semantics, and the helper avoids
+the head-cacheline access in the common false case.
+
+Link: https://patch.msgid.link/20260423-work-epoll-uaf-v1-1-2470f9eec0f5@kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Stable-dep-of: a6dc643c6931 ("eventpoll: fix ep_remove struct eventpoll / struct file UAF")
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 9348f4763aa9b9e97fb006edc7aabd2aa209e5eb)
+---
+ fs/eventpoll.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+index ee7c4b683ec3d24c1650af1d027599455da801b0..82f6f7545318fa6af5cdcd526857dd031918d96f 100644
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -852,7 +852,7 @@ static bool __ep_remove(struct eventpoll *ep, struct epitem *epi, bool force)
+ 
+ 	to_free = NULL;
+ 	head = file->f_ep;
+-	if (head->first == &epi->fllink && !epi->fllink.next) {
++	if (hlist_is_singular_node(&epi->fllink, head)) {
+ 		/* See eventpoll_release() for details. */
+ 		WRITE_ONCE(file->f_ep, NULL);
+ 		if (!is_file_epoll(file)) {
