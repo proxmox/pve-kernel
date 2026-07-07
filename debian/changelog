@@ -1,3 +1,10 @@
+proxmox-kernel-7.0 (7.0.14-4) trixie; urgency=medium
+
+  * backport "KVM: x86: Fix shadow paging use-after-free due to unexpected
+    role" for CVE-2026-53359.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 07 Jul 2026 09:27:02 +0200
+
 proxmox-kernel-7.0 (7.0.14-3) trixie; urgency=medium
 
   * revert the recently added AMD display Idle State Manager (ISM), which
