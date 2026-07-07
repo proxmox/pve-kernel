@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Brauner <brauner@kernel.org>
+Date: Fri, 26 Jun 2026 12:14:00 +0800
+Subject: [PATCH] eventpoll: drop vestigial __ prefix from
+ ep_remove_{file,epi}()
+
+[ Upstream commit 0feaf644f7180c4a91b6b405a881afbfd958f1cf ]
+
+With __ep_remove() gone, the double-underscore on __ep_remove_file()
+and __ep_remove_epi() no longer contrasts with a __-less parent and
+just reads as noise. Rename both to ep_remove_file() and
+ep_remove_epi(). No functional change.
+
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Stable-dep-of: a6dc643c6931 ("eventpoll: fix ep_remove struct eventpoll / struct file UAF")
+Signed-off-by: Quentin Schulz <quentin.schulz@cherry.de>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 0a4a2db528b0eff6afcd4d11520a548d10e8351a)
+---
+ fs/eventpoll.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+index 6599f83510015200c18983dadccf7167a6311c23..99db6a6ede6b19c777b1711b6d17b56d8f8571d6 100644
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -718,7 +718,7 @@ static void ep_free(struct eventpoll *ep)
+  * Called with &file->f_lock held,
+  * returns with it released
+  */
+-static void __ep_remove_file(struct eventpoll *ep, struct epitem *epi,
++static void ep_remove_file(struct eventpoll *ep, struct epitem *epi,
+ 			     struct file *file)
+ {
+ 	struct epitems_head *to_free = NULL;
+@@ -742,7 +742,7 @@ static void __ep_remove_file(struct eventpoll *ep, struct epitem *epi,
+ 	free_ephead(to_free);
+ }
+ 
+-static bool __ep_remove_epi(struct eventpoll *ep, struct epitem *epi)
++static bool ep_remove_epi(struct eventpoll *ep, struct epitem *epi)
+ {
+ 	lockdep_assert_held(&ep->mtx);
+ 
+@@ -788,9 +788,9 @@ static void ep_remove_safe(struct eventpoll *ep, struct epitem *epi)
+ 		spin_unlock(&file->f_lock);
+ 		return;
+ 	}
+-	__ep_remove_file(ep, epi, file);
++	ep_remove_file(ep, epi, file);
+ 
+-	if (__ep_remove_epi(ep, epi))
++	if (ep_remove_epi(ep, epi))
+ 		WARN_ON_ONCE(ep_refcount_dec_and_test(ep));
+ }
+ 
+@@ -1012,8 +1012,8 @@ void eventpoll_release_file(struct file *file)
+ 		ep_unregister_pollwait(ep, epi);
+ 
+ 		spin_lock(&file->f_lock);
+-		__ep_remove_file(ep, epi, file);
+-		dispose = __ep_remove_epi(ep, epi);
++		ep_remove_file(ep, epi, file);
++		dispose = ep_remove_epi(ep, epi);
+ 
+ 		mutex_unlock(&ep->mtx);
+ 

@@ -1,0 +1,97 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Brauner <brauner@kernel.org>
+Date: Fri, 26 Jun 2026 12:14:02 +0800
+Subject: [PATCH] eventpoll: move epi_fget() up
+
+[ Upstream commit 86e87059e6d1fd5115a31949726450ed03c1073b ]
+
+We'll need it when removing files so move it up. No functional change.
+
+Link: https://patch.msgid.link/20260423-work-epoll-uaf-v1-5-2470f9eec0f5@kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Stable-dep-of: a6dc643c6931 ("eventpoll: fix ep_remove struct eventpoll / struct file UAF")
+[file_ref_get(&file->f_ref) from original commit left as
+ atomic_long_inc_not_zero(&file->f_count) due to v6.12.y missing commit
+ 90ee6ed776c0 ("fs: port files to file_ref") and its dependent commit
+ 08ef26ea9ab3 ("fs: add file_ref")]
+Signed-off-by: Quentin Schulz <quentin.schulz@cherry.de>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a0e685da1efe06dc01ebe83364d429cb5bcd24cd)
+---
+ fs/eventpoll.c | 56 +++++++++++++++++++++++++-------------------------
+ 1 file changed, 28 insertions(+), 28 deletions(-)
+
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+index 1a851b9a91b8f9da6d6dff77008be114b381acae..ddcf5736d2ab9ec33b77dfb988d6ee6f9e76c007 100644
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -714,6 +714,34 @@ static void ep_free(struct eventpoll *ep)
+ 	kfree_rcu(ep, rcu);
+ }
+ 
++/*
++ * The ffd.file pointer may be in the process of being torn down due to
++ * being closed, but we may not have finished eventpoll_release() yet.
++ *
++ * Normally, even with the atomic_long_inc_not_zero, the file may have
++ * been free'd and then gotten re-allocated to something else (since
++ * files are not RCU-delayed, they are SLAB_TYPESAFE_BY_RCU).
++ *
++ * But for epoll, users hold the ep->mtx mutex, and as such any file in
++ * the process of being free'd will block in eventpoll_release_file()
++ * and thus the underlying file allocation will not be free'd, and the
++ * file re-use cannot happen.
++ *
++ * For the same reason we can avoid a rcu_read_lock() around the
++ * operation - 'ffd.file' cannot go away even if the refcount has
++ * reached zero (but we must still not call out to ->poll() functions
++ * etc).
++ */
++static struct file *epi_fget(const struct epitem *epi)
++{
++	struct file *file;
++
++	file = epi->ffd.file;
++	if (!atomic_long_inc_not_zero(&file->f_count))
++		file = NULL;
++	return file;
++}
++
+ /*
+  * Called with &file->f_lock held,
+  * returns with it released
+@@ -885,34 +913,6 @@ static __poll_t __ep_eventpoll_poll(struct file *file, poll_table *wait, int dep
+ 	return res;
+ }
+ 
+-/*
+- * The ffd.file pointer may be in the process of being torn down due to
+- * being closed, but we may not have finished eventpoll_release() yet.
+- *
+- * Normally, even with the atomic_long_inc_not_zero, the file may have
+- * been free'd and then gotten re-allocated to something else (since
+- * files are not RCU-delayed, they are SLAB_TYPESAFE_BY_RCU).
+- *
+- * But for epoll, users hold the ep->mtx mutex, and as such any file in
+- * the process of being free'd will block in eventpoll_release_file()
+- * and thus the underlying file allocation will not be free'd, and the
+- * file re-use cannot happen.
+- *
+- * For the same reason we can avoid a rcu_read_lock() around the
+- * operation - 'ffd.file' cannot go away even if the refcount has
+- * reached zero (but we must still not call out to ->poll() functions
+- * etc).
+- */
+-static struct file *epi_fget(const struct epitem *epi)
+-{
+-	struct file *file;
+-
+-	file = epi->ffd.file;
+-	if (!atomic_long_inc_not_zero(&file->f_count))
+-		file = NULL;
+-	return file;
+-}
+-
+ /*
+  * Differs from ep_eventpoll_poll() in that internal callers already have
+  * the ep->mtx so we need to start from depth=1, such that mutex_lock_nested()
