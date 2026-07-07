@@ -103,7 +103,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 9 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 37cdd7e5e95d..80d373669bdd 100644
+index 37cdd7e5e95d75eadc9d538bb961554e6cacd620..80d373669bddbe87457130461cc023edd721dd33 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -2242,6 +2242,10 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
@@ -118,7 +118,7 @@ index 37cdd7e5e95d..80d373669bdd 100644
  
  #if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c
-index 65a5cfe1e106..065fa8a92bee 100644
+index 65a5cfe1e106d7221161670fee5f793d37fdc404..065fa8a92beec8d7f5d8428dc317d171c92e5520 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_ism.c
 @@ -463,6 +463,9 @@ void amdgpu_dm_ism_commit_event(struct amdgpu_dm_ism *ism,
