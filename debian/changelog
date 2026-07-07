@@ -1,3 +1,11 @@
+proxmox-kernel-6.8 (6.8.12-33) bookworm; urgency=medium
+
+  * backport "KVM: x86: Fix shadow paging use-after-free due to unexpected
+    role" for CVE-2026-53359.
+  * backport fixes for LPE via epoll ("Bad Epoll") / CVE-2026-46242
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 07 Jul 2026 09:33:48 +0200
+
 proxmox-kernel-6.8 (6.8.12-32) bookworm; urgency=medium
 
   * update submodule to Ubuntu-6.8.0-132.132 and refresh patches
