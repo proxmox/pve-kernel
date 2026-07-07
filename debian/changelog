@@ -1,3 +1,15 @@
+proxmox-kernel-6.17 (6.17.13-15) trixie; urgency=medium
+
+  * backport "KVM: x86: Fix shadow paging use-after-free due to unexpected
+    role" for CVE-2026-53359
+
+  * backport "KVM: x86: Fix shadow paging use-after-free due to unexpected
+    GFN" for CVE-2026-46113
+
+  * backport fixes for LPE via epoll ("Bad Epoll") / CVE-2026-46242
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 07 Jul 2026 11:34:28 +0200
+
 proxmox-kernel-6.17 (6.17.13-14) trixie; urgency=medium
 
   * update submodule and patches to Ubuntu-6.17.0-41.41
