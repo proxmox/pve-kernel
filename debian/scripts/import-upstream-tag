@@ -92,7 +92,7 @@ if [[ -n "$rebase" ]]; then
     ## rebase patches
     echo ""
     echo "rebasing patchqueue on top of '${new_tag}'"
-    git rebase "${new_tag}"
+    git rebase --interactive "${new_tag}"
     cd "${top}"
 
     ## regenerate exported patch queue
