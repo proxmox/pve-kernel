@@ -1,3 +1,10 @@
+proxmox-kernel-6.8 (6.8.12-34) bookworm; urgency=medium
+
+  * update submodule to Ubuntu-6.8.0-132.132 and refresh patches
+    - fix ext4 writeback regression when low on space
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 08 Jul 2026 11:51:39 +0200
+
 proxmox-kernel-6.8 (6.8.12-33) bookworm; urgency=medium
 
   * backport "KVM: x86: Fix shadow paging use-after-free due to unexpected
