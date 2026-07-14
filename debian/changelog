@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.12-35) bookworm; urgency=medium
+
+  * fix CVE-2026-53362: IPv6 fragementation handling overflow
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 14 Jul 2026 13:58:27 +0200
+
 proxmox-kernel-6.8 (6.8.12-34) bookworm; urgency=medium
 
   * update submodule to Ubuntu-6.8.0-132.132 and refresh patches
