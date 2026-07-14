@@ -1,3 +1,9 @@
+proxmox-kernel-7.0 (7.0.14-5) trixie; urgency=medium
+
+  * fix CVE-2026-53362: IPv6 fragementation handling overflow
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 14 Jul 2026 14:32:14 +0200
+
 proxmox-kernel-7.0 (7.0.14-4) trixie; urgency=medium
 
   * backport "KVM: x86: Fix shadow paging use-after-free due to unexpected
