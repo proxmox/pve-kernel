@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Tue, 3 Dec 2024 17:36:17 +0000
+Subject: [PATCH] inet: add indirect call wrapper for getfrag() calls
+
+[ Upstream commit 5204ccbfa22358f95afd031a3f337e6d9a74baea ]
+
+UDP send path suffers from one indirect call to ip_generic_getfrag()
+
+We can use INDIRECT_CALL_1() to avoid it.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Reviewed-by: Brian Vazquez <brianvv@google.com>
+Link: https://patch.msgid.link/20241203173617.2595451-1-edumazet@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Stable-dep-of: eca856950f7c ("ipv4: account for fraggap on the paged allocation path")
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit f79f0db614160e13feec374822d6481bdfde80ea)
+---
+ net/ipv4/ip_output.c  | 13 +++++++++----
+ net/ipv6/ip6_output.c | 13 ++++++++-----
+ 2 files changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 808e9a558f78321a3848a09f718da4fa27309926..8d9f8ad64e4b486e2355ba912331c334eed64b1c 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1168,7 +1168,10 @@ static int __ip_append_data(struct sock *sk,
+ 			/* [!] NOTE: copy will be negative if pagedlen>0
+ 			 * because then the equation reduces to -fraggap.
+ 			 */
+-			if (copy > 0 && getfrag(from, data + transhdrlen, offset, copy, fraggap, skb) < 0) {
++			if (copy > 0 &&
++			    INDIRECT_CALL_1(getfrag, ip_generic_getfrag,
++					    from, data + transhdrlen, offset,
++					    copy, fraggap, skb) < 0) {
+ 				err = -EFAULT;
+ 				kfree_skb(skb);
+ 				goto error;
+@@ -1212,8 +1215,9 @@ static int __ip_append_data(struct sock *sk,
+ 			unsigned int off;
+ 
+ 			off = skb->len;
+-			if (getfrag(from, skb_put(skb, copy),
+-					offset, copy, off, skb) < 0) {
++			if (INDIRECT_CALL_1(getfrag, ip_generic_getfrag,
++					    from, skb_put(skb, copy),
++					    offset, copy, off, skb) < 0) {
+ 				__skb_trim(skb, off);
+ 				err = -EFAULT;
+ 				goto error;
+@@ -1253,7 +1257,8 @@ static int __ip_append_data(struct sock *sk,
+ 				get_page(pfrag->page);
+ 			}
+ 			copy = min_t(int, copy, pfrag->size - pfrag->offset);
+-			if (getfrag(from,
++			if (INDIRECT_CALL_1(getfrag, ip_generic_getfrag,
++				    from,
+ 				    page_address(pfrag->page) + pfrag->offset,
+ 				    offset, copy, skb->len, skb) < 0)
+ 				goto error_efault;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 9864779f9197cace1761b768bd3a0fd5ef1dbfbd..937d00adfe94c167ffa5bfa591716c4d1f684fc6 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1696,8 +1696,9 @@ static int __ip6_append_data(struct sock *sk,
+ 				pskb_trim_unique(skb_prev, maxfraglen);
+ 			}
+ 			if (copy > 0 &&
+-			    getfrag(from, data + transhdrlen, offset,
+-				    copy, fraggap, skb) < 0) {
++			    INDIRECT_CALL_1(getfrag, ip_generic_getfrag,
++					   from, data + transhdrlen, offset,
++					   copy, fraggap, skb) < 0) {
+ 				err = -EFAULT;
+ 				kfree_skb(skb);
+ 				goto error;
+@@ -1741,8 +1742,9 @@ static int __ip6_append_data(struct sock *sk,
+ 			unsigned int off;
+ 
+ 			off = skb->len;
+-			if (getfrag(from, skb_put(skb, copy),
+-						offset, copy, off, skb) < 0) {
++			if (INDIRECT_CALL_1(getfrag, ip_generic_getfrag,
++					    from, skb_put(skb, copy),
++					    offset, copy, off, skb) < 0) {
+ 				__skb_trim(skb, off);
+ 				err = -EFAULT;
+ 				goto error;
+@@ -1782,7 +1784,8 @@ static int __ip6_append_data(struct sock *sk,
+ 				get_page(pfrag->page);
+ 			}
+ 			copy = min_t(int, copy, pfrag->size - pfrag->offset);
+-			if (getfrag(from,
++			if (INDIRECT_CALL_1(getfrag, ip_generic_getfrag,
++				    from,
+ 				    page_address(pfrag->page) + pfrag->offset,
+ 				    offset, copy, skb->len, skb) < 0)
+ 				goto error_efault;
