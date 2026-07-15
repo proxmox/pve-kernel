@@ -1,3 +1,28 @@
+proxmox-kernel-6.8 (6.8.12-36) bookworm; urgency=medium
+
+  * update submodule to Proxmox-6.8-20260517
+    (stable patches from 6.6.141/6.12.92)
+  * fix various CVEs:
+    - CVE-2025-71289
+    - CVE-2026-23469
+    - CVE-2026-31420
+    - CVE-2026-31486
+    - CVE-2026-31560
+    - CVE-2026-43083
+    - CVE-2026-43197
+    - CVE-2026-43198
+    - CVE-2026-43465
+    - CVE-2026-46158
+    - CVE-2026-46170
+    - CVE-2026-46275
+    - CVE-2026-46315
+    - CVE-2026-46325
+    - CVE-2026-46331
+    - CVE-2026-53176
+    - CVE-2026-53212
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 15 Jul 2026 12:00:08 +0200
+
 proxmox-kernel-6.8 (6.8.12-35) bookworm; urgency=medium
 
   * fix CVE-2026-53362: IPv6 fragementation handling overflow
@@ -6,7 +31,7 @@ proxmox-kernel-6.8 (6.8.12-35) bookworm; urgency=medium
 
 proxmox-kernel-6.8 (6.8.12-34) bookworm; urgency=medium
 
-  * update submodule to Ubuntu-6.8.0-132.132 and refresh patches
+  * update submodule to Ubuntu-6.8.0-136.136 and refresh patches
     - fix ext4 writeback regression when low on space
 
  -- Proxmox Support Team <support@proxmox.com>  Wed, 08 Jul 2026 11:51:39 +0200
