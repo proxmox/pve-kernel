@@ -1,3 +1,26 @@
+proxmox-kernel-6.17 (6.17.13-18) trixie; urgency=medium
+
+  * various CVE fixes:
+    - CVE-2026-31405
+    - CVE-2026-31414
+    - CVE-2026-31420
+    - CVE-2026-31501
+    - CVE-2026-31589
+    - CVE-2026-31633
+    - CVE-2026-31636
+    - CVE-2026-31705
+    - CVE-2026-43198
+    - CVE-2026-43379
+    - CVE-2026-43465
+    - CVE-2026-46137
+    - CVE-2026-46155
+    - CVE-2026-46315
+    - CVE-2026-46331
+    - CVE-2026-53176
+    - CVE-2026-53212
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 15 Jul 2026 12:30:58 +0200
+
 proxmox-kernel-6.17 (6.17.13-17) trixie; urgency=medium
 
   * fix CVE-2026-53362: IPv6 fragementation handling overflow
