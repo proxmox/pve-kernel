@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 23 Jun 2026 04:21:26 +0200
+Subject: [PATCH] rxrpc: Fix integer overflow in rxgk_verify_response()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In rxgk_verify_response(), there's a potential integer overflow due to
+rounding up token_len before checking it, thereby allowing the length check to
+be bypassed.
+
+Fix this by checking the unrounded value against len too (len is limited as
+the response must fit in a single UDP packet).
+
+Fixes: 9d1d2b59341f ("rxrpc: rxgk: Implement the yfs-rxgk security class (GSSAPI)")
+Closes: https://sashiko.dev/#/patchset/20260401105614.1696001-10-dhowells@redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Jeffrey Altman <jaltman@auristor.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260408121252.2249051-18-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+
+CVE-2026-31633
+(cherry picked from commit 699e52180f4231c257821c037ed5c99d5eb0edb8)
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Hui Wang <hui.wang@canonical.com>
+Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit ea070dfb63024917977e9e012e8ef95cd9e50bcb)
+picked from Ubuntu 6.17 hwe-next
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ net/rxrpc/rxgk.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/rxrpc/rxgk.c b/net/rxrpc/rxgk.c
+index 4062f29caa13969e609e7bcddb7800416e057c17..4d2a262b14cec655e47f57e12271cce02391405f 100644
+--- a/net/rxrpc/rxgk.c
++++ b/net/rxrpc/rxgk.c
+@@ -1208,7 +1208,8 @@ static int rxgk_verify_response(struct rxrpc_connection *conn,
+ 
+ 	token_offset	= offset;
+ 	token_len	= ntohl(rhdr.token_len);
+-	if (xdr_round_up(token_len) + sizeof(__be32) > len)
++	if (token_len > len ||
++	    xdr_round_up(token_len) + sizeof(__be32) > len)
+ 		goto short_packet;
+ 
+ 	trace_rxrpc_rx_response(conn, sp->hdr.serial, 0, sp->hdr.cksum, token_len);

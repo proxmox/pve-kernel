@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Mon, 6 Apr 2026 15:49:37 +0200
+Subject: [PATCH] smb: client: fix off-by-8 bounds check in check_wsl_eas()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The bounds check uses (u8 *)ea + nlen + 1 + vlen as the end of the EA
+name and value, but ea_data sits at offset sizeof(struct
+smb2_file_full_ea_info) = 8 from ea, not at offset 0.  The strncmp()
+later reads ea->ea_data[0..nlen-1] and the value bytes follow at
+ea_data[nlen+1..nlen+vlen], so the actual end is ea->ea_data + nlen + 1
++ vlen.  Isn't pointer math fun?
+
+The earlier check (u8 *)ea > end - sizeof(*ea) only guarantees the
+8-byte header is in bounds, but since the last EA is placed within 8
+bytes of the end of the response, the name and value bytes are read past
+the end of iov.
+
+Fix this mess all up by using ea->ea_data as the base for the bounds
+check.
+
+An "untrusted" server can use this to leak up to 8 bytes of kernel heap
+into the EA name comparison and influence which WSL xattr the data is
+interpreted as.
+
+Cc: Ronnie Sahlberg <ronniesahlberg@gmail.com>
+Cc: Shyam Prasad N <sprasad@microsoft.com>
+Cc: Tom Talpey <tom@talpey.com>
+Cc: Bharath SM <bharathsm@microsoft.com>
+Cc: linux-cifs@vger.kernel.org
+Cc: samba-technical@lists.samba.org
+Cc: stable <stable@kernel.org>
+Assisted-by: gregkh_clanker_t1000
+Reviewed-by: Paulo Alcantara (Red Hat) <pc@manguebit.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Steve French <stfrench@microsoft.com>
+(cherry picked from commit 3d8b9d06bd3ac4c6846f5498800b0f5f8062e53b)
+pre-requisite for CVE-2026-46155 fix
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ fs/smb/client/smb2inode.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/smb/client/smb2inode.c b/fs/smb/client/smb2inode.c
+index ff9cb25327458a0a0176fdebf95471dec8da34b9..b3f4120cdc8b40cdb2126db7304b0ded0cea168d 100644
+--- a/fs/smb/client/smb2inode.c
++++ b/fs/smb/client/smb2inode.c
+@@ -125,7 +125,7 @@ static int check_wsl_eas(struct kvec *rsp_iov)
+ 		nlen = ea->ea_name_length;
+ 		vlen = le16_to_cpu(ea->ea_value_length);
+ 		if (nlen != SMB2_WSL_XATTR_NAME_LEN ||
+-		    (u8 *)ea + nlen + 1 + vlen > end)
++		    (u8 *)ea->ea_data + nlen + 1 + vlen > end)
+ 			return -EINVAL;
+ 
+ 		switch (vlen) {

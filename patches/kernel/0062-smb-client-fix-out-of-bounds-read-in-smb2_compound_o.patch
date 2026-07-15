@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zisen Ye <zisenye@stu.xidian.edu.cn>
+Date: Wed, 6 May 2026 11:49:08 +0800
+Subject: [PATCH] smb/client: fix out-of-bounds read in smb2_compound_op()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+If a server sends a truncated response but a large OutputBufferLength, and
+terminates the EA list early, check_wsl_eas() returns success without
+validating that the entire OutputBufferLength fits within iov_len.
+
+Then smb2_compound_op() does:
+    memcpy(idata->wsl.eas, data[0], size[0]);
+
+Where size[0] is OutputBufferLength. If iov_len is smaller than size[0],
+memcpy can read beyond the end of the rsp_iov allocation and leak adjacent
+kernel heap memory.
+
+Link: https://lore.kernel.org/linux-cifs/d998240c-aca9-420d-9dbd-f5ba24af19e0@chenxiaosong.com/
+Fixes: ea41367b2a60 ("smb: client: introduce SMB2_OP_QUERY_WSL_EA")
+Cc: stable@vger.kernel.org
+Signed-off-by: Zisen Ye <zisenye@stu.xidian.edu.cn>
+Reviewed-by: ChenXiaoSong <chenxiaosong@kylinos.cn>
+Signed-off-by: Steve French <stfrench@microsoft.com>
+(cherry picked from commit 8d09328dfda089675e4c049f3f256064a1d1996b)
+CVE-2026-46155
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ fs/smb/client/smb2inode.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/fs/smb/client/smb2inode.c b/fs/smb/client/smb2inode.c
+index b3f4120cdc8b40cdb2126db7304b0ded0cea168d..a59b5a0bed293603dfc1377c090c277be207d281 100644
+--- a/fs/smb/client/smb2inode.c
++++ b/fs/smb/client/smb2inode.c
+@@ -108,7 +108,7 @@ static int check_wsl_eas(struct kvec *rsp_iov)
+ 	u32 outlen, next;
+ 	u16 vlen;
+ 	u8 nlen;
+-	u8 *end;
++	u8 *ea_end, *iov_end;
+ 
+ 	outlen = le32_to_cpu(rsp->OutputBufferLength);
+ 	if (outlen < SMB2_WSL_MIN_QUERY_EA_RESP_SIZE ||
+@@ -117,15 +117,19 @@ static int check_wsl_eas(struct kvec *rsp_iov)
+ 
+ 	ea = (void *)((u8 *)rsp_iov->iov_base +
+ 		      le16_to_cpu(rsp->OutputBufferOffset));
+-	end = (u8 *)rsp_iov->iov_base + rsp_iov->iov_len;
++	ea_end = (u8 *)ea + outlen;
++	iov_end = (u8 *)rsp_iov->iov_base + rsp_iov->iov_len;
++	if (ea_end > iov_end)
++		return -EINVAL;
++
+ 	for (;;) {
+-		if ((u8 *)ea > end - sizeof(*ea))
++		if ((u8 *)ea > ea_end - sizeof(*ea))
+ 			return -EINVAL;
+ 
+ 		nlen = ea->ea_name_length;
+ 		vlen = le16_to_cpu(ea->ea_value_length);
+ 		if (nlen != SMB2_WSL_XATTR_NAME_LEN ||
+-		    (u8 *)ea->ea_data + nlen + 1 + vlen > end)
++		    (u8 *)ea->ea_data + nlen + 1 + vlen > ea_end)
+ 			return -EINVAL;
+ 
+ 		switch (vlen) {

@@ -1,0 +1,156 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 23 Jun 2026 06:32:43 +0200
+Subject: [PATCH] netfilter: nf_conntrack_expect: use expect->helper
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Use expect->helper in ctnetlink and /proc to dump the helper name.
+Using nfct_help() without holding a reference to the master conntrack
+is unsafe.
+
+Use exp->master->helper in ctnetlink path if userspace does not provide
+an explicit helper when creating an expectation to retain the existing
+behaviour. The ctnetlink expectation path holds the reference on the
+master conntrack and nf_conntrack_expect lock and the nfnetlink glue
+path refers to the master ct that is attached to the skb.
+
+Reported-by: Hyunwoo Kim <imv4bel@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+CVE-2026-31414
+(backported from commit f01794106042ee27e54af6fdf5b319a2fe3df94d)
+[bot_kybele: backported to questing; review and refine this note]
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Hui Wang <hui.wang@canonical.com>
+Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit 5b62816f8a269cdfc567a8cee6c16a6a655b632f)
+picked from Ubuntu 6.17 hwe-next
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ net/netfilter/nf_conntrack_expect.c  |  2 +-
+ net/netfilter/nf_conntrack_helper.c  |  6 +-----
+ net/netfilter/nf_conntrack_netlink.c | 26 +++++++++++---------------
+ net/netfilter/nf_conntrack_sip.c     |  2 +-
+ 4 files changed, 14 insertions(+), 22 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index cfc2daa3fc7f340937898b4bef0769fd31f801b5..50268d07888ac0fa3174ecf8c556b34c47e41428 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -654,7 +654,7 @@ static int exp_seq_show(struct seq_file *s, void *v)
+ 	if (expect->flags & NF_CT_EXPECT_USERSPACE)
+ 		seq_printf(s, "%sUSERSPACE", delim);
+ 
+-	helper = rcu_dereference(nfct_help(expect->master)->helper);
++	helper = rcu_dereference(expect->helper);
+ 	if (helper) {
+ 		seq_printf(s, "%s%s", expect->flags ? " " : "", helper->name);
+ 		if (helper->expect_policy[expect->class].name[0])
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index ceb48c3ca0a43981358f1bc61a2b47db3358e0bf..627d21848563775e059d5ee57d440a09abbb5554 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -395,14 +395,10 @@ EXPORT_SYMBOL_GPL(nf_conntrack_helper_register);
+ 
+ static bool expect_iter_me(struct nf_conntrack_expect *exp, void *data)
+ {
+-	struct nf_conn_help *help = nfct_help(exp->master);
+ 	const struct nf_conntrack_helper *me = data;
+ 	const struct nf_conntrack_helper *this;
+ 
+-	if (exp->helper == me)
+-		return true;
+-
+-	this = rcu_dereference_protected(help->helper,
++	this = rcu_dereference_protected(exp->helper,
+ 					 lockdep_is_held(&nf_conntrack_expect_lock));
+ 	return this == me;
+ }
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 50fd6809380fa95a2cd93a7a84ecc9800fb662d6..2dedf1657a2ebe74408a6f5b1e801940a7302ec0 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -3030,7 +3030,7 @@ ctnetlink_exp_dump_expect(struct sk_buff *skb,
+ {
+ 	struct nf_conn *master = exp->master;
+ 	long timeout = ((long)exp->timeout.expires - (long)jiffies) / HZ;
+-	struct nf_conn_help *help;
++	struct nf_conntrack_helper *helper;
+ #if IS_ENABLED(CONFIG_NF_NAT)
+ 	struct nlattr *nest_parms;
+ 	struct nf_conntrack_tuple nat_tuple = {};
+@@ -3075,15 +3075,12 @@ ctnetlink_exp_dump_expect(struct sk_buff *skb,
+ 	    nla_put_be32(skb, CTA_EXPECT_FLAGS, htonl(exp->flags)) ||
+ 	    nla_put_be32(skb, CTA_EXPECT_CLASS, htonl(exp->class)))
+ 		goto nla_put_failure;
+-	help = nfct_help(master);
+-	if (help) {
+-		struct nf_conntrack_helper *helper;
+ 
+-		helper = rcu_dereference(help->helper);
+-		if (helper &&
+-		    nla_put_string(skb, CTA_EXPECT_HELP_NAME, helper->name))
+-			goto nla_put_failure;
+-	}
++	helper = rcu_dereference(exp->helper);
++	if (helper &&
++	    nla_put_string(skb, CTA_EXPECT_HELP_NAME, helper->name))
++		goto nla_put_failure;
++
+ 	expfn = nf_ct_helper_expectfn_find_by_symbol(exp->expectfn);
+ 	if (expfn != NULL &&
+ 	    nla_put_string(skb, CTA_EXPECT_FN, expfn->name))
+@@ -3388,12 +3385,9 @@ static int ctnetlink_get_expect(struct sk_buff *skb,
+ static bool expect_iter_name(struct nf_conntrack_expect *exp, void *data)
+ {
+ 	struct nf_conntrack_helper *helper;
+-	const struct nf_conn_help *m_help;
+ 	const char *name = data;
+ 
+-	m_help = nfct_help(exp->master);
+-
+-	helper = rcu_dereference(m_help->helper);
++	helper = rcu_dereference(exp->helper);
+ 	if (!helper)
+ 		return false;
+ 
+@@ -3528,9 +3522,9 @@ ctnetlink_alloc_expect(const struct nlattr * const cda[], struct nf_conn *ct,
+ 		       struct nf_conntrack_tuple *tuple,
+ 		       struct nf_conntrack_tuple *mask)
+ {
+-	u_int32_t class = 0;
+ 	struct nf_conntrack_expect *exp;
+ 	struct nf_conn_help *help;
++	u32 class = 0;
+ 	int err;
+ 
+ 	help = nfct_help(ct);
+@@ -3567,7 +3561,9 @@ ctnetlink_alloc_expect(const struct nlattr * const cda[], struct nf_conn *ct,
+ 
+ 	exp->class = class;
+ 	exp->master = ct;
+-	exp->helper = helper;
++	if (!helper)
++		helper = rcu_dereference(help->helper);
++	rcu_assign_pointer(exp->helper, helper);
+ 	exp->tuple = *tuple;
+ 	exp->mask.src.u3 = mask->src.u3;
+ 	exp->mask.src.u.all = mask->src.u.all;
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index ca748f8dbff130d5dde1406a538242608eb57a2d..0bae3cad7e7ae2667db731f256148a9134442a39 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -924,7 +924,7 @@ static int set_expected_rtp_rtcp(struct sk_buff *skb, unsigned int protoff,
+ 		exp = __nf_ct_expect_find(net, nf_ct_zone(ct), &tuple);
+ 
+ 		if (!exp || exp->master == ct ||
+-		    nfct_help(exp->master)->helper != nfct_help(ct)->helper ||
++		    exp->helper != nfct_help(ct)->helper ||
+ 		    exp->class != class)
+ 			break;
+ #if IS_ENABLED(CONFIG_NF_NAT)

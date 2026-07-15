@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Matthieu Baerts (NGI0)" <matttbe@kernel.org>
+Date: Wed, 24 Jun 2026 10:41:53 +0200
+Subject: [PATCH] mptcp: pm: ADD_ADDR rtx: fix potential data-race
+
+This mptcp_pm_add_timer() helper is executed as a timer callback in
+softirq context. To avoid any data races, the socket lock needs to be
+held with bh_lock_sock().
+
+If the socket is in use, retry again soon after, similar to what is done
+with the keepalive timer.
+
+Fixes: 00cfd77b9063 ("mptcp: retransmit ADD_ADDR when timeout")
+Cc: stable@vger.kernel.org
+Reviewed-by: Mat Martineau <martineau@kernel.org>
+Signed-off-by: Matthieu Baerts (NGI0) <matttbe@kernel.org>
+Link: https://patch.msgid.link/20260505-net-mptcp-pm-fixes-7-1-rc3-v1-3-fca8091060a4@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+
+CVE-2026-46137
+(backported from commit 5cd6e0ad79d2615264f63929f8b457ad97ae550d)
+[bot_kybele: Kept this tree's extra "if (!entry->addr.id) return;" guard before
+ the new bh_lock_sock() block, since that bare return must stay outside the lock
+ to avoid returning while holding it.]
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Hui Wang <hui.wang@canonical.com>
+Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit 85eadbafad0f514db27c34b9843d114eeded04a7)
+---
+ net/mptcp/pm.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/mptcp/pm.c b/net/mptcp/pm.c
+index c27035e1c04678ba73667e54605d0ccda3f536fe..f41f4bad89936161f7b1db2b634b96d6126547e1 100644
+--- a/net/mptcp/pm.c
++++ b/net/mptcp/pm.c
+@@ -288,6 +288,13 @@ static void mptcp_pm_add_timer(struct timer_list *timer)
+ 	if (!entry->addr.id)
+ 		return;
+ 
++	bh_lock_sock(sk);
++	if (sock_owned_by_user(sk)) {
++		/* Try again later. */
++		sk_reset_timer(sk, timer, jiffies + HZ / 20);
++		goto out;
++	}
++
+ 	if (mptcp_pm_should_add_signal_addr(msk)) {
+ 		sk_reset_timer(sk, timer, jiffies + TCP_RTO_MAX / 8);
+ 		goto out;
+@@ -316,6 +323,7 @@ static void mptcp_pm_add_timer(struct timer_list *timer)
+ 		mptcp_pm_subflow_established(msk);
+ 
+ out:
++	bh_unlock_sock(sk);
+ 	__sock_put(sk);
+ }
+ 

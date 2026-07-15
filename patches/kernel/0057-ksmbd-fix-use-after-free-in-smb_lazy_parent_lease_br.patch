@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Namjae Jeon <linkinjeon@kernel.org>
+Date: Tue, 23 Jun 2026 05:34:49 +0200
+Subject: [PATCH] ksmbd: fix use-after-free in
+ smb_lazy_parent_lease_break_close()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+opinfo pointer obtained via rcu_dereference(fp->f_opinfo) is being
+accessed after rcu_read_unlock() has been called. This creates a
+race condition where the memory could be freed by a concurrent
+writer between the unlock and the subsequent pointer dereferences
+(opinfo->is_lease, etc.), leading to a use-after-free.
+
+Fixes: 5fb282ba4fef ("ksmbd: fix possible null-deref in smb_lazy_parent_lease_break_close")
+Cc: stable@vger.kernel.org
+Signed-off-by: Namjae Jeon <linkinjeon@kernel.org>
+Signed-off-by: Steve French <stfrench@microsoft.com>
+
+CVE-2026-43379
+(cherry picked from commit eac3361e3d5dd8067b3258c69615888eb45e9f25)
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Hui Wang <hui.wang@canonical.com>
+Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+(cherry picked from commit c2280cab6e286317c56b8eab0d214859cd7dca87)
+picked from Ubuntu 6.17 hwe-next
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ fs/smb/server/oplock.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/fs/smb/server/oplock.c b/fs/smb/server/oplock.c
+index d248750483b79f5eeaefdaac12fa0b0f1d15f661..590ddd31a68da71159319bdc339949ac0bead206 100644
+--- a/fs/smb/server/oplock.c
++++ b/fs/smb/server/oplock.c
+@@ -1136,10 +1136,12 @@ void smb_lazy_parent_lease_break_close(struct ksmbd_file *fp)
+ 
+ 	rcu_read_lock();
+ 	opinfo = rcu_dereference(fp->f_opinfo);
+-	rcu_read_unlock();
+ 
+-	if (!opinfo || !opinfo->is_lease || opinfo->o_lease->version != 2)
++	if (!opinfo || !opinfo->is_lease || opinfo->o_lease->version != 2) {
++		rcu_read_unlock();
+ 		return;
++	}
++	rcu_read_unlock();
+ 
+ 	p_ci = ksmbd_inode_lookup_lock(fp->filp->f_path.dentry->d_parent);
+ 	if (!p_ci)
