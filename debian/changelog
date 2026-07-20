@@ -1,3 +1,16 @@
+proxmox-kernel-6.8 (6.8.12-37) bookworm; urgency=medium
+
+  * CVE fixes:
+    - CVE-2026-52924 UAF in sctp protocol
+    - CVE-2026-53151 fragmentation issue in AF_RXRPC
+    - CVE-2026-53215 memory corruption in mvpp2 driver
+    - CVE-2026-53225 information disclosure via unauthenticated sctp
+    - CVE-2026-53228 UAF in ip6sit tunnel driver
+
+  * updated fix for CVE-2026-46242 (smaller backport)
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 20 Jul 2026 14:20:08 +0200
+
 proxmox-kernel-6.8 (6.8.12-36) bookworm; urgency=medium
 
   * update submodule to Proxmox-6.8-20260517
