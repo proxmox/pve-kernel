@@ -3,9 +3,6 @@ From: David Carlier <devnexen@gmail.com>
 Date: Wed, 24 Jun 2026 02:27:54 +0200
 Subject: [PATCH] net: ti: icssg-prueth: fix use-after-free of CPPI descriptor
  in RX path
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 cppi5_hdesc_get_psdata() returns a pointer into the CPPI descriptor.
 In both emac_rx_packet() and emac_rx_packet_zc(), the descriptor is
@@ -38,9 +35,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit db71f180719d5ab5d49cc5f0f49078b9d7d74023)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  drivers/net/ethernet/ti/icssg/icssg_common.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)

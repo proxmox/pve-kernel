@@ -2,9 +2,6 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Eric Dumazet <edumazet@google.com>
 Date: Wed, 24 Jun 2026 04:18:16 +0200
 Subject: [PATCH] tcp: fix potential race in tcp_v6_syn_recv_sock()
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 Code in tcp_v6_syn_recv_sock() after the call to tcp_v4_syn_recv_sock()
 is done too late.
@@ -42,9 +39,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit 6b0b26cccfb02627aff52da7bc1e2251d1052bf0)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  include/net/inet_connection_sock.h |  4 +-
  include/net/tcp.h                  |  4 +-

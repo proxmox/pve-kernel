@@ -2,9 +2,6 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Ariel Silver <arielsilver77@gmail.com>
 Date: Wed, 24 Jun 2026 02:32:26 +0200
 Subject: [PATCH] media: dvb-net: fix OOB access in ULE extension header tables
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 The ule_mandatory_ext_handlers[] and ule_optional_ext_handlers[] tables
 in handle_one_ule_extension() are declared with 255 elements (valid
@@ -29,9 +26,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit db811145a60e31f17cc4716142216a37f1970baf)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  drivers/media/dvb-core/dvb_net.c | 3 +++
  1 file changed, 3 insertions(+)

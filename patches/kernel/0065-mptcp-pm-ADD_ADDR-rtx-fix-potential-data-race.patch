@@ -27,7 +27,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit 85eadbafad0f514db27c34b9843d114eeded04a7)
 ---
  net/mptcp/pm.c | 8 ++++++++
  1 file changed, 8 insertions(+)

@@ -2,9 +2,6 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 Date: Tue, 23 Jun 2026 06:32:43 +0200
 Subject: [PATCH] netfilter: nf_conntrack_expect: use expect->helper
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 Use expect->helper in ctnetlink and /proc to dump the helper name.
 Using nfct_help() without holding a reference to the master conntrack
@@ -28,9 +25,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit 5b62816f8a269cdfc567a8cee6c16a6a655b632f)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  net/netfilter/nf_conntrack_expect.c  |  2 +-
  net/netfilter/nf_conntrack_helper.c  |  6 +-----

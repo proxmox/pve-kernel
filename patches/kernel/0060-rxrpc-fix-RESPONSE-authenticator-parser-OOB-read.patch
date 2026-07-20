@@ -2,9 +2,6 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Keenan Dong <keenanat2000@gmail.com>
 Date: Tue, 23 Jun 2026 05:51:11 +0200
 Subject: [PATCH] rxrpc: fix RESPONSE authenticator parser OOB read
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 rxgk_verify_authenticator() copies auth_len bytes into a temporary
 buffer and then passes p + auth_len as the parser limit to
@@ -61,9 +58,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit e635edf191cd22c44a8934fbf75eb8a44d13657f)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  net/rxrpc/rxgk.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)

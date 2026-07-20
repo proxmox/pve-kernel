@@ -3,9 +3,6 @@ From: Dragos Tatulea <dtatulea@nvidia.com>
 Date: Tue, 23 Jun 2026 06:20:46 +0200
 Subject: [PATCH] net/mlx5e: RX, Fix XDP multi-buf frag counting for striding
  RQ
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 XDP multi-buf programs can modify the layout of the XDP buffer when the
 program calls bpf_xdp_pull_data() or bpf_xdp_adjust_tail(). The
@@ -99,9 +96,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit e9dbc6ece1ffc1da900fe8277325de2bc97b59fe)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 12 +++++-------
  1 file changed, 5 insertions(+), 7 deletions(-)

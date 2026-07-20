@@ -2,9 +2,6 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: "Matthew Wilcox (Oracle)" <willy@infradead.org>
 Date: Tue, 23 Jun 2026 05:43:31 +0200
 Subject: [PATCH] mm: call ->free_folio() directly in folio_unmap_invalidate()
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 We can only call filemap_free_folio() if we have a reference to (or hold a
 lock on) the mapping.  Otherwise, we've already removed the folio from the
@@ -35,9 +32,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit ecb53d95e6959e875027043925e8d891d3345731)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  mm/filemap.c  | 3 ++-
  mm/internal.h | 1 -

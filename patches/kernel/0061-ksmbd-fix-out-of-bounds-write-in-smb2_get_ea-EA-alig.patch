@@ -2,9 +2,6 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Tristan Madani <tristan@talencesecurity.com>
 Date: Tue, 23 Jun 2026 05:46:09 +0200
 Subject: [PATCH] ksmbd: fix out-of-bounds write in smb2_get_ea() EA alignment
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 smb2_get_ea() applies 4-byte alignment padding via memset() after
 writing each EA entry. The bounds check on buf_free_len is performed
@@ -41,9 +38,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit 1d5976c6e17430ce9f99007a06c011506125ef18)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  fs/smb/server/smb2pdu.c | 2 ++
  1 file changed, 2 insertions(+)

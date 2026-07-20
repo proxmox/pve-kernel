@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Justin Chen <justin.chen@broadcom.com>
+Date: Fri, 17 Jul 2026 13:10:49 +0200
+Subject: [PATCH] net: bcmgenet: fix racing timeout handler
+
+The bcmgenet_timeout handler tries to take down all tx queues when
+a single queue times out. This is over zealous and causes many race
+conditions with queues that are still chugging along. Instead lets
+only restart the timed out queue.
+
+Fixes: 13ea657806cf ("net: bcmgenet: improve TX timeout")
+Signed-off-by: Justin Chen <justin.chen@broadcom.com>
+Reviewed-by: Florian Fainelli <florian.fainelli@broadcom.com>
+Reviewed-by: Nicolai Buchwitz <nb@tipi-net.de>
+Tested-by: Nicolai Buchwitz <nb@tipi-net.de>
+Link: https://patch.msgid.link/20260406175756.134567-4-justin.chen@broadcom.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+
+CVE-2026-53086
+(cherry picked from commit 5393b2b5bee2ac51a0043dc7f4ac3475f053d08d)
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Acked-by: Manuel Diewald <manuel.diewald@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+---
+ .../net/ethernet/broadcom/genet/bcmgenet.c    | 22 ++++++++-----------
+ 1 file changed, 9 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 98971ae4f87dfc8be84a844e35d7543039a22240..1a1fe53b4fbd87fc683a8c0e468131836dcc997b 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -3480,27 +3480,23 @@ static void bcmgenet_dump_tx_queue(struct bcmgenet_tx_ring *ring)
+ static void bcmgenet_timeout(struct net_device *dev, unsigned int txqueue)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	u32 int1_enable = 0;
+-	unsigned int q;
++	struct bcmgenet_tx_ring *ring = &priv->tx_rings[txqueue];
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, txqueue);
+ 
+ 	netif_dbg(priv, tx_err, dev, "bcmgenet_timeout\n");
+ 
+-	for (q = 0; q <= priv->hw_params->tx_queues; q++)
+-		bcmgenet_dump_tx_queue(&priv->tx_rings[q]);
+-
+-	bcmgenet_tx_reclaim_all(dev);
++	bcmgenet_dump_tx_queue(ring);
+ 
+-	for (q = 0; q <= priv->hw_params->tx_queues; q++)
+-		int1_enable |= (1 << q);
++	bcmgenet_tx_reclaim(dev, ring, true);
+ 
+-	/* Re-enable TX interrupts if disabled */
+-	bcmgenet_intrl2_1_writel(priv, int1_enable, INTRL2_CPU_MASK_CLEAR);
++	/* Re-enable the TX interrupt for this ring */
++	bcmgenet_intrl2_1_writel(priv, 1 << txqueue, INTRL2_CPU_MASK_CLEAR);
+ 
+-	netif_trans_update(dev);
++	txq_trans_cond_update(txq);
+ 
+-	BCMGENET_STATS64_INC((&priv->tx_rings[txqueue].stats64), errors);
++	BCMGENET_STATS64_INC((&ring->stats64), errors);
+ 
+-	netif_tx_wake_all_queues(dev);
++	netif_tx_wake_queue(txq);
+ }
+ 
+ #define MAX_MDF_FILTER	17

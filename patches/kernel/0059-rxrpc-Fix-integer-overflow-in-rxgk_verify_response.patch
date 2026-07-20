@@ -2,9 +2,6 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: David Howells <dhowells@redhat.com>
 Date: Tue, 23 Jun 2026 04:21:26 +0200
 Subject: [PATCH] rxrpc: Fix integer overflow in rxgk_verify_response()
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 In rxgk_verify_response(), there's a potential integer overflow due to
 rounding up token_len before checking it, thereby allowing the length check to
@@ -31,9 +28,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit ea070dfb63024917977e9e012e8ef95cd9e50bcb)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  net/rxrpc/rxgk.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)

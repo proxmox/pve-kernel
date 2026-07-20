@@ -3,9 +3,6 @@ From: Namjae Jeon <linkinjeon@kernel.org>
 Date: Tue, 23 Jun 2026 05:34:49 +0200
 Subject: [PATCH] ksmbd: fix use-after-free in
  smb_lazy_parent_lease_break_close()
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 opinfo pointer obtained via rcu_dereference(fp->f_opinfo) is being
 accessed after rcu_read_unlock() has been called. This creates a
@@ -25,9 +22,6 @@ Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
 Acked-by: Hui Wang <hui.wang@canonical.com>
 Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
 Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-(cherry picked from commit c2280cab6e286317c56b8eab0d214859cd7dca87)
-picked from Ubuntu 6.17 hwe-next
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  fs/smb/server/oplock.c | 6 ++++--
  1 file changed, 4 insertions(+), 2 deletions(-)
