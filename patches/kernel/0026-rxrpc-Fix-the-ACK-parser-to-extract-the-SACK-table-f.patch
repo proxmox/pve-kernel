@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 15 Jul 2026 10:47:13 +0200
+Subject: [PATCH] rxrpc: Fix the ACK parser to extract the SACK table for
+ parsing
+
+Fix modification of the received skbuff in rxrpc_input_soft_acks() and a
+potential incorrect access of the buffer in a fragmented UDP packet (the
+packet would probably have to be deliberately pre-generated as fragmented)
+when AF_RXRPC tries to extract the contents of the SACK table by copying
+out the contents of the SACK table into a buffer before attempting to parse
+
+AF_RXRPC assumes that it can just call skb_condense() and then validly
+access the SACK table from skb->data and that it will be a flat buffer -
+but skb_condense() can silently fail to do anything under some
+circumstances.
+
+Note that whilst rxrpc_input_soft_acks() should be able to parse extended
+ACKs, the rest of AF_RXRPC doesn't currently support that.
+
+Further, there's then no need to call skb_condense() in rxrpc_input_ack(),
+so don't.
+
+Fixes: d57a3a151660 ("rxrpc: Save last ACK's SACK table rather than marking txbufs")
+Reported-by: Michael Bommarito <michael.bommarito@gmail.com>
+Link: https://lore.kernel.org/r/20260513180907.2061972-1-michael.bommarito@gmail.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Jeffrey Altman <jaltman@auristor.com>
+cc: Eric Dumazet <edumazet@google.com>
+cc: "David S. Miller" <davem@davemloft.net>
+cc: Jakub Kicinski <kuba@kernel.org>
+cc: Paolo Abeni <pabeni@redhat.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: netdev@vger.kernel.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/105362.1780573560@warthog.procyon.org.uk
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+
+CVE-2026-53151
+(backported from commit 333b6d5bb9f87827ac2639c737bf9613dbae7253)
+[bot_kybele: This tree predates the txqueue/extended-ACK rewrite, so
+ rxrpc_input_soft_acks here uses sp->nr_acks (u8, max 255), seq/since params and
+ a plain acks[i] loop rather than shiftr_adv_rotr; I applied the intent by
+ copying the SACK table into a flat u8 sack[256] via skb_copy_bits (dropping the
+ umin/nsack/extended-ACK decant logic that has no analogue) and removed
+ skb_condense from rxrpc_input_ack; the separate skb->data read in
+ rxrpc_input_check_prev_ack is outside the patch scope and left untouched.]
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Acked-by: Manuel Diewald <manuel.diewald@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+---
+ net/rxrpc/input.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 9a162035d4c1d0841ac3723e5f1008f2513f6db9..1fcdca49f53abbb047d2eeaff388058e394f6652 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -781,7 +781,17 @@ static void rxrpc_input_soft_acks(struct rxrpc_call *call,
+ 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	unsigned int i, old_nacks = 0;
+ 	rxrpc_seq_t lowest_nak = seq + sp->nr_acks;
+-	u8 *acks = skb->data + sizeof(struct rxrpc_wire_header) + sizeof(struct rxrpc_ackpacket);
++	u8 sack[256] __aligned(sizeof(unsigned long));
++	u8 *acks = sack;
++
++	/* Extract the SACK table into a flat, aligned buffer so that we don't
++	 * access the possibly-nonlinear skbuff directly.
++	 */
++	memset(sack, 0, sizeof(sack));
++	if (skb_copy_bits(skb,
++			  sizeof(struct rxrpc_wire_header) + sizeof(struct rxrpc_ackpacket),
++			  sack, sp->nr_acks) < 0)
++		return;
+ 
+ 	for (i = 0; i < sp->nr_acks; i++) {
+ 		if (acks[i] == RXRPC_ACK_TYPE_ACK) {
+@@ -944,9 +954,6 @@ static void rxrpc_input_ack(struct rxrpc_call *call, struct sk_buff *skb)
+ 	    skb_copy_bits(skb, ioffset, &trailer, sizeof(trailer)) < 0)
+ 		return rxrpc_proto_abort(call, 0, rxrpc_badmsg_short_ack_trailer);
+ 
+-	if (nr_acks > 0)
+-		skb_condense(skb);
+-
+ 	if (call->cong_last_nack) {
+ 		since = rxrpc_input_check_prev_ack(call, &summary, first_soft_ack);
+ 		rxrpc_free_skb(call->cong_last_nack, rxrpc_skb_put_last_nack);

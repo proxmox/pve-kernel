@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu, 16 Jul 2026 14:43:02 +0200
+Subject: [PATCH] sctp: purge outqueue on stale COOKIE-ECHO handling
+
+sctp_stream_update() is only invoked when the association is moved into
+COOKIE_WAIT during association setup/reconfiguration. In this path, the
+outbound stream scheduler state (stream->out_curr) is expected to be
+clean, since no user data should have been transmitted yet unless the
+state machine has already partially progressed.
+
+However, a corner case exists in sctp_sf_do_5_2_6_stale(): when a
+Stale Cookie ERROR is received, the association is rolled back from
+COOKIE_ECHOED to COOKIE_WAIT. In this scenario, user data may already
+have been queued and even bundled with the COOKIE-ECHO chunk.
+
+During the rollback, sctp_stream_update() frees the old stream table
+and installs a new one, but it does not invalidate stream->out_curr.
+As a result, out_curr may still point to a freed sctp_stream_out
+entry from the previous stream state.
+
+Later, SCTP scheduler dequeue paths (FCFS, RR, PRIO, etc.) rely on
+stream->out_curr->ext, which can lead to use-after-free once the old
+stream state has been released via sctp_stream_free().
+
+This results in crashes such as (reported by Yuqi):
+
+  BUG: KASAN: slab-use-after-free in sctp_sched_fcfs_dequeue+0x13a/0x140
+  Read of size 8 at addr ff1100004d4d3208 by task mini_poc/9312
+  CPU: 1 UID: 1001 PID: 9312 Comm: mini_poc Not tainted
+     7.1.0-rc1-00305-gbd3a4795d574 #5 PREEMPT(full)
+   sctp_sched_fcfs_dequeue+0x13a/0x140
+   sctp_outq_flush+0x1603/0x33e0
+   sctp_do_sm+0x31c9/0x5d30
+   sctp_assoc_bh_rcv+0x392/0x6f0
+   sctp_inq_push+0x1db/0x270
+   sctp_rcv+0x138d/0x3c10
+
+Fix this by fully purging the association outqueue when handling the
+Stale Cookie case. This ensures all pending transmit and retransmit
+state is dropped, and any scheduler cached pointers are invalidated,
+making it safe to rebuild stream state during COOKIE_WAIT restart.
+
+Updating only stream->out_curr would be insufficient, since queued
+and retransmittable data would still reference the old stream state and
+trigger later use-after-free in dequeue paths.
+
+Fixes: 5bbbbe32a431 ("sctp: introduce stream scheduler foundations")
+Reported-by: Yuan Tan <yuantan098@gmail.com>
+Reported-by: Yifan Wu <yifanwucs@gmail.com>
+Reported-by: Juefei Pu <tomapufckgml@gmail.com>
+Reported-by: Zhengchuan Liang <zcliangcn@gmail.com>
+Reported-by: Xin Liu <bird@lzu.edu.cn>
+Reported-by: Yuqi Xu <xuyq21@lenovo.com>
+Reported-by: Ren Wei <n05ec@lzu.edu.cn>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/94318159b9052907a6cbb7256aee8b5f8dfbfccb.1780510304.git.lucien.xin@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+
+CVE-2026-52924
+(cherry picked from commit e374b22e9b07b72a25909621464ff74096151bfb)
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Acked-by: Manuel Diewald <manuel.diewald@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
+---
+ net/sctp/sm_statefuns.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 5e9449b0c7907edd1b39e16484d9704623e7a7d4..583d83dcb8426e75da8dab51a7b6199cbd64bae2 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -2597,11 +2597,7 @@ static enum sctp_disposition sctp_sf_do_5_2_6_stale(
+ 	 */
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_DEL_NON_PRIMARY, SCTP_NULL());
+ 
+-	/* If we've sent any data bundled with COOKIE-ECHO we will need to
+-	 * resend
+-	 */
+-	sctp_add_cmd_sf(commands, SCTP_CMD_T1_RETRAN,
+-			SCTP_TRANSPORT(asoc->peer.primary_path));
++	sctp_add_cmd_sf(commands, SCTP_CMD_PURGE_OUTQUEUE, SCTP_NULL());
+ 
+ 	/* Cast away the const modifier, as we want to just
+ 	 * rerun it through as a sideffect.

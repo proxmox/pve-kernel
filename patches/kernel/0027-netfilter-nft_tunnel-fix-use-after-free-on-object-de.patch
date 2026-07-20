@@ -1,12 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Tristan Madani <tristan@talencesecurity.com>
-Date: Wed, 27 May 2026 13:57:50 +0000
+Date: Fri, 10 Jul 2026 10:59:37 +0200
 Subject: [PATCH] netfilter: nft_tunnel: fix use-after-free on object destroy
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-commit c32b26aaa2f9216520a38b3f4bfeec846eb3eb8a upstream.
 
 nft_tunnel_obj_destroy() calls metadata_dst_free() which directly
 kfree()s the metadata_dst, ignoring the dst_entry refcount. Packets
@@ -26,10 +21,14 @@ Signed-off-by: Tristan Madani <tristan@talencesecurity.com>
 Reviewed-by: Fernando Fernandez Mancera <fmancera@suse.de>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-(cherry picked from commit f9a0e4b61054cde89a2a77845293c726cc07cc43)
+
 CVE-2026-53212
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+(cherry picked from commit c32b26aaa2f9216520a38b3f4bfeec846eb3eb8a)
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Acked-by: Manuel Diewald <manuel.diewald@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
 ---
  net/netfilter/nft_tunnel.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

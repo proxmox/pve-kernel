@@ -1,9 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Christian Brauner <brauner@kernel.org>
-Date: Fri, 26 Jun 2026 12:14:03 +0800
+Date: Fri, 10 Jul 2026 10:56:05 +0200
 Subject: [PATCH] eventpoll: fix ep_remove struct eventpoll / struct file UAF
-
-[ Upstream commit a6dc643c69311677c574a0f17a3f4d66a5f3744b ]
 
 ep_remove() (via ep_remove_file()) cleared file->f_ep under
 file->f_lock but then kept using @file inside the critical section
@@ -50,48 +48,79 @@ Fixes: 58c9b016e128 ("epoll: use refcount to reduce ep_mutex contention")
 Reported-by: Jaeyoung Chung <jjy600901@snu.ac.kr>
 Link: https://patch.msgid.link/20260423-work-epoll-uaf-v1-6-2470f9eec0f5@kernel.org
 Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
-(cherry picked from commit a6dc643c69311677c574a0f17a3f4d66a5f3744b)
-Signed-off-by: Wentao Guan <guanwentao@uniontech.com>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
-(cherry picked from commit 2de4db145b2992da496fea6c51f9839be678ae24)
+
+CVE-2026-46242
+(backported from commit a6dc643c69311677c574a0f17a3f4d66a5f3744b)
+[bot_kybele: This tree predates the ep_remove/ep_remove_file/ep_remove_epi
+ refactor; upstream ep_remove() is the monolithic __ep_remove(ep,epi,force)
+ here. Applied the epi_fget() pin + lockless READ_ONCE(dying) bail only on the
+ !force path (the force path from eventpoll_release_file has file refcount 0, so
+ epi_fget would fail and must keep using epi->ffd.file); replaced __free(fput)
+ (cleanup class absent in this tree) with an explicit fput(file) after the
+ critical section, and added a forward decl of...]
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Acked-by: Manuel Diewald <manuel.diewald@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
 ---
- fs/eventpoll.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+ fs/eventpoll.c | 30 +++++++++++++++++++++++++-----
+ 1 file changed, 25 insertions(+), 5 deletions(-)
 
 diff --git a/fs/eventpoll.c b/fs/eventpoll.c
-index ddcf5736d2ab9ec33b77dfb988d6ee6f9e76c007..33f06ced9cc3d3f1831b80bc731515072c2f6e64 100644
+index 293af91dc0e1f94c356923d5c23b3e96102bb468..96d4c394200b600d9ad9949b7a7a41a08929b626 100644
 --- a/fs/eventpoll.c
 +++ b/fs/eventpoll.c
-@@ -800,22 +800,26 @@ static bool ep_remove_epi(struct eventpoll *ep, struct epitem *epi)
-  */
- static void ep_remove(struct eventpoll *ep, struct epitem *epi)
- {
--	struct file *file = epi->ffd.file;
-+	struct file *file __free(fput) = NULL;
+@@ -714,6 +714,8 @@ static void ep_free(struct eventpoll *ep)
+ 	kfree_rcu(ep, rcu);
+ }
  
- 	lockdep_assert_irqs_enabled();
- 	lockdep_assert_held(&ep->mtx);
- 
++static struct file *epi_fget(const struct epitem *epi);
++
+ /*
+  * Removes a "struct epitem" from the eventpoll RB tree and deallocates
+  * all the associated resources. Must be called with "mtx" held.
+@@ -735,13 +737,26 @@ static bool __ep_remove(struct eventpoll *ep, struct epitem *epi, bool force)
+ 	 */
  	ep_unregister_pollwait(ep, epi);
  
--	/* sync with eventpoll_release_file() */
-+	/* cheap sync with eventpoll_release_file() */
- 	if (unlikely(READ_ONCE(epi->dying)))
- 		return;
- 
+-	/* Remove the current item from the list of epoll hooks */
 -	spin_lock(&file->f_lock);
--	if (epi->dying) {
+-	if (epi->dying && !force) {
 -		spin_unlock(&file->f_lock);
-+	/*
-+	 * If we manage to grab a reference it means we're not in
-+	 * eventpoll_release_file() and aren't going to be.
-+	 */
-+	file = epi_fget(epi);
-+	if (!file)
- 		return;
--	}
+-		return false;
++	if (!force) {
++		/* cheap sync with eventpoll_release_file() */
++		if (unlikely(READ_ONCE(epi->dying)))
++			return false;
 +
-+	spin_lock(&file->f_lock);
- 	ep_remove_file(ep, epi, file);
++		/*
++		 * If we manage to grab a reference it means we're not in
++		 * eventpoll_release_file() and aren't going to be. With the
++		 * pin held @file cannot reach refcount zero, which holds
++		 * __fput() off and transitively keeps the watched struct
++		 * eventpoll alive across the hlist_del_rcu() and the f_lock
++		 * use.
++		 */
++		file = epi_fget(epi);
++		if (!file)
++			return false;
+ 	}
  
- 	if (ep_remove_epi(ep, epi))
++	/* Remove the current item from the list of epoll hooks */
++	spin_lock(&file->f_lock);
+ 	to_free = NULL;
+ 	head = file->f_ep;
+ 	if (head->first == &epi->fllink && !epi->fllink.next) {
+@@ -776,6 +791,11 @@ static bool __ep_remove(struct eventpoll *ep, struct epitem *epi, bool force)
+ 	call_rcu(&epi->rcu, epi_rcu_free);
+ 
+ 	percpu_counter_dec(&ep->user->epoll_watches);
++
++	/* Drop the pin taken above; on the force path we never took one. */
++	if (!force)
++		fput(file);
++
+ 	return true;
+ }
+ 

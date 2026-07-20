@@ -1,10 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Paolo Bonzini <pbonzini@redhat.com>
-Date: Fri, 26 Jun 2026 13:24:24 +0200
+Date: Fri, 10 Jul 2026 11:01:12 +0200
 Subject: [PATCH] KVM: x86: Fix shadow paging use-after-free due to unexpected
  role
-
-commit 81ccda30b4e83d8f5cc4fd50503c44e3a33abfeb upstream.
 
 Commit 0cb2af2ea66ad ("KVM: x86: Fix shadow paging use-after-free due
 to unexpected GFN") fixed a shadow paging mismatch between stored and
@@ -36,8 +34,14 @@ use-after-free.
 Fixes: 2032a93d66fa ("KVM: MMU: Don't allocate gfns page for direct mmu pages")
 Reported-by: Hyunwoo Kim <imv4bel@gmail.com>
 Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
-(cherry picked from commit 9291654d69e08542de37755cebe4d5b02c3170d1)
+
+CVE-2026-53359
+(cherry picked from commit 81ccda30b4e83d8f5cc4fd50503c44e3a33abfeb)
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Acked-by: Manuel Diewald <manuel.diewald@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
 ---
  arch/x86/kvm/mmu/mmu.c | 10 ++++++----
  1 file changed, 6 insertions(+), 4 deletions(-)

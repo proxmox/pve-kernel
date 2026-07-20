@@ -1,10 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Michael Bommarito <michael.bommarito@gmail.com>
-Date: Tue, 2 Jun 2026 15:46:42 -0400
+Date: Thu, 2 Jul 2026 15:28:59 +0200
 Subject: [PATCH] IB/isert: Reject login PDUs shorter than ISER_HEADERS_LEN
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 In drivers/infiniband/ulp/isert/ib_isert.c, isert_login_recv_done()
 computes the login request payload length as wc->byte_len minus
@@ -35,9 +32,13 @@ Cc: stable@vger.kernel.org
 Assisted-by: Claude:claude-opus-4-8
 Signed-off-by: Michael Bommarito <michael.bommarito@gmail.com>
 Signed-off-by: Jason Gunthorpe <jgg@nvidia.com>
+
+CVE-2026-53176
 (cherry picked from commit 29e7b925ae6df64894e82ab6419994dc25580a8a)
-fix for CVE-2026-53176
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Hui Wang <hui.wang@canonical.com>
+Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
 ---
  drivers/infiniband/ulp/isert/ib_isert.c | 6 ++++++
  1 file changed, 6 insertions(+)

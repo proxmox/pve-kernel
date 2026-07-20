@@ -1,13 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Rajat Gupta <rajat.gupta@oss.qualcomm.com>
-Date: Wed, 17 Jun 2026 22:10:35 +0800
+Date: Fri, 10 Jul 2026 11:00:20 +0200
 Subject: [PATCH] net/sched: fix pedit partial COW leading to page cache
  corruption
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-
-[ Upstream commit 899ee91156e57784090c5565e4f31bd7dbffbc5a ]
 
 tcf_pedit_act() computes the COW range for skb_ensure_writable()
 once before the key loop using tcfp_off_max_hint, but the hint does
@@ -36,15 +34,17 @@ Tested-by: Victor Nogueira <victor@mojatatu.com>
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 Signed-off-by: Rajat Gupta <rajat.gupta@oss.qualcomm.com>
 Link: https://patch.msgid.link/20260531123221.48732-1-jhs@mojatatu.com
-[rename include file from linux/unaligned.h to asm/unaligned.h]
-Conflicts:
-	include/net/tc_act/tc_pedit.h
 Signed-off-by: Jakub Kicinski <kuba@kernel.org>
-Signed-off-by: Wentao Guan <guanwentao@uniontech.com>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
-(cherry picked from commit b685d6ef6f07a3b5ce814565a25f39f2157538a5)
-CVE-2026-46331 picked from 6.6.144
-Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+
+CVE-2026-46331
+(backported from commit 899ee91156e57784090c5565e4f31bd7dbffbc5a)
+[bot_kybele: This tree's tcf_pedit_parms lacks the upstream 'int action' field,
+ so I only removed the tcfp_off_max_hint line and did not add 'int action'.]
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Acked-by: Manuel Diewald <manuel.diewald@canonical.com>
+Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
 ---
  include/net/tc_act/tc_pedit.h |  1 -
  net/sched/act_pedit.c         | 77 +++++++++++++++++++----------------
