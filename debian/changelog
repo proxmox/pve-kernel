@@ -1,3 +1,10 @@
+proxmox-kernel-6.17 (6.17.13-19) UNRELEASED; urgency=medium
+
+  * various CVE fixes:
+
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 20 Jul 2026 15:02:10 +0200
+
 proxmox-kernel-6.17 (6.17.13-18) trixie; urgency=medium
 
   * various CVE fixes:
