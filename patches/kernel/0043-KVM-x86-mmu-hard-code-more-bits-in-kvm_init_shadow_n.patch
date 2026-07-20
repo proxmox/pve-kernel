@@ -41,7 +41,7 @@ index e1e3869f568b5101ca99a238b44680529838395c..1b354e1f2d812f34286446f33be3df6b
  			     int huge_page_level, bool accessed_dirty,
  			     bool mbec, gpa_t new_eptp);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 5be58e312bc60ecbcaa67fdfcaffa80661c69cda..967e2a37c6302da82b42a8f3ac633edd08f8c17d 100644
+index b11e6c2d8c1ef266edd288643928f6865bda1571..66b7a05c204e992dc27ad294bc96093fea9a5d99 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -5923,13 +5923,13 @@ static void kvm_init_shadow_mmu(struct kvm_vcpu *vcpu,

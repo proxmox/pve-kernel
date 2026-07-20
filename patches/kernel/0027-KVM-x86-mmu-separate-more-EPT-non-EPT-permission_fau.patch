@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 15 insertions(+), 11 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 218f767bacda71e6b6d6ca1cf75ac5c54a5fd522..5faa005beb689cb817fc97b0226f737424f896b9 100644
+index f859c536b54bbdd8401b3c785502ab4140a5f64a..cea05a3fe0d4b57fd0a72227bf9247abf549e2e3 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -5568,24 +5568,28 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)

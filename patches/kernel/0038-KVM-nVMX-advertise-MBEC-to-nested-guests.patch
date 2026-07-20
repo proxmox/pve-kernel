@@ -37,7 +37,7 @@ index 23bc5b18efd079df68cd750665e3153d4e438bf0..e1e3869f568b5101ca99a238b4468052
  int kvm_handle_page_fault(struct kvm_vcpu *vcpu, u64 error_code,
  				u64 fault_address, char *insn, int insn_len);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 44de0729e5c1ff5836ea9ede40b77f82626dbee3..e96992a70d6bfe33280d86be7b0ff76c70488517 100644
+index 65ed1dbebaf904dbd98fc26de168e431fc74736e..8d803dd3c27a110dedefe068d59058770291c5d9 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -5943,7 +5943,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_init_shadow_npt_mmu);

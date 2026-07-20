@@ -23,10 +23,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 11 insertions(+), 5 deletions(-)
 
 diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
-index 4438ecac9a89bb02e0335f84e4b7f7060b59161e..d57eed7ffee8d1954ace6afc84bd5e5b301f6c13 100644
+index ad59c22979bde5171aeb7baf6e9a2a3c715f8d81..df9c8760b3232362543df892a75e0f20de3b87a0 100644
 --- a/arch/x86/kvm/hyperv.c
 +++ b/arch/x86/kvm/hyperv.c
-@@ -2041,7 +2041,8 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
+@@ -2046,7 +2046,8 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
  	 * read with kvm_read_guest().
  	 */
  	if (!hc->fast && mmu_is_nested(vcpu)) {
@@ -37,7 +37,7 @@ index 4438ecac9a89bb02e0335f84e4b7f7060b59161e..d57eed7ffee8d1954ace6afc84bd5e5b
  			return HV_STATUS_INVALID_HYPERCALL_INPUT;
  	}
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index b373347fbfa0e3e1a43b734574edc5b8645da03a..8b11a402049147625609f7658e98a52f659badd3 100644
+index 62fc7cd210f9c3008a3fe8d364aeb692e7e871c2..8916dd37fc9826247d9d8d82084f11a77b7b03f3 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -4332,7 +4332,8 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,

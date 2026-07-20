@@ -130,7 +130,7 @@ index a20263a4e7270984b9d6398db85f99ea66180bd4..8b4a55cc0918ebd093aeaf435de7cfe1
  	void (*load_mmu_pgd)(struct kvm_vcpu *vcpu, hpa_t root_hpa,
  			     int root_level);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index b8964d7a900750224a4a3a6fee581a5eccf078db..3f284959d22f7df31391b1b47b8a1eef3aa54b37 100644
+index 0dca062023640109cdbbc22b7f7f1c99fce7f1d8..f0af92c2e2214f4d969bedd8b4f6c055797d9e48 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -229,7 +229,7 @@ static inline bool __maybe_unused is_##reg##_##name(struct kvm_mmu *mmu)	\

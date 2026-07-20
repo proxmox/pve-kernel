@@ -104,7 +104,7 @@ index 830f46145692aec3e19a5e976b17b7bb04369809..23f37535c0ce1d1e8e855ef3f94cae97
  void kvm_init_mmu(struct kvm_vcpu *vcpu);
  void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 5faa005beb689cb817fc97b0226f737424f896b9..b373347fbfa0e3e1a43b734574edc5b8645da03a 100644
+index cea05a3fe0d4b57fd0a72227bf9247abf549e2e3..62fc7cd210f9c3008a3fe8d364aeb692e7e871c2 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -2022,7 +2022,7 @@ static bool kvm_sync_page_check(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp)

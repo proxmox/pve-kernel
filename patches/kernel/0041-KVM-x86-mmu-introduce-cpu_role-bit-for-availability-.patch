@@ -41,7 +41,7 @@ index 8b4a55cc0918ebd093aeaf435de7cfe18e382e18..e20f729f6eb2ee5a36edeb3decd6a2bb
  };
  
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index c33bc216c7af2e4d67f254e4affa4f4bfa6a046d..5be58e312bc60ecbcaa67fdfcaffa80661c69cda 100644
+index d4e887fa7aa28b10ceec87e1e39d3f607c8a8a3e..b11e6c2d8c1ef266edd288643928f6865bda1571 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -236,6 +236,11 @@ BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);

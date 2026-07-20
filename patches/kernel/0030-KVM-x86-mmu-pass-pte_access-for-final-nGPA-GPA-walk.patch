@@ -22,10 +22,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  6 files changed, 25 insertions(+), 15 deletions(-)
 
 diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
-index d57eed7ffee8d1954ace6afc84bd5e5b301f6c13..12cecc6bfbfe760d07aec5927deda5771b89455d 100644
+index df9c8760b3232362543df892a75e0f20de3b87a0..52e5e4fd7dfc5a7227bd0a4594c642c3e430a099 100644
 --- a/arch/x86/kvm/hyperv.c
 +++ b/arch/x86/kvm/hyperv.c
-@@ -2042,7 +2042,7 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
+@@ -2047,7 +2047,7 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
  	 */
  	if (!hc->fast && mmu_is_nested(vcpu)) {
  		hc->ingpa = translate_nested_gpa(vcpu, hc->ingpa,
@@ -75,7 +75,7 @@ index 23f37535c0ce1d1e8e855ef3f94cae97cbb9c33c..635c2e5d8513dc0327f2d221007d21cf
  
  static inline bool kvm_has_mirrored_tdp(const struct kvm *kvm)
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 8b11a402049147625609f7658e98a52f659badd3..2bc72ec4f534b997893a46c2d70f85b9cd8fd8cb 100644
+index 8916dd37fc9826247d9d8d82084f11a77b7b03f3..52b9ac4535a7b8fb1e93ce0ea42675d40e83dd63 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -4332,8 +4332,14 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,

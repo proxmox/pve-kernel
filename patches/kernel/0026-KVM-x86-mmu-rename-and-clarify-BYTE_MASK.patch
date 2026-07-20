@@ -23,7 +23,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 39 insertions(+), 16 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 729240bc00a26977bf3b0cec96476515bad8e36d..218f767bacda71e6b6d6ca1cf75ac5c54a5fd522 100644
+index 6f3f29944e4d2f661a7b0103a08409493671e419..f859c536b54bbdd8401b3c785502ab4140a5f64a 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -5513,29 +5513,53 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)

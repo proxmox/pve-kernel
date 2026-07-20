@@ -45,7 +45,7 @@ index 1b354e1f2d812f34286446f33be3df6ba5f5dc47..ddf4e467c071ebc21d07613eda1f2ef6
  			     int huge_page_level, bool accessed_dirty,
  			     bool mbec, gpa_t new_eptp);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 967e2a37c6302da82b42a8f3ac633edd08f8c17d..fb90cea875a64cea4d6059383bce508bd1a7ed9f 100644
+index 66b7a05c204e992dc27ad294bc96093fea9a5d99..cacddc8599807c0ae352e9161cecb97c05130621 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -55,6 +55,7 @@

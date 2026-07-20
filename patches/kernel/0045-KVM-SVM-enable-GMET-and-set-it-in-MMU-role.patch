@@ -18,7 +18,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 28 insertions(+), 4 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index fb90cea875a64cea4d6059383bce508bd1a7ed9f..ad4aa14b8a22916f2a38cf5167cc0ec4d17b8898 100644
+index cacddc8599807c0ae352e9161cecb97c05130621..a0a8a825287c9aeb87531267e2cff74b3e37fde3 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -5839,7 +5839,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,

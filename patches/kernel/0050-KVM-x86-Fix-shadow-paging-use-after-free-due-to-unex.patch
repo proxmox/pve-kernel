@@ -41,7 +41,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index ad4aa14b8a22916f2a38cf5167cc0ec4d17b8898..e4a46bae254b5d856a14bd7b97f224e817674155 100644
+index a0a8a825287c9aeb87531267e2cff74b3e37fde3..cd37b85041ff3b50e6b363d942a1f845b3d313ac 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -2459,13 +2459,15 @@ static struct kvm_mmu_page *kvm_mmu_get_child_sp(struct kvm_vcpu *vcpu,

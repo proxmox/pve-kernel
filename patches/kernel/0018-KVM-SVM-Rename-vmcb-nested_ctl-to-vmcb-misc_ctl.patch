@@ -108,10 +108,10 @@ index b3565ebdc7decbdde4fdb2f86c310e7f1bc0d59e..03fe24886ec6bc3d6df1ba1b0b5c1632
  	dst->event_inj_err        = from->event_inj_err;
  	dst->next_rip             = from->next_rip;
 diff --git a/arch/x86/kvm/svm/sev.c b/arch/x86/kvm/svm/sev.c
-index 62db345629e8e6d6c5a0bd20897d22cc7e4de762..c315a6cbe42d93c9e3bb34c12d3e6ff671af3daf 100644
+index 1512ca340bf09306c860fb7046e9c0dc96804c12..34e65685407ea8cddfe0c616cf3e67639f8207cc 100644
 --- a/arch/x86/kvm/svm/sev.c
 +++ b/arch/x86/kvm/svm/sev.c
-@@ -4648,7 +4648,7 @@ static void sev_es_init_vmcb(struct vcpu_svm *svm, bool init_event)
+@@ -4649,7 +4649,7 @@ static void sev_es_init_vmcb(struct vcpu_svm *svm, bool init_event)
  	struct kvm_sev_info *sev = to_kvm_sev_info(svm->vcpu.kvm);
  	struct vmcb *vmcb = svm->vmcb01.ptr;
  
@@ -120,7 +120,7 @@ index 62db345629e8e6d6c5a0bd20897d22cc7e4de762..c315a6cbe42d93c9e3bb34c12d3e6ff6
  
  	/*
  	 * An SEV-ES guest requires a VMSA area that is a separate from the
-@@ -4719,7 +4719,7 @@ void sev_init_vmcb(struct vcpu_svm *svm, bool init_event)
+@@ -4720,7 +4720,7 @@ void sev_init_vmcb(struct vcpu_svm *svm, bool init_event)
  {
  	struct kvm_vcpu *vcpu = &svm->vcpu;
  
