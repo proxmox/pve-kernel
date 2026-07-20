@@ -1,7 +1,12 @@
-proxmox-kernel-6.17 (6.17.13-19) UNRELEASED; urgency=medium
+proxmox-kernel-6.17 (6.17.13-19) trixie; urgency=medium
 
   * various CVE fixes:
-
+    - CVE-2026-52989 overwrite of NVMEoTcp queue state
+    - CVE-2026-52924 UAF in sctp protocol
+    - CVE-2026-53228 UAF in ip6sit tunnel driver
+    - CVE-2026-53225 information disclosure via unauthenticated sctp
+    - CVE-2026-53086 race condition in bmcgenet driver
+    - CVE-2026-53131 missing checks in netfilter header parsing
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 20 Jul 2026 15:02:10 +0200
 
