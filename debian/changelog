@@ -1,3 +1,11 @@
+proxmox-kernel-7.0 (7.0.14-7) trixie; urgency=medium
+
+  * update submodules and patches to Ubuntu-7.0.0-28.28i3
+    - upstream stable changes from 6.18.39 and 7.1.4
+    - various CVE fixes
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 27 Jul 2026 09:13:05 +0200
+
 proxmox-kernel-7.0 (7.0.14-6) trixie; urgency=medium
 
   * update submodules and patches to Ubuntu-7.0.0-28.28i2
