@@ -1,3 +1,11 @@
+proxmox-kernel-6.17 (6.17.13-20) trixie; urgency=medium
+
+  * update submodule and patches to Ubuntu-hwe-6.17-6.17.0-42.42
+   - simplify fix for CVE-2026-46242
+  * fix CVE-2026-64600
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 27 Jul 2026 10:29:19 +0200
+
 proxmox-kernel-6.17 (6.17.13-19) trixie; urgency=medium
 
   * various CVE fixes:
