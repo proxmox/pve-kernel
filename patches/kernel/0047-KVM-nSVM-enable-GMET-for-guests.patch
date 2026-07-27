@@ -45,10 +45,10 @@ index ceaace3a2f500b01f183612107f9c24b05e4b7f2..cd446f86ce4e9e134ff2cab6cdc9ea64
  		nested_svm_init_mmu_context(vcpu);
  	}
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index b30e760e46eff6386fbc1d5dd87a9a4f15b1bb3d..e448c1d9e85f9c635d5a88036ee3a3d537b5981b 100644
+index f15d3087856088bfa129d2e090c8dbc41edd74ce..66cca1c4be9e560217639c196f0c9acbbc3864bb 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -5471,6 +5471,9 @@ static __init void svm_set_cpu_caps(void)
+@@ -5474,6 +5474,9 @@ static __init void svm_set_cpu_caps(void)
  		if (boot_cpu_has(X86_FEATURE_PFTHRESHOLD))
  			kvm_cpu_cap_set(X86_FEATURE_PFTHRESHOLD);
  

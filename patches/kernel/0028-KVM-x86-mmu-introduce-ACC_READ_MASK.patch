@@ -383,10 +383,10 @@ index adf925500b9e02bce2f23d7882255ec7664a671f..1afbf272efae3a19afdc294b90960202
  	/* Is it a fetch fault? */
  	error_code |= (exit_qualification & EPT_VIOLATION_ACC_INSTR)
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index 8b24e682535bf8cc96b2c935062df63caf8c208c..e27868fa4eb70397f422944496063f34815865ed 100644
+index e4e31224d12f300d265e219767652139c38b9b77..8f9b897e5167312b41627849d6626cb28c4e1919 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -8798,8 +8798,7 @@ __init int vmx_hardware_setup(void)
+@@ -8800,8 +8800,7 @@ __init int vmx_hardware_setup(void)
  	set_bit(0, vmx_vpid_bitmap); /* 0 is reserved for host */
  
  	if (enable_ept)

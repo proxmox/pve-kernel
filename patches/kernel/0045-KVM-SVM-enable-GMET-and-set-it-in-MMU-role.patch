@@ -70,7 +70,7 @@ index a94c35190dc8884441444a407e0e711831f741d2..ceaace3a2f500b01f183612107f9c24b
  	vcpu->arch.tsc_offset = kvm_calc_nested_tsc_offset(
  			vcpu->arch.l1_tsc_offset,
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 6fd0bf1ad4ff3abfc6781fee43fd7f9b4d5fdf00..a0685d6a20819a5d9b3da005c37410d99e4eb41d 100644
+index 56df33516f63474507e22551272c583bd6ed3d3f..96bf55bbdc7632269cc1e1efc73425efb230126f 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
 @@ -136,6 +136,9 @@ module_param(pause_filter_count_max, ushort, 0444);
@@ -94,7 +94,7 @@ index 6fd0bf1ad4ff3abfc6781fee43fd7f9b4d5fdf00..a0685d6a20819a5d9b3da005c37410d9
  	svm->current_vmcb->asid_generation = 0;
  	svm->asid = 0;
  
-@@ -4576,6 +4583,11 @@ svm_patch_hypercall(struct kvm_vcpu *vcpu, unsigned char *hypercall)
+@@ -4579,6 +4586,11 @@ svm_patch_hypercall(struct kvm_vcpu *vcpu, unsigned char *hypercall)
  	hypercall[2] = 0xd9;
  }
  
@@ -106,7 +106,7 @@ index 6fd0bf1ad4ff3abfc6781fee43fd7f9b4d5fdf00..a0685d6a20819a5d9b3da005c37410d9
  /*
   * The kvm parameter can be NULL (module initialization, or invocation before
   * VM creation). Be sure to check the kvm parameter before using it.
-@@ -5322,6 +5334,7 @@ struct kvm_x86_ops svm_x86_ops __initdata = {
+@@ -5325,6 +5337,7 @@ struct kvm_x86_ops svm_x86_ops __initdata = {
  	.write_tsc_multiplier = svm_write_tsc_multiplier,
  
  	.load_mmu_pgd = svm_load_mmu_pgd,
@@ -114,7 +114,7 @@ index 6fd0bf1ad4ff3abfc6781fee43fd7f9b4d5fdf00..a0685d6a20819a5d9b3da005c37410d9
  
  	.check_intercept = svm_check_intercept,
  	.handle_exit_irqoff = svm_handle_exit_irqoff,
-@@ -5562,6 +5575,9 @@ static __init int svm_hardware_setup(void)
+@@ -5565,6 +5578,9 @@ static __init int svm_hardware_setup(void)
  	if (!boot_cpu_has(X86_FEATURE_NPT))
  		npt_enabled = false;
  

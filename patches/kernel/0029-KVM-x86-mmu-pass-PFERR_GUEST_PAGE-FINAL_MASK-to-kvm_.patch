@@ -76,10 +76,10 @@ index fb1b5d8b23e5cb4a473ee5ee0e82018f843e6753..567f8b77ffe05752d2e7bbac39a9d2b3
  		return 0;
  
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 2acda1f7097a79be2b6c515989a9da6efb2d3516..5490325712f9cfd8181933079fa606e13f912fd5 100644
+index 18a6e962a6fa730d8ed785e11b809541d3e908d8..0890bb23b1beaa223d6ee696b5ab3ef82a8591ca 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -1070,7 +1070,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
+@@ -1069,7 +1069,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
  	 * to an L1 GPA.
  	 */
  	real_gpa = kvm_translate_gpa(vcpu, mmu, gfn_to_gpa(pdpt_gfn),

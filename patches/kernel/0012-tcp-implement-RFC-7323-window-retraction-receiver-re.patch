@@ -210,7 +210,7 @@ index dafb63b923d0d08cb1a0e9a37d8ec025386a960a..d350d794a959720853ffd8937cfdc34c
  	if (newtp->rx_opt.wscale_ok) {
  		newtp->rx_opt.snd_wscale = ireq->snd_wscale;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index a51186b42be93362f2d53af85dd6540a1fbb2f09..db16cd6fa47de477193d8677926c90039fbfe081 100644
+index a5ad56285333bace20e93b36232b1243f081f879..d35758b39de742944d62f609432c086c032854bc 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -293,6 +293,7 @@ static u16 tcp_select_window(struct sock *sk)

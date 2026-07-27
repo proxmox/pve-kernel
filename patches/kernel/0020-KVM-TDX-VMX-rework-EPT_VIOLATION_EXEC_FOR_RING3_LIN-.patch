@@ -76,7 +76,7 @@ index 412d0829d7a21777c5969ba27293721e9aa3d1c5..adf925500b9e02bce2f23d7882255ec7
  
  	if (exit_qualification & EPT_VIOLATION_GVA_IS_VALID)
 diff --git a/arch/x86/kvm/vmx/tdx.c b/arch/x86/kvm/vmx/tdx.c
-index c5065f84b78be3ca09cd854611e6c9dc3ec61ae4..fa740f70ee75ecccecec107c54807115cc50e123 100644
+index b0d381ed3f74f981a4ed33075ad06da283c3d6cc..b4f56df41ee83152b017f82c7f8b87f601e6d36c 100644
 --- a/arch/x86/kvm/vmx/tdx.c
 +++ b/arch/x86/kvm/vmx/tdx.c
 @@ -1855,7 +1855,7 @@ static inline bool tdx_is_sept_violation_unexpected_pending(struct kvm_vcpu *vcp

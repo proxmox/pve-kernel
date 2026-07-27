@@ -38,10 +38,10 @@ index 40fa72f31fc7990735a1d142ee48ba25187ebe94..48520fa1c8e84a0d5b294b661adc469c
  	if (vt_is_tdx_private_gpa(vcpu->kvm, gpa))
  		error_code |= PFERR_PRIVATE_ACCESS;
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index e030548f4b63f4d180e6b5d95889bb23393412fc..f91e9e99e6a98ea84f2ae4aaaec53ef84d7a5bd8 100644
+index bf95182122ce6f37486b73ec4d093f192034033b..310e2c805d9af39d3c25f9e60481143f8f50b750 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -2826,6 +2826,16 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,
+@@ -2844,6 +2844,16 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,
  		vmx_cap->vpid = 0;
  	}
  

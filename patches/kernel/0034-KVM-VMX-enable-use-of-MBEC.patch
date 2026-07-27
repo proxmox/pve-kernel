@@ -151,7 +151,7 @@ index e4cb317807abda2f0daa613b75d32aa57bda7f59..cdc35a2728d945bf2202093a07e1af21
  
  		if (nested_cpu_has(vmcs12,
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index e27868fa4eb70397f422944496063f34815865ed..e030548f4b63f4d180e6b5d95889bb23393412fc 100644
+index 8f9b897e5167312b41627849d6626cb28c4e1919..bf95182122ce6f37486b73ec4d093f192034033b 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
 @@ -113,6 +113,9 @@ module_param(emulate_invalid_guest_state, bool, 0444);
@@ -164,7 +164,7 @@ index e27868fa4eb70397f422944496063f34815865ed..e030548f4b63f4d180e6b5d95889bb23
  module_param(enable_apicv, bool, 0444);
  module_param(enable_ipiv, bool, 0444);
  
-@@ -2809,6 +2812,7 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,
+@@ -2827,6 +2830,7 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,
  			return -EIO;
  
  		vmx_cap->ept = 0;
@@ -172,7 +172,7 @@ index e27868fa4eb70397f422944496063f34815865ed..e030548f4b63f4d180e6b5d95889bb23
  		_cpu_based_2nd_exec_control &= ~SECONDARY_EXEC_EPT_VIOLATION_VE;
  	}
  	if (!(_cpu_based_2nd_exec_control & SECONDARY_EXEC_ENABLE_VPID) &&
-@@ -4844,6 +4848,9 @@ static u32 vmx_secondary_exec_control(struct vcpu_vmx *vmx)
+@@ -4861,6 +4865,9 @@ static u32 vmx_secondary_exec_control(struct vcpu_vmx *vmx)
  	 */
  	exec_control &= ~SECONDARY_EXEC_ENABLE_VMFUNC;
  
@@ -182,7 +182,7 @@ index e27868fa4eb70397f422944496063f34815865ed..e030548f4b63f4d180e6b5d95889bb23
  	/* SECONDARY_EXEC_DESC is enabled/disabled on writes to CR4.UMIP,
  	 * in vmx_set_cr4.  */
  	exec_control &= ~SECONDARY_EXEC_DESC;
-@@ -7932,6 +7939,11 @@ u8 vmx_get_mt_mask(struct kvm_vcpu *vcpu, gfn_t gfn, bool is_mmio)
+@@ -7934,6 +7941,11 @@ u8 vmx_get_mt_mask(struct kvm_vcpu *vcpu, gfn_t gfn, bool is_mmio)
  	return (MTRR_TYPE_WRBACK << VMX_EPT_MT_EPTE_SHIFT);
  }
  
@@ -194,7 +194,7 @@ index e27868fa4eb70397f422944496063f34815865ed..e030548f4b63f4d180e6b5d95889bb23
  static void vmcs_set_secondary_exec_control(struct vcpu_vmx *vmx, u32 new_ctl)
  {
  	/*
-@@ -8737,6 +8749,8 @@ __init int vmx_hardware_setup(void)
+@@ -8739,6 +8751,8 @@ __init int vmx_hardware_setup(void)
  
  	if (!cpu_has_vmx_ept_ad_bits() || !enable_ept)
  		enable_ept_ad_bits = 0;

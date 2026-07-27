@@ -134,10 +134,10 @@ index 121bfb2217e83d5c2926e2155cb9ded5ff5d3b00..8a4c09c5cdbfb3000670b92fe9404738
  #define SPTE_LEVEL_SHIFT(level)		__PT_LEVEL_SHIFT(level, SPTE_LEVEL_BITS)
  #define SPTE_INDEX(address, level)	__PT_INDEX(address, level, SPTE_LEVEL_BITS)
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 5490325712f9cfd8181933079fa606e13f912fd5..5a8982820996f270489fe6d8d05ef2489d33a991 100644
+index 0890bb23b1beaa223d6ee696b5ab3ef82a8591ca..ecfaafa3fc01be1f3f5f6c98364d7042043c05d4 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -1071,7 +1071,7 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
+@@ -1070,7 +1070,7 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
  	 */
  	real_gpa = kvm_translate_gpa(vcpu, mmu, gfn_to_gpa(pdpt_gfn),
  				     PFERR_USER_MASK | PFERR_WRITE_MASK |
@@ -146,7 +146,7 @@ index 5490325712f9cfd8181933079fa606e13f912fd5..5a8982820996f270489fe6d8d05ef248
  	if (real_gpa == INVALID_GPA)
  		return 0;
  
-@@ -7854,7 +7854,8 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
+@@ -7852,7 +7852,8 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
  }
  
  gpa_t translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa, u64 access,
