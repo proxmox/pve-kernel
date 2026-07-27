@@ -1,3 +1,9 @@
+proxmox-kernel-6.8 (6.8.12-38) bookworm; urgency=medium
+
+  * fix CVE-2026-64600
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 27 Jul 2026 13:56:53 +0200
+
 proxmox-kernel-6.8 (6.8.12-37) bookworm; urgency=medium
 
   * CVE fixes:
