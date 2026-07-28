@@ -1,3 +1,9 @@
+proxmox-kernel-6.17 (6.17.13-21) trixie; urgency=medium
+
+  * fix CVE-2026-64531 "OVSwrap"
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 Jul 2026 14:17:03 +0200
+
 proxmox-kernel-6.17 (6.17.13-20) trixie; urgency=medium
 
   * update submodule and patches to Ubuntu-hwe-6.17-6.17.0-42.42
