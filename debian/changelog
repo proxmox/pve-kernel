@@ -1,3 +1,12 @@
+proxmox-kernel-6.8 (6.8.12-39) bookworm; urgency=medium
+
+  * update sources to Ubuntu-6.8.0-136.136i1
+    (stable patchs from 6.12.93)
+
+  * fix CVE-2026-64531 "OVSWrap"
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 Jul 2026 13:16:50 +0200
+
 proxmox-kernel-6.8 (6.8.12-38) bookworm; urgency=medium
 
   * fix CVE-2026-64600
