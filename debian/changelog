@@ -1,3 +1,9 @@
+proxmox-kernel-7.0 (7.0.14-8) trixie; urgency=medium
+
+  * fix CVE-2026-64531 "OVSWrap" LPE
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 Jul 2026 12:28:50 +0200
+
 proxmox-kernel-7.0 (7.0.14-7) trixie; urgency=medium
 
   * update submodules and patches to Ubuntu-7.0.0-28.28i3
