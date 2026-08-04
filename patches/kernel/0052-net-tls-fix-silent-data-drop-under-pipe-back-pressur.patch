@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jakub Kicinski <kuba@kernel.org>
+Date: Wed, 29 Apr 2026 15:29:38 -0700
+Subject: [PATCH] net: tls: fix silent data drop under pipe back-pressure
+
+tls_sw_splice_read() uses len when advancing rxm->offset / rxm->full_len
+after skb_splice_bits(), rather than copied (the actual number of bytes
+successfully spliced into the pipe). When the destination pipe cannot
+accept all the requested bytes, splice_to_pipe() returns fewer bytes
+than len, and 'len - copied' of data is effectively skipped over.
+
+Fixes: e062fe99cccd ("tls: splice_read: fix accessing pre-processed records")
+Link: https://patch.msgid.link/20260429222944.2139041-2-kuba@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+---
+ net/tls/tls_sw.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/tls/tls_sw.c b/net/tls/tls_sw.c
+index e741b87edf438a8403d9c5706e372d3d685c80be..f92478451f9688f55f5adb0ecc268cc9d2c0cdce 100644
+--- a/net/tls/tls_sw.c
++++ b/net/tls/tls_sw.c
+@@ -2340,9 +2340,9 @@ ssize_t tls_sw_splice_read(struct socket *sock,  loff_t *ppos,
+ 	if (copied < 0)
+ 		goto splice_requeue;
+ 
+-	if (chunk < rxm->full_len) {
+-		rxm->offset += len;
+-		rxm->full_len -= len;
++	if (copied < rxm->full_len) {
++		rxm->offset += copied;
++		rxm->full_len -= copied;
+ 		goto splice_requeue;
+ 	}
+ 
