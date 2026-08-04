@@ -28,10 +28,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 15 insertions(+), 12 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 8d803dd3c27a110dedefe068d59058770291c5d9..d4e887fa7aa28b10ceec87e1e39d3f607c8a8a3e 100644
+index cba9329a8c4d9e7ba4b0b85f7f0e94f84e612313..f9c5c230f079744fd7e2ff56f9a901a7e630968b 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -3430,12 +3430,13 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+@@ -3432,12 +3432,13 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
  {
  	struct kvm_shadow_walk_iterator it;
  	struct kvm_mmu_page *sp;
@@ -47,7 +47,7 @@ index 8d803dd3c27a110dedefe068d59058770291c5d9..d4e887fa7aa28b10ceec87e1e39d3f60
  	for_each_shadow_entry(vcpu, fault->addr, it) {
  		/*
  		 * We cannot overwrite existing page tables with an NX
-@@ -3448,7 +3449,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+@@ -3450,7 +3451,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
  		if (it.level == fault->goal_level)
  			break;
  
@@ -56,7 +56,7 @@ index 8d803dd3c27a110dedefe068d59058770291c5d9..d4e887fa7aa28b10ceec87e1e39d3f60
  		if (sp == ERR_PTR(-EEXIST))
  			continue;
  
-@@ -3461,7 +3462,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+@@ -3463,7 +3464,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
  	if (WARN_ON_ONCE(it.level != fault->goal_level))
  		return -EFAULT;
  

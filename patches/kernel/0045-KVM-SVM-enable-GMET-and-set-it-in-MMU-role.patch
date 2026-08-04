@@ -18,10 +18,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 28 insertions(+), 4 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index cacddc8599807c0ae352e9161cecb97c05130621..a0a8a825287c9aeb87531267e2cff74b3e37fde3 100644
+index 3573e903dbf385b6913e57ef1a06b4de368c3d7c..cd37b85041ff3b50e6b363d942a1f845b3d313ac 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5839,7 +5839,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5841,7 +5841,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  {
  	union kvm_mmu_page_role role = {0};
  
@@ -29,7 +29,7 @@ index cacddc8599807c0ae352e9161cecb97c05130621..a0a8a825287c9aeb87531267e2cff74b
  	role.cr0_wp = true;
  	role.cr4_smep = kvm_x86_call(tdp_has_smep)(vcpu->kvm);
  	role.efer_nx = true;
-@@ -5850,6 +5849,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5852,6 +5851,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  	role.direct = true;
  	role.has_4_byte_gpte = false;
  
