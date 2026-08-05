@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 17 Jul 2026 18:32:08 +0300
+Subject: [PATCH] sctp: validate cached peer INIT chunk length in COOKIE_ECHO
+ processing
+
+When a listening SCTP server processes a COOKIE_ECHO chunk, the cached
+peer INIT chunk embedded after the cookie is parsed and its parameters
+are later walked by sctp_process_init() using sctp_walk_params().
+
+However, the chunk header length of this cached INIT chunk was not
+validated against the remaining buffer in the COOKIE_ECHO payload. If
+the length field is inflated, the parameter walk can run beyond the
+actual received data, leading to out-of-bounds reads and potential
+memory corruption during later parameter handling (e.g. STATE_COOKIE
+processing and kmemdup() copies).
+
+Add a bounds check in sctp_unpack_cookie() to ensure the cached INIT
+chunk length does not exceed the available data in the COOKIE_ECHO
+buffer before it is used.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Reported-by: Brian Geffon <bgeffon@google.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/eb60825fa22d6f9e663c7d4dbb69f397b5d34d42.1780362366.git.lucien.xin@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(backported from commit 0861615c28de668669d748ef4eb913ea9262d13b)
+[bot_kybele: Added the ch declaration and bounds check verbatim, but placed the
+ check before this tree's older hmac/crypto_shash MAC path (goto no_hmac)
+ instead of upstream's cookie_auth_enable block, since this tree predates the
+ cookie_auth rework.]
+CVE-2026-53246
+Assisted-by: kybele:claude-opus-4.8
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Alessio Faina <alessio.faina@canonical.com>
+Acked-by: Bethany Jamison <bethany.jamison@canonical.com>
+Signed-off-by: Edoardo Canepa <edoardo.canepa@canonical.com>
+(cherry picked from commit 3d7893c4fa81ccaa680c0f98b3f31999a1b30e30)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/sctp/sm_make_chunk.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 96ca400120e608156c7ca30068d0bab134d553a4..49bf63e846dad5ac37c842b70f1f2b452517b7fd 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1750,6 +1750,7 @@ struct sctp_association *sctp_unpack_cookie(
+ 	struct sk_buff *skb = chunk->skb;
+ 	struct sctp_cookie *bear_cookie;
+ 	__u8 *digest = ep->digest;
++	struct sctp_chunkhdr *ch;
+ 	enum sctp_scope scope;
+ 	unsigned int len;
+ 	ktime_t kt;
+@@ -1779,6 +1780,10 @@ struct sctp_association *sctp_unpack_cookie(
+ 	cookie = chunk->subh.cookie_hdr;
+ 	bear_cookie = &cookie->c;
+ 
++	ch = (struct sctp_chunkhdr *)(bear_cookie + 1);
++	if (ntohs(ch->length) > len - fixed_size)
++		goto malformed;
++
+ 	if (!sctp_sk(ep->base.sk)->hmac)
+ 		goto no_hmac;
+ 
