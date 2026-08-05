@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Weiming Shi <bestswngs@gmail.com>
+Date: Sat, 4 Jul 2026 10:14:21 -0700
+Subject: [PATCH] ipv4: fib: free fib_alias with kfree_rcu() on insert error
+ path
+
+[ Upstream commit f2f152e94a67bc746afaf05a1b2702c195553112 ]
+
+fib_table_insert() publishes new_fa into the leaf's fa_list with
+fib_insert_alias() before calling the fib entry notifiers. When a
+notifier fails, the error path removes new_fa with fib_remove_alias()
+(hlist_del_rcu) and frees it right away with kmem_cache_free().
+
+fib_table_lookup() walks that list under rcu_read_lock() only, so a
+concurrent lookup that already reached new_fa keeps reading it after the
+free:
+
+ BUG: KASAN: slab-use-after-free in fib_table_lookup (net/ipv4/fib_trie.c:1601)
+ Read of size 1 at addr ffff88810676d4eb by task exploit/297
+ Call Trace:
+  fib_table_lookup (net/ipv4/fib_trie.c:1601)
+  ip_route_output_key_hash_rcu (net/ipv4/route.c:2814)
+  ip_route_output_key_hash (net/ipv4/route.c:2705)
+  __ip4_datagram_connect (net/ipv4/datagram.c:49)
+  udp_connect (net/ipv4/udp.c:2144)
+  __sys_connect (net/socket.c:2167)
+  __x64_sys_connect (net/socket.c:2173)
+  do_syscall_64
+  entry_SYSCALL_64_after_hwframe
+ which belongs to the cache ip_fib_alias of size 56
+
+Triggering the error path needs CAP_NET_ADMIN and a registered fib
+notifier that can reject a route; a netdevsim device whose IPv4 FIB
+resource is exhausted is enough.
+
+Free new_fa with alias_free_mem_rcu(), as fib_table_delete() already
+does for a fib_alias removed from the trie.
+
+Fixes: a6c76c17df02 ("ipv4: Notify route after insertion to the routing table")
+Reported-by: Xiang Mei <xmei5@asu.edu>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Weiming Shi <bestswngs@gmail.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20260704171421.1786806-1-bestswngs@gmail.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit b8d2ea75c76abcd0d72679c2f488271f573e32fb)
+CVE-2026-64572
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ipv4/fib_trie.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 1308213791f19d58764d6b6753acccbee404c29f..2dc87e2156d373933a6b76af333174661ddfaeb2 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1385,7 +1385,7 @@ int fib_table_insert(struct net *net, struct fib_table *tb,
+ out_remove_new_fa:
+ 	fib_remove_alias(t, tp, l, new_fa);
+ out_free_new_fa:
+-	kmem_cache_free(fn_alias_kmem, new_fa);
++	alias_free_mem_rcu(new_fa);
+ out:
+ 	fib_release_info(fi);
+ err:
