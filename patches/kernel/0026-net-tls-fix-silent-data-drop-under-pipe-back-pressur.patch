@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jakub Kicinski <kuba@kernel.org>
+Date: Thu, 25 Jun 2026 01:22:55 +0300
+Subject: [PATCH] net: tls: fix silent data drop under pipe back-pressure
+
+BugLink: https://bugs.launchpad.net/bugs/2155609
+
+tls_sw_splice_read() uses len when advancing rxm->offset / rxm->full_len
+after skb_splice_bits(), rather than copied (the actual number of bytes
+successfully spliced into the pipe). When the destination pipe cannot
+accept all the requested bytes, splice_to_pipe() returns fewer bytes
+than len, and 'len - copied' of data is effectively skipped over.
+
+Fixes: e062fe99cccd ("tls: splice_read: fix accessing pre-processed records")
+Link: https://patch.msgid.link/20260429222944.2139041-2-kuba@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 7e7be31bfdb066c1c780dcd6b1224078fc54063f)
+Signed-off-by: Cengiz Can <cengiz.can@canonical.com>
+Acked-by: Hui Wang <hui.wang@canonical.com>
+Acked-by: Jian Hui Lee <jianhui.lee@canonical.com>
+Signed-off-by: Edoardo Canepa <edoardo.canepa@canonical.com>
+(cherry picked from commit 9acde93e5c93bcce780de488fc63437721a115c3)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/tls/tls_sw.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/tls/tls_sw.c b/net/tls/tls_sw.c
+index d4c98f33bce1f95b3886166b186a59b657e1f459..396470eb07b1d863304ab3e97aea99b22749fc8e 100644
+--- a/net/tls/tls_sw.c
++++ b/net/tls/tls_sw.c
+@@ -2303,9 +2303,9 @@ ssize_t tls_sw_splice_read(struct socket *sock,  loff_t *ppos,
+ 	if (copied < 0)
+ 		goto splice_requeue;
+ 
+-	if (chunk < rxm->full_len) {
+-		rxm->offset += len;
+-		rxm->full_len -= len;
++	if (copied < rxm->full_len) {
++		rxm->offset += copied;
++		rxm->full_len -= copied;
+ 		goto splice_requeue;
+ 	}
+ 
