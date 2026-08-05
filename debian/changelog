@@ -1,3 +1,20 @@
+proxmox-kernel-6.8 (6.8.12-40) bookworm; urgency=medium
+
+  * pick relevant commits from Ubuntu-6.8.0-139.139 tag
+
+  * fix CVE's reported upstream:
+    - CVE-2026-64581
+    - CVE-2026-64572
+    - CVE-2026-64580
+    - CVE-2026-64579
+    - CVE-2026-64566
+    - CVE-2026-64567
+    - CVE-2026-64047
+    - CVE-2026-64562
+    - CVE-2026-64561
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 05 Aug 2026 15:56:18 +0200
+
 proxmox-kernel-6.8 (6.8.12-39) bookworm; urgency=medium
 
   * update sources to Ubuntu-6.8.0-136.136i1
