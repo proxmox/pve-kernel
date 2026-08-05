@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Til Kaiser <mail@tk154.de>
+Date: Sun, 7 Jun 2026 15:49:41 +0200
+Subject: [PATCH] net: mvpp2: limit XDP frame size to the RX buffer
+
+[ Upstream commit f3c6aa078927e6fe8121c9c591ddee8716c5305a ]
+
+mvpp2 has short and long BM pools, and short pool buffers can be smaller
+than PAGE_SIZE. The XDP path nevertheless initializes every xdp_buff with
+PAGE_SIZE as frame size.
+
+XDP helpers use frame_sz to validate tail growth and to derive the hard
+end of the data area. Advertising PAGE_SIZE for short buffers can let
+bpf_xdp_adjust_tail() grow a packet past the real allocation, corrupting
+memory or later tripping skb tailroom checks.
+
+Initialize the XDP buffer with bm_pool->frag_size so XDP tailroom matches
+the actual buffer backing the packet.
+
+Fixes: 07dd0a7aae7f ("mvpp2: add basic XDP support")
+Signed-off-by: Til Kaiser <mail@tk154.de>
+Link: https://patch.msgid.link/20260607134943.21996-3-mail@tk154.de
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 994bd2b58d2bd08aa97ec0836cc813cfcb00d749)
+CVE-2026-53216
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/net/ethernet/marvell/mvpp2/mvpp2_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvpp2/mvpp2_main.c b/drivers/net/ethernet/marvell/mvpp2/mvpp2_main.c
+index 809df1c09f86c946661779a191504f47fc47758e..8a926a6233990cf5607c097e3dc97c4d16dd920c 100644
+--- a/drivers/net/ethernet/marvell/mvpp2/mvpp2_main.c
++++ b/drivers/net/ethernet/marvell/mvpp2/mvpp2_main.c
+@@ -3998,7 +3998,7 @@ static int mvpp2_rx(struct mvpp2_port *port, struct napi_struct *napi,
+ 			else
+ 				xdp_rxq = &rxq->xdp_rxq_long;
+ 
+-			xdp_init_buff(&xdp, PAGE_SIZE, xdp_rxq);
++			xdp_init_buff(&xdp, bm_pool->frag_size, xdp_rxq);
+ 			xdp_prepare_buff(&xdp, data,
+ 					 MVPP2_MH_SIZE + MVPP2_SKB_HEADROOM,
+ 					 rx_bytes, false);
