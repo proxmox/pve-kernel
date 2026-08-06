@@ -110,6 +110,7 @@ $(KERNEL_SRC).prepared: $(KERNEL_SRC_SUBMODULE) | submodule
 	rm -rf $(BUILD_DIR)/$(KERNEL_SRC) $@
 	mkdir -p $(BUILD_DIR)
 	cp -a $(KERNEL_SRC_SUBMODULE) $(BUILD_DIR)/$(KERNEL_SRC)
+	cd $(BUILD_DIR)/$(KERNEL_SRC); git clean -xdfi
 # TODO: split for archs, track and diff in our repository?
 	cd $(BUILD_DIR)/$(KERNEL_SRC); python3 debian/scripts/misc/annotations --arch amd64 --export >../../$(KERNEL_CFG_ORG)
 	cp $(KERNEL_CFG_ORG) $(BUILD_DIR)/$(KERNEL_SRC)/.config
