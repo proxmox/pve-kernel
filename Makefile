@@ -112,6 +112,7 @@ $(KERNEL_SRC).prepared: $(KERNEL_SRC_SUBMODULE) | submodule
 	rm -rf $(BUILD_DIR)/$(KERNEL_SRC) $@
 	mkdir -p $(BUILD_DIR)
 	cp -a $(KERNEL_SRC_SUBMODULE) $(BUILD_DIR)/$(KERNEL_SRC)
+	cd $(BUILD_DIR)/$(KERNEL_SRC); git clean -xdfi
 	cd $(BUILD_DIR)/$(KERNEL_SRC); python3 debian/scripts/misc/annotations --arch $(ARCH) --export >../../$(KERNEL_CFG_ORG)
 	cp $(KERNEL_CFG_ORG) $(BUILD_DIR)/$(KERNEL_SRC)/.config
 	sed -i $(BUILD_DIR)/$(KERNEL_SRC)/Makefile -e 's/^EXTRAVERSION.*$$/EXTRAVERSION=$(EXTRAVERSION)/'
