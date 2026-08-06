@@ -1,0 +1,241 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Borislav Petkov (AMD)" <bp@alien8.de>
+Date: Tue, 2 Jun 2026 21:26:44 -0700
+Subject: [PATCH] x86/bugs: Make Safe-RET robust against interrupt injection
+
+An attacker injecting interrupts while the Safe-RET mitigation executes
+on machines affected by SRSO can neutralize the safe return sequence,
+potentially leading to data leakage through speculative execution.
+
+Fixup register state as if the Safe-RET sequence executed successfully
+by "emulating" it, in a manner of speaking, and avoid executing a RET
+instruction after returning from the interrupt.
+
+Co-developed-by: David Kaplan <David.Kaplan@amd.com>
+Signed-off-by: David Kaplan <David.Kaplan@amd.com>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit bfe7f9993467ba431b2731437949ac1e2634e771)
+[TL: took the 6.18.y version, as this tree's retpoline.S already uses
+ the symbol forms it expects, and renamed CONFIG_MITIGATION_SRSO to the
+ pre-6.9 CONFIG_CPU_SRSO. Upstream gets the RIP pt_regs offset by
+ including asm/ptrace-abi.h from nospec-branch.h, as the macro is
+ stringified while that header is preprocessed. That include would
+ shadow the bare RSP define in relocate_kernel_64.S here, so pass the
+ offset in from the call sites instead, where RIP is already defined.]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/entry/entry_64.S            |  8 +++-
+ arch/x86/include/asm/nospec-branch.h | 59 ++++++++++++++++++++++++++++
+ arch/x86/kernel/cpu/bugs.c           | 39 ++++++++++++++++++
+ arch/x86/lib/retpoline.S             | 20 ++++++++++
+ 4 files changed, 125 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/entry/entry_64.S b/arch/x86/entry/entry_64.S
+index 1be01910bbd80fb82d2ea8077faa9d200317f715..955b801e560d83e7ed6bc1a855947b3eff0c8495 100644
+--- a/arch/x86/entry/entry_64.S
++++ b/arch/x86/entry/entry_64.S
+@@ -938,6 +938,8 @@ SYM_CODE_START(paranoid_entry)
+ 	IBRS_ENTER save_reg=%r15
+ 	UNTRAIN_RET_FROM_CALL
+ 
++	HANDLE_INTR_SAFERET RIP, 8(%rsp)
++
+ 	RET
+ SYM_CODE_END(paranoid_entry)
+ 
+@@ -1040,6 +1042,11 @@ SYM_CODE_START(error_entry)
+ 	movl	%ecx, %eax			/* zero extend */
+ 	cmpq	%rax, RIP+8(%rsp)
+ 	je	.Lbstep_iret
++
++	VALIDATE_UNRET_END
++
++	HANDLE_INTR_SAFERET RIP, 8(%rsp)
++
+ 	cmpq	$.Lgs_change, RIP+8(%rsp)
+ 	jne	.Lerror_entry_done_lfence
+ 
+@@ -1058,7 +1065,6 @@ SYM_CODE_START(error_entry)
+ 	FENCE_SWAPGS_KERNEL_ENTRY
+ 	CALL_DEPTH_ACCOUNT
+ 	leaq	8(%rsp), %rax			/* return pt_regs pointer */
+-	VALIDATE_UNRET_END
+ 	RET
+ 
+ .Lbstep_iret:
+diff --git a/arch/x86/include/asm/nospec-branch.h b/arch/x86/include/asm/nospec-branch.h
+index c5455c89f52b461c3daf13c182584a9291b4388c..58495d19169ffe79445ca1fb6aa66b7621c9d87e 100644
+--- a/arch/x86/include/asm/nospec-branch.h
++++ b/arch/x86/include/asm/nospec-branch.h
+@@ -186,6 +186,53 @@
+ 	add	$(BITS_PER_LONG/8), %_ASM_SP;		\
+ 	lfence;
+ 
++/*
++ * Helper for detecting if an interrupt occurred at an unsafe location within
++ * Safe-RET.  If Safe-RET is interrupted after the CALL or LEA the RSB may get
++ * poisoned by the interrupt handler.
++ *
++ * The Safe-RET sequence is:
++ *
++ * CALL
++ * LEA 8(%RSP), %RSP
++ * RET
++ *
++ * The two CMPs below check whether RIP points to after the CALL or after the
++ * LEA.  The pt_regs RIP offset is passed in by the caller because this macro
++ * is stringified while this header is preprocessed, where RIP is not defined
++ * yet, and asm/ptrace-abi.h cannot be pulled in here without shadowing the
++ * bare RSP define in arch/x86/kernel/relocate_kernel_64.S.
++ *
++ * The LFENCE below is to address this particular speculation case:
++ *
++ * 1. Userspace runs and poisons the BTB around the safe-RET routine
++ *
++ * 2. Userspace triggers some kind of exception
++ *
++ * 3. Kernel executes error_entry() and mis-speculates the branch into thinking
++ *    it actually came from kernel space
++ *
++ * 4. The kernel then further mis-speculates that the exception occurred due
++ *    to an interrupted safe-RET
++ *
++ * 5. The handle_interrupted_saferet() routine speculatively executes and
++ *    speculatively does a safe-RET. But this is unsafe since it was never
++ *    untrained.
++ *
++ * The LFENCE fixes this by ensuring step 5 is never reached speculatively.
++ * Note that this LFENCE only occurs if safe-RET was actually interrupted (so
++ * it's outside of the normal path).
++ */
++#define __HANDLE_INTR_SAFERET(name, rip_off, pt_regs)	\
++	cmpq	$(name), rip_off+pt_regs;		\
++	jb	1f;					\
++	cmpq	$(name)+5, rip_off+pt_regs;		\
++	ja	1f;					\
++	lfence;						\
++	leaq	pt_regs, %rdi;				\
++	call	handle_interrupted_saferet;		\
++	1:
++
+ #ifdef __ASSEMBLY__
+ 
+ /*
+@@ -315,6 +362,14 @@
+ #define UNTRAIN_RET_FROM_CALL \
+ 	__UNTRAIN_RET X86_FEATURE_ENTRY_IBPB, __stringify(RESET_CALL_DEPTH_FROM_CALL)
+ 
++.macro HANDLE_INTR_SAFERET rip_off, pt_regs
++#ifdef CONFIG_CPU_SRSO
++	ALTERNATIVE_2 "", \
++	__stringify(__HANDLE_INTR_SAFERET(srso_safe_ret, \rip_off, \pt_regs)), X86_FEATURE_SRSO, \
++	__stringify(__HANDLE_INTR_SAFERET(srso_alias_safe_ret, \rip_off, \pt_regs)), X86_FEATURE_SRSO_ALIAS
++
++#endif
++.endm
+ 
+ .macro CALL_DEPTH_ACCOUNT
+ #ifdef CONFIG_CALL_DEPTH_TRACKING
+@@ -642,6 +697,10 @@ static __always_inline void x86_idle_clear_cpu_buffers(void)
+ 		x86_clear_cpu_buffers();
+ }
+ 
++void srso_safe_ret(void);
++void srso_alias_safe_ret(void);
++void handle_interrupted_saferet(struct pt_regs *regs);
++
+ #endif /* __ASSEMBLY__ */
+ 
+ #endif /* _ASM_X86_NOSPEC_BRANCH_H_ */
+diff --git a/arch/x86/kernel/cpu/bugs.c b/arch/x86/kernel/cpu/bugs.c
+index 4c0933e4d7f2efe9cba426df51fc186d5402230b..86390774fbc63e29fdf0fab1bca502b9135b913e 100644
+--- a/arch/x86/kernel/cpu/bugs.c
++++ b/arch/x86/kernel/cpu/bugs.c
+@@ -3464,3 +3464,42 @@ ssize_t cpu_show_tsa(struct device *dev, struct device_attribute *attr, char *bu
+ 	return cpu_show_common(dev, attr, buf, X86_BUG_TSA);
+ }
+ #endif
++
++#ifdef CONFIG_CPU_SRSO
++/*
++ * Called during exception/interrupt entry if interrupted during the
++ * safe-RET sequence.  The safe-RET sequence consists of 3 instructions:
++ *
++ *	CALL
++ *	LEA 8(%RSP), %RSP
++ *	RET
++ *
++ * An interrupt after the CALL or after the LEA could potentially lead
++ * to branch predictor poisoning and results in the sequence not being
++ * able to be safely resumed.
++ *
++ * Therefore, modify the regs state as if the remaining part of the
++ * safe-RET sequence executed so the interrupt returns back to the
++ * desired return target, instead of the to the safe-RET sequence.
++ */
++void noinstr handle_interrupted_saferet(struct pt_regs *regs)
++{
++	unsigned long rip = regs->ip;
++
++	if (rip == (unsigned long) srso_safe_ret ||
++	    rip == (unsigned long) srso_alias_safe_ret) {
++	    /* Modify stack pointer as if LEA executed: */
++	    regs->sp += 8;
++	}
++
++	/*
++	 * Adjust registers as if RET executed:
++	 *
++	 * 1. Read the return address off the stack and into rIP:
++	 */
++	regs->ip = *(unsigned long *)(regs->sp);
++
++	/* 2. Pop rIP off the stack: */
++	regs->sp += 8;
++}
++#endif /* CONFIG_CPU_SRSO */
+diff --git a/arch/x86/lib/retpoline.S b/arch/x86/lib/retpoline.S
+index 4ff94cc70b79b26fafe836070c1100ac8ae70471..6d61211abcdf1eed4946478245bd2f2515c6edfc 100644
+--- a/arch/x86/lib/retpoline.S
++++ b/arch/x86/lib/retpoline.S
+@@ -168,10 +168,24 @@ __EXPORT_THUNK(srso_alias_untrain_ret)
+ 
+ 	.pushsection .text..__x86.rethunk_safe
+ SYM_CODE_START_NOALIGN(srso_alias_safe_ret)
++
++	/*
++	 * Tell objtool that those are not function pointers referenced by
++	 * __HANDLE_INTR_SAFERET(). Below too.
++	 */
++	ANNOTATE_NOENDBR
++
++	/*
++	 * Safe-RET sequence. If you need to change it, adjust
++	 * handle_interrupted_saferet() too.
++	 */
+ 	lea 8(%_ASM_SP), %_ASM_SP
+ 	UNWIND_HINT_FUNC
++
++	ANNOTATE_NOENDBR
+ 	ANNOTATE_UNRET_SAFE
+ 	ret
++	/* End of Safe-RET sequence */
+ 	int3
+ SYM_FUNC_END(srso_alias_safe_ret)
+ 
+@@ -206,8 +220,14 @@ SYM_CODE_START_LOCAL_NOALIGN(srso_untrain_ret)
+  * the stack.
+  */
+ SYM_INNER_LABEL(srso_safe_ret, SYM_L_GLOBAL)
++	/*
++	 * Safe-RET sequence. If you need to change it, adjust
++	 * handle_interrupted_saferet() too.
++	 */
+ 	lea 8(%_ASM_SP), %_ASM_SP
+ 	ret
++	/* End of Safe-RET sequence */
++
+ 	int3
+ 	int3
+ 	/* end of movabs */
