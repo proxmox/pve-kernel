@@ -1,3 +1,13 @@
+proxmox-kernel-6.8 (6.8.12-41) bookworm; urgency=medium
+
+  * backport "sctp: don't free the ASCONF's own transport in DEL-IP
+    processing" fixing CVE-2026-64564.
+
+  * backpoort "x86/bugs: Make Safe-RET robust against interrupt injection"
+    fixing CVE-2026-68480.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 07 Aug 2026 00:52:52 +0200
+
 proxmox-kernel-6.8 (6.8.12-40) bookworm; urgency=medium
 
   * pick relevant commits from Ubuntu-6.8.0-139.139 tag
