@@ -1,3 +1,10 @@
+proxmox-kernel-7.0 (7.0.14-10) trixie; urgency=medium
+
+  * backport "sctp: don't free the ASCONF's own transport in DEL-IP
+    processing" fixing CVE-2026-64564.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 06 Aug 2026 20:53:31 +0200
+
 proxmox-kernel-7.0 (7.0.14-9) trixie; urgency=medium
 
   * update submodules and patches to Ubuntu-7.0.0-31.31
