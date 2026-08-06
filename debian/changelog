@@ -1,3 +1,10 @@
+proxmox-kernel-7.0 (7.0.14-11) trixie; urgency=medium
+
+  * backport "x86/bugs: Make Safe-RET robust against interrupt injection"
+    fixing CVE-2026-68480.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 07 Aug 2026 01:36:45 +0200
+
 proxmox-kernel-7.0 (7.0.14-10) trixie; urgency=medium
 
   * backport "sctp: don't free the ASCONF's own transport in DEL-IP
