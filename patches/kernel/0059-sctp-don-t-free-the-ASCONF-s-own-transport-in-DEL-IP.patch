@@ -42,6 +42,8 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 (cherry picked from commit d136b29bf91dd8e3161281b87de597b7311d9462)
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+CVE-2026-64564
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
 ---
  net/sctp/sm_make_chunk.c | 6 ++++++
  1 file changed, 6 insertions(+)

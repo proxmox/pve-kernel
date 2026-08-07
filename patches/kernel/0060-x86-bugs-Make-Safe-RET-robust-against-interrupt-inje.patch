@@ -19,6 +19,8 @@ Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 (cherry picked from commit 61649a2d61cb0dbc673f0f232f0f0c298bf50442)
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+CVE-2026-68480
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
 ---
  arch/x86/entry/entry_64.S            |  8 +++-
  arch/x86/include/asm/nospec-branch.h | 57 ++++++++++++++++++++++++++++
