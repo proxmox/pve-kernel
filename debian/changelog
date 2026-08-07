@@ -22,6 +22,7 @@ proxmox-kernel-6.8 (6.8.12-40) bookworm; urgency=medium
     - CVE-2026-64047
     - CVE-2026-64562
     - CVE-2026-64561
+    - CVE-2026-53216
 
  -- Proxmox Support Team <support@proxmox.com>  Wed, 05 Aug 2026 15:56:18 +0200
 
