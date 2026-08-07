@@ -2,6 +2,11 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: "Borislav Petkov (AMD)" <bp@alien8.de>
 Date: Tue, 2 Jun 2026 21:26:44 -0700
 Subject: [PATCH] x86/bugs: Make Safe-RET robust against interrupt injection
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 7e7f81cf6f5ca3311e526308f55d7c54d3ba71f9 upstream.
 
 An attacker injecting interrupts while the Safe-RET mitigation executes
 on machines affected by SRSO can neutralize the safe return sequence,
@@ -15,15 +20,17 @@ Co-developed-by: David Kaplan <David.Kaplan@amd.com>
 Signed-off-by: David Kaplan <David.Kaplan@amd.com>
 Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-(cherry picked from commit bfe7f9993467ba431b2731437949ac1e2634e771)
-[TL: took the 6.18.y version, as this tree's retpoline.S already uses
- the symbol forms it expects, and renamed CONFIG_MITIGATION_SRSO to the
- pre-6.9 CONFIG_CPU_SRSO. Upstream gets the RIP pt_regs offset by
- including asm/ptrace-abi.h from nospec-branch.h, as the macro is
- stringified while that header is preprocessed. That include would
- shadow the bare RSP define in relocate_kernel_64.S here, so pass the
- offset in from the call sites instead, where RIP is already defined.]
-Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+(cherry picked from commit e262f28a69ae9e0791248f93b0173c1d1f3e1d5d)
+picked from 6.12.102, with:
+
+arch/x86/kernel/cpu/bugs.c
+context adapted
+
+and CONFIG_MITIGATION_SRSO replaced with CONFIG_CPU_SRSO, since that rename is
+not part of kernels < 6.9
+
+CVE-2026-68480
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
 ---
  arch/x86/entry/entry_64.S            |  8 +++-
  arch/x86/include/asm/nospec-branch.h | 59 ++++++++++++++++++++++++++++
@@ -32,14 +39,14 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 125 insertions(+), 1 deletion(-)
 
 diff --git a/arch/x86/entry/entry_64.S b/arch/x86/entry/entry_64.S
-index 1be01910bbd80fb82d2ea8077faa9d200317f715..955b801e560d83e7ed6bc1a855947b3eff0c8495 100644
+index 1be01910bbd80fb82d2ea8077faa9d200317f715..01c50ec005d452fbe626f0bd4948d3aa2658291d 100644
 --- a/arch/x86/entry/entry_64.S
 +++ b/arch/x86/entry/entry_64.S
 @@ -938,6 +938,8 @@ SYM_CODE_START(paranoid_entry)
  	IBRS_ENTER save_reg=%r15
  	UNTRAIN_RET_FROM_CALL
  
-+	HANDLE_INTR_SAFERET RIP, 8(%rsp)
++	HANDLE_INTR_SAFERET 8(%rsp)
 +
  	RET
  SYM_CODE_END(paranoid_entry)
@@ -51,7 +58,7 @@ index 1be01910bbd80fb82d2ea8077faa9d200317f715..955b801e560d83e7ed6bc1a855947b3e
 +
 +	VALIDATE_UNRET_END
 +
-+	HANDLE_INTR_SAFERET RIP, 8(%rsp)
++	HANDLE_INTR_SAFERET 8(%rsp)
 +
  	cmpq	$.Lgs_change, RIP+8(%rsp)
  	jne	.Lerror_entry_done_lfence
@@ -65,7 +72,7 @@ index 1be01910bbd80fb82d2ea8077faa9d200317f715..955b801e560d83e7ed6bc1a855947b3e
  
  .Lbstep_iret:
 diff --git a/arch/x86/include/asm/nospec-branch.h b/arch/x86/include/asm/nospec-branch.h
-index c5455c89f52b461c3daf13c182584a9291b4388c..58495d19169ffe79445ca1fb6aa66b7621c9d87e 100644
+index c5455c89f52b461c3daf13c182584a9291b4388c..682204c925dd4ecec082f7b97aea87c4e28ee5ab 100644
 --- a/arch/x86/include/asm/nospec-branch.h
 +++ b/arch/x86/include/asm/nospec-branch.h
 @@ -186,6 +186,53 @@
@@ -84,10 +91,7 @@ index c5455c89f52b461c3daf13c182584a9291b4388c..58495d19169ffe79445ca1fb6aa66b76
 + * RET
 + *
 + * The two CMPs below check whether RIP points to after the CALL or after the
-+ * LEA.  The pt_regs RIP offset is passed in by the caller because this macro
-+ * is stringified while this header is preprocessed, where RIP is not defined
-+ * yet, and asm/ptrace-abi.h cannot be pulled in here without shadowing the
-+ * bare RSP define in arch/x86/kernel/relocate_kernel_64.S.
++ * LEA.
 + *
 + * The LFENCE below is to address this particular speculation case:
 + *
@@ -108,11 +112,14 @@ index c5455c89f52b461c3daf13c182584a9291b4388c..58495d19169ffe79445ca1fb6aa66b76
 + * The LFENCE fixes this by ensuring step 5 is never reached speculatively.
 + * Note that this LFENCE only occurs if safe-RET was actually interrupted (so
 + * it's outside of the normal path).
++ *
++ * (The 128 below is RIP offset, used as a naked number here for ease of
++ * backporting).
 + */
-+#define __HANDLE_INTR_SAFERET(name, rip_off, pt_regs)	\
-+	cmpq	$(name), rip_off+pt_regs;		\
++#define __HANDLE_INTR_SAFERET(name, pt_regs)		\
++	cmpq	$(name), 128+pt_regs;			\
 +	jb	1f;					\
-+	cmpq	$(name)+5, rip_off+pt_regs;		\
++	cmpq	$(name)+5, 128+pt_regs;			\
 +	ja	1f;					\
 +	lfence;						\
 +	leaq	pt_regs, %rdi;				\
@@ -126,11 +133,11 @@ index c5455c89f52b461c3daf13c182584a9291b4388c..58495d19169ffe79445ca1fb6aa66b76
  #define UNTRAIN_RET_FROM_CALL \
  	__UNTRAIN_RET X86_FEATURE_ENTRY_IBPB, __stringify(RESET_CALL_DEPTH_FROM_CALL)
  
-+.macro HANDLE_INTR_SAFERET rip_off, pt_regs
++.macro HANDLE_INTR_SAFERET pt_regs
 +#ifdef CONFIG_CPU_SRSO
 +	ALTERNATIVE_2 "", \
-+	__stringify(__HANDLE_INTR_SAFERET(srso_safe_ret, \rip_off, \pt_regs)), X86_FEATURE_SRSO, \
-+	__stringify(__HANDLE_INTR_SAFERET(srso_alias_safe_ret, \rip_off, \pt_regs)), X86_FEATURE_SRSO_ALIAS
++	__stringify(__HANDLE_INTR_SAFERET(srso_safe_ret, \pt_regs)), X86_FEATURE_SRSO, \
++	__stringify(__HANDLE_INTR_SAFERET(srso_alias_safe_ret, \pt_regs)), X86_FEATURE_SRSO_ALIAS
 +
 +#endif
 +.endm
