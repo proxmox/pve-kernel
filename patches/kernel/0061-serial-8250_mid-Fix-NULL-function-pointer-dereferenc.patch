@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jiangshan Yi <yijiangshan@kylinos.cn>
+Date: Wed, 15 Jul 2026 15:35:46 +0800
+Subject: [PATCH] serial: 8250_mid: Fix NULL function pointer dereference on
+ DNV/ICX-D/SNR platforms
+
+commit 7fb13fd7e9a59a37cd911efff83abe19e3ee029d upstream.
+
+Commit b1b4efea05a5 ("serial: 8250_mid: Disable DMA for selected
+platforms") replaced the dnv_board setup and exit callbacks with
+PTR_IF(false, ...), which evaluates to NULL. However, the three call
+sites in mid8250_probe() and mid8250_remove() unconditionally
+dereference these function pointers without NULL checks, causing a NULL
+pointer dereference (kernel oops) on any Denverton (DNV), Ice Lake Xeon
+D (ICX-D/CDF), or Snowridge (SNR) platform.
+
+Fix this by adding the missing NULL checks before calling the setup and
+exit callbacks.
+
+Fixes: b1b4efea05a5 ("serial: 8250_mid: Disable DMA for selected platforms")
+Cc: stable <stable@kernel.org>
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Signed-off-by: Jiangshan Yi <yijiangshan@kylinos.cn>
+Link: https://patch.msgid.link/20260715073546.1875083-1-yijiangshan@kylinos.cn
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 8cbad52ccfa6a7f089cfab34979bc6cc3bff25be)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/tty/serial/8250/8250_mid.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/tty/serial/8250/8250_mid.c b/drivers/tty/serial/8250/8250_mid.c
+index f88809ff370b73fd955cdf03cfacee93c3b92013..82656645b8a64bca460de362923f47458132526f 100644
+--- a/drivers/tty/serial/8250/8250_mid.c
++++ b/drivers/tty/serial/8250/8250_mid.c
+@@ -318,9 +318,11 @@ static int mid8250_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	if (!uart.port.membase)
+ 		return -ENOMEM;
+ 
+-	ret = mid->board->setup(mid, &uart.port);
+-	if (ret)
+-		return ret;
++	if (mid->board->setup) {
++		ret = mid->board->setup(mid, &uart.port);
++		if (ret)
++			return ret;
++	}
+ 
+ 	ret = mid8250_dma_setup(mid, &uart);
+ 	if (ret)
+@@ -336,7 +338,8 @@ static int mid8250_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	return 0;
+ 
+ err:
+-	mid->board->exit(mid);
++	if (mid->board->exit)
++		mid->board->exit(mid);
+ 	return ret;
+ }
+ 
+@@ -346,7 +349,8 @@ static void mid8250_remove(struct pci_dev *pdev)
+ 
+ 	serial8250_unregister_port(mid->line);
+ 
+-	mid->board->exit(mid);
++	if (mid->board->exit)
++		mid->board->exit(mid);
+ }
+ 
+ static const struct mid8250_board pnw_board = {
