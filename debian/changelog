@@ -1,3 +1,13 @@
+proxmox-kernel-7.0 (7.0.14-12) trixie; urgency=medium
+
+  * fix #7905: cherry-pick fix for null-ptr deref in amdgpu
+
+  * fix #7872: cherry-pick fix for intel denverton serial driver.
+
+  * cherry-pick fixes for CVEs announced since 08.08.2026
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 11 Aug 2026 13:05:38 +0200
+
 proxmox-kernel-7.0 (7.0.14-11) trixie; urgency=medium
 
   * backport "x86/bugs: Make Safe-RET robust against interrupt injection"
