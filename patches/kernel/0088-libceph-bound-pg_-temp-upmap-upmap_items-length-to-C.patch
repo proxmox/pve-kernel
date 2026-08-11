@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xiang Mei <xmei5@asu.edu>
+Date: Mon, 8 Jun 2026 21:40:09 -0700
+Subject: [PATCH] libceph: bound pg_{temp,upmap,upmap_items} length to
+ CEPH_PG_MAX_SIZE
+
+commit 9f00f9cf2be293efe899db67dc5272e3a9c62717 upstream.
+
+__decode_pg_temp() decodes an user-controlled length but only rejects
+values large enough to overflow the allocation; it does not bound it to
+CEPH_PG_MAX_SIZE. The helper backs both pg_temp and pg_upmap decoding, and
+apply_upmap()/get_temp_osds() later copy the decoded list into the fixed-size
+on-stack array struct ceph_osds.osds[CEPH_PG_MAX_SIZE]. A monitor that sends
+an OSDMap with a pg_temp/pg_upmap entry longer than 32 thus causes a stack
+out-of-bounds write.
+
+An OSD set for a single PG can never exceed CEPH_PG_MAX_SIZE, so reject longer
+entries at decode time. The bound is well below the old overflow threshold, so
+it also covers the allocation-size overflow the previous check guarded against.
+
+  BUG: KASAN: stack-out-of-bounds in ceph_pg_to_up_acting_osds
+  Write of size 4 ... by task exploit
+   kasan_report (mm/kasan/report.c:595)
+   ceph_pg_to_up_acting_osds (net/ceph/osdmap.c:2617 net/ceph/osdmap.c:2833)
+   calc_target (net/ceph/osd_client.c:1638)
+   __submit_request (net/ceph/osd_client.c:2394)
+   ceph_osdc_start_request (net/ceph/osd_client.c:2490)
+   ceph_osdc_call (net/ceph/osd_client.c:5164)
+   rbd_dev_image_probe (drivers/block/rbd.c:6899)
+   do_rbd_add (drivers/block/rbd.c:7138)
+   ...
+  kernel BUG at net/ceph/osdmap.c:2670!
+
+[ idryomov: do the same in __decode_pg_upmap_items() ]
+
+Cc: stable@vger.kernel.org
+Fixes: a303bb0e5834 ("libceph: introduce and switch to decode_pg_mapping()")
+Reported-by: Weiming Shi <bestswngs@gmail.com>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Xiang Mei <xmei5@asu.edu>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit e36663145abd7024f0281dfb22fdef65f185845b)
+CVE-2026-68159
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ceph/osdmap.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
+index ece771548b5e68d886a37c61d9f0d2ec3495bcbe..b474faf89cd54410a6b02312bc9511015e3208c9 100644
+--- a/net/ceph/osdmap.c
++++ b/net/ceph/osdmap.c
+@@ -1437,7 +1437,7 @@ static struct ceph_pg_mapping *__decode_pg_temp(void **p, void *end,
+ 	ceph_decode_32_safe(p, end, len, e_inval);
+ 	if (len == 0 && incremental)
+ 		return NULL;	/* new_pg_temp: [] to remove */
+-	if ((size_t)len > (SIZE_MAX - sizeof(*pg)) / sizeof(u32))
++	if (len > CEPH_PG_MAX_SIZE)
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	ceph_decode_need(p, end, len * sizeof(u32), e_inval);
+@@ -1618,7 +1618,7 @@ static struct ceph_pg_mapping *__decode_pg_upmap_items(void **p, void *end,
+ 	u32 len, i;
+ 
+ 	ceph_decode_32_safe(p, end, len, e_inval);
+-	if ((size_t)len > (SIZE_MAX - sizeof(*pg)) / (2 * sizeof(u32)))
++	if (len > CEPH_PG_MAX_SIZE)
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	ceph_decode_need(p, end, 2 * len * sizeof(u32), e_inval);

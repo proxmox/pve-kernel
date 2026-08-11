@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhiling Zou <roxy520tt@gmail.com>
+Date: Wed, 15 Jul 2026 09:50:11 +0800
+Subject: [PATCH] sctp: close UDP tunnel sockets during netns teardown
+
+commit ffb2bd7ade36ec4da32c46a6eddbf4515316d08c upstream.
+
+proc_sctp_do_udp_port() starts per-net SCTP UDP tunneling sockets when
+net.sctp.udp_port is set, and stops/restarts them when the sysctl value
+changes. The netns exit path does not stop these sockets, so a namespace
+can be torn down while its SCTP UDP tunnel sockets are still installed.
+
+Close the UDP tunnel sockets from sctp_ctrlsock_exit() after unregistering
+the per-net sysctl table. This prevents new sysctl writes from racing in
+while the sockets are being released, and closes the sockets before the
+control socket is destroyed.
+
+Fixes: 046c052b475e ("sctp: enable udp tunneling socks")
+Cc: stable@vger.kernel.org
+Reported-by: Sashiko <sashiko-bot@kernel.org>
+Closes: https://sashiko.dev/#/patchset/b9f1f02b0780ad6a719e2413f5f0bb8eb7702d94.1782585631.git.roxy520tt%40gmail.com
+Signed-off-by: Zhiling Zou <roxy520tt@gmail.com>
+Signed-off-by: Ren Wei <n05ec@lzu.edu.cn>
+Acked-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/6dab75f22855cb219e2e30a5497cab03b970ab91.1784033357.git.roxy520tt@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 37ff9794be48d0caa37687e04d09675f9c849121)
+CVE-2026-68161
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/sctp/protocol.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 84f1dc0ecee38af9c726d87c348ad536a4428bef..f76221e31efc2cc8c795d8b45da33a5f03edc952 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1453,6 +1453,7 @@ static int __net_init sctp_ctrlsock_init(struct net *net)
+ static void __net_exit sctp_ctrlsock_exit(struct net *net)
+ {
+ 	sctp_sysctl_net_unregister(net);
++	sctp_udp_sock_stop(net);
+ 
+ 	/* Free the control endpoint.  */
+ 	inet_ctl_sock_destroy(net->sctp.ctl_sock);

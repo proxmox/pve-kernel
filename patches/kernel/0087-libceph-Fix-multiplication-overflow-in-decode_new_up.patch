@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Date: Wed, 27 May 2026 16:06:17 +0200
+Subject: [PATCH] libceph: Fix multiplication overflow in
+ decode_new_up_state_weight()
+
+commit 98917a499ec7064c14fc56d180a4fd636fc2784c upstream.
+
+If a message of type CEPH_MSG_OSD_MAP contains a (maliciously) corrupted
+osdmap, out-of-bounds memory accesses may occur in
+decode_new_up_state_weight(). This happens because the bounds check for
+the new_state part is based on calculating its length depending on a len
+value read from the incoming message. This calculation may overflow
+leading to an incorrect bounds check. Subsequently, out-of-bounds reads
+may occur when decoding this part.
+
+This patch switches the multiplication to use check_mul_overflow() to
+abort processing the osdmap if an overflow occurred. Therefore,
+osdmaps/messages containing large values for len that result in a
+multiplication overflow are treated as invalid.
+
+[ idryomov: rename new_state_len -> new_state_item_size, formatting ]
+
+Cc: stable@vger.kernel.org
+Fixes: 930c53286977 ("libceph: apply new_state before new_up_client on incrementals")
+Signed-off-by: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Reviewed-by: Viacheslav Dubeyko <Slava.Dubeyko@ibm.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit bee4b5b53e7bff0467fd916cc44c9b190733c6bd)
+CVE-2026-68158
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ceph/osdmap.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
+index 12658142e5256da89b693a68dafcf1c8e779d4d0..ece771548b5e68d886a37c61d9f0d2ec3495bcbe 100644
+--- a/net/ceph/osdmap.c
++++ b/net/ceph/osdmap.c
+@@ -1843,6 +1843,8 @@ static int decode_new_up_state_weight(void **p, void *end, u8 struct_v,
+ 	void *new_up_client;
+ 	void *new_state;
+ 	void *new_weight_end;
++	const u32 new_state_item_size =
++	    sizeof(u32) + (struct_v >= 5 ? sizeof(u32) : sizeof(u8));
+ 	u32 len;
+ 	int ret;
+ 	int i;
+@@ -1863,7 +1865,8 @@ static int decode_new_up_state_weight(void **p, void *end, u8 struct_v,
+ 
+ 	new_state = *p;
+ 	ceph_decode_32_safe(p, end, len, e_inval);
+-	len *= sizeof(u32) + (struct_v >= 5 ? sizeof(u32) : sizeof(u8));
++	if (check_mul_overflow(len, new_state_item_size, &len))
++		goto e_inval;
+ 	ceph_decode_need(p, end, len, e_inval);
+ 	*p += len;
+ 

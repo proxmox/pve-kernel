@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shuangpeng Bai <shuangpeng.kernel@gmail.com>
+Date: Mon, 29 Jun 2026 13:14:22 -0400
+Subject: [PATCH] libceph: refresh auth->authorizer_buf{,_len} after authorizer
+ update
+
+commit 937d61f86d377a3aa578adae7a3dfcecdddf9d89 upstream.
+
+ceph_x_create_authorizer() caches au->buf->vec.iov_base and
+au->buf->vec.iov_len in struct ceph_auth_handshake.  These
+cached values are then used by the messenger connect code when
+sending the authorizer.
+
+ceph_x_update_authorizer() can rebuild the authorizer when a newer
+service ticket is available.  If the rebuilt authorizer no longer
+fits in the existing buffer, ceph_x_build_authorizer() drops its
+reference to au->buf and allocates a new one.  If this is the final
+reference, ceph_buffer_put() frees the old ceph_buffer and its
+vec.iov_base, but auth->authorizer_buf still points at that freed
+memory.
+
+A subsequent msgr1 reconnect can therefore queue the stale pointer
+and trigger a KASAN slab-use-after-free in _copy_from_iter() while
+tcp_sendmsg() copies the authorizer.
+
+Refresh auth->authorizer_buf and auth->authorizer_buf_len after a
+successful authorizer rebuild so the messenger sends the current
+buffer.
+
+Cc: stable@vger.kernel.org
+Fixes: 0bed9b5c523d ("libceph: add update_authorizer auth method")
+Closes: https://lore.kernel.org/all/E378850E-106C-427B-A241-970EB2D054D7@gmail.com/
+Signed-off-by: Shuangpeng Bai <shuangpeng.kernel@gmail.com>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 5ecfcd5c05866f185357700b81b461dae4f5ebb2)
+CVE-2026-68156
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ceph/auth_x.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/net/ceph/auth_x.c b/net/ceph/auth_x.c
+index 9e64e82d0b63bfae760243f7634f8efd883f4c2c..50a79e8aa6569f09414d5f196bf9dd5c5778e9ea 100644
+--- a/net/ceph/auth_x.c
++++ b/net/ceph/auth_x.c
+@@ -849,9 +849,16 @@ static int ceph_x_update_authorizer(
+ 
+ 	au = (struct ceph_x_authorizer *)auth->authorizer;
+ 	if (au->secret_id < th->secret_id) {
++		int ret;
++
+ 		dout("ceph_x_update_authorizer service %u secret %llu < %llu\n",
+ 		     au->service, au->secret_id, th->secret_id);
+-		return ceph_x_build_authorizer(ac, th, au);
++		ret = ceph_x_build_authorizer(ac, th, au);
++		if (ret)
++			return ret;
++
++		auth->authorizer_buf = au->buf->vec.iov_base;
++		auth->authorizer_buf_len = au->buf->vec.iov_len;
+ 	}
+ 	return 0;
+ }

@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Pavitra Jha <jhapavitra98@gmail.com>
+Date: Sat, 23 May 2026 05:02:43 -0400
+Subject: [PATCH] ovpn: fix peer refcount leak in TCP error paths
+
+commit 63bbe18fc03062f483c627838a566a707b62da79 upstream.
+
+When either the TCP RX or TX error path calls ovpn_peer_hold() followed
+by schedule_work(&peer->tcp.defer_del_work), and the work item is already
+pending from the other path, schedule_work() returns false and the work
+runs only once. Since ovpn_tcp_peer_del_work() calls ovpn_peer_put()
+exactly once, the extra reference taken by the losing path is never
+dropped, leaking the peer object.
+
+The race window:
+
+  CPU0 (strparser/RX error):       CPU1 (tcp_tx_work/TX error):
+  ovpn_peer_hold()   <- refcnt+1   ovpn_peer_hold()   <- refcnt+2
+  schedule_work()    <- queued      schedule_work()    <- NO-OP
+                                    (work already pending)
+  ovpn_tcp_peer_del_work runs:
+    ovpn_peer_del()
+    ovpn_peer_put()  <- refcnt+1
+                                   <- peer never freed
+
+Fix by checking the return value of schedule_work() in both paths and
+calling ovpn_peer_put() to drop the extra reference if the work was
+already pending. ovpn_peer_hold() is kept unconditional in the TX path
+as it cannot fail at that point.
+
+Fixes: a6a5e87b3ee4 ("ovpn: avoid sleep in atomic context in TCP RX error path")
+Cc: stable@vger.kernel.org
+Signed-off-by: Pavitra Jha <jhapavitra98@gmail.com>
+Reviewed-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Antonio Quartulli <antonio@openvpn.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit f08f39c1f43f3980d46b06af8ed99ffe84ac294a)
+CVE-2026-68122
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/net/ovpn/tcp.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ovpn/tcp.c b/drivers/net/ovpn/tcp.c
+index 505c2f214c9f14612c0670444e955e9a5241ec6f..7254d235f5c3ad3a0245c41e2a7b6aadc6bf7fda 100644
+--- a/drivers/net/ovpn/tcp.c
++++ b/drivers/net/ovpn/tcp.c
+@@ -151,7 +151,8 @@ static void ovpn_tcp_rcv(struct strparser *strp, struct sk_buff *skb)
+ 	/* take reference for deferred peer deletion. should never fail */
+ 	if (WARN_ON(!ovpn_peer_hold(peer)))
+ 		goto err_nopeer;
+-	schedule_work(&peer->tcp.defer_del_work);
++	if (!schedule_work(&peer->tcp.defer_del_work))
++		ovpn_peer_put(peer);
+ 	ovpn_dev_dstats_rx_dropped(peer->ovpn->dev);
+ err_nopeer:
+ 	kfree_skb(skb);
+@@ -283,7 +284,8 @@ static void ovpn_tcp_send_sock(struct ovpn_peer *peer, struct sock *sk)
+ 			 * stream therefore we abort the connection
+ 			 */
+ 			ovpn_peer_hold(peer);
+-			schedule_work(&peer->tcp.defer_del_work);
++			if (!schedule_work(&peer->tcp.defer_del_work))
++				ovpn_peer_put(peer);
+ 
+ 			/* we bail out immediately and keep tx_in_progress set
+ 			 * to true. This way we prevent more TX attempts

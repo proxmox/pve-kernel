@@ -1,0 +1,88 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cen Zhang <zzzccc427@gmail.com>
+Date: Sat, 27 Jun 2026 11:01:17 +0800
+Subject: [PATCH] xfrm: clear mode callbacks after failed mode setup
+
+[ Upstream commit 2538bd3cd1ff5af655908469544ac7b7ae259386 ]
+
+xfrm_state_gc_task can run long after a failed IPTFS state setup. In the
+reproduced case, __xfrm_init_state() cached x->mode_cbs, IPTFS setup
+returned -ENOMEM before publishing mode_data, and the temporary module
+reference from xfrm_get_mode_cbs() was dropped immediately. The dead state
+then kept x->mode_cbs until deferred GC ran after xfrm_iptfs had been
+unloaded.
+
+Clear x->mode_cbs when mode init or clone fails before publishing
+mode_data. Those states never installed mode-specific state or the
+long-term IPTFS module pin, so deferred GC has nothing mode-specific to
+destroy and must not retain a callback table pointer past the temporary
+lookup reference.
+
+The buggy scenario involves two paths, with each column showing the order
+within that path:
+
+failed setup path:
+1. cache x->mode_cbs
+2. mode setup fails before mode_data
+3. drop the temporary module ref
+4. dead state keeps x->mode_cbs cached
+
+GC/unload path:
+1. xfrm_state_put() queues GC work
+2. xfrm_iptfs unloads later
+3. xfrm_state_gc_task runs
+4. GC dereferences stale x->mode_cbs
+
+This also covers the failed clone path where clone_state() returns before
+publishing mode_data.
+
+Validation reproduced this kernel report:
+Kernel panic - not syncing: Fatal exception
+CONFIG_FAULT_INJECTION_STACKTRACE_FILTER=y
+failslab_stacktrace_filter matched xfrm_iptfs frames
+ack_error=-12
+FAULT_INJECTION: forcing a failure
+BUG: unable to handle page fault
+Workqueue: events xfrm_state_gc_task
+RIP: xfrm_state_gc_task+0x142/0x650
+Modules linked in: esp4_offload xfrm_user [last unloaded: xfrm_iptfs]
+Kernel panic - not syncing: Fatal exception
+
+Fixes: 4b3faf610cc6 ("xfrm: iptfs: add new iptfs xfrm mode impl")
+Assisted-by: Codex:gpt-5.5
+Signed-off-by: Cen Zhang <zzzccc427@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit c37a079230128a5237f45fb4e181bc069a5c2955)
+CVE-2026-68415
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/xfrm/xfrm_state.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 705504dd1d6b2ed6005efef8f06b705b37a980fb..a9ea723224e2bb8ba0e51a7a5578ec57d530e7cd 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -2062,8 +2062,11 @@ static struct xfrm_state *xfrm_state_clone_and_setup(struct xfrm_state *orig,
+ 
+ 	x->mode_cbs = orig->mode_cbs;
+ 	if (x->mode_cbs && x->mode_cbs->clone_state) {
+-		if (x->mode_cbs->clone_state(x, orig))
++		if (x->mode_cbs->clone_state(x, orig)) {
++			if (!x->mode_data)
++				x->mode_cbs = NULL;
+ 			goto error;
++		}
+ 	}
+ 
+ 
+@@ -3246,6 +3249,8 @@ int __xfrm_init_state(struct xfrm_state *x, struct netlink_ext_ack *extack)
+ 		if (x->mode_cbs->init_state)
+ 			err = x->mode_cbs->init_state(x);
+ 		module_put(x->mode_cbs->owner);
++		if (err && !x->mode_data)
++			x->mode_cbs = NULL;
+ 	}
+ error:
+ 	return err;

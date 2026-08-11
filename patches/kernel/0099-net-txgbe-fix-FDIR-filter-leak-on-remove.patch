@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chenguang Zhao <zhaochenguang@kylinos.cn>
+Date: Mon, 13 Jul 2026 17:19:11 +0800
+Subject: [PATCH] net: txgbe: fix FDIR filter leak on remove
+
+[ Upstream commit ecaa37826340520664a4e5522f803ff48fc3f564 ]
+
+Perfect FDIR filters can be added while the interface is down and are
+kept on the software list for later restore. unregister_netdev() only
+calls ndo_stop when the device is up, so txgbe_fdir_filter_exit() in
+txgbe_close() is skipped in that case and the filters are leaked on
+driver remove. Free the filter list from txgbe_remove() as well.
+
+Fixes: 4bdb441105dc ("net: txgbe: support Flow Director perfect filters")
+Signed-off-by: Chenguang Zhao <zhaochenguang@kylinos.cn>
+Reviewed-by: Jacob Keller <jacob.e.keller@intel.com>
+Link: https://patch.msgid.link/20260713091911.1614795-1-chenguang.zhao@linux.dev
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 4946dea2386333e5d93bfb36df803fefb5a8c635)
+CVE-2026-68321
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/net/ethernet/wangxun/txgbe/txgbe_main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/wangxun/txgbe/txgbe_main.c b/drivers/net/ethernet/wangxun/txgbe/txgbe_main.c
+index 54fa456fc66a743a5002aba29984403326df9bde..54c64c9e9edcadd98b905c152f7fd81778afe938 100644
+--- a/drivers/net/ethernet/wangxun/txgbe/txgbe_main.c
++++ b/drivers/net/ethernet/wangxun/txgbe/txgbe_main.c
+@@ -956,6 +956,7 @@ static void txgbe_remove(struct pci_dev *pdev)
+ 	netdev = wx->netdev;
+ 	wx_disable_sriov(wx);
+ 	unregister_netdev(netdev);
++	txgbe_fdir_filter_exit(wx);
+ 
+ 	txgbe_remove_phy(txgbe);
+ 	wx_free_isb_resources(wx);

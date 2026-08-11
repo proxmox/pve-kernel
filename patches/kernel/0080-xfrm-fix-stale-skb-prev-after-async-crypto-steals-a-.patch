@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Petr Wozniak <petr.wozniak@gmail.com>
+Date: Sun, 21 Jun 2026 12:03:27 +0200
+Subject: [PATCH] xfrm: fix stale skb->prev after async crypto steals a GSO
+ segment
+
+[ Upstream commit 3f4c3919baf0944ad96580467c302bc6c7758b00 ]
+
+skb_gso_segment() leaves the segment list head with ->prev pointing at
+the last segment, an invariant validate_xmit_skb_list() relies on when
+it sets its tail pointer (tail = skb->prev).
+
+When validate_xmit_xfrm() walks a GSO list and some segments are stolen
+by async crypto (->xmit() returns -EINPROGRESS), those segments are
+unlinked from the list but the head ->prev is never updated.  If the
+last segment is the one stolen, the returned head still has ->prev
+pointing at it, even though it is now owned by the crypto engine and may
+be freed.  validate_xmit_skb_list() later does tail->next = skb, writing
+through that stale pointer -- a use-after-free.
+
+Repoint skb->prev at the last retained segment before returning.
+
+Fixes: f53c723902d1 ("net: Add asynchronous callbacks for xfrm on layer 2.")
+Signed-off-by: Petr Wozniak <petr.wozniak@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit bbca7cc3b2b4b10afbfee99b81d9ee78f5423046)
+CVE-2026-68426
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/xfrm/xfrm_device.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+index 8b526e3676389a1db3f31284f6ec12169074116e..4719aba331cd6608d1fa77cfedbec0e8e112ffa3 100644
+--- a/net/xfrm/xfrm_device.c
++++ b/net/xfrm/xfrm_device.c
+@@ -224,6 +224,14 @@ struct sk_buff *validate_xmit_xfrm(struct sk_buff *skb, netdev_features_t featur
+ 		pskb = skb2;
+ 	}
+ 
++	/* skb_gso_segment() set skb->prev to the last segment, but async
++	 * crypto may have stolen it above without updating ->prev.  Repoint
++	 * it at the last retained segment so validate_xmit_skb_list() does
++	 * not chain onto a segment now owned by the crypto engine.
++	 */
++	if (skb)
++		skb->prev = pskb;
++
+ 	return skb ? skb : ERR_PTR(-EINPROGRESS);
+ }
+ EXPORT_SYMBOL_GPL(validate_xmit_xfrm);

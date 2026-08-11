@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhao Zhang <zzhan461@ucr.edu>
+Date: Fri, 19 Jun 2026 15:40:03 +0800
+Subject: [PATCH] libceph: guard missing CRUSH type name lookup
+
+commit bbeae12fda3384a90fbebc8a19ba9d33f85b5361 upstream.
+
+Localized read selection can walk a parent bucket whose name exists in
+the CRUSH map while its type has no matching entry in type_names.
+get_immediate_parent() then dereferences a NULL type_cn and passes an
+invalid pointer into strcmp(), causing a null-ptr-deref.
+
+Skip such malformed parent buckets unless both the bucket name and type
+name metadata are present. This keeps malformed hierarchy data from
+crashing locality lookup and safely falls back to "not local".
+
+[ idryomov: add WARN_ON_ONCE ]
+
+Cc: stable@vger.kernel.org
+Fixes: 117d96a04f00 ("libceph: support for balanced and localized reads")
+Reported-by: Yuan Tan <yuantan098@gmail.com>
+Reported-by: Zhengchuan Liang <zcliangcn@gmail.com>
+Reported-by: Xin Liu <bird@lzu.edu.cn>
+Assisted-by: Codex:GPT-5.4
+Signed-off-by: Zhao Zhang <zzhan461@ucr.edu>
+Signed-off-by: Ren Wei <n05ec@lzu.edu.cn>
+Reviewed-by: Viacheslav Dubeyko <slava@dubeyko.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit db9cc9fd9660b2d69ee66f5a4cbec83c21a1c64d)
+CVE-2026-68157
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ceph/osdmap.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
+index b474faf89cd54410a6b02312bc9511015e3208c9..92f84c7d4a6f956dd116c518297dc3c238875ffc 100644
+--- a/net/ceph/osdmap.c
++++ b/net/ceph/osdmap.c
+@@ -3059,8 +3059,11 @@ static int get_immediate_parent(struct crush_map *c, int id,
+ 			if (b->items[j] != id)
+ 				continue;
+ 
+-			*parent_type_id = b->type;
+ 			type_cn = lookup_crush_name(&c->type_names, b->type);
++			if (WARN_ON_ONCE(!type_cn))
++				continue;
++
++			*parent_type_id = b->type;
+ 			parent_loc->cl_type_name = type_cn->cn_name;
+ 			parent_loc->cl_name = cn->cn_name;
+ 			return b->id;

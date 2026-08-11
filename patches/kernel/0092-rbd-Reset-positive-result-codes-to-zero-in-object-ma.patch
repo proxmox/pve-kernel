@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Date: Thu, 9 Jul 2026 13:26:20 +0200
+Subject: [PATCH] rbd: Reset positive result codes to zero in object map update
+ path
+
+commit a6c4250b81bd30beae94e1b7a4b26fa1193ad2e4 upstream.
+
+In a reply message to an RBD request, a positive result code indicates
+a data payload, which is not allowed for writes. While
+rbd_osd_req_callback() already resets a positive result code for writes
+to zero, rbd_object_map_callback() does not. This allows a corrupted
+reply to an object map update to trigger the rbd_assert(*result < 0) in
+__rbd_obj_handle_request(). This happens, because
+rbd_object_map_callback() calls rbd_obj_handle_request() ->
+__rbd_obj_handle_request() and passes this positive result code. From
+__rbd_obj_handle_request(), rbd_obj_advance_write() is called, which
+leaves the positive result code unchanged and returns true. Therefore,
+the if(done && *result) branch is executed in __rbd_obj_handle_request()
+and the assertion triggers.
+
+This patch fixes the issue by adjusting the logic in the
+rbd_object_map_callback() path. A positive result code for an object map
+update is now reset to zero (similar to rbd_osd_req_callback()), and the
+message is subsequently handled the same way as if the result code was
+zero from the beginning. Additionally, a WARN_ON_ONCE() is added for
+this case.
+
+Cc: stable@vger.kernel.org
+Fixes: 22e8bd51bb04 ("rbd: support for object-map and fast-diff")
+Signed-off-by: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Reviewed-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit b1a61366933224b3ad80975c4d01ac2cc6931ecf)
+CVE-2026-68131
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/block/rbd.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/block/rbd.c b/drivers/block/rbd.c
+index d26f7151c6aad68db1ddc0380054dffd2b2c2842..20ed0dfb70d5d51fa2e302e5bcb25a606904bf9b 100644
+--- a/drivers/block/rbd.c
++++ b/drivers/block/rbd.c
+@@ -1957,9 +1957,14 @@ static int rbd_object_map_update_finish(struct rbd_obj_request *obj_req,
+ 	bool has_current_state;
+ 	void *p;
+ 
+-	if (osd_req->r_result)
++	if (osd_req->r_result < 0)
+ 		return osd_req->r_result;
+ 
++	/*
++	 * Writes aren't allowed to return a data payload.
++	 */
++	WARN_ON_ONCE(osd_req->r_result > 0);
++
+ 	/*
+ 	 * Nothing to do for a snapshot object map.
+ 	 */

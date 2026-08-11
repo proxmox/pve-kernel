@@ -1,0 +1,86 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shiming Cheng <shiming.cheng@mediatek.com>
+Date: Thu, 9 Jul 2026 09:46:39 +0800
+Subject: [PATCH] net: gro: fix double aggregation of flush-marked skbs
+
+commit e751256486d0ded20f5a9f9863467f1dce65142f upstream.
+
+Commit 0ab03f353d36 ("net-gro: Fix GRO flush when receiving a GSO
+packet.") added a flush check to skb_gro_receive(), but
+skb_gro_receive_list() lacks the same validation.
+
+As a result, packets marked with NAPI_GRO_CB(skb)->flush may still be
+re-aggregated.
+
+This allows already-GRO'd packets with existing frag_list to be
+re-aggregated into a new GRO session, corrupting the frag_list chain
+structure. When skb_segment() attempts to unpack these malformed packets,
+it encounters invalid state and triggers a kernel panic.
+
+Scenario (Tethering/Device forwarding):
+  1. Driver: Generated aggregated packet P1 via LRO with frag_list
+  2. Dev A: Receives aggregated fraglist packet and flush flag set
+  3. Dev A: Re-enters GRO, skb_gro_receive_list() is called
+  4. Missing flush check allows re-aggregation despite flush flag
+  5. Frag_list chain becomes corrupted (loops or dangling refs)
+  6. Dev B: TX path calls skb_segment(), crashes on corrupted frag_list
+
+Root cause in skb_segment():
+  The check at line ~4891:
+    if (hsize <= 0 && i >= nfrags && skb_headlen(list_skb) &&
+        (skb_headlen(list_skb) == len || sg)) {
+
+  When frag_list is corrupted by double aggregation, when list_skb is
+  a NULL pointer from skb->next, skb_headlen(list_skb) dereference
+  NULL/corrupted pointers occurs.
+
+Call Trace:
+ skb_headlen(NULL skb)
+ skb_segment
+ tcp_gso_segment
+ tcp4_gso_segment
+ inet_gso_segment
+ skb_mac_gso_segment
+ __skb_gso_segment
+ skb_gso_segment
+ validate_xmit_skb
+ validate_xmit_skb_list
+ sch_direct_xmit
+ qdisc_restart
+ __qdisc_run
+ qdisc_run
+ net_tx_action
+
+Fix: Add NAPI_GRO_CB(skb)->flush validation to the early-return check in
+skb_gro_receive_list(), matching the defensive programming pattern of
+skb_gro_receive().
+
+Fixes: 3a1296a38d0c ("net: Support GRO/GSO fraglist chaining.")
+Cc: stable@vger.kernel.org
+Signed-off-by: Shiming Cheng <shiming.cheng@mediatek.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Link: https://patch.msgid.link/20260709014704.3625-1-shiming.cheng@mediatek.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit fc0c0f7a207f0cd2d2aa725696c907f7d03af9e0)
+CVE-2026-68136
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/core/gro.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/gro.c b/net/core/gro.c
+index 35f2f708f01052d99a4cf06b68cd3ff9eab5516a..29b4d02bf5198de86d9affa26d2cac76b0839ef3 100644
+--- a/net/core/gro.c
++++ b/net/core/gro.c
+@@ -229,7 +229,9 @@ int skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
+ 
+ int skb_gro_receive_list(struct sk_buff *p, struct sk_buff *skb)
+ {
+-	if (unlikely(p->len + skb->len >= 65536))
++	/* make sure to check flush flag and to not merge */
++	if (unlikely(p->len + skb->len >= 65536 ||
++		     NAPI_GRO_CB(skb)->flush))
+ 		return -E2BIG;
+ 
+ 	if (!pskb_may_pull(skb, skb_gro_offset(skb))) {
