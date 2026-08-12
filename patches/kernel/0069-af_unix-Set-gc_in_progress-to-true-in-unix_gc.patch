@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kuniyuki Iwashima <kuniyu@google.com>
+Date: Wed, 1 Jul 2026 09:53:06 +0300
+Subject: [PATCH] af_unix: Set gc_in_progress to true in unix_gc().
+
+[ Upstream commit d82ba05263c69fa2437fe93e4e561cc40f4c03af ]
+
+Igor Ushakov reported that unix_gc() could run with gc_in_progress
+being false if the work is scheduled while running:
+
+  Thread 1         Thread 2                     Thread 3
+  --------         --------                     --------
+                   unix_schedule_gc()           unix_schedule_gc()
+                   `- if (!gc_in_progress)      `- if (!gc_in_progress)
+                      |- gc_in_progress = true     |
+                      `- queue_work()              |
+  unix_gc() <----------------/                     |
+  |                                                |- gc_in_progress = true
+  ...                                              `- queue_work()
+  |                                                       |
+  `- gc_in_progress = false                               |
+                                                          |
+  unix_gc() <---------------------------------------------'
+  |
+  ... /* gc_in_progress == false */
+  |
+  `- gc_in_progress = false
+
+unix_peek_fpl() relies on gc_in_progress not to confuse GC
+by MSG_PEEK.
+
+Let's set gc_in_progress to true in unix_gc().
+
+Fixes: 8b90a9f819dc ("af_unix: Run GC on only one CPU.")
+Reported-by: Igor Ushakov <sysroot314@gmail.com>
+Signed-off-by: Kuniyuki Iwashima <kuniyu@google.com>
+Link: https://patch.msgid.link/20260501073945.1884564-1-kuniyu@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+[ Add setting gc_in_progress in __unix_gc(). Keep the existing
+  set in unix_gc() for wait_for_unix_gc() over-limit throttling. ]
+Signed-off-by: Igor Ushakov <sysroot314@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 591f1ac217428a6d2b32a8ac14aac0fab44f155a)
+CVE-2026-53361
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/unix/garbage.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/unix/garbage.c b/net/unix/garbage.c
+index 1cdb54c61619f5d2023b4713184ab25a3134dab6..fa6983dc3181d95c173a81c7a2870a1ae088b091 100644
+--- a/net/unix/garbage.c
++++ b/net/unix/garbage.c
+@@ -583,6 +583,8 @@ static void __unix_gc(struct work_struct *work)
+ 	struct sk_buff_head hitlist;
+ 	struct sk_buff *skb;
+ 
++	WRITE_ONCE(gc_in_progress, true);
++
+ 	spin_lock(&unix_gc_lock);
+ 
+ 	if (!unix_graph_maybe_cyclic) {
