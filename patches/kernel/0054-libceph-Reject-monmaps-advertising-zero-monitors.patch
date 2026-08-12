@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Date: Fri, 29 May 2026 09:42:57 +0200
+Subject: [PATCH] libceph: Reject monmaps advertising zero monitors
+
+commit 40480eee361ed9676b3f844d532ac28b47251634 upstream.
+
+A message of type CEPH_MSG_MON_MAP contains a monmap that is sent from a
+monitor to the client. This monmap contains information about the
+existing monitors in the cluster. Currently, a monmap indicating that
+there are zero monitors in the cluster is treated as valid. However, it
+is impossible to have zero monitors in the cluster and still receive a
+valid monmap from a monitor. Therefore, such a monmap must be corrupted
+and should be treated as invalid. Furthermore, a monmap with a monitor
+count of zero can subsequently crash the client when attempting to open
+a session with a monitor in __open_session(). This happens because the
+"BUG_ON(monc->monmap->num_mon < 1)" assertion in pick_new_mon() is
+triggered.
+
+This patch extends a check in ceph_monmap_decode() to also reject
+arriving mon_maps with num_mon == 0 rather than only with
+num_mon > CEPH_MAX_MON.
+
+[ idryomov: drop "log output for unusual values of num_mon" part ]
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Reviewed-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit cd0d41bc569632eaaeccde9d2a6bc919ec00c407)
+CVE-2026-68155
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ceph/mon_client.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
+index e1311fd5b91eab5d92399ecb23b4907814802f63..f51a2ceb9045220899e9a26219639b39062d7dbe 100644
+--- a/net/ceph/mon_client.c
++++ b/net/ceph/mon_client.c
+@@ -114,7 +114,7 @@ static struct ceph_monmap *ceph_monmap_decode(void **p, void *end, bool msgr2)
+ 
+ 	dout("%s fsid %pU epoch %u num_mon %u\n", __func__, &fsid, epoch,
+ 	     num_mon);
+-	if (num_mon > CEPH_MAX_MON)
++	if (num_mon == 0 || num_mon > CEPH_MAX_MON)
+ 		goto e_inval;
+ 
+ 	monmap = kmalloc(struct_size(monmap, mon_inst, num_mon), GFP_NOIO);

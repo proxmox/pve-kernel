@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Brauner <brauner@kernel.org>
+Date: Mon, 20 Jul 2026 14:36:49 +0200
+Subject: [PATCH] binfmt_misc: set have_execfd only once the interpreter is
+ opened
+
+commit bbf5f639918dc011aaf60aab8480218758ee68c5 upstream.
+
+load_misc_binary() raises bprm->have_execfd as soon as it sees the 'O'
+(or 'C') flag. This happens well before it opens the interpreter. If
+that open fails the flag stays set on the bprm. binfmt_misc is at the
+head of the format list so an interpreter open failure that returns
+-ENOEXEC lets the search fall through to a later format. This means it
+runs the matched binary directly having never staged an interpreter. So
+bprm->executable is NULL while have_execfd falsely claims a descriptor
+is present.
+
+Consequently, begin_new_exec() dereferences the missing executable:
+
+  would_dump(bprm, bprm->executable);
+
+and NULL derefs. Had it not, the hand-off later in the same function
+would have failed anyway. FD_ADD(0, bprm->executable) rejects a NULL
+file with -ENOMEM. Both sites are past the point of no return so the
+exec cannot be unwound either way.
+
+This can be reached by unprivileged users as binfmt_misc can be mounted
+in user namespaces. So a user can register an 'O' entry whose
+interpreter lives on a FUSE mount, have the FUSE server fail the open
+with -ENOEXEC and execute a native ELF file that matches the entry.
+
+have_execfd only means anything alongside the executable it describes
+which is not set until the interpreter has been opened and staged.
+So lets raise it there, next to execfd_creds, which is already set at
+that point. An open failure now leaves it clear, so the fallback format
+derives credentials from the binary and emits no AT_EXECFD, as it would
+for any native exec. The argv rewrite load_misc_binary() performs before
+the open is still not undone. This means the binary sees the interpreter
+path in argv[0] and its own path in argv[1] but that predates this
+change and only became observable once the exec stopped faulting.
+
+Link: https://patch.msgid.link/20260720-beglichen-kognitiv-organismus-5e1e55326c56@brauner
+Fixes: bc2bf338d54b ("exec: Remove recursion from search_binary_handler")
+Cc: stable@vger.kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 2dd0298905e97795a9c5ec30cf5b41975f821632)
+CVE-2026-68186
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ fs/binfmt_misc.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/fs/binfmt_misc.c b/fs/binfmt_misc.c
+index c6fbbf3f0effdebbf5fdd4a004855ab03b2bb350..c5e21825d4a6fce797461d6ca228480d29a050ae 100644
+--- a/fs/binfmt_misc.c
++++ b/fs/binfmt_misc.c
+@@ -227,9 +227,6 @@ static int load_misc_binary(struct linux_binprm *bprm)
+ 			goto ret;
+ 	}
+ 
+-	if (fmt->flags & MISC_FMT_OPEN_BINARY)
+-		bprm->have_execfd = 1;
+-
+ 	/* make argv[1] be the path to the binary */
+ 	retval = copy_string_kernel(bprm->interp, bprm);
+ 	if (retval < 0)
+@@ -259,6 +256,8 @@ static int load_misc_binary(struct linux_binprm *bprm)
+ 		goto ret;
+ 
+ 	bprm->interpreter = interp_file;
++	if (fmt->flags & MISC_FMT_OPEN_BINARY)
++		bprm->have_execfd = 1;
+ 	if (fmt->flags & MISC_FMT_CREDENTIALS)
+ 		bprm->execfd_creds = 1;
+ 

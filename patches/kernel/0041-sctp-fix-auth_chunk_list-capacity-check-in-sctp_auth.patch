@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: HanQuan <eilaimemedsnaimel@gmail.com>
+Date: Mon, 13 Jul 2026 03:20:21 +0000
+Subject: [PATCH] sctp: fix auth_chunk_list capacity check in
+ sctp_auth_ep_add_chunkid
+
+[ Upstream commit ff04b26794a16a8a879eb4fd2c02c2d6b03850e9 ]
+
+sctp_auth_ep_add_chunkid() uses SCTP_NUM_CHUNK_TYPES (20) as the
+capacity limit for ep->auth_chunk_list, allowing it to hold up to
+20 chunk entries (param_hdr.length up to 24). However, the copy
+destination asoc->c.auth_chunks in struct sctp_cookie is only
+SCTP_AUTH_MAX_CHUNKS (16) entries (20 bytes). When more than 16
+chunks are added, sctp_association_init() memcpy overflows the
+destination by up to 4 bytes.
+
+Fix by using SCTP_AUTH_MAX_CHUNKS as the capacity limit, matching
+the destination capacity.
+
+Fixes: 1f485649f529 ("[SCTP]: Implement SCTP-AUTH internals")
+Signed-off-by: HanQuan <eilaimemedsnaimel@gmail.com>
+Acked-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/20260713032021.3491702-1-zhoujian.zja@antgroup.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 886e28e14ab655012779016d251fef53d103aa12)
+CVE-2026-68320
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/sctp/auth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+index c58fffc86a0c2d23d796cc8371cc3467834aa5ea..8320764b16b928b927bfe3e5cd7dacf704c3adca 100644
+--- a/net/sctp/auth.c
++++ b/net/sctp/auth.c
+@@ -766,7 +766,7 @@ int sctp_auth_ep_add_chunkid(struct sctp_endpoint *ep, __u8 chunk_id)
+ 	/* Check if we can add this chunk to the array */
+ 	param_len = ntohs(p->param_hdr.length);
+ 	nchunks = param_len - sizeof(struct sctp_paramhdr);
+-	if (nchunks == SCTP_NUM_CHUNK_TYPES)
++	if (nchunks == SCTP_AUTH_MAX_CHUNKS)
+ 		return -EINVAL;
+ 
+ 	p->chunks[nchunks] = chunk_id;

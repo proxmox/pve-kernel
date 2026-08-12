@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Thu, 10 Oct 2024 11:23:27 -0700
+Subject: [PATCH] KVM: nVMX: Add helper to put (unmap) vmcs12 pages
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add a helper to dedup unmapping the vmcs12 pages.  This will reduce the
+amount of churn when a future patch refactors the kvm_vcpu_unmap() API.
+
+No functional change intended.
+
+Tested-by: Alex Bennée <alex.bennee@linaro.org>
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Tested-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Message-ID: <20241010182427.1434605-26-seanjc@google.com>
+(cherry picked from commit a629ef9518f5a59f79908d049144721cb2dd5b74)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/x86/kvm/vmx/nested.c | 32 ++++++++++++++++++--------------
+ 1 file changed, 18 insertions(+), 14 deletions(-)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index 6d075a859d8709c5df07c654979d7667cabc0076..d7899f7f3b8efcc58ef46f4d9a7938a4d15a4243 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -317,6 +317,21 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
+ 	vcpu->arch.regs_dirty = 0;
+ }
+ 
++static void nested_put_vmcs12_pages(struct kvm_vcpu *vcpu)
++{
++	struct vcpu_vmx *vmx = to_vmx(vcpu);
++
++	/*
++	 * Unpin physical memory we referred to in the vmcs02.  The APIC access
++	 * page's backing page (yeah, confusing) shouldn't actually be accessed,
++	 * and if it is written, the contents are irrelevant.
++	 */
++	kvm_vcpu_unmap(vcpu, &vmx->nested.apic_access_page_map, false);
++	kvm_vcpu_unmap(vcpu, &vmx->nested.virtual_apic_map, true);
++	kvm_vcpu_unmap(vcpu, &vmx->nested.pi_desc_map, true);
++	vmx->nested.pi_desc = NULL;
++}
++
+ /*
+  * Free whatever needs to be freed from vmx->nested when L1 goes down, or
+  * just stops using VMX.
+@@ -356,15 +371,8 @@ static void free_nested(struct kvm_vcpu *vcpu)
+ 	vmx->nested.cached_vmcs12 = NULL;
+ 	kfree(vmx->nested.cached_shadow_vmcs12);
+ 	vmx->nested.cached_shadow_vmcs12 = NULL;
+-	/*
+-	 * Unpin physical memory we referred to in the vmcs02.  The APIC access
+-	 * page's backing page (yeah, confusing) shouldn't actually be accessed,
+-	 * and if it is written, the contents are irrelevant.
+-	 */
+-	kvm_vcpu_unmap(vcpu, &vmx->nested.apic_access_page_map, false);
+-	kvm_vcpu_unmap(vcpu, &vmx->nested.virtual_apic_map, true);
+-	kvm_vcpu_unmap(vcpu, &vmx->nested.pi_desc_map, true);
+-	vmx->nested.pi_desc = NULL;
++
++	nested_put_vmcs12_pages(vcpu);
+ 
+ 	kvm_mmu_free_roots(vcpu->kvm, &vcpu->arch.guest_mmu, KVM_MMU_ROOTS_ALL);
+ 
+@@ -4972,11 +4980,7 @@ void nested_vmx_vmexit(struct kvm_vcpu *vcpu, u32 vm_exit_reason,
+ 		vmx_update_cpu_dirty_logging(vcpu);
+ 	}
+ 
+-	/* Unpin physical memory we referred to in vmcs02 */
+-	kvm_vcpu_unmap(vcpu, &vmx->nested.apic_access_page_map, false);
+-	kvm_vcpu_unmap(vcpu, &vmx->nested.virtual_apic_map, true);
+-	kvm_vcpu_unmap(vcpu, &vmx->nested.pi_desc_map, true);
+-	vmx->nested.pi_desc = NULL;
++	nested_put_vmcs12_pages(vcpu);
+ 
+ 	if (vmx->nested.reload_vmcs01_apic_access_page) {
+ 		vmx->nested.reload_vmcs01_apic_access_page = false;

@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yichong Chen <chenyichong@uniontech.com>
+Date: Thu, 16 Jul 2026 13:25:23 +0800
+Subject: [PATCH] smb: client: validate DFS referral PathConsumed
+
+[ Upstream commit f6f5ee2aa33b350c671721b965251c42cebb962e ]
+
+parse_dfs_referrals() validates that the response contains the fixed
+referral entry array and, on for-next, the per-referral string offsets.
+However, the response also contains a PathConsumed value that is later
+used for DFS path parsing.
+
+If a malformed response provides a PathConsumed value larger than the
+search name, later DFS parsing can advance beyond the end of the path.
+
+Validate PathConsumed against the search name length before storing it in
+the parsed referral.
+
+Fixes: 4ecce920e13a ("CIFS: move DFS response parsing out of SMB1 code")
+Reviewed-by: Paulo Alcantara (Red Hat) <pc@manguebit.org>
+Signed-off-by: Yichong Chen <chenyichong@uniontech.com>
+Signed-off-by: Steve French <stfrench@microsoft.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 285bd4a5f3f156aa5869843b47a1b1380b774241)
+CVE-2026-68343
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ fs/smb/client/misc.c | 34 +++++++++++++++++++++++++---------
+ 1 file changed, 25 insertions(+), 9 deletions(-)
+
+diff --git a/fs/smb/client/misc.c b/fs/smb/client/misc.c
+index 8e57215f93338090b11b00208a15ac2f7d81d16e..9d4604c60810707a2892a40908580eb94a5641d1 100644
+--- a/fs/smb/client/misc.c
++++ b/fs/smb/client/misc.c
+@@ -926,6 +926,8 @@ parse_dfs_referrals(struct get_dfs_referral_rsp *rsp, u32 rsp_size,
+ 	int i, rc = 0;
+ 	char *data_end;
+ 	struct dfs_referral_level_3 *ref;
++	unsigned int path_consumed;
++	size_t search_name_len;
+ 
+ 	if (rsp_size < sizeof(*rsp)) {
+ 		cifs_dbg(VFS | ONCE,
+@@ -973,6 +975,7 @@ parse_dfs_referrals(struct get_dfs_referral_rsp *rsp, u32 rsp_size,
+ 		rc = -ENOMEM;
+ 		goto parse_DFS_referrals_exit;
+ 	}
++	search_name_len = strlen(searchName);
+ 
+ 	/* collect necessary data from referrals */
+ 	for (i = 0; i < *num_of_nodes; i++) {
+@@ -981,21 +984,34 @@ parse_dfs_referrals(struct get_dfs_referral_rsp *rsp, u32 rsp_size,
+ 		struct dfs_info3_param *node = (*target_nodes)+i;
+ 
+ 		node->flags = le32_to_cpu(rsp->DFSFlags);
++		path_consumed = le16_to_cpu(rsp->PathConsumed);
+ 		if (is_unicode) {
+-			__le16 *tmp = kmalloc(strlen(searchName)*2 + 2,
+-						GFP_KERNEL);
+-			if (tmp == NULL) {
++			size_t search_name_utf16_len = search_name_len * 2 + 2;
++			__le16 *tmp;
++
++			if (path_consumed > search_name_utf16_len) {
++				rc = -EINVAL;
++				goto parse_DFS_referrals_exit;
++			}
++
++			tmp = kmalloc(search_name_utf16_len, GFP_KERNEL);
++			if (!tmp) {
+ 				rc = -ENOMEM;
+ 				goto parse_DFS_referrals_exit;
+ 			}
+-			cifsConvertToUTF16((__le16 *) tmp, searchName,
++			cifsConvertToUTF16((__le16 *)tmp, searchName,
+ 					   PATH_MAX, nls_codepage, remap);
+-			node->path_consumed = cifs_utf16_bytes(tmp,
+-					le16_to_cpu(rsp->PathConsumed),
+-					nls_codepage);
++			node->path_consumed = cifs_utf16_bytes(tmp, path_consumed,
++							       nls_codepage);
+ 			kfree(tmp);
+-		} else
+-			node->path_consumed = le16_to_cpu(rsp->PathConsumed);
++		} else {
++			if (path_consumed > search_name_len) {
++				rc = -EINVAL;
++				goto parse_DFS_referrals_exit;
++			}
++
++			node->path_consumed = path_consumed;
++		}
+ 
+ 		node->server_type = le16_to_cpu(ref->ServerType);
+ 		node->ref_flag = le16_to_cpu(ref->ReferralEntryFlags);

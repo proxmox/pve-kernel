@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Douya Le <ldy3087146292@gmail.com>
+Date: Mon, 15 Jun 2026 14:31:06 +0800
+Subject: [PATCH] libceph: remove debugfs files before client teardown
+
+commit e4c804726c4afce3ba648b982d564f6af2cfa328 upstream.
+
+ceph_destroy_client() tears down the monitor client before removing
+the per-client debugfs files. A concurrent read of the monmap debugfs
+file can enter monmap_show() after ceph_monc_stop() has freed
+monc->monmap, triggering a use-after-free.
+
+Remove the debugfs files before stopping the OSD and monitor clients.
+debugfs_remove() drains active handlers and prevents new accesses, so
+the debugfs callbacks can no longer race the rest of client teardown.
+
+Cc: stable@vger.kernel.org
+Fixes: 76aa844d5b2f ("ceph: debugfs")
+Reported-by: Yuan Tan <yuantan098@gmail.com>
+Reported-by: Zhengchuan Liang <zcliangcn@gmail.com>
+Reported-by: Xin Liu <bird@lzu.edu.cn>
+Assisted-by: Codex:GPT-5.4
+Signed-off-by: Douya Le <ldy3087146292@gmail.com>
+Signed-off-by: Ren Wei <n05ec@lzu.edu.cn>
+Reviewed-by: Viacheslav Dubeyko <slava@dubeyko.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit d3dc8889d39a676bf840132bd5c5c48cb0daba23)
+CVE-2026-68153
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ceph/ceph_common.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ceph/ceph_common.c b/net/ceph/ceph_common.c
+index 285e981730e5cb6a4d150c7df1c6d06870f39fc4..15bba470960d8b99c3802339971b04e67574a4b5 100644
+--- a/net/ceph/ceph_common.c
++++ b/net/ceph/ceph_common.c
+@@ -763,13 +763,13 @@ void ceph_destroy_client(struct ceph_client *client)
+ 
+ 	atomic_set(&client->msgr.stopping, 1);
+ 
++	ceph_debugfs_client_cleanup(client);
++
+ 	/* unmount */
+ 	ceph_osdc_stop(&client->osdc);
+ 	ceph_monc_stop(&client->monc);
+ 	ceph_messenger_fini(&client->msgr);
+ 
+-	ceph_debugfs_client_cleanup(client);
+-
+ 	ceph_destroy_options(client->options);
+ 
+ 	kfree(client);

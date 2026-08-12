@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aldo Ariel Panzardo <qwe.aldo@gmail.com>
+Date: Tue, 7 Jul 2026 19:43:14 -0700
+Subject: [PATCH] rds: drop incoming messages that cross network namespace
+ boundaries
+
+[ Upstream commit 5521ae71e32a8069ed4ca6e792179dc57bc43ab2 ]
+
+rds_find_bound() looks up the destination socket using a global
+rhashtable keyed solely on (addr, port, scope_id).  Network namespaces
+are not part of the key, so a sender in netns A can deliver an incoming
+message (inc) to a socket that lives in a different netns B.
+
+When this happens, inc->i_conn points to an rds_connection whose c_net
+is netns A, but the receiving rs lives in netns B.  Once the child
+process that created netns A exits, cleanup_net() calls
+rds_loop_exit_net() -> rds_loop_kill_conns() -> rds_conn_destroy(),
+freeing that connection.  If the survivor socket in netns B still holds
+the inc, any subsequent dereference of inc->i_conn is a use-after-free.
+
+There are two dangerous sites in rds_clear_recv_queue():
+  1. inc->i_conn->c_lcong (offset 88 of freed rds_connection, size 200)
+     read via rds_recv_rcvbuf_delta() -- confirmed by KASAN.
+  2. inc->i_conn->c_trans->inc_free(inc) (function pointer at offset 80)
+     called via rds_inc_put() when the inc refcount reaches zero -- same
+     race window, potential call-through-freed-object primitive.
+
+The bug is reachable from unprivileged user namespaces
+(CLONE_NEWUSER + CLONE_NEWNET), available since Linux 3.8.
+
+Fix this by rejecting the delivery in rds_recv_incoming() when the
+socket returned by rds_find_bound() belongs to a different network
+namespace than the connection that carried the message.  Use the
+existing rds_conn_net() / sock_net() helpers and net_eq() for the
+comparison.
+
+Fixes: c809195f5523 ("rds: clean up loopback rds_connections on netns deletion")
+Signed-off-by: Aldo Ariel Panzardo <qwe.aldo@gmail.com>
+Reviewed-by: Allison Henderson <achender@kernel.org>
+Tested-by: Allison Henderson <achender@kernel.org>
+Signed-off-by: Allison Henderson <achender@kernel.org>
+Link: https://patch.msgid.link/20260708024314.601139-1-achender@kernel.org
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit cfb3ce07b705e486e022a2f2b1242b48f13981ff)
+CVE-2026-68335
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/rds/recv.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index 5627f80013f8b17d3de6284784fe3cbb02bba754..bd9d00326e94fd5dc3115d4f8574cf4d0729153e 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -366,6 +366,21 @@ void rds_recv_incoming(struct rds_connection *conn, struct in6_addr *saddr,
+ 		goto out;
+ 	}
+ 
++	/*
++	 * rds_find_bound() uses a global (netns-agnostic) hash table.
++	 * An RDS connection created in netns A can match a socket bound
++	 * in the init netns, delivering inc cross-netns with inc->i_conn
++	 * pointing into netns A.  When cleanup_net() then frees that conn,
++	 * any subsequent dereference of inc->i_conn is a use-after-free.
++	 * Drop the inc if the receiving socket lives in a different netns.
++	 */
++	if (!net_eq(sock_net(rds_rs_to_sk(rs)), rds_conn_net(conn))) {
++		rds_stats_inc(s_recv_drop_no_sock);
++		rds_sock_put(rs);
++		rs = NULL;
++		goto out;
++	}
++
+ 	/* Process extension headers */
+ 	rds_recv_incoming_exthdrs(inc, rs);
+ 

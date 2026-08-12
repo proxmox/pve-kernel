@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Li RongQing <lirongqing@baidu.com>
+Date: Tue, 21 Jul 2026 17:34:10 +0800
+Subject: [PATCH] iommu/intel: Fix out-of-bounds memset in
+ dmar_latency_disable()
+
+[ Upstream commit 754f8efe45f87e3a9c6871b645b2f9d46d1b407b ]
+
+dmar_latency_disable() intends to zero out only the single
+latency_statistic entry for the given type, but the memset size was
+computed as sizeof(*lstat) * DMAR_LATENCY_NUM, which clears the entire
+array starting from &lstat[type].
+
+When type > 0, this writes beyond the end of the allocated array,
+corrupting adjacent memory.
+
+Fix by using sizeof(*lstat) to clear only the target entry.
+
+Fixes: 55ee5e67a59a ("iommu/vt-d: Add common code for dmar latency performance monitors")
+Signed-off-by: Li RongQing <lirongqing@baidu.com>
+Signed-off-by: Will Deacon <will@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 866a35735e56b9dc81cbc33899255134adf6d8b3)
+CVE-2026-68324
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/iommu/intel/perf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/iommu/intel/perf.c b/drivers/iommu/intel/perf.c
+index ae64e1123f257145323caf5f1536d9594b4d2d97..08ffebdbd09cec2f39ccd8c5890a7f09cd7c3a8d 100644
+--- a/drivers/iommu/intel/perf.c
++++ b/drivers/iommu/intel/perf.c
+@@ -63,7 +63,7 @@ void dmar_latency_disable(struct intel_iommu *iommu, enum latency_type type)
+ 		return;
+ 
+ 	spin_lock_irqsave(&latency_lock, flags);
+-	memset(&lstat[type], 0, sizeof(*lstat) * DMAR_LATENCY_NUM);
++	memset(&lstat[type], 0, sizeof(*lstat));
+ 	spin_unlock_irqrestore(&latency_lock, flags);
+ }
+ 

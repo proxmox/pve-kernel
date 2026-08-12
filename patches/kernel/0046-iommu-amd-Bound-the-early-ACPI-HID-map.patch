@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Pengpeng Hou <pengpeng@iscas.ac.cn>
+Date: Mon, 20 Jul 2026 19:46:13 +0800
+Subject: [PATCH] iommu/amd: Bound the early ACPI HID map
+
+[ Upstream commit fb80117fddb5b477218dc99bb53911b72c3847f8 ]
+
+The ivrs_acpihid command-line parser appends entries to a fixed
+four-element early_acpihid_map array. Unlike the sibling IOAPIC and HPET
+parsers, it does not reject a fifth entry before incrementing the map size.
+
+Check the capacity at the common found label before parsing the HID and
+UID or writing the entry.
+
+Fixes: ca3bf5d47cec ("iommu/amd: Introduces ivrs_acpihid kernel parameter")
+Signed-off-by: Pengpeng Hou <pengpeng@iscas.ac.cn>
+Reviewed-by: Ankit Soni <Ankit.Soni@amd.com>
+Signed-off-by: Will Deacon <will@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit abe5d7962f09adada9c4fb25b816dddd3f97c55d)
+CVE-2026-68325
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/iommu/amd/init.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/iommu/amd/init.c b/drivers/iommu/amd/init.c
+index d1f7e1e815283a20f885a02b527d633c916e2cba..230edd7d82618a12769694eb0e2b24ff4c8e54f4 100644
+--- a/drivers/iommu/amd/init.c
++++ b/drivers/iommu/amd/init.c
+@@ -3642,6 +3642,12 @@ static int __init parse_ivrs_acpihid(char *str)
+ 	return 1;
+ 
+ found:
++	if (early_acpihid_map_size == EARLY_MAP_SIZE) {
++		pr_err("Early ACPI HID map overflow - ignoring ivrs_acpihid%s\n",
++		       str);
++		return 1;
++	}
++
+ 	p = acpiid;
+ 	hid = strsep(&p, ":");
+ 	uid = p;

@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Qing Luo <luoqing@kylinos.cn>
+Date: Tue, 21 Jul 2026 09:55:32 +0800
+Subject: [PATCH] sctp: auth: verify auth requirement when auth_chunk is NULL
+
+[ Upstream commit 8e04823c120b376ef7dab14b60ebf6823aa16c14 ]
+
+sctp_auth_chunk_verify() returns true unconditionally when
+chunk->auth_chunk is NULL, silently skipping authentication.
+This is incorrect when:
+
+1. skb_clone() failed in the BH receive path, leaving auth_chunk
+   NULL. In sctp_endpoint_bh_rcv() asoc is NULL for new
+   connections, so the early sctp_auth_recv_cid() check cannot
+   catch this.
+
+2. No AUTH chunk precedes COOKIE-ECHO, so skb_clone() is never
+   called and auth_chunk remains NULL.
+
+Fix by checking sctp_auth_recv_cid() when auth_chunk is NULL:
+if authentication is required, return false to drop the chunk;
+otherwise continue normally.
+
+Fixes: bbd0d59809f9 ("[SCTP]: Implement the receive and verification of AUTH chunk")
+Signed-off-by: Qing Luo <luoqing@kylinos.cn>
+Acked-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/20260721015532.120157-2-l1138897701@163.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 28c5fdce9dd955d2baf5e28987819b6d7cfaf646)
+CVE-2026-68300
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/sctp/sm_statefuns.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 583d83dcb8426e75da8dab51a7b6199cbd64bae2..57c73ce4daca6c6147d948667010e442f177abd3 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -639,7 +639,7 @@ static bool sctp_auth_chunk_verify(struct net *net, struct sctp_chunk *chunk,
+ 	struct sctp_chunk auth;
+ 
+ 	if (!chunk->auth_chunk)
+-		return true;
++		return !sctp_auth_recv_cid(chunk->chunk_hdr->type, asoc);
+ 
+ 	/* SCTP-AUTH:  auth_chunk pointer is only set when the cookie-echo
+ 	 * is supposed to be authenticated and we have to do delayed

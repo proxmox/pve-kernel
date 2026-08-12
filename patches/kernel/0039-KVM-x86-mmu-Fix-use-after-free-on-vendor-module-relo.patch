@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Phil Rosenthal <phil@phil.gs>
+Date: Sat, 18 Jul 2026 12:50:23 -0400
+Subject: [PATCH] KVM: x86/mmu: Fix use-after-free on vendor module reload
+
+commit 52f2f7c30126037975389aa04d24c506a5177c35 upstream.
+
+mmu_destroy_caches() destroys pte_list_desc_cache and
+mmu_page_header_cache, but leaves both pointers unchanged.  The pointers
+live in kvm.ko, and therefore survive when a vendor module is unloaded
+while kvm.ko remains loaded.
+
+If creation of pte_list_desc_cache fails during a subsequent vendor
+module load, its assignment sets pte_list_desc_cache to NULL and the
+error path calls mmu_destroy_caches().  mmu_page_header_cache still
+points to the cache destroyed during the preceding vendor module
+unload.  Passing that stale pointer to kmem_cache_destroy() causes a
+slab use-after-free.
+
+Reproduce the issue on a v7.1.3 kernel with CONFIG_KASAN=y,
+CONFIG_KASAN_GENERIC=y, CONFIG_KVM=m, and CONFIG_KVM_INTEL=m.  A
+one-shot test hook forces pte_list_desc_cache to NULL on the second
+invocation of kvm_mmu_vendor_module_init():
+
+  1. Load kvm.ko and kvm-intel.ko, creating both caches.
+  2. Unload only kvm_intel, leaving kvm.ko loaded.
+  3. Reload kvm_intel and force initialization through the -ENOMEM path.
+
+KASAN reports:
+
+  BUG: KASAN: slab-use-after-free in
+  kvm_mmu_vendor_module_init+0x5b/0x170 [kvm]
+  ...
+  kmem_cache_destroy+0x21/0x1d0
+  kvm_mmu_vendor_module_init+0x5b/0x170 [kvm]
+  ...
+  Allocated by task 16817:
+  __kmem_cache_create_args+0x12c/0x3b0
+  __kmem_cache_create.constprop.0+0xb6/0xf0 [kvm]
+  kvm_mmu_vendor_module_init+0x13b/0x170 [kvm]
+  ...
+  Freed by task 16820:
+  kmem_cache_destroy+0x117/0x1d0
+  kvm_mmu_vendor_module_exit+0x21/0x30 [kvm]
+
+Clear both pointers immediately after destroying their caches so that
+the stored state reflects the caches' lifetime and repeated cleanup is
+safe.
+
+With the fix applied, the same injected vendor module reload fails with
+-ENOMEM as expected and produces no KASAN report.
+
+Fixes: cb498ea2ce1d ("KVM: Portability: Combine kvm_init and kvm_init_x86")
+Cc: stable@vger.kernel.org
+Signed-off-by: Phil Rosenthal <phil@phil.gs>
+Message-ID: <20260718-kvm-mmu-cache-uaf-v3-1-e103b93c74e1@phil.gs>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 32b9f89ed9e6d7a45075d64089c254a7f6e13695)
+CVE-2026-68428
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ arch/x86/kvm/mmu/mmu.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index 28e7602d5d09e465fd4c468bcfa411a27060d1fa..9b4cf0c7d08b2336a23df6b06bd203b914fb885b 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -6915,7 +6915,9 @@ static struct shrinker *mmu_shrinker;
+ static void mmu_destroy_caches(void)
+ {
+ 	kmem_cache_destroy(pte_list_desc_cache);
++	pte_list_desc_cache = NULL;
+ 	kmem_cache_destroy(mmu_page_header_cache);
++	mmu_page_header_cache = NULL;
+ }
+ 
+ static void kvm_wake_nx_recovery_thread(struct kvm *kvm)
