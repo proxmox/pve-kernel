@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Fri, 7 Aug 2026 18:16:06 -0400
+Subject: [PATCH] libceph: Amend checking to fix `make W=1` build breakage
+
+[ Upstream commit 04d8712b079327409b09dee628378f9583e2e035 ]
+
+In a few cases the code compares 32-bit value to a SIZE_MAX derived
+constant which is much higher than that value on 64-bit platforms,
+Clang, in particular, is not happy about this
+
+net/ceph/osdmap.c:1441:10: error: result of comparison of constant 4611686018427387891 with expression of type 'u32' (aka 'unsigned int') is always false [-Werror,-Wtautological-constant-out-of-range-compare]
+ 1441 |         if (len > (SIZE_MAX - sizeof(*pg)) / sizeof(u32))
+      |             ~~~ ^ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+net/ceph/osdmap.c:1624:10: error: result of comparison of constant 2305843009213693945 with expression of type 'u32' (aka 'unsigned int') is always false [-Werror,-Wtautological-constant-out-of-range-compare]
+ 1624 |         if (len > (SIZE_MAX - sizeof(*pg)) / (2 * sizeof(u32)))
+      |             ~~~ ^ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Fix this by casting to size_t. Note, that possible replacement of SIZE_MAX
+by U32_MAX may lead to the behaviour changes on the corner cases.
+
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Reviewed-by: Viacheslav Dubeyko <Slava.Dubeyko@ibm.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Stable-dep-of: 9f00f9cf2be2 ("libceph: bound pg_{temp,upmap,upmap_items} length to CEPH_PG_MAX_SIZE")
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+Link: Link: https://msgid.link/20260807221607.3807878-1-sashal@kernel.org
+(picked from lore - queued for 6.12)
+prerequisite for CVE-2026-68159
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ceph/osdmap.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
+index 30d75970be44964bbb30aa2787955034469d82eb..d8dd8c1cf362e58e2a2f83a8d17a4c826810fe09 100644
+--- a/net/ceph/osdmap.c
++++ b/net/ceph/osdmap.c
+@@ -1440,7 +1440,7 @@ static struct ceph_pg_mapping *__decode_pg_temp(void **p, void *end,
+ 	ceph_decode_32_safe(p, end, len, e_inval);
+ 	if (len == 0 && incremental)
+ 		return NULL;	/* new_pg_temp: [] to remove */
+-	if (len > (SIZE_MAX - sizeof(*pg)) / sizeof(u32))
++	if ((size_t)len > (SIZE_MAX - sizeof(*pg)) / sizeof(u32))
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	ceph_decode_need(p, end, len * sizeof(u32), e_inval);
+@@ -1621,7 +1621,7 @@ static struct ceph_pg_mapping *__decode_pg_upmap_items(void **p, void *end,
+ 	u32 len, i;
+ 
+ 	ceph_decode_32_safe(p, end, len, e_inval);
+-	if (len > (SIZE_MAX - sizeof(*pg)) / (2 * sizeof(u32)))
++	if ((size_t)len > (SIZE_MAX - sizeof(*pg)) / (2 * sizeof(u32)))
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	ceph_decode_need(p, end, 2 * len * sizeof(u32), e_inval);
