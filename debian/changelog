@@ -1,3 +1,9 @@
+proxmox-kernel-7.0 (7.0.14-13) trixie; urgency=medium
+
+  * cherry-pick fixes for relevant CVEs announced since 11.08.2026.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 18 Aug 2026 16:00:21 +0200
+
 proxmox-kernel-7.0 (7.0.14-12) trixie; urgency=medium
 
   * fix #7905: cherry-pick fix for null-ptr deref in amdgpu
