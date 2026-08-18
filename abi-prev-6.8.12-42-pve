@@ -19407,10 +19407,10 @@ EXPORT_SYMBOL_GPL	 net/sched/sch_pie 0x5687cb6e	pie_drop_early
 EXPORT_SYMBOL_GPL	 net/sched/sch_pie 0x6ce9b467	pie_calculate_probability
 EXPORT_SYMBOL_GPL	 net/sched/sch_taprio 0xa1b21d70	taprio_offload_get
 EXPORT_SYMBOL_GPL	 net/sched/sch_taprio 0xe17db4ea	taprio_offload_free
-EXPORT_SYMBOL_GPL	 net/sctp/sctp 0x2de9d7af	sctp_transport_lookup_process
-EXPORT_SYMBOL_GPL	 net/sctp/sctp 0xa3eeb5fa	sctp_get_sctp_info
-EXPORT_SYMBOL_GPL	 net/sctp/sctp 0xb4b40f56	sctp_transport_traverse_process
-EXPORT_SYMBOL_GPL	 net/sctp/sctp 0xcf2d0b94	sctp_for_each_endpoint
+EXPORT_SYMBOL_GPL	 net/sctp/sctp 0x27ad081f	sctp_get_sctp_info
+EXPORT_SYMBOL_GPL	 net/sctp/sctp 0x58c5aacb	sctp_transport_traverse_process
+EXPORT_SYMBOL_GPL	 net/sctp/sctp 0x81182222	sctp_transport_lookup_process
+EXPORT_SYMBOL_GPL	 net/sctp/sctp 0xe01b9fa9	sctp_for_each_endpoint
 EXPORT_SYMBOL_GPL	 net/smc/smc 0x1ca70a0a	smc_unhash_sk
 EXPORT_SYMBOL_GPL	 net/smc/smc 0x5422b738	smc_hash_sk
 EXPORT_SYMBOL_GPL	 net/smc/smc 0x5af1d465	smc_proto
