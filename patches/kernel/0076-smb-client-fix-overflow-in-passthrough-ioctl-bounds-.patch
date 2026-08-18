@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Guangshuo Li <lgs201920130244@gmail.com>
+Date: Wed, 8 Jul 2026 20:35:20 +0800
+Subject: [PATCH] smb: client: fix overflow in passthrough ioctl bounds check
+
+[ Upstream commit a4f27ad055392fa164f5649e89a3637b033c5fcc ]
+
+smb2_ioctl_query_info() validates the PASSTHRU_FSCTL response payload
+before copying it to userspace.
+
+The payload offset and length both come from 32-bit fields. The bounds
+check currently adds OutputOffset and qi.input_buffer_length directly, so
+the addition can wrap in 32-bit arithmetic before the result is compared
+against the response buffer length.
+
+A malicious server can use a large OutputOffset and a small OutputCount
+to make the wrapped sum pass the bounds check. The later copy_to_user()
+then reads from io_rsp + OutputOffset, outside the response buffer.
+
+Use size_add() for the offset plus length check so overflow is treated as
+out of bounds.
+
+Fixes: 2b1116bbe898 ("CIFS: Use common error handling code in smb2_ioctl_query_info()")
+Signed-off-by: Guangshuo Li <lgs201920130244@gmail.com>
+Signed-off-by: Steve French <stfrench@microsoft.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit b30771b69eafae750afb7385fbcc3d77ed3f3670)
+CVE-2026-72310
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/smb/client/smb2ops.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
+index 3616f1b1977779206d4d70bac25934616d1ea2be..3581802596839188fe301bd1ba837d5b87776822 100644
+--- a/fs/smb/client/smb2ops.c
++++ b/fs/smb/client/smb2ops.c
+@@ -1729,8 +1729,8 @@ smb2_ioctl_query_info(const unsigned int xid,
+ 		if (le32_to_cpu(io_rsp->OutputCount) < qi.input_buffer_length)
+ 			qi.input_buffer_length = le32_to_cpu(io_rsp->OutputCount);
+ 		if (qi.input_buffer_length > 0 &&
+-		    le32_to_cpu(io_rsp->OutputOffset) + qi.input_buffer_length
+-		    > rsp_iov[1].iov_len) {
++		     size_add(le32_to_cpu(io_rsp->OutputOffset),
++			     qi.input_buffer_length) > rsp_iov[1].iov_len) {
+ 			rc = -EFAULT;
+ 			goto out;
+ 		}

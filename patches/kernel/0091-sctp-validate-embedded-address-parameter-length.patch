@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue, 9 Jun 2026 18:14:28 -0400
+Subject: [PATCH] sctp: validate embedded address parameter length
+
+[ Upstream commit e9361d0ca55c4af12aac09e2572852fa91046229 ]
+
+sctp_verify_asconf() and sctp_verify_param() only validate ADD_IP, DEL_IP,
+and SET_PRIMARY parameters against a fixed minimum size of sizeof(struct
+sctp_addip_param) + sizeof(struct sctp_paramhdr). This ensures the outer
+parameter is large enough to contain an embedded address parameter header,
+but does not verify that the embedded address parameter's declared length
+fits within the bounds of the outer parameter.
+
+Later, sctp_process_param() and sctp_process_asconf_param() extract the
+embedded address parameter and pass it to af->from_addr_param(), which uses
+the address parameter length to parse the variable-length address payload.
+A malformed peer can therefore advertise an embedded address parameter
+length that exceeds the remaining bytes in the enclosing parameter.
+
+Validate that addr_param->p.length does not exceed the space available
+after the sctp_addip_param header before processing the embedded address
+parameter. Reject malformed parameters when the embedded address length
+extends beyond the enclosing parameter bounds.
+
+This prevents out-of-bounds reads when parsing malformed parameters carried
+in INIT or ASCONF processing paths.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Reported-by: sashiko <sashiko-bot@kernel.org>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/7838b86b69f52add28808fb59034c8f992e97b2d.1781043268.git.lucien.xin@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 92e4adfee56f32a963ebb105c6cd9a1ed707262a)
+CVE-2026-74287
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/sctp/sm_make_chunk.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 9fa253ccdded486b706cfa09340dd53d5ec32f19..d212344d4eff1064ed5279206173720eb8b28aa6 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2673,6 +2673,9 @@ static int sctp_process_param(struct sctp_association *asoc,
+ 			goto fall_through;
+ 
+ 		addr_param = param.v + sizeof(struct sctp_addip_param);
++		if (ntohs(addr_param->p.length) >
++		    ntohs(param.p->length) - sizeof(struct sctp_addip_param))
++			break;
+ 
+ 		af = sctp_get_af_specific(param_type2af(addr_param->p.type));
+ 		if (!af)
+@@ -3071,13 +3074,16 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+ 	union sctp_addr	addr;
+ 	struct sctp_af *af;
+ 
+-	addr_param = (void *)asconf_param + sizeof(*asconf_param);
+-
+ 	if (asconf_param->param_hdr.type != SCTP_PARAM_ADD_IP &&
+ 	    asconf_param->param_hdr.type != SCTP_PARAM_DEL_IP &&
+ 	    asconf_param->param_hdr.type != SCTP_PARAM_SET_PRIMARY)
+ 		return SCTP_ERROR_UNKNOWN_PARAM;
+ 
++	addr_param = (void *)asconf_param + sizeof(*asconf_param);
++	if (ntohs(addr_param->p.length) >
++	    ntohs(asconf_param->param_hdr.length) - sizeof(*asconf_param))
++		return SCTP_ERROR_PROTO_VIOLATION;
++
+ 	switch (addr_param->p.type) {
+ 	case SCTP_PARAM_IPV6_ADDRESS:
+ 		if (!asoc->peer.ipv6_address)

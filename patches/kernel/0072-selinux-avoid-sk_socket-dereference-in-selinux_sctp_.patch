@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Tristan Madani <tristan@talencesecurity.com>
+Date: Thu, 25 Jun 2026 23:53:36 +0000
+Subject: [PATCH] selinux: avoid sk_socket dereference in
+ selinux_sctp_bind_connect()
+
+commit 56acfeb10019e200ab6787d01f8d7cbe0f01526f upstream.
+
+selinux_sctp_bind_connect() dereferences sk->sk_socket to pass a
+struct socket * to selinux_socket_bind() and
+selinux_socket_connect_helper().  However, when the hook is invoked
+from the ASCONF softirq path (sctp_process_asconf), there is no file
+reference guaranteeing that sk->sk_socket is non-NULL.  The setsockopt
+callers (bindx, connectx, set_primary, sendmsg connect) hold a file
+reference and are not affected.
+
+Both selinux_socket_bind() and selinux_socket_connect_helper()
+immediately resolve sock->sk, never using the struct socket * for
+anything else.  Refactor the inner logic into helpers that take a
+struct sock * directly so that selinux_sctp_bind_connect() never needs
+to touch sk->sk_socket at all.
+
+Cc: stable@vger.kernel.org
+Fixes: d452930fd3b9 ("selinux: Add SCTP support")
+Suggested-by: Stephen Smalley <stephen.smalley.work@gmail.com>
+Signed-off-by: Tristan Madani <tristan@talencesecurity.com>
+Reviewed-by: Stephen Smalley <stephen.smalley.work@gmail.com>
+Tested-by: Stephen Smalley <stephen.smalley.work@gmail.com>
+Signed-off-by: Paul Moore <paul@paul-moore.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit cc8bd47b35eca82393cbad08b1cc86f02e034439)
+CVE-2026-72242
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ security/selinux/hooks.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 00b5ba21ed1623e807aa7582ee461e3a754f9d21..5ce22b1e326659dc467f857336a7a0f19dcd3e55 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -4709,9 +4709,8 @@ static int selinux_socket_socketpair(struct socket *socka,
+    Need to determine whether we should perform a name_bind
+    permission check between the socket and the port number. */
+ 
+-static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, int addrlen)
++static int __selinux_socket_bind(struct sock *sk, struct sockaddr *address, int addrlen)
+ {
+-	struct sock *sk = sock->sk;
+ 	struct sk_security_struct *sksec = selinux_sock(sk);
+ 	u16 family;
+ 	int err;
+@@ -4845,13 +4844,17 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
+ 	return -EAFNOSUPPORT;
+ }
+ 
++static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, int addrlen)
++{
++	return __selinux_socket_bind(sock->sk, address, addrlen);
++}
++
+ /* This supports connect(2) and SCTP connect services such as sctp_connectx(3)
+  * and sctp_sendmsg(3) as described in Documentation/security/SCTP.rst
+  */
+-static int selinux_socket_connect_helper(struct socket *sock,
++static int selinux_socket_connect_helper(struct sock *sk,
+ 					 struct sockaddr *address, int addrlen)
+ {
+-	struct sock *sk = sock->sk;
+ 	struct sk_security_struct *sksec = selinux_sock(sk);
+ 	int err;
+ 
+@@ -4944,7 +4947,7 @@ static int selinux_socket_connect(struct socket *sock,
+ 	int err;
+ 	struct sock *sk = sock->sk;
+ 
+-	err = selinux_socket_connect_helper(sock, address, addrlen);
++	err = selinux_socket_connect_helper(sk, address, addrlen);
+ 	if (err)
+ 		return err;
+ 
+@@ -5427,13 +5430,11 @@ static int selinux_sctp_bind_connect(struct sock *sk, int optname,
+ 	int len, err = 0, walk_size = 0;
+ 	void *addr_buf;
+ 	struct sockaddr *addr;
+-	struct socket *sock;
+ 
+ 	if (!selinux_policycap_extsockclass())
+ 		return 0;
+ 
+ 	/* Process one or more addresses that may be IPv4 or IPv6 */
+-	sock = sk->sk_socket;
+ 	addr_buf = address;
+ 
+ 	while (walk_size < addrlen) {
+@@ -5462,14 +5463,14 @@ static int selinux_sctp_bind_connect(struct sock *sk, int optname,
+ 		case SCTP_PRIMARY_ADDR:
+ 		case SCTP_SET_PEER_PRIMARY_ADDR:
+ 		case SCTP_SOCKOPT_BINDX_ADD:
+-			err = selinux_socket_bind(sock, addr, len);
++			err = __selinux_socket_bind(sk, addr, len);
+ 			break;
+ 		/* Connect checks */
+ 		case SCTP_SOCKOPT_CONNECTX:
+ 		case SCTP_PARAM_SET_PRIMARY:
+ 		case SCTP_PARAM_ADD_IP:
+ 		case SCTP_SENDMSG_CONNECT:
+-			err = selinux_socket_connect_helper(sock, addr, len);
++			err = selinux_socket_connect_helper(sk, addr, len);
+ 			if (err)
+ 				return err;
+ 

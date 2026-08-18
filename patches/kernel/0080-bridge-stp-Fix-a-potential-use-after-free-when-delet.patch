@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@nvidia.com>
+Date: Mon, 29 Jun 2026 10:21:17 +0300
+Subject: [PATCH] bridge: stp: Fix a potential use-after-free when deleting a
+ bridge
+
+[ Upstream commit 2a00517db8de4be7df3d483b215c5544fb30a191 ]
+
+The three STP timers are not supposed to be armed while the bridge is
+administratively down. They are synchronously deactivated when the
+bridge is put administratively down and the various call sites check for
+'IFF_UP' before arming them.
+
+This check is missing from br_topology_change_detection() and it is
+possible to engineer a situation in which the topology change timer is
+armed while the bridge is administratively down, resulting in a
+use-after-free [1] when the bridge is deleted.
+
+Fix by adding the missing check and for good measures synchronously
+shutdown the three timers when the bridge is deleted.
+
+[1]
+ODEBUG: free active (active state 0) object: ffff88811662b9b0 object type: timer_list hint: br_topology_change_timer_expired (net/bridge/br_stp_timer.c:120)
+WARNING: lib/debugobjects.c:629 at debug_print_object+0x1bc/0x450, CPU#9: ip/359
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Reported-by: Noam Rathaus <noamr@ssd-disclosure.com>
+Reported-by: Neil Young <contact@ssd-disclosure.com>
+Acked-by: Nikolay Aleksandrov <nikolay@nvidia.com>
+Signed-off-by: Ido Schimmel <idosch@nvidia.com>
+Reviewed-by: Breno Leitao <leitao@debian.org>
+Link: https://patch.msgid.link/20260629072117.497959-1-idosch@nvidia.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 39283907a25e5caf0f2bd2947f6e56644b01e2b7)
+CVE-2026-72389
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/bridge/br_if.c  | 3 +++
+ net/bridge/br_stp.c | 3 ++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 6ffc81eedf0748a6a3cc8b8484d16537ef979ebd..eee6ceb7cddab030edd2376c40a6eeeb7d2e65ab 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -391,6 +391,9 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
+ 
+ 	br_fdb_delete_by_port(br, NULL, 0, 1);
+ 
++	timer_shutdown_sync(&br->hello_timer);
++	timer_shutdown_sync(&br->topology_change_timer);
++	timer_shutdown_sync(&br->tcn_timer);
+ 	cancel_delayed_work_sync(&br->gc_work);
+ 
+ 	br_sysfs_delbr(br->dev);
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index 7d27b2e6038fb7bec698fd8c056f93ebdc761540..4cfebf5fcdf54db2ec9876ce196a9ff1b8cde0cb 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -371,7 +371,8 @@ void br_topology_change_detection(struct net_bridge *br)
+ {
+ 	int isroot = br_is_root_bridge(br);
+ 
+-	if (br->stp_enabled != BR_KERNEL_STP)
++	if (br->stp_enabled != BR_KERNEL_STP ||
++	    !(br->dev->flags & IFF_UP))
+ 		return;
+ 
+ 	br_info(br, "topology change detected, %s\n",

@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 24 Jun 2026 15:05:16 -0700
+Subject: [PATCH] KVM: x86: Ignore pending PV EOI if the vCPU has since
+ disabled PV EOIs
+
+commit 9285e4070df2c40585c3d7ec9571faa7a2b97e17 upstream.
+
+Ignore KVM's internal "service pending PV EOI" request if the vCPU has
+disabled PV EOIs since the request was made.  Asserting that PV EOIs are
+enabled can fail if reading guest memory in pv_eoi_get_user() fails, i.e.
+if pv_eoi_test_and_clr_pending() bails early, *and* the vCPU also disables
+PV EOIs.
+
+  kernel BUG at arch/x86/kvm/lapic.c:3338!
+  Oops: invalid opcode: 0000 [#1] SMP
+  CPU: 4 UID: 1000 PID: 890 Comm: pv_eoi_test Not tainted 7.0.0-d585aa5894d8-vm #337 PREEMPT
+  Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 0.0.0 02/06/2015
+  RIP: 0010:kvm_lapic_sync_from_vapic+0x12b/0x140 [kvm]
+  Call Trace:
+   <TASK>
+   kvm_arch_vcpu_ioctl_run+0x1075/0x1c30 [kvm]
+   kvm_vcpu_ioctl+0x2d5/0x980 [kvm]
+   __x64_sys_ioctl+0x8a/0xd0
+   do_syscall_64+0xb5/0xb40
+   entry_SYSCALL_64_after_hwframe+0x4b/0x53
+   </TASK>
+  Modules linked in: kvm_intel kvm irqbypass
+  ---[ end trace 0000000000000000 ]---
+
+Fixes: ae7a2a3fb6f8 ("KVM: host side for eoi optimization")
+Cc: stable@vger.kernel.org
+Reviewed-by: Kai Huang <kai.huang@intel.com>
+Link: https://patch.msgid.link/20260624220516.3033391-1-seanjc@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit ebd7845ca0471d251a1cb48d84eb165aff5b7123)
+CVE-2026-72284
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/x86/kvm/lapic.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/lapic.c b/arch/x86/kvm/lapic.c
+index 568571179a087f4586aa70818698b4dc6280d477..876a017720937d244ebbe03ad8c10f8736d7a665 100644
+--- a/arch/x86/kvm/lapic.c
++++ b/arch/x86/kvm/lapic.c
+@@ -3137,6 +3137,12 @@ static void apic_sync_pv_eoi_from_guest(struct kvm_vcpu *vcpu,
+ 					struct kvm_lapic *apic)
+ {
+ 	int vector;
++
++	if (unlikely(!pv_eoi_enabled(vcpu))) {
++		__clear_bit(KVM_APIC_PV_EOI_PENDING, &vcpu->arch.apic_attention);
++		return;
++	}
++
+ 	/*
+ 	 * PV EOI state is derived from KVM_APIC_PV_EOI_PENDING in host
+ 	 * and KVM_PV_EOI_ENABLED in guest memory as follows:
+@@ -3148,8 +3154,6 @@ static void apic_sync_pv_eoi_from_guest(struct kvm_vcpu *vcpu,
+ 	 * KVM_APIC_PV_EOI_PENDING is set, KVM_PV_EOI_ENABLED is unset:
+ 	 * 	-> host enabled PV EOI, guest executed EOI.
+ 	 */
+-	BUG_ON(!pv_eoi_enabled(vcpu));
+-
+ 	if (pv_eoi_test_and_clr_pending(vcpu))
+ 		return;
+ 	vector = apic_set_eoi(apic);

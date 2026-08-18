@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zihan Xi <zihanx@nebusec.ai>
+Date: Fri, 24 Jul 2026 00:38:41 +0800
+Subject: [PATCH] tipc: avoid use-after-free in poll trace queue dumps
+
+commit b4f1719dfea023220e0e6bd892b087d76b2a6a49 upstream.
+
+TIPC socket tracepoints dump queue state through tipc_sk_dump(). Most
+queue-dump callsites already serialize that walk under the socket lock or
+sk->sk_lock.slock, but tipc_poll() calls trace_tipc_sk_poll(...,
+TIPC_DUMP_ALL, ...) without holding either lock.
+
+That lets the poll trace path reach tipc_list_dump() and backlog head/tail
+dumping while another context dequeues and frees an skb, leaving the trace
+helper dereferencing a stale queue entry.
+
+Stop the unlocked poll trace site from requesting queue dumps. Other queue
+dump trace callsites keep their existing output under the locking they
+already provide, while poll still emits the event itself without walking
+live queue members from an unlocked context.
+
+Fixes: b4b9771bcbbd ("tipc: enable tracepoints in tipc")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Signed-off-by: Zihan Xi <zihanx@nebusec.ai>
+Signed-off-by: Ren Wei <enjou1224z@gmail.com>
+Reviewed-by: Tung Nguyen <tung.quang.nguyen@est.tech>
+Link: https://patch.msgid.link/f8119abd5e5ecc400597de667ae9d39656de56d0.1784794294.git.zihanx@nebusec.ai
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 5e82beba4bc1f91d0e64c9c43f2b2fa9cd1c2a7d)
+CVE-2026-74490
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/tipc/socket.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 6afec21cc8baddea80d90fb260ff872aa0239966..2fb05117c98fe84f3dfcac39d64a77012be14796 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -797,7 +797,7 @@ static __poll_t tipc_poll(struct file *file, struct socket *sock,
+ 	__poll_t revents = 0;
+ 
+ 	sock_poll_wait(file, sock, wait);
+-	trace_tipc_sk_poll(sk, NULL, TIPC_DUMP_ALL, " ");
++	trace_tipc_sk_poll(sk, NULL, TIPC_DUMP_NONE, " ");
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		revents |= EPOLLRDHUP | EPOLLIN | EPOLLRDNORM;

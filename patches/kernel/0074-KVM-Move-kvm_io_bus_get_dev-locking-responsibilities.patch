@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Marc Zyngier <maz@kernel.org>
+Date: Sat, 27 Jun 2026 11:51:05 +0100
+Subject: [PATCH] KVM: Move kvm_io_bus_get_dev() locking responsibilities to
+ callers
+
+commit 3a07249981629ace483ebbef81ef6b34c2d2afec upstream.
+
+kvm_io_bus_get_dev() returns a device that is only matched by the
+address, and nothing else. This can cause a lifetime issue if
+the matched device is not the expected type, as by the time
+the caller can introspect the object, it might be gone (the srcu
+lock having been dropped).
+
+Given that there is only a single user of this helper, the simplest
+option is to move the locking responsibility to the caller, which
+can keep the srcu lock held for as long as it wants.
+
+Note that this aligns with other kvm_io_bus*() helpers, which
+already require the srcu lock to be held by the callers.
+
+Reported-by: Will Deacon <will@kernel.org>
+Fixes: 8a39d00670f07 ("KVM: kvm_io_bus: Add kvm_io_bus_get_dev() call")
+Link: https://lore.kernel.org/all/20260626111344.802555-1-maz@kernel.org
+Cc: stable@vger.kernel.org
+Reviewed-by: Oliver Upton <oupton@kernel.org>
+Link: https://patch.msgid.link/20260627105105.1005990-1-maz@kernel.org
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 90d35d2b8e47afd68fe2a4dd0eeb60bc71641775)
+CVE-2026-72282
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/arm64/kvm/vgic/vgic-its.c |  2 ++
+ virt/kvm/kvm_main.c            | 16 +++++-----------
+ 2 files changed, 7 insertions(+), 11 deletions(-)
+
+diff --git a/arch/arm64/kvm/vgic/vgic-its.c b/arch/arm64/kvm/vgic/vgic-its.c
+index 7986df9d1bfe2d6ab39795e5e7814499fa1fad41..0a6b48f713f6a868e6f892a330a678a9b37ef40a 100644
+--- a/arch/arm64/kvm/vgic/vgic-its.c
++++ b/arch/arm64/kvm/vgic/vgic-its.c
+@@ -719,6 +719,8 @@ struct vgic_its *vgic_msi_to_its(struct kvm *kvm, struct kvm_msi *msi)
+ 
+ 	address = (u64)msi->address_hi << 32 | msi->address_lo;
+ 
++	guard(srcu)(&kvm->srcu);
++
+ 	kvm_io_dev = kvm_io_bus_get_dev(kvm, KVM_MMIO_BUS, address);
+ 	if (!kvm_io_dev)
+ 		return ERR_PTR(-EINVAL);
+diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
+index b45ab52d92fcbaa1a1671ad2e0497570c2f14bdb..5cbc787ce0f88c5e565ff8616e9d75079bab0044 100644
+--- a/virt/kvm/kvm_main.c
++++ b/virt/kvm/kvm_main.c
+@@ -6012,25 +6012,19 @@ struct kvm_io_device *kvm_io_bus_get_dev(struct kvm *kvm, enum kvm_bus bus_idx,
+ 					 gpa_t addr)
+ {
+ 	struct kvm_io_bus *bus;
+-	int dev_idx, srcu_idx;
+-	struct kvm_io_device *iodev = NULL;
++	int dev_idx;
+ 
+-	srcu_idx = srcu_read_lock(&kvm->srcu);
++	lockdep_assert_held(&kvm->srcu);
+ 
+ 	bus = srcu_dereference(kvm->buses[bus_idx], &kvm->srcu);
+ 	if (!bus)
+-		goto out_unlock;
++		return NULL;
+ 
+ 	dev_idx = kvm_io_bus_get_first_dev(bus, addr, 1);
+ 	if (dev_idx < 0)
+-		goto out_unlock;
+-
+-	iodev = bus->range[dev_idx].dev;
+-
+-out_unlock:
+-	srcu_read_unlock(&kvm->srcu, srcu_idx);
++		return NULL;
+ 
+-	return iodev;
++	return bus->range[dev_idx].dev;
+ }
+ EXPORT_SYMBOL_GPL(kvm_io_bus_get_dev);
+ 

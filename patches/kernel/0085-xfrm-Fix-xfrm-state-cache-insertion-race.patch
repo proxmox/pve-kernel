@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 12 Jun 2026 12:58:59 +0800
+Subject: [PATCH] xfrm: Fix xfrm state cache insertion race
+
+[ Upstream commit ddd3d0132920319ac426e12456013eadbae67e15 ]
+
+The xfrm input state cache insertion code checks the validity of
+the state before acquiring the global xfrm_state_lock.  Thus it's
+possible for someone else to kill the state after it passed the
+validity check, and then the insertion will add the dead state
+to the cache.
+
+Fix this by moving the validity check inside the lock.
+
+This entire function is called on the input path, where BH must
+be off (e.g., the caller of this function xfrm_input acquires
+its spinlocks without disabling BH).
+
+So there is no need to disable BH here or take the RCU read lock.
+Remove both and replace them with an assertion that trips if BH
+is accidentally enabled on some future calling path.
+
+Fixes: 81a331a0e72d ("xfrm: Add an inbound percpu state cache.")
+Reported-by: Zero Day Initiative <zdi-disclosures@trendmicro.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Reviewed-by: Simon Horman <horms@kernel.org>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 6dab4dec9a49121d079981ac913569f232c06b06)
+CVE-2026-72451
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/xfrm/xfrm_state.c | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index edcf973f25baf8eb12be7c53978a9970f9b77be8..f8581fbbf9658da1cb648b0a32c41aea734b9bca 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1143,9 +1143,11 @@ struct xfrm_state *xfrm_input_state_lookup(struct net *net, u32 mark,
+ 	struct hlist_head *state_cache_input;
+ 	struct xfrm_state *x = NULL;
+ 
++	/* BH is always disabled on the input path. */
++	lockdep_assert_in_softirq();
++
+ 	state_cache_input = raw_cpu_ptr(net->xfrm.state_cache_input);
+ 
+-	rcu_read_lock();
+ 	hlist_for_each_entry_rcu(x, state_cache_input, state_cache_input) {
+ 		if (x->props.family != family ||
+ 		    x->id.spi       != spi ||
+@@ -1163,20 +1165,25 @@ struct xfrm_state *xfrm_input_state_lookup(struct net *net, u32 mark,
+ 	xfrm_hash_ptrs_get(net, &state_ptrs);
+ 
+ 	x = __xfrm_state_lookup(&state_ptrs, mark, daddr, spi, proto, family);
+-
+-	if (x && x->km.state == XFRM_STATE_VALID) {
+-		spin_lock_bh(&net->xfrm.xfrm_state_lock);
+-		if (hlist_unhashed(&x->state_cache_input)) {
++	if (x) {
++		spin_lock(&net->xfrm.xfrm_state_lock);
++		if (x->km.state != XFRM_STATE_VALID) {
++			/*
++			 * The state is about to be destroyed.
++			 *
++			 * Don't add it to the cache but still
++			 * return it to the caller.
++			 */
++		} else if (hlist_unhashed(&x->state_cache_input)) {
+ 			hlist_add_head_rcu(&x->state_cache_input, state_cache_input);
+ 		} else {
+ 			hlist_del_rcu(&x->state_cache_input);
+ 			hlist_add_head_rcu(&x->state_cache_input, state_cache_input);
+ 		}
+-		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
++		spin_unlock(&net->xfrm.xfrm_state_lock);
+ 	}
+ 
+ out:
+-	rcu_read_unlock();
+ 	return x;
+ }
+ EXPORT_SYMBOL(xfrm_input_state_lookup);

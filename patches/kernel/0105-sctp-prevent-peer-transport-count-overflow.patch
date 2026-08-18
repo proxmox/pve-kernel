@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Asim Viladi Oglu Manizada <manizada@pm.me>
+Date: Sat, 25 Jul 2026 03:21:06 +0000
+Subject: [PATCH] sctp: prevent peer transport count overflow
+
+commit bd0e9289e2642f6a5c54faad304ce0f41e926d22 upstream.
+
+sctp_assoc_add_peer() increments the association's 16-bit transport_count
+for every new unique peer. Adding the 65,536th transport wraps the count to
+zero.
+
+SCTP sock_diag uses transport_count to reserve the INET_DIAG_PEERS payload,
+then copies one sockaddr_storage for every entry in transport_addr_list.
+After the wrap, a diagnostic dump reserves an empty payload and writes
+8 MiB of peer addresses past the skb tail.
+
+Reject a new unique peer when transport_count has reached U16_MAX. Perform
+the check after the existing-peer lookup so a duplicate address continues
+to return its existing transport at the limit.
+
+Fixes: 8f840e47f190 ("sctp: add the sctp_diag.c file")
+Cc: stable@vger.kernel.org
+Signed-off-by: Asim Viladi Oglu Manizada <manizada@pm.me>
+Acked-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/20260725032053.521705-1-manizada@pm.me
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 09e722030e8148ba4ed1e42c6b2ea57bda9f9895)
+CVE-2026-74469
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/sctp/associola.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 0b0794f164cf2e05db01fcffaec94c1a8546273a..44f06c5f1f2560d82a8e741d02a351917b0d15ce 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -614,6 +614,9 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
+ 		return peer;
+ 	}
+ 
++	if (asoc->peer.transport_count == U16_MAX)
++		return NULL;
++
+ 	peer = sctp_transport_new(asoc->base.net, addr, gfp);
+ 	if (!peer)
+ 		return NULL;

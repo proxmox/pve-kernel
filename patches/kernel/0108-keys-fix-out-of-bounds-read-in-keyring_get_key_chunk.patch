@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Michael Bommarito <michael.bommarito@gmail.com>
+Date: Sun, 19 Jul 2026 12:15:03 -0400
+Subject: [PATCH] keys: fix out-of-bounds read in keyring_get_key_chunk()
+
+[ Upstream commit 63918731f9ae25b5deb022f118e941e6dddfcef4 ]
+
+For description-level chunks keyring_get_key_chunk() advances the read
+pointer by level * sizeof(long) past the inline prefix but only
+bounds-checks the prefix, so a long enough key description is read past
+its kmemdup(desc, desc_len + 1) allocation.  Compute the full byte
+offset and bounds-check the description against it before reading.
+
+The walk only reaches a description-level chunk when two keys collide
+through the hash, x, type and domain_tag chunks, so this is reached from
+an unprivileged add_key(2) with a crafted pair of same-type keys whose
+index hashes collide; KASAN reports a slab-out-of-bounds read.
+
+Fixes: f771fde82051 ("keys: Simplify key description management")
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Michael Bommarito <michael.bommarito@gmail.com>
+Reviewed-by: Jarkko Sakkinen <jarkko@kernel.org>
+Tested-by: Jarkko Sakkinen <jarkko@kernel.org>
+Link: https://lore.kernel.org/r/20260719161505.2423935-2-michael.bommarito@gmail.com
+Signed-off-by: Jarkko Sakkinen <jarkko@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 3a744838453fb9309ce5a5526d3252e211d60152)
+CVE-2026-74567
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ security/keys/keyring.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/security/keys/keyring.c b/security/keys/keyring.c
+index b40b054b0911a24eeedc9ec3a8f532d2b4f47e46..51686afc0c6e7dad7f3328d8446d9d21304667f5 100644
+--- a/security/keys/keyring.c
++++ b/security/keys/keyring.c
+@@ -271,6 +271,7 @@ static unsigned long keyring_get_key_chunk(const void *data, int level)
+ 	unsigned long chunk = 0;
+ 	const u8 *d;
+ 	int desc_len = index_key->desc_len, n = sizeof(chunk);
++	unsigned int offset;
+ 
+ 	level /= ASSOC_ARRAY_KEY_CHUNK_SIZE;
+ 	switch (level) {
+@@ -284,12 +285,12 @@ static unsigned long keyring_get_key_chunk(const void *data, int level)
+ 		return (unsigned long)index_key->domain_tag;
+ 	default:
+ 		level -= 4;
+-		if (desc_len <= sizeof(index_key->desc))
++		offset = sizeof(index_key->desc) + level * sizeof(long);
++		if (desc_len <= offset)
+ 			return 0;
+ 
+-		d = index_key->description + sizeof(index_key->desc);
+-		d += level * sizeof(long);
+-		desc_len -= sizeof(index_key->desc);
++		d = index_key->description + offset;
++		desc_len -= offset;
+ 		if (desc_len > n)
+ 			desc_len = n;
+ 		d += desc_len;

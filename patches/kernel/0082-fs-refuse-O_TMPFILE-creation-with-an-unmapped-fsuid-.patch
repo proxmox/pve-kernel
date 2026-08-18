@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Brauner <brauner@kernel.org>
+Date: Mon, 15 Jun 2026 14:52:18 +0200
+Subject: [PATCH] fs: refuse O_TMPFILE creation with an unmapped fsuid or fsgid
+
+[ Upstream commit 539dce1144651f7976fa418e618b0b574bf15eeb ]
+
+vfs_tmpfile() never checked that the caller's fsuid and fsgid map into
+the filesystem.  On an idmapped mount whose idmapping does not cover the
+caller's fs{u,g}id, the ->tmpfile() instance initializes the new inode
+through inode_init_owner(), where mapped_fsuid()/mapped_fsgid() return
+INVALID_UID/INVALID_GID, and the tmpfile ends up owned by (uid_t)-1.
+
+Every other creation path already refuses this: may_o_create() (O_CREAT)
+and may_create_dentry() (mkdir, mknod, symlink, link) bail out with
+-EOVERFLOW via fsuidgid_has_mapping() precisely so that an object cannot
+be created with an owner the filesystem cannot represent.  An O_TMPFILE
+is no exception: it is created I_LINKABLE and linkat(2) can splice it
+into the namespace afterwards, so the same guarantee must hold.
+
+Add the missing fsuidgid_has_mapping() check to vfs_tmpfile().  On a
+non-idmapped mount the caller's fs{u,g}id always map in the superblock's
+user namespace, so this is a no-op there and only takes effect on an
+idmapped mount that does not map the caller.  It applies to every
+filesystem that sets FS_ALLOW_IDMAP and implements ->tmpfile() (tmpfs,
+ext4, btrfs, xfs, f2fs, ...), and to overlayfs, whose upper-layer
+tmpfile creation funnels through vfs_tmpfile() via backing_tmpfile_open().
+
+Fixes: 8e5389132ab4 ("fs: introduce fsuidgid_has_mapping() helper")
+Link: https://patch.msgid.link/20260615-work-idmapped-tmpfile-v1-1-754a94d81f83@kernel.org
+Reviewed-by: Jan Kara <jack@suse.cz>
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 503d0568a525b168d9aa5ca046ec72fc5477df84)
+CVE-2026-72379
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/namei.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/fs/namei.c b/fs/namei.c
+index 99c0b1a8f77029a390755787ce25e251038134e8..eac0f9d156c5f1ca2a2a25f0b90205a45befc26f 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -3687,6 +3687,10 @@ static int vfs_tmpfile(struct mnt_idmap *idmap,
+ 	int error;
+ 	int open_flag = file->f_flags;
+ 
++	/* A tmpfile is I_LINKABLE, so guard its owner like may_o_create(). */
++	if (!fsuidgid_has_mapping(dir->i_sb, idmap))
++		return -EOVERFLOW;
++
+ 	/* we want directory to be writable */
+ 	error = inode_permission(idmap, dir, MAY_WRITE | MAY_EXEC);
+ 	if (error)

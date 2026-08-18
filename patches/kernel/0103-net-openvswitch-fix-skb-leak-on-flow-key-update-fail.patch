@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ilya Maximets <i.maximets@ovn.org>
+Date: Mon, 27 Jul 2026 20:18:31 +0200
+Subject: [PATCH] net: openvswitch: fix skb leak on flow key update failure
+ during ct
+
+commit bc62e843bc48f933da765ce47079fd992e535794 upstream.
+
+ovs_ct_execute() always steals or frees the skb on failure while
+ovs_flow_key_update() does not.  So, if it fails and we return right
+away, the skb ends up leaked.
+
+Fix that by breaking instead and letting the common error handling
+code at the bottom of the loop to free the skb properly.
+
+This is a very unlikely scenario as it requires the packet to become
+unparseable by applying a set of actions on a previously parseable skb,
+but should be fixed nevertheless.
+
+Reported by Sashiko.
+
+Fixes: ec0d043d05e6 ("openvswitch: Ensure flow is valid before executing ct")
+Cc: stable@vger.kernel.org
+Signed-off-by: Ilya Maximets <i.maximets@ovn.org>
+Reviewed-by: Aaron Conole <aconole@redhat.com>
+Link: https://patch.msgid.link/20260727181851.306076-3-i.maximets@ovn.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit e84dfaac50aab45ad8c670da43e3aa1f97bd2a41)
+CVE-2026-74464
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/openvswitch/actions.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 4c8877de24ee5964a768ef55d165f875c7cfaa18..9a52a84a315969d91ccc352582cd46664470e287 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -1353,7 +1353,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			if (!is_flow_key_valid(key)) {
+ 				err = ovs_flow_key_update(skb, key);
+ 				if (err)
+-					return err;
++					break;
+ 			}
+ 
+ 			err = ovs_ct_execute(ovs_dp_get_net(dp), skb, key,
