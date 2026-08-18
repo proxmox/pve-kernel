@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chengfeng Ye <nicoyip.dev@gmail.com>
+Date: Sun, 19 Jul 2026 22:57:40 +0800
+Subject: [PATCH] net: pktgen: fix proc entry use-after-free
+
+commit 817ff6efdb7f484ea547218e11e17d8e43daa3b4 upstream.
+
+pktgen_change_name() replaces pkt_dev->entry while holding t->if_lock.
+pktgen_remove_device() removes the same entry before
+_rem_dev_from_if_list() takes that lock.
+
+This allows the following interleaving:
+
+  CPU 0 (NETDEV_CHANGENAME)       CPU 1 (kpktgend)
+  if_lock(t)
+  proc_remove(pkt_dev->entry)
+                                  proc_remove(pkt_dev->entry)
+  pkt_dev->entry = proc_create_data(...)
+  if_unlock(t)
+
+The kthread can pass the stale proc_dir_entry to proc_remove() after the
+rename path has freed it. A reproducer with a widened race window reports:
+
+  BUG: KASAN: slab-use-after-free in proc_remove+0x78/0x80
+  Read of size 8 at addr ffff8881478fea70 by task kpktgend_0/67
+  Call Trace:
+   proc_remove+0x78/0x80
+   pktgen_remove_device.isra.0+0x11c/0x4c0
+   pktgen_thread_worker+0x1214/0x6bc0
+   kthread+0x2c6/0x3b0
+  Allocated by task 95:
+   __proc_create+0x204/0x790
+   proc_create_data+0x72/0xe0
+   pktgen_thread_write+0xd61/0x1510
+  Freed by task 28:
+   kmem_cache_free+0xcb/0x3d0
+   proc_free_inode+0x5b/0x80
+   rcu_core+0x50a/0x1850
+  The buggy address belongs to the object at ffff8881478fea00
+   which belongs to the cache proc_dir_entry of size 192
+
+Move proc_remove() into the if_lock-protected list removal helper. Keep it
+before list_del_rcu() to preserve the ordering required by add_device().
+The rename path must then finish replacing the entry before removal, or
+it observes that the device is no longer on the list.
+
+Fixes: 39df232f1a9b ("[PKTGEN]: fix device name handling")
+Cc: stable@vger.kernel.org
+Signed-off-by: Chengfeng Ye <nicoyip.dev@gmail.com>
+Reviewed-by: Simon Horman <horms@kernel.org>
+Link: https://patch.msgid.link/20260719145740.2888967-1-nicoyip.dev@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit b006a5404470bd3eb2aa0425fc447183032047ef)
+CVE-2026-74479
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/core/pktgen.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 8e185b318288530fd2e1111feb343d25b30b4817..ee64f30123210e288b5ba8c6c2c574f791e81af2 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3972,6 +3972,7 @@ static void _rem_dev_from_if_list(struct pktgen_thread *t,
+ 	struct pktgen_dev *p;
+ 
+ 	if_lock(t);
++	proc_remove(pkt_dev->entry);
+ 	list_for_each_safe(q, n, &t->if_list) {
+ 		p = list_entry(q, struct pktgen_dev, list);
+ 		if (p == pkt_dev)
+@@ -4001,9 +4002,6 @@ static int pktgen_remove_device(struct pktgen_thread *t,
+ 	 * list to determine if interface already exist, avoid race
+ 	 * with proc_create_data()
+ 	 */
+-	proc_remove(pkt_dev->entry);
+-
+-	/* And update the thread if_list */
+ 	_rem_dev_from_if_list(t, pkt_dev);
+ 
+ #ifdef CONFIG_XFRM

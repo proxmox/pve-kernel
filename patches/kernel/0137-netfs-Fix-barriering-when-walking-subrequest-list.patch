@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 2 Jul 2026 09:23:02 +0100
+Subject: [PATCH] netfs: Fix barriering when walking subrequest list
+
+[ Upstream commit 5c6ce05e406520290c1d89da97fb3cd70c09137d ]
+
+Fix the barriering used when walking the subrequest list in retry as
+there's a possibility of seeing a subreq that's just been added by the
+application thread.
+
+Fixes: ee4cdf7ba857 ("netfs: Speed up buffered reading")
+Fixes: 288ace2f57c9 ("netfs: New writeback implementation")
+Link: https://sashiko.dev/#/patchset/20260608145432.681865-1-dhowells%40redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+Link: https://patch.msgid.link/138807.1782980582@warthog.procyon.org.uk
+Reviewed-by: Paulo Alcantara (Red Hat) <pc@manguebit.org>
+cc: Paulo Alcantara <pc@manguebit.org>
+cc: netfs@lists.linux.dev
+cc: linux-fsdevel@vger.kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit be47c047250671c9225c0319ca4695be9b391c59)
+CVE-2026-72355
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/netfs/read_retry.c  | 7 ++++++-
+ fs/netfs/write_retry.c | 7 ++++++-
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/fs/netfs/read_retry.c b/fs/netfs/read_retry.c
+index f59a70f3a086b4607172ed2365194f23fc9451c1..2b42758e01ec946232cee01eff64bca4f3489454 100644
+--- a/fs/netfs/read_retry.c
++++ b/fs/netfs/read_retry.c
+@@ -98,7 +98,12 @@ static void netfs_retry_read_subrequests(struct netfs_io_request *rreq)
+ 			goto abandon;
+ 		}
+ 
+-		list_for_each_continue(next, &stream->subrequests) {
++		for (;;) {
++			/* Read pointer to subreq before reading subreq state. */
++			next = smp_load_acquire(&next->next);
++			if (next == &stream->subrequests)
++				break;
++
+ 			subreq = list_entry(next, struct netfs_io_subrequest, rreq_link);
+ 			if (subreq->start + subreq->transferred != start + len ||
+ 			    test_bit(NETFS_SREQ_BOUNDARY, &subreq->flags) ||
+diff --git a/fs/netfs/write_retry.c b/fs/netfs/write_retry.c
+index 32735abfa03f063ec655caef86bb8091664f28de..058bc7a166a59f766d031fe224c642ba3ba49aca 100644
+--- a/fs/netfs/write_retry.c
++++ b/fs/netfs/write_retry.c
+@@ -72,7 +72,12 @@ static void netfs_retry_write_stream(struct netfs_io_request *wreq,
+ 		    !test_bit(NETFS_SREQ_NEED_RETRY, &from->flags))
+ 			return;
+ 
+-		list_for_each_continue(next, &stream->subrequests) {
++		for (;;) {
++			/* Read pointer to subreq before reading subreq state. */
++			next = smp_load_acquire(&next->next);
++			if (next == &stream->subrequests)
++				break;
++
+ 			subreq = list_entry(next, struct netfs_io_subrequest, rreq_link);
+ 			if (subreq->start + subreq->transferred != start + len ||
+ 			    test_bit(NETFS_SREQ_BOUNDARY, &subreq->flags) ||

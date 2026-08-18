@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Atish Patra <atishp@meta.com>
+Date: Tue, 2 Jun 2026 15:36:32 -0700
+Subject: [PATCH] KVM: SEV: Do not allow intra-host migration/mirroring of SNP
+ VMs
+
+commit 6ee4140788234a6fabf59e6a50e38cdb936008cd upstream.
+
+The intra-host migration/mirroring feature is not fully implemented for
+SEV-SNP VMs. The proper migration requires additional SNP-specific
+state such as guest_req_mutex, guest_req_buf, and guest_resp_buf to be
+transferred or initialized on the destination.
+
+The SNP VM mirroring requires vmsa features to be copied as well otherwise
+ASID would be bound to SNP range while VM is detected as a SEV VM.
+
+Reject SNP source VMs in migration/mirroring until proper SNP state
+transfer is implemented.
+
+Fixes: 1dfe571c12cf ("KVM: SEV: Add initial SEV-SNP support")
+
+Reported-by: Chris Mason <clm@meta.com>
+Reported-by: Sashiko <sashiko-bot@kernel.org>
+Assisted-by: Claude:claude-opus-4-6
+Reviewed-by: Tom Lendacky <thomas.lendacky@amd.com>
+Signed-off-by: Atish Patra <atishp@meta.com>
+Link: https://patch.msgid.link/20260602-sev_snp_fixes-v3-1-24bfd3ae047c@meta.com
+Cc: stable@vger.kernel.org
+[sean: let lines poke past 80 chars, tag for stable]
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit d2f9df3b615ca0cd45899c090366945528186052)
+CVE-2026-72286
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/x86/kvm/svm/sev.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/svm/sev.c b/arch/x86/kvm/svm/sev.c
+index eb7623634c7727d4b180856057fdaf7d8458a95f..d430fd3b4c1fff2fc4d533aff433625e26120d5a 100644
+--- a/arch/x86/kvm/svm/sev.c
++++ b/arch/x86/kvm/svm/sev.c
+@@ -2097,8 +2097,9 @@ int sev_vm_move_enc_context_from(struct kvm *kvm, unsigned int source_fd)
+ 	if (ret)
+ 		return ret;
+ 
++	/* Do not allow SNP VM migration until additional state transfer is implemented  */
+ 	if (kvm->arch.vm_type != source_kvm->arch.vm_type ||
+-	    sev_guest(kvm) || !sev_guest(source_kvm)) {
++	    sev_guest(kvm) || !sev_guest(source_kvm) || sev_snp_guest(source_kvm)) {
+ 		ret = -EINVAL;
+ 		goto out_unlock;
+ 	}
+@@ -2849,8 +2850,9 @@ int sev_vm_copy_enc_context_from(struct kvm *kvm, unsigned int source_fd)
+ 	 * disallow out-of-band SEV/SEV-ES init if the target is already an
+ 	 * SEV guest, or if vCPUs have been created.  KVM relies on vCPUs being
+ 	 * created after SEV/SEV-ES initialization, e.g. to init intercepts.
++	 * Also do not allow SNP VM mirroring until additional state transfer is implemented.
+ 	 */
+-	if (sev_guest(kvm) || !sev_guest(source_kvm) ||
++	if (sev_guest(kvm) || !sev_guest(source_kvm) || sev_snp_guest(source_kvm) ||
+ 	    is_mirroring_enc_context(source_kvm) || kvm->created_vcpus) {
+ 		ret = -EINVAL;
+ 		goto e_unlock;

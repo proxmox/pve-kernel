@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oliver Upton <oupton@kernel.org>
+Date: Sun, 14 Jun 2026 22:13:24 -0700
+Subject: [PATCH] KVM: arm64: nv: Drop bogus WARN for write to ZCR_EL2
+
+commit 9f1667098c6ae7ec81a9a56859cfdacb822aa0d0 upstream.
+
+It is entirely possible for a guest to write to the ZCR_EL2 sysreg alias
+while in a nested context, as it is expected if FEAT_NV2 is advertised
+to the L1 hypervisor.
+
+Get rid of the bogus WARN which, since the hyp vectors were installed at
+this point, has the effect of a hyp_panic...
+
+Cc: stable@vger.kernel.org
+Fixes: 0cfc85b8f5cf ("KVM: arm64: nv: Load guest FP state for ZCR_EL2 trap")
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Link: https://patch.msgid.link/20260615051324.830045-1-oupton@kernel.org
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 7deadbc5dab5b8e2316364603bc6281129c8461c)
+CVE-2026-72280
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/arm64/kvm/hyp/include/hyp/switch.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm64/kvm/hyp/include/hyp/switch.h b/arch/arm64/kvm/hyp/include/hyp/switch.h
+index 02fc19fba8bfa073996a42c76a769e2221bf29f2..b002d49098c812632928affb9e2c2bc63e8f7d51 100644
+--- a/arch/arm64/kvm/hyp/include/hyp/switch.h
++++ b/arch/arm64/kvm/hyp/include/hyp/switch.h
+@@ -570,8 +570,6 @@ static inline bool kvm_hyp_handle_fpsimd(struct kvm_vcpu *vcpu, u64 *exit_code)
+ 			return false;
+ 		break;
+ 	case ESR_ELx_EC_SYS64:
+-		if (WARN_ON_ONCE(!is_hyp_ctxt(vcpu)))
+-			return false;
+ 		fallthrough;
+ 	case ESR_ELx_EC_SVE:
+ 		if (!sve_guest)

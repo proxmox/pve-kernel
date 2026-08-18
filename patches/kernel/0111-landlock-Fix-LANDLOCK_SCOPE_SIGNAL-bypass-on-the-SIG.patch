@@ -1,0 +1,170 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryam Vargas <hexlabsecurity@proton.me>
+Date: Thu, 4 Jun 2026 23:16:56 +0000
+Subject: [PATCH] landlock: Fix LANDLOCK_SCOPE_SIGNAL bypass on the SIGIO path
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 4b80320ca7ed03d6e683f95b6066565dc97b9f92 upstream.
+
+LANDLOCK_SCOPE_SIGNAL must prevent a sandboxed process from signaling
+processes outside its Landlock domain.  It can be bypassed through the
+asynchronous SIGIO delivery path.
+
+A sandboxed process that owns any file or socket can arm it with
+fcntl(fd, F_SETOWN, -pgid), fcntl(fd, F_SETSIG, SIGKILL) and O_ASYNC, so
+that an I/O event makes the kernel deliver the chosen signal to the
+whole process group.  As the head of its process group's task list (the
+default position right after fork()) that group can also hold the
+non-sandboxed process that launched it, e.g. a supervisor or a security
+monitor.  The sandbox can thus kill or signal the processes
+LANDLOCK_SCOPE_SIGNAL is meant to protect from it.
+
+The scope is enforced in hook_file_send_sigiotask() against the Landlock
+domain recorded at F_SETOWN time, not the live domain of the sender.
+control_current_fowner() decides whether to record that domain and skips
+recording it when the fowner target is in the caller's thread group,
+which is safe only for a single-task target (PIDTYPE_PID, PIDTYPE_TGID).
+For a process group (PIDTYPE_PGID) pid_task() returns only one member;
+recording is skipped whenever that member shares the caller's thread
+group, and hook_file_send_sigiotask() then lets the signal fan out to
+the whole group unchecked.
+
+Record the domain for every non single-process target so the scope is
+enforced against each group member at delivery time.
+
+That recording is necessary but not sufficient on its own: the kernel
+signals a process group through its members' thread-group leaders, and
+the leader of the registrant's own process can carry a different
+Landlock domain than the sibling thread that armed the owner.
+domain_is_scoped() would then deny that leader, even though commit
+18eb75f3af40 ("landlock: Always allow signals between threads of the
+same process") requires same-process delivery to be allowed.
+hook_task_kill() avoids this by evaluating same_thread_group() live, per
+recipient; the SIGIO path instead delegates the whole decision to a
+single registration-time check, which a process-group fan-out cannot
+honor.
+
+So also record the registrant's thread group next to its domain and
+exempt it at delivery: hook_file_send_sigiotask() allows the signal
+whenever the recipient belongs to the registrant's own process,
+restoring the same-process guarantee while keeping out-of-domain group
+members blocked.  The direct kill() path (hook_task_kill) already
+evaluates the live domain and is unaffected.
+
+Fixes: 18eb75f3af40 ("landlock: Always allow signals between threads of the same process")
+Cc: stable@vger.kernel.org
+Signed-off-by: Bryam Vargas <hexlabsecurity@proton.me>
+Reviewed-by: Günther Noack <gnoack3000@gmail.com>
+Link: https://patch.msgid.link/56bffc24f3d0d08b45a686a48e99766b0a0821fa.1780614610.git.hexlabsecurity@proton.me
+[mic: Check pid_type earlier and improve comment, fix commit message,
+fix comment formatting]
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 04916f7dc6d37cd478b06c86398c34a6963ac8c9)
+CVE-2026-72183
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ security/landlock/fs.c   | 14 ++++++++++++++
+ security/landlock/fs.h   | 10 ++++++++++
+ security/landlock/task.c | 11 +++++++++++
+ 3 files changed, 35 insertions(+)
+
+diff --git a/security/landlock/fs.c b/security/landlock/fs.c
+index e764470f588c131c4b069c9cee768a69ef044d9c..d6f190fda17048e80a06e6d50691cdf2a31c485f 100644
+--- a/security/landlock/fs.c
++++ b/security/landlock/fs.c
+@@ -1774,6 +1774,14 @@ static bool control_current_fowner(struct fown_struct *const fown)
+ 	 */
+ 	lockdep_assert_held(&fown->lock);
+ 
++	/*
++	 * A process-group or session owner (PIDTYPE_PGID/PIDTYPE_SID) fans the
++	 * signal out to every member at delivery time, so record the domain and
++	 * let hook_file_send_sigiotask() check the live scope per recipient.
++	 */
++	if (fown->pid_type != PIDTYPE_PID && fown->pid_type != PIDTYPE_TGID)
++		return true;
++
+ 	/*
+ 	 * Some callers (e.g. fcntl_dirnotify) may not be in an RCU read-side
+ 	 * critical section.
+@@ -1790,6 +1798,7 @@ static void hook_file_set_fowner(struct file *file)
+ {
+ 	struct landlock_ruleset *prev_dom;
+ 	struct landlock_cred_security fown_subject = {};
++	struct pid *prev_tg, *fown_tg = NULL;
+ 	size_t fown_layer = 0;
+ 
+ 	if (control_current_fowner(file_f_owner(file))) {
+@@ -1802,21 +1811,26 @@ static void hook_file_set_fowner(struct file *file)
+ 		if (new_subject) {
+ 			landlock_get_ruleset(new_subject->domain);
+ 			fown_subject = *new_subject;
++			fown_tg = get_pid(task_tgid(current));
+ 		}
+ 	}
+ 
+ 	prev_dom = landlock_file(file)->fown_subject.domain;
++	prev_tg = landlock_file(file)->fown_tg;
+ 	landlock_file(file)->fown_subject = fown_subject;
++	landlock_file(file)->fown_tg = fown_tg;
+ #ifdef CONFIG_AUDIT
+ 	landlock_file(file)->fown_layer = fown_layer;
+ #endif /* CONFIG_AUDIT*/
+ 
+ 	/* May be called in an RCU read-side critical section. */
+ 	landlock_put_ruleset_deferred(prev_dom);
++	put_pid(prev_tg);
+ }
+ 
+ static void hook_file_free_security(struct file *file)
+ {
++	put_pid(landlock_file(file)->fown_tg);
+ 	landlock_put_ruleset_deferred(landlock_file(file)->fown_subject.domain);
+ }
+ 
+diff --git a/security/landlock/fs.h b/security/landlock/fs.h
+index bf9948941f2fb6f81a1dad2c915bf40eeec621eb..911b83669e207e66b4abcc3426d8562cc778e0bf 100644
+--- a/security/landlock/fs.h
++++ b/security/landlock/fs.h
+@@ -78,6 +78,16 @@ struct landlock_file_security {
+ 	 * euid.
+ 	 */
+ 	struct landlock_cred_security fown_subject;
++	/**
++	 * @fown_tg: Thread group of the task that set the file owner, pinned
++	 * while @fown_subject holds a domain.  It lets
++	 * hook_file_send_sigiotask() always allow a SIGIO delivered to the
++	 * owner's own process -- e.g. the thread-group leader reached through a
++	 * process-group owner -- matching the same-process exemption of
++	 * hook_task_kill().  NULL when no domain is recorded.  Protected by
++	 * file->f_owner->lock, like @fown_subject.
++	 */
++	struct pid *fown_tg;
+ };
+ 
+ #ifdef CONFIG_AUDIT
+diff --git a/security/landlock/task.c b/security/landlock/task.c
+index 833bc0cfe5c9bdfe655eced0d166583f16c334e1..6622659e3c24b8a203fe43aa5e798ae7672c00fd 100644
+--- a/security/landlock/task.c
++++ b/security/landlock/task.c
+@@ -407,6 +407,17 @@ static int hook_file_send_sigiotask(struct task_struct *tsk,
+ 	if (!subject->domain)
+ 		return 0;
+ 
++	/*
++	 * Always allow delivery to the file owner's own process, including a
++	 * thread-group leader reached through a process-group owner.  This
++	 * mirrors hook_task_kill()'s same-process exemption and preserves the
++	 * guarantee of commit 18eb75f3af40 ("landlock: Always allow signals
++	 * between threads of the same process"), which the registration-time
++	 * check cannot honor for a process-group target.
++	 */
++	if (task_tgid(tsk) == landlock_file(fown->file)->fown_tg)
++		return 0;
++
+ 	scoped_guard(rcu)
+ 	{
+ 		is_scoped = domain_is_scoped(subject->domain,

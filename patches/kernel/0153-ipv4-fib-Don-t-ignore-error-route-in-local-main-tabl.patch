@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kuniyuki Iwashima <kuniyu@google.com>
+Date: Fri, 19 Jun 2026 21:27:20 +0000
+Subject: [PATCH] ipv4: fib: Don't ignore error route in local/main tables.
+
+[ Upstream commit b72f0db64205d9ce462038ba995d5d31eff32dc1 ]
+
+When CONFIG_IP_MULTIPLE_TABLES is enabled but no rule is added,
+fib_lookup() performs route lookup directly on two tables.
+
+Since the first lookup does not properly bail out, the result
+of an error route in the merged local/main table could be
+overwritten by another route in the default table:
+
+  # unshare -n
+  # ip link set lo up
+  # ip route add 192.168.0.0/24 dev lo table 253
+  # ip route add unreachable 192.168.0.0/24
+  # ip route get 192.168.0.1
+  192.168.0.1 dev lo table default uid 0
+      cache <local>
+
+Once a random rule is added, the error route is respected:
+
+  # ip rule add table 0
+  # ip rule del table 0
+  # ip route get 192.168.0.1
+  RTNETLINK answers: No route to host
+
+Let's fix the inconsistent behaviour.
+
+Fixes: f4530fa574df ("ipv4: Avoid overhead when no custom FIB rules are installed.")
+Signed-off-by: Kuniyuki Iwashima <kuniyu@google.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20260619212753.3367244-1-kuniyu@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a668fa160247d7bbe921548cb845f607b8b9305f)
+CVE-2026-72421
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ include/net/ip_fib.h | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 318593743b6e1571971c7af2f43aea42713e6bf6..24023c19c7b1f70f2ab8cd962718dfc9827d89fe 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -375,7 +375,7 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+ 			     struct fib_result *res, unsigned int flags)
+ {
+ 	struct fib_table *tb;
+-	int err = -ENETUNREACH;
++	int err = -EAGAIN;
+ 
+ 	flags |= FIB_LOOKUP_NOREF;
+ 	if (net->ipv4.fib_has_custom_rules)
+@@ -389,17 +389,16 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+ 	if (tb)
+ 		err = fib_table_lookup(tb, flp, res, flags);
+ 
+-	if (!err)
++	if (err != -EAGAIN)
+ 		goto out;
+ 
+ 	tb = rcu_dereference_rtnl(net->ipv4.fib_default);
+ 	if (tb)
+ 		err = fib_table_lookup(tb, flp, res, flags);
+ 
+-out:
+ 	if (err == -EAGAIN)
+ 		err = -ENETUNREACH;
+-
++out:
+ 	rcu_read_unlock();
+ 
+ 	return err;

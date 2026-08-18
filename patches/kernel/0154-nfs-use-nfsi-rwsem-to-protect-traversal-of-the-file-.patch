@@ -1,0 +1,163 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yang Erkun <yangerkun@huawei.com>
+Date: Thu, 26 Feb 2026 09:22:03 +0800
+Subject: [PATCH] nfs: use nfsi->rwsem to protect traversal of the file lock
+ list
+
+[ Upstream commit 4837fb36219e6c08b666bc31a86841bad8526358 ]
+
+Lingfeng identified a bug and suggested two solutions, but both appear
+to have issues.
+
+Generally, we cannot release flc_lock while iterating over the file lock
+list to avoid use-after-free (UAF) problems with file locks. However,
+functions like nfs_delegation_claim_locks and nfs4_reclaim_locks cannot
+adhere to this rule because recover_lock or nfs4_lock_delegation_recall
+may take a long time. To resolve this, NFS switches to using nfsi->rwsem
+for the same protection, and nfs_reclaim_locks follows this approach.
+Although nfs_delegation_claim_locks uses so_delegreturn_mutex instead,
+this is inadequate since a single inode can have multiple nfs4_state
+instances. Therefore, the fix is to also use nfsi->rwsem in this case.
+
+Furthermore, after commit c69899a17ca4 ("NFSv4: Update of VFS byte range
+lock must be atomic with the stateid update"), the functions
+nfs4_locku_done and nfs4_lock_done also break this rule because they
+call locks_lock_inode_wait without holding nfsi->rwsem. Simply adding
+this protection could cause many deadlocks, so instead, the call to
+locks_lock_inode_wait is moved into _nfs4_proc_setlk. Regarding the bug
+fixed by commit c69899a17ca4 ("NFSv4: Update of VFS byte range
+lock must be atomic with the stateid update"), it has been resolved
+after commit 0460253913e5 ("NFSv4: nfs4_do_open() is incorrectly triggering
+state recovery") because all slots are drained before calling
+nfs4_do_reclaim, which prevents concurrent stateid changes along this path.
+Also, nfs_delegation_claim_locks does not cause this concurrency either
+since when _nfs4_proc_setlk is called with NFS_DELEGATED_STATE, no RPC is
+sent, so nfs4_lock_done is not called. Therefore,
+nfs4_lock_delegation_recall from nfs_delegation_claim_locks is the first
+time the stateid is set.
+
+Reported-by: Li Lingfeng <lilingfeng3@huawei.com>
+Closes: https://lore.kernel.org/all/20250419085709.1452492-1-lilingfeng3@huawei.com/
+Closes: https://lore.kernel.org/all/20250715030559.2906634-1-lilingfeng3@huawei.com/
+Fixes: c69899a17ca4 ("NFSv4: Update of VFS byte range lock must be atomic with the stateid update")
+Signed-off-by: Yang Erkun <yangerkun@huawei.com>
+Reviewed-by: Jeff Layton <jlayton@kernel.org>
+Signed-off-by: Anna Schumaker <anna.schumaker@hammerspace.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit e68035178e65e2b3aa386ce61202ff33724ae418)
+CVE-2026-72472
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/nfs/delegation.c     |  9 ++++++++-
+ fs/nfs/nfs4proc.c       | 22 +++++++++++-----------
+ include/linux/nfs_xdr.h |  1 -
+ 3 files changed, 19 insertions(+), 13 deletions(-)
+
+diff --git a/fs/nfs/delegation.c b/fs/nfs/delegation.c
+index 122fb3f14ffb8bb7cc6eec2e27817950e512b968..9546d2195c25f52f3be8edfa572608ce7859a026 100644
+--- a/fs/nfs/delegation.c
++++ b/fs/nfs/delegation.c
+@@ -173,6 +173,7 @@ int nfs4_check_delegation(struct inode *inode, fmode_t type)
+ static int nfs_delegation_claim_locks(struct nfs4_state *state, const nfs4_stateid *stateid)
+ {
+ 	struct inode *inode = state->inode;
++	struct nfs_inode *nfsi = NFS_I(inode);
+ 	struct file_lock *fl;
+ 	struct file_lock_context *flctx = locks_inode_context(inode);
+ 	struct list_head *list;
+@@ -182,6 +183,9 @@ static int nfs_delegation_claim_locks(struct nfs4_state *state, const nfs4_state
+ 		goto out;
+ 
+ 	list = &flctx->flc_posix;
++
++	/* Guard against reclaim and new lock/unlock calls */
++	down_write(&nfsi->rwsem);
+ 	spin_lock(&flctx->flc_lock);
+ restart:
+ 	for_each_file_lock(fl, list) {
+@@ -189,8 +193,10 @@ static int nfs_delegation_claim_locks(struct nfs4_state *state, const nfs4_state
+ 			continue;
+ 		spin_unlock(&flctx->flc_lock);
+ 		status = nfs4_lock_delegation_recall(fl, state, stateid);
+-		if (status < 0)
++		if (status < 0) {
++			up_write(&nfsi->rwsem);
+ 			goto out;
++		}
+ 		spin_lock(&flctx->flc_lock);
+ 	}
+ 	if (list == &flctx->flc_posix) {
+@@ -198,6 +204,7 @@ static int nfs_delegation_claim_locks(struct nfs4_state *state, const nfs4_state
+ 		goto restart;
+ 	}
+ 	spin_unlock(&flctx->flc_lock);
++	up_write(&nfsi->rwsem);
+ out:
+ 	return status;
+ }
+diff --git a/fs/nfs/nfs4proc.c b/fs/nfs/nfs4proc.c
+index 4b8e5a0c22128583b867eead707ad58fd9a0b49b..b3ad6e6fd119408ab62d8c58f3b3e2c740afd1c6 100644
+--- a/fs/nfs/nfs4proc.c
++++ b/fs/nfs/nfs4proc.c
+@@ -7075,7 +7075,6 @@ static void nfs4_locku_done(struct rpc_task *task, void *data)
+ 	switch (task->tk_status) {
+ 		case 0:
+ 			renew_lease(calldata->server, calldata->timestamp);
+-			locks_lock_inode_wait(calldata->lsp->ls_state->inode, &calldata->fl);
+ 			if (nfs4_update_lock_stateid(calldata->lsp,
+ 					&calldata->res.stateid))
+ 				break;
+@@ -7343,11 +7342,6 @@ static void nfs4_lock_done(struct rpc_task *task, void *calldata)
+ 	case 0:
+ 		renew_lease(NFS_SERVER(d_inode(data->ctx->dentry)),
+ 				data->timestamp);
+-		if (data->arg.new_lock && !data->cancelled) {
+-			data->fl.c.flc_flags &= ~(FL_SLEEP | FL_ACCESS);
+-			if (locks_lock_inode_wait(lsp->ls_state->inode, &data->fl) < 0)
+-				goto out_restart;
+-		}
+ 		if (data->arg.new_lock_owner != 0) {
+ 			nfs_confirm_seqid(&lsp->ls_seqid, 0);
+ 			nfs4_stateid_copy(&lsp->ls_stateid, &data->res.stateid);
+@@ -7458,11 +7452,10 @@ static int _nfs4_do_setlk(struct nfs4_state *state, int cmd, struct file_lock *f
+ 	msg.rpc_argp = &data->arg;
+ 	msg.rpc_resp = &data->res;
+ 	task_setup_data.callback_data = data;
+-	if (recovery_type > NFS_LOCK_NEW) {
+-		if (recovery_type == NFS_LOCK_RECLAIM)
+-			data->arg.reclaim = NFS_LOCK_RECLAIM;
+-	} else
+-		data->arg.new_lock = 1;
++
++	if (recovery_type == NFS_LOCK_RECLAIM)
++		data->arg.reclaim = NFS_LOCK_RECLAIM;
++
+ 	task = rpc_run_task(&task_setup_data);
+ 	if (IS_ERR(task))
+ 		return PTR_ERR(task);
+@@ -7572,6 +7565,13 @@ static int _nfs4_proc_setlk(struct nfs4_state *state, int cmd, struct file_lock
+ 	up_read(&nfsi->rwsem);
+ 	mutex_unlock(&sp->so_delegreturn_mutex);
+ 	status = _nfs4_do_setlk(state, cmd, request, NFS_LOCK_NEW);
++	if (status)
++		goto out;
++
++	down_read(&nfsi->rwsem);
++	request->c.flc_flags &= ~(FL_SLEEP | FL_ACCESS);
++	status = locks_lock_inode_wait(state->inode, request);
++	up_read(&nfsi->rwsem);
+ out:
+ 	request->c.flc_flags = flags;
+ 	return status;
+diff --git a/include/linux/nfs_xdr.h b/include/linux/nfs_xdr.h
+index ff1f12aa73d27b6fd874baf7019dd03195fc36e5..9599ad15c3ad15e9ac33c2b4e517952f6cae22aa 100644
+--- a/include/linux/nfs_xdr.h
++++ b/include/linux/nfs_xdr.h
+@@ -580,7 +580,6 @@ struct nfs_lock_args {
+ 	struct nfs_lowner	lock_owner;
+ 	unsigned char		block : 1;
+ 	unsigned char		reclaim : 1;
+-	unsigned char		new_lock : 1;
+ 	unsigned char		new_lock_owner : 1;
+ };
+ 

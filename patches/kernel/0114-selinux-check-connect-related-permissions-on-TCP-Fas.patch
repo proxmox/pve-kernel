@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Stephen Smalley <stephen.smalley.work@gmail.com>
+Date: Thu, 18 Jun 2026 13:55:14 -0400
+Subject: [PATCH] selinux: check connect-related permissions on TCP Fast Open
+
+commit 44c74d27d1b9aaa99fa8a83640c1223575262b80 upstream.
+
+Similar to Landlock, SELinux was not updated when TCP Fast Open
+support was introduced to ensure connect-related permissions are
+checked when using TCP Fast Open. Update its socket_sendmsg() hook to
+call selinux_socket_connect() when MSG_FASTOPEN is passed.
+
+Cc: stable@vger.kernel.org
+Link: https://lore.kernel.org/linux-security-module/20260616201615.275032-1-hexlabsecurity@proton.me/
+Link: https://lore.kernel.org/linux-security-module/20260617180526.15627-2-matthieu@buffet.re/
+Reported-by: Bryam Vargas <hexlabsecurity@proton.me>
+Reported-by: Matthieu Buffet <matthieu@buffet.re>
+Reported-by: Mikhail Ivanov <ivanov.mikhail1@huawei-partners.com>
+Signed-off-by: Stephen Smalley <stephen.smalley.work@gmail.com>
+Tested-by: Bryam Vargas <hexlabsecurity@proton.me>
+Signed-off-by: Paul Moore <paul@paul-moore.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 646ebbc5f2ff9147d084e1213143f091026a611c)
+CVE-2026-72243
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ security/selinux/hooks.c | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 8e979b03440be489ae659b6c8b24823cd4d329ae..e028b8e24bc674eb66a40834573dafd12fb953a3 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -5269,7 +5269,24 @@ static int selinux_socket_accept(struct socket *sock, struct socket *newsock)
+ static int selinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				  int size)
+ {
+-	return sock_has_perm(sock->sk, SOCKET__WRITE);
++	int rc;
++	struct sockaddr *const addr = msg->msg_name;
++	const int addrlen = msg->msg_namelen;
++
++	rc = sock_has_perm(sock->sk, SOCKET__WRITE);
++	if (rc)
++		return rc;
++
++	if (addr && (msg->msg_flags & MSG_FASTOPEN) &&
++	    (sk_is_tcp(sock->sk) ||
++	     (sk_is_inet(sock->sk) && sock->sk->sk_type == SOCK_STREAM &&
++	      sock->sk->sk_protocol == IPPROTO_MPTCP))) {
++		rc = selinux_socket_connect(sock, addr, addrlen);
++		if (rc)
++			return rc;
++	}
++
++	return 0;
+ }
+ 
+ static int selinux_socket_recvmsg(struct socket *sock, struct msghdr *msg,

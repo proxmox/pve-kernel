@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhiling Zou <zhilinz@nebusec.ai>
+Date: Fri, 24 Jul 2026 00:52:48 +0800
+Subject: [PATCH] net: bridge: stop fast-leave after deleting a port group
+
+commit a39789f211b8a4125f0c70e05b30cf715f4f187d upstream.
+
+br_multicast_leave_group() iterates mp->ports with pp = &p->next in
+its fast-leave path. After br_multicast_del_pg() removes p,
+continuing the loop advances pp through the deleted entry.
+
+If multicast-to-unicast was enabled, the bridge can hold multiple port
+groups for the same port and group with different source MAC
+addresses. Once multicast-to-unicast is disabled,
+br_port_group_equal() matches those entries by port only. A fast leave
+can then delete one entry and continue from its stale next pointer,
+leaving mp->ports pointing at a deleted port group.
+
+Fast leave only needs to remove one matching port group. Break after
+br_multicast_del_pg() so the loop stops before dereferencing the
+removed entry.
+
+Fixes: 6db6f0eae605 ("bridge: multicast to unicast")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Signed-off-by: Zhiling Zou <zhilinz@nebusec.ai>
+Signed-off-by: Ren Wei <enjou1224z@gmail.com>
+Acked-by: Nikolay Aleksandrov <razor@blackwall.org>
+Link: https://patch.msgid.link/1cf0898872ef7c72d5f4c0304414a192c6dac591.1784707712.git.zhilinz@nebusec.ai
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 4c57056ca6aace2e9f94ae9298bf49ef6b0c95e4)
+CVE-2026-74480
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/bridge/br_multicast.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 2eef4f3345cd7e428c468136fe23ee9ae7dd0910..710844f5e473d150e8b646a5ed1ae109aa737822 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -3686,6 +3686,7 @@ br_multicast_leave_group(struct net_bridge_mcast *brmctx,
+ 
+ 			p->flags |= MDB_PG_FLAGS_FAST_LEAVE;
+ 			br_multicast_del_pg(mp, p, pp);
++			break;
+ 		}
+ 		goto out;
+ 	}

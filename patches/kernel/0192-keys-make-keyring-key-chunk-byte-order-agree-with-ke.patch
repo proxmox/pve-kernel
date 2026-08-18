@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Michael Bommarito <michael.bommarito@gmail.com>
+Date: Sun, 19 Jul 2026 12:15:04 -0400
+Subject: [PATCH] keys: make keyring key-chunk byte order agree with
+ keyring_diff_objects()
+
+[ Upstream commit 58565eef0f8d861aae92abfb7658458d661cee17 ]
+
+keyring_get_key_chunk() loads description bytes into the index chunk low
+address first, while keyring_diff_objects() numbers the first differing
+bit from the low end and folds the absolute byte index into the level
+without removing the inline-prefix offset the level already carries.
+The two disagree on byte order and bit position, so the array can be
+told two keys first differ at a bit that does not differ in the chunk
+the walker uses, letting crafted descriptions collide into one node.
+
+Load the chunk in the order keyring_diff_objects() assumes and drop the
+inline-prefix length when folding the byte index into the level.  This
+only changes the in-memory ordering used to place keys within a keyring;
+add, search and read of non-colliding keys are unaffected.
+
+Fixes: f771fde82051 ("keys: Simplify key description management")
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Michael Bommarito <michael.bommarito@gmail.com>
+Reviewed-by: Jarkko Sakkinen <jarkko@kernel.org>
+Tested-by: Jarkko Sakkinen <jarkko@kernel.org>
+Link: https://lore.kernel.org/r/20260719161505.2423935-3-michael.bommarito@gmail.com
+Signed-off-by: Jarkko Sakkinen <jarkko@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 7e5397a3fed0dee7779bd084bec3c0584db3c930)
+CVE-2026-74566
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ security/keys/keyring.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/security/keys/keyring.c b/security/keys/keyring.c
+index 5a9887d6b7be3c5e3a98b4dd8427a2c8552ed8a0..77410a173d05da30b11133d4716fa7a4933549ae 100644
+--- a/security/keys/keyring.c
++++ b/security/keys/keyring.c
+@@ -292,9 +292,10 @@ static unsigned long keyring_get_key_chunk(const void *data, int level)
+ 		desc_len -= sizeof(index_key->desc);
+ 		if (desc_len > n)
+ 			desc_len = n;
++		d += desc_len;
+ 		do {
+ 			chunk <<= 8;
+-			chunk |= *d++;
++			chunk |= *--d;
+ 		} while (--desc_len > 0);
+ 		return chunk;
+ 	}
+@@ -375,7 +376,7 @@ static int keyring_diff_objects(const void *object, const void *data)
+ 	return -1;
+ 
+ differ_plus_i:
+-	level += i;
++	level += i - (int)sizeof(a->desc);
+ differ:
+ 	i = level * 8 + __ffs(seg_a ^ seg_b);
+ 	return i;

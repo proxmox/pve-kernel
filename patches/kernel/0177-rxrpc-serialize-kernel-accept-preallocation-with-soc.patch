@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Li Daming <d4n.for.sec@gmail.com>
+Date: Tue, 9 Jun 2026 15:09:09 +0100
+Subject: [PATCH] rxrpc: serialize kernel accept preallocation with socket
+ teardown
+
+commit dc175389b18c29a5303ee83169ec653adfae3e17 upstream.
+
+rxrpc_kernel_charge_accept() reads rx->backlog without any
+socket/backlog synchronization and passes that raw pointer into
+rxrpc_service_prealloc_one(). A concurrent rxrpc_discard_prealloc()
+sets rx->backlog = NULL and frees the backlog rings, so a kernel
+preallocation worker can keep using a freed struct rxrpc_backlog
+while updating *_backlog_head/tail and array slots.
+
+Serialize the state check and backlog lookup with the socket lock,
+and reject kernel preallocation once teardown has disabled
+listening or discarded the service backlog.
+
+Fixes: 00e907127e6f ("rxrpc: Preallocate peers, conns and calls for incoming service requests")
+Reported-by: Yuan Tan <yuantan098@gmail.com>
+Reported-by: Yifan Wu <yifanwucs@gmail.com>
+Reported-by: Juefei Pu <tomapufckgml@gmail.com>
+Reported-by: Xin Liu <bird@lzu.edu.cn>
+Signed-off-by: Li Daming <d4n.for.sec@gmail.com>
+Signed-off-by: Ren Wei <n05ec@lzu.edu.cn>
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Jeffrey Altman <jaltman@auristor.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260609140911.838677-6-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 1741378a7a83dfd8e53a9196730df709b903cd33)
+CVE-2026-74436
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/rxrpc/call_accept.c | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index ee2d1319e69a81d00404a6fd6bedf977016466e1..47824120f1da18ee5cc8e12d2b6ae2b595c0a0cb 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -471,13 +471,26 @@ int rxrpc_kernel_charge_accept(struct socket *sock, rxrpc_notify_rx_t notify_rx,
+ 			       unsigned long user_call_ID, gfp_t gfp,
+ 			       unsigned int debug_id)
+ {
+-	struct rxrpc_sock *rx = rxrpc_sk(sock->sk);
+-	struct rxrpc_backlog *b = rx->backlog;
++	struct rxrpc_backlog *b;
++	struct rxrpc_sock *rx;
++	struct sock *sk;
++	int ret;
+ 
+-	if (sock->sk->sk_state == RXRPC_CLOSE)
+-		return -ESHUTDOWN;
++	sk = sock->sk;
++	rx = rxrpc_sk(sk);
++
++	lock_sock(sk);
++	if (sk->sk_state != RXRPC_SERVER_LISTENING || !rx->backlog) {
++		ret = -ESHUTDOWN;
++		goto out;
++	}
++
++	b = rx->backlog;
++	ret = rxrpc_service_prealloc_one(rx, b, notify_rx, user_call_ID,
++					 gfp, debug_id);
+ 
+-	return rxrpc_service_prealloc_one(rx, b, notify_rx, user_call_ID,
+-					  gfp, debug_id);
++out:
++	release_sock(sk);
++	return ret;
+ }
+ EXPORT_SYMBOL(rxrpc_kernel_charge_accept);

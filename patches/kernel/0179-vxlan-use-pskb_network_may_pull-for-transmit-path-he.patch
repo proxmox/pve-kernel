@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 23 Jul 2026 14:42:49 +0000
+Subject: [PATCH] vxlan: use pskb_network_may_pull() for transmit path header
+ pulls
+
+commit b9553558b48db54ac9273e6b98d7263ef5c1a329 upstream.
+
+In vxlan_xmit(), arp_reduce(), and vxlan_mdb_entry_skb_get(), pskb_may_pull() was
+being called to verify the availability of network layer headers (ARP, IPv6/ND,
+IP/IPv6 MDB keys).
+
+However, during transmit skb->data points to the MAC header, so skb_network_offset(skb)
+is ETH_HLEN (14 bytes). Using pskb_may_pull(skb, len) only checks len bytes from skb->data
+rather than skb_network_offset(skb) + len, which can leave part of the network header
+in non-linear frags.
+
+Replace these remaining pskb_may_pull() calls with pskb_network_may_pull() to properly
+account for the MAC header offset.
+
+Fixes: e4f67addf158 ("add DOVE extensions for VXLAN")
+Fixes: f564f45c4518 ("vxlan: add ipv6 proxy support")
+Fixes: 0f83e69f44bf ("vxlan: Add MDB data path support")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: stable@vger.kernel.org
+Reviewed-by: Vadim Fedorenko <vadim.fedorenko@linux.dev>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20260723144249.759100-6-edumazet@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 7076a34b6e33315dc160b4612bfea1c597495585)
+CVE-2026-74474
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ drivers/net/vxlan/vxlan_core.c | 6 +++---
+ drivers/net/vxlan/vxlan_mdb.c  | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/vxlan/vxlan_core.c b/drivers/net/vxlan/vxlan_core.c
+index 730782c71ae8d6dd2c51733a281ce8e6b726f871..f36dbef29ae65cc62e47d58e50b622a0f895aefe 100644
+--- a/drivers/net/vxlan/vxlan_core.c
++++ b/drivers/net/vxlan/vxlan_core.c
+@@ -2017,7 +2017,7 @@ static int arp_reduce(struct net_device *dev, struct sk_buff *skb, __be32 vni)
+ 	if (dev->flags & IFF_NOARP)
+ 		goto out;
+ 
+-	if (!pskb_may_pull(skb, arp_hdr_len(dev))) {
++	if (!pskb_network_may_pull(skb, arp_hdr_len(dev))) {
+ 		dev_dstats_tx_dropped(dev);
+ 		vxlan_vnifilter_count(vxlan, vni, NULL,
+ 				      VXLAN_VNI_STATS_TX_DROPS, 0);
+@@ -2934,8 +2934,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			return arp_reduce(dev, skb, vni);
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		else if (ntohs(eth->h_proto) == ETH_P_IPV6 &&
+-			 pskb_may_pull(skb, sizeof(struct ipv6hdr) +
+-					    sizeof(struct nd_msg)) &&
++			 pskb_network_may_pull(skb, sizeof(struct ipv6hdr) +
++						    sizeof(struct nd_msg)) &&
+ 			 ipv6_hdr(skb)->nexthdr == IPPROTO_ICMPV6) {
+ 			struct nd_msg *m = (struct nd_msg *)(ipv6_hdr(skb) + 1);
+ 
+diff --git a/drivers/net/vxlan/vxlan_mdb.c b/drivers/net/vxlan/vxlan_mdb.c
+index 055a4969f593c9a949399242298d3a1e44e43988..229c12d21e226960e2db080cbd0ba55b38071617 100644
+--- a/drivers/net/vxlan/vxlan_mdb.c
++++ b/drivers/net/vxlan/vxlan_mdb.c
+@@ -1625,7 +1625,7 @@ struct vxlan_mdb_entry *vxlan_mdb_entry_skb_get(struct vxlan_dev *vxlan,
+ 
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+-		if (!pskb_may_pull(skb, sizeof(struct iphdr)))
++		if (!pskb_network_may_pull(skb, sizeof(struct iphdr)))
+ 			return NULL;
+ 		group.dst.sa.sa_family = AF_INET;
+ 		group.dst.sin.sin_addr.s_addr = ip_hdr(skb)->daddr;
+@@ -1634,7 +1634,7 @@ struct vxlan_mdb_entry *vxlan_mdb_entry_skb_get(struct vxlan_dev *vxlan,
+ 		break;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case htons(ETH_P_IPV6):
+-		if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
++		if (!pskb_network_may_pull(skb, sizeof(struct ipv6hdr)))
+ 			return NULL;
+ 		group.dst.sa.sa_family = AF_INET6;
+ 		group.dst.sin6.sin6_addr = ipv6_hdr(skb)->daddr;

@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Michael Bommarito <michael.bommarito@gmail.com>
+Date: Wed, 10 Jun 2026 08:40:01 -0400
+Subject: [PATCH] tipc: require net admin for TIPCv2 netlink mutators
+
+[ Upstream commit 86b0c540e2ea397cde021eecd24145f7c16a3d4e ]
+
+TIPCv2 registers mutating generic-netlink operations without admin
+permission flags. Generic netlink only checks CAP_NET_ADMIN when an
+operation sets GENL_ADMIN_PERM or GENL_UNS_ADMIN_PERM, so a local
+unprivileged process can currently change TIPC state through commands
+such as TIPC_NL_NET_SET, TIPC_NL_KEY_SET, TIPC_NL_KEY_FLUSH, and
+bearer enable/disable.
+
+The legacy TIPC netlink API already checks netlink_net_capable(...,
+CAP_NET_ADMIN) for administrative commands. Give the TIPCv2 mutators
+the equivalent generic-netlink gate. Use GENL_UNS_ADMIN_PERM, which
+maps to the same namespace-aware CAP_NET_ADMIN check that
+netlink_net_capable() performs, so the behaviour matches the legacy
+path and keeps working for CAP_NET_ADMIN holders in a non-initial user
+namespace (containers).
+
+A QEMU/KASAN repro run as uid/gid 65534 with zero effective
+capabilities previously succeeded in changing the network id and node
+identity, setting and flushing key material, and enabling/disabling a
+UDP bearer. With this patch applied the same operations fail with
+-EPERM.
+
+Fixes: 0655f6a8635b ("tipc: add bearer disable/enable to new netlink api")
+Link: https://lore.kernel.org/all/20260604163102.2658553-1-dominik.czarnota@trailofbits.com/
+Signed-off-by: Michael Bommarito <michael.bommarito@gmail.com>
+Reviewed-by: Tung Nguyen <tung.quang.nguyen@est.tech>
+Link: https://patch.msgid.link/20260610124003.3831170-2-michael.bommarito@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 56f0a2e0a1d004e025cd031c3a801ab73959269f)
+CVE-2026-74283
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/tipc/netlink.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index 9571ad3c5858c40ae05e974e20ea52660a239936..1307dd1a96134199ac41d0b8753aa864cfc85c6f 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -156,11 +156,13 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 	{
+ 		.cmd	= TIPC_NL_BEARER_DISABLE,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_bearer_disable,
+ 	},
+ 	{
+ 		.cmd	= TIPC_NL_BEARER_ENABLE,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_bearer_enable,
+ 	},
+ 	{
+@@ -172,11 +174,13 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 	{
+ 		.cmd	= TIPC_NL_BEARER_ADD,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_bearer_add,
+ 	},
+ 	{
+ 		.cmd	= TIPC_NL_BEARER_SET,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_bearer_set,
+ 	},
+ 	{
+@@ -201,11 +205,13 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 	{
+ 		.cmd	= TIPC_NL_LINK_SET,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_node_set_link,
+ 	},
+ 	{
+ 		.cmd	= TIPC_NL_LINK_RESET_STATS,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit   = tipc_nl_node_reset_link_stats,
+ 	},
+ 	{
+@@ -217,6 +223,7 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 	{
+ 		.cmd	= TIPC_NL_MEDIA_SET,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_media_set,
+ 	},
+ 	{
+@@ -232,6 +239,7 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 	{
+ 		.cmd	= TIPC_NL_NET_SET,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_net_set,
+ 	},
+ 	{
+@@ -242,6 +250,7 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 	{
+ 		.cmd	= TIPC_NL_MON_SET,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_node_set_monitor,
+ 	},
+ 	{
+@@ -259,6 +268,7 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 	{
+ 		.cmd	= TIPC_NL_PEER_REMOVE,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_peer_rm,
+ 	},
+ #ifdef CONFIG_TIPC_MEDIA_UDP
+@@ -273,11 +283,13 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 	{
+ 		.cmd	= TIPC_NL_KEY_SET,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_node_set_key,
+ 	},
+ 	{
+ 		.cmd	= TIPC_NL_KEY_FLUSH,
+ 		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
++		.flags	= GENL_UNS_ADMIN_PERM,
+ 		.doit	= tipc_nl_node_flush_key,
+ 	},
+ #endif

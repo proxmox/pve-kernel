@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 25 Jun 2026 15:06:30 +0100
+Subject: [PATCH] netfs: Fix writethrough to use collection offload
+
+[ Upstream commit ba6a9f6533c77c628eef0c0c5c19cd316e2be1b4 ]
+
+Fix writethrough write to set NETFS_RREQ_OFFLOAD_COLLECTION on the request
+so that collection is processed asynchronously rather than only right at
+the end - and also so that asynchronous O_SYNC writes get collected at all.
+
+Fixes: 288ace2f57c9 ("netfs: New writeback implementation")
+Closes: https://sashiko.dev/#/patchset/20260616100821.2062304-1-dhowells%40redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+Link: https://patch.msgid.link/20260625140640.3116900-13-dhowells@redhat.com
+cc: Paulo Alcantara <pc@manguebit.org>
+cc: netfs@lists.linux.dev
+cc: linux-fsdevel@vger.kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 0348e3fa0dfbf152af687e86ce079742b1860da9)
+CVE-2026-72365
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/netfs/write_issue.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/netfs/write_issue.c b/fs/netfs/write_issue.c
+index 5ef3fa605457cc6f323ab9397fac86731ecdee3d..12257e53ccf595685556f3abf46239ea500eb33f 100644
+--- a/fs/netfs/write_issue.c
++++ b/fs/netfs/write_issue.c
+@@ -637,6 +637,7 @@ struct netfs_io_request *netfs_begin_writethrough(struct kiocb *iocb, size_t len
+ 	}
+ 
+ 	wreq->io_streams[0].avail = true;
++	__set_bit(NETFS_RREQ_OFFLOAD_COLLECTION, &wreq->flags);
+ 	trace_netfs_write(wreq, netfs_write_trace_writethrough);
+ 	return wreq;
+ }

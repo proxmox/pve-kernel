@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zi Yan <ziy@nvidia.com>
+Date: Mon, 22 Jun 2026 11:30:42 -0400
+Subject: [PATCH] mm/compaction: handle free_pages_prepare() properly in
+ compaction_free()
+
+commit 7da7d599b8a83271c464adfd5ef160202b470570 upstream.
+
+free_pages_prepare() can fail but compaction_free() does not handle the
+failure case.  Failed pages should not be added back to cc->freepages for
+future use, since they can be either PageHWPoison or free_page_is_bad()
+and might cause data corruption.
+
+Link: https://lore.kernel.org/20260622-handle_free_pages_prepare_in_compaction_free-v1-1-fcf3b14abcf7@nvidia.com
+Fixes: 733aea0b3a7b ("mm/compaction: add support for >0 order folio memory compaction.")
+Signed-off-by: Zi Yan <ziy@nvidia.com>
+Reviewed-by: Vlastimil Babka (SUSE) <vbabka@kernel.org>
+Acked-by: Johannes Weiner <hannes@cmpxchg.org>
+Reviewed-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Reviewed-by: Lance Yang <lance.yang@linux.dev>
+Cc: Brendan Jackman <jackmanb@google.com>
+Cc: Jiaqi Yan <jiaqiyan@google.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Suren Baghdasaryan <surenb@google.com>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 23afc3786acf359c135093893fb43a436768c832)
+CVE-2026-72027
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ mm/compaction.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/mm/compaction.c b/mm/compaction.c
+index 1e8f8eca318c6844c27682677a0a9ea552316828..6769a9d6f16a877d26f28624ebfd8c2d90a5ea47 100644
+--- a/mm/compaction.c
++++ b/mm/compaction.c
+@@ -1858,15 +1858,14 @@ static void compaction_free(struct folio *dst, unsigned long data)
+ 	int order = folio_order(dst);
+ 	struct page *page = &dst->page;
+ 
+-	if (folio_put_testzero(dst)) {
+-		free_pages_prepare(page, order);
++	if (folio_put_testzero(dst) && free_pages_prepare(page, order)) {
+ 		list_add(&dst->lru, &cc->freepages[order]);
+ 		cc->nr_freepages += 1 << order;
+ 	}
+ 	cc->nr_migratepages += 1 << order;
+ 	/*
+-	 * someone else has referenced the page, we cannot take it back to our
+-	 * free list.
++	 * someone else has referenced the page or free_pages_prepare() fails,
++	 * we cannot take it back to our free list.
+ 	 */
+ }
+ 

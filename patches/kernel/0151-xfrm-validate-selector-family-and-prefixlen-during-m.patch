@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Mon, 15 Jun 2026 09:02:37 +0000
+Subject: [PATCH] xfrm: validate selector family and prefixlen during match
+
+[ Upstream commit 40f0b1047918539f0b0f795ac65e35336b4c2c78 ]
+
+syzbot reported a shift-out-of-bounds in xfrm_selector_match()
+due to AF_UNSPEC selector with large prefixlen (e.g. 128) matched
+against IPv4 flow (when XFRM_STATE_AF_UNSPEC is set).
+
+Fix this by:
+
+- Rejecting mismatched families in xfrm_selector_match.
+- Returning false in addr4_match if prefixlen > 32.
+- Returning false in addr_match if prefixlen > 128 (prevents overflow).
+
+Fixes: 3f0ab59e6537 ("xfrm: validate new SA's prefixlen using SA family when sel.family is unset")
+Reported-by: syzbot+9383b1ff0df4b29ca5e6@syzkaller.appspotmail.com
+Closes: https://lore.kernel.org/netdev/6a2fbe35.be3f099c.2836ae.0018.GAE@google.com/T/#u
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 5a03a2ee17e8259dde631ed84fd8322db06cb2ae)
+CVE-2026-72450
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ include/net/xfrm.h     | 7 +++++++
+ net/xfrm/xfrm_policy.c | 3 +++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 874409127e292197c17dbac4686efdd5ff56c185..baa7454a0b7b8d1faffa7e8375510082b811e903 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -943,6 +943,9 @@ static inline bool addr_match(const void *token1, const void *token2,
+ 	unsigned int pdw;
+ 	unsigned int pbi;
+ 
++	if (prefixlen > 128)
++		return false;
++
+ 	pdw = prefixlen >> 5;	  /* num of whole u32 in prefix */
+ 	pbi = prefixlen &  0x1f;  /* num of bits in incomplete u32 in prefix */
+ 
+@@ -967,6 +970,10 @@ static inline bool addr4_match(__be32 a1, __be32 a2, u8 prefixlen)
+ 	/* C99 6.5.7 (3): u32 << 32 is undefined behaviour */
+ 	if (sizeof(long) == 4 && prefixlen == 0)
+ 		return true;
++
++	if (prefixlen > 32)
++		return false;
++
+ 	return !((a1 ^ a2) & htonl(~0UL << (32 - prefixlen)));
+ }
+ 
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index c4895a4bae3737f6ce20514fdc0d824af02edc44..f8fe29962c25b4b8e6939c7f03f003a604c7e78c 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -242,6 +242,9 @@ __xfrm6_selector_match(const struct xfrm_selector *sel, const struct flowi *fl)
+ bool xfrm_selector_match(const struct xfrm_selector *sel, const struct flowi *fl,
+ 			 unsigned short family)
+ {
++	if (family != sel->family && sel->family != AF_UNSPEC)
++		return false;
++
+ 	switch (family) {
+ 	case AF_INET:
+ 		return __xfrm4_selector_match(sel, fl);

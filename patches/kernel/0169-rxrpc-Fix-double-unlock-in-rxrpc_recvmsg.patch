@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 24 Jun 2026 17:38:10 +0100
+Subject: [PATCH] rxrpc: Fix double unlock in rxrpc_recvmsg()
+
+commit a2f299b4d5510147fa8629a6aba2869bbcc88aea upstream.
+
+Fix a double unlock in rxrpc_recvmsg() when dealing with OOB messages.
+
+Fixes: 5800b1cf3fd8 ("rxrpc: Allow CHALLENGEs to the passed to the app for a RESPONSE")
+Link: https://sashiko.dev/#/patchset/20260609140911.838677-1-dhowells%40redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260624163819.3017002-4-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 1297ae6aeebc3863cb437e42a1bc4cd6173e43d9)
+CVE-2026-74428
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/rxrpc/recvmsg.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index c940600117a48cf2f9b6080b9384fbf18c997f63..58dab124410b5468be50a4a056994a1c4c7c29b7 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -470,7 +470,7 @@ int rxrpc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 		release_sock(&rx->sk);
+ 		if (ret == -EAGAIN)
+ 			goto try_again;
+-		goto error_no_call;
++		goto error_trace;
+ 	}
+ 
+ 	/* Find the next call and dequeue it if we're not just peeking.  If we

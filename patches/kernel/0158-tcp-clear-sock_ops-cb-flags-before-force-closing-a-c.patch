@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sechang Lim <rhkrqnwk98@gmail.com>
+Date: Thu, 11 Jun 2026 09:29:18 +0000
+Subject: [PATCH] tcp: clear sock_ops cb flags before force-closing a child
+ socket
+
+[ Upstream commit 990348e5bb457697c2f1f7f7b65154a3334d9d2b ]
+
+A child socket inherits the listener's bpf_sock_ops_cb_flags via
+sk_clone_lock(). If its setup fails in tcp_v4_syn_recv_sock() /
+tcp_v6_syn_recv_sock(), the child is freed through put_and_exit, where
+inet_csk_prepare_forced_close() drops the socket lock and tcp_done() runs
+without it.
+
+If BPF_SOCK_OPS_STATE_CB_FLAG was inherited, tcp_done() -> tcp_set_state()
+calls tcp_call_bpf(), which expects the lock and trips sock_owned_by_me():
+
+  WARNING: include/net/sock.h:1799 at tcp_set_state+0x433/0x550
+  RIP: 0010:tcp_set_state+0x433/0x550 include/net/sock.h:1799
+  Call Trace:
+   <IRQ>
+   tcp_done+0xba/0x250 net/ipv4/tcp.c:5095
+   tcp_v4_syn_recv_sock+0x850/0xa50 net/ipv4/tcp_ipv4.c:1787
+   tcp_check_req+0xf30/0x1360 net/ipv4/tcp_minisocks.c:926
+   tcp_v4_rcv+0x1047/0x1b50 net/ipv4/tcp_ipv4.c:2164
+   </IRQ>
+
+The child is freed before it is ever established, so it should run no
+sock_ops callback. Clear its cb flags in inet_csk_prepare_for_destroy_sock(),
+the common point for the IPv4, IPv6 and chtls forced-close paths and for the
+MPTCP ->syn_recv_sock() failure path (dispose_child), which reaches tcp_done()
+on a child that was never established too.
+
+Suggested-by: Jiayuan Chen <jiayuan.chen@linux.dev>
+Fixes: d44874910a26 ("bpf: Add BPF_SOCK_OPS_STATE_CB")
+Signed-off-by: Sechang Lim <rhkrqnwk98@gmail.com>
+Reviewed-by: Jiayuan Chen <jiayuan.chen@linux.dev>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+Link: https://patch.msgid.link/20260611092923.1895982-1-rhkrqnwk98@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 8874dafc9099bc49c2e5ebba030f85d276421f92)
+CVE-2026-74268
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ include/net/tcp.h               | 9 +++++++++
+ net/ipv4/inet_connection_sock.c | 1 +
+ 2 files changed, 10 insertions(+)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 68c82d8697c9eacfeabe0b6821459a895e536e23..de6dbbee3c7aae0848b184776acec5928514ca9c 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -2909,6 +2909,11 @@ static inline int tcp_call_bpf_3arg(struct sock *sk, int op, u32 arg1, u32 arg2,
+ 	return tcp_call_bpf(sk, op, 3, args);
+ }
+ 
++static inline void tcp_clear_sock_ops_cb_flags(struct sock *sk)
++{
++	tcp_sk(sk)->bpf_sock_ops_cb_flags = 0;
++}
++
+ #else
+ static inline int tcp_call_bpf(struct sock *sk, int op, u32 nargs, u32 *args)
+ {
+@@ -2926,6 +2931,10 @@ static inline int tcp_call_bpf_3arg(struct sock *sk, int op, u32 arg1, u32 arg2,
+ 	return -EPERM;
+ }
+ 
++static inline void tcp_clear_sock_ops_cb_flags(struct sock *sk)
++{
++}
++
+ #endif
+ 
+ static inline u32 tcp_timeout_init(struct sock *sk)
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index d9f6c8d4d7e63a0ad40cb830d277e4c3712f882e..f619d9a927217ff0efe357ec1405f65eedd44238 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -1288,6 +1288,7 @@ EXPORT_SYMBOL(inet_csk_destroy_sock);
+ void inet_csk_prepare_for_destroy_sock(struct sock *sk)
+ {
+ 	/* The below has to be done to allow calling inet_csk_destroy_sock */
++	tcp_clear_sock_ops_cb_flags(sk);
+ 	sock_set_flag(sk, SOCK_DEAD);
+ 	tcp_orphan_count_inc();
+ }

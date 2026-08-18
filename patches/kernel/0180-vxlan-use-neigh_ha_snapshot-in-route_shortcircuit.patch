@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 23 Jul 2026 14:42:47 +0000
+Subject: [PATCH] vxlan: use neigh_ha_snapshot() in route_shortcircuit()
+
+commit 8eca411347e1d38964f9ed2c8d3b6ab0e7e4473d upstream.
+
+The neighbour hardware address n->ha can be updated asynchronously by the
+neighbour subsystem, protected by n->ha_lock seqlock. Reading n->ha without
+holding the seqlock loop can lead to torn reads or reading a partially updated
+MAC address.
+
+Use neigh_ha_snapshot() in route_shortcircuit() to safely copy n->ha under
+read_seqbegin()/read_seqretry() lock protection before using it.
+
+Note that arp_reduce() and neigh_reduce() seem to have the same issue
+left for future patches.
+
+Fixes: e4f67addf158 ("add DOVE extensions for VXLAN")
+Cc: stable@vger.kernel.org
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reviewed-by: Vadim Fedorenko <vadim.fedorenko@linux.dev>
+Link: https://patch.msgid.link/20260723144249.759100-4-edumazet@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 05f2987f73daa05333fd713d05546142f9f7c5f0)
+CVE-2026-74475
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ drivers/net/vxlan/vxlan_core.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/vxlan/vxlan_core.c b/drivers/net/vxlan/vxlan_core.c
+index f36dbef29ae65cc62e47d58e50b622a0f895aefe..52332d41d263fd7b1bb678dcff558259ccd99e7f 100644
+--- a/drivers/net/vxlan/vxlan_core.c
++++ b/drivers/net/vxlan/vxlan_core.c
+@@ -2328,13 +2328,15 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
+ 	}
+ 
+ 	if (n) {
++		u8 haddr[ETH_ALEN];
+ 		bool diff;
+ 
+-		diff = !ether_addr_equal(eth_hdr(skb)->h_dest, n->ha);
++		neigh_ha_snapshot(haddr, n, dev);
++		diff = !ether_addr_equal_unaligned(eth_hdr(skb)->h_dest, haddr);
+ 		if (diff) {
+ 			memcpy(eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
+ 				dev->addr_len);
+-			memcpy(eth_hdr(skb)->h_dest, n->ha, dev->addr_len);
++			memcpy(eth_hdr(skb)->h_dest, haddr, dev->addr_len);
+ 		}
+ 		neigh_release(n);
+ 		return diff;

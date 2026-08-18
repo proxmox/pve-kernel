@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kuniyuki Iwashima <kuniyu@google.com>
+Date: Sat, 2 May 2026 03:12:59 +0000
+Subject: [PATCH] vxlan: Fix potential null-ptr-deref in
+ vxlan_gro_prepare_receive().
+
+[ Upstream commit 30a45c0bffdd62350261e2f2689fdba426a33578 ]
+
+udp_tunnel_sock_release() could set sk->sk_user_data to NULL
+while vxlan_gro_prepare_receive() is running.
+
+Let's check if rcu_dereference_sk_user_data() is NULL after
+skb_gro_remcsum_init().
+
+Fixes: 5602c48cf875 ("vxlan: change vxlan to use UDP socket GRO")
+Signed-off-by: Kuniyuki Iwashima <kuniyu@google.com>
+Link: https://patch.msgid.link/20260502031401.3557229-7-kuniyu@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit ef44dac2a37f86eeae6b88ed10a6d60b35387dfd)
+CVE-2026-74406
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ drivers/net/vxlan/vxlan_core.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/vxlan/vxlan_core.c b/drivers/net/vxlan/vxlan_core.c
+index 04d861c8c716e0782e959aee3add87d79c5e2a6c..d960541731806c7a32fdc957553b0f4390ed462d 100644
+--- a/drivers/net/vxlan/vxlan_core.c
++++ b/drivers/net/vxlan/vxlan_core.c
+@@ -823,14 +823,18 @@ static struct vxlanhdr *vxlan_gro_prepare_receive(struct sock *sk,
+ 						  struct sk_buff *skb,
+ 						  struct gro_remcsum *grc)
+ {
+-	struct sk_buff *p;
+ 	struct vxlanhdr *vh, *vh2;
+ 	unsigned int hlen, off_vx;
+-	struct vxlan_sock *vs = rcu_dereference_sk_user_data(sk);
++	struct vxlan_sock *vs;
++	struct sk_buff *p;
+ 	__be32 flags;
+ 
+ 	skb_gro_remcsum_init(grc);
+ 
++	vs = rcu_dereference_sk_user_data(sk);
++	if (!vs)
++		return NULL;
++
+ 	off_vx = skb_gro_offset(skb);
+ 	hlen = off_vx + sizeof(*vh);
+ 	vh = skb_gro_header(skb, hlen, off_vx);

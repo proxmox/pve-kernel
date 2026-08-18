@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jeffrey Altman <jaltman@auristor.com>
+Date: Tue, 9 Jun 2026 15:09:05 +0100
+Subject: [PATCH] rxrpc: rxrpc_verify_data ensure rx_dec_buffer alloc
+
+commit 16c8ae9735c5bd7e54dd7478d6348e0fc860842d upstream.
+
+rxrpc_recvmsg_data() calls rxrpc_verify_data() whenever the
+rxrpc_call.rx_dec_buffer is unallocated and assumes that upon
+successful return that rx_dec_buffer must be allocated.
+However, rxrpc_verify_data() does not request an allocation if
+the rxrpc_skb_priv.len is zero.
+
+In addition, failure to allocate rx_dec_buffer will result in a
+call to skb_copy_bits() with a NULL destination which can
+trigger a NULL pointer dereference.
+
+To prevent these issues rxrpc_verify_data() is modified to
+always attempt to allocate the rxrpc_call.rx_dec_buffer if it
+is NULL.
+
+This issue was identified with assistance of a private
+sashiko instance.
+
+Fixes: d2bc90cf6c75cb ("rxrpc: Fix DATA decrypt vs splice() by copying data to buffer in recvmsg")
+Reported-by: Simon Horman <simon.horman@redhat.com>
+Signed-off-by: Jeffrey Altman <jaltman@auristor.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Jiayuan Chen <jiayuan.chen@linux.dev>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260609140911.838677-2-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit a962bc8508592c4d51092edac68579bd8b18fe44)
+CVE-2026-74435
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/rxrpc/recvmsg.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index cd7491f12660747f21ec04a5808913b8d9b951a9..a997fc2cef043efa54b3c4d82ae6debde3f40727 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -161,7 +161,7 @@ static int rxrpc_verify_data(struct rxrpc_call *call, struct sk_buff *skb)
+ 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	int ret;
+ 
+-	if (sp->len > call->rx_dec_bsize) {
++	if (sp->len > call->rx_dec_bsize || !call->rx_dec_buffer) {
+ 		/* Make sure we can hold a 1412-byte jumbo subpacket and make
+ 		 * sure that the buffer size is aligned to a crypto blocksize.
+ 		 */

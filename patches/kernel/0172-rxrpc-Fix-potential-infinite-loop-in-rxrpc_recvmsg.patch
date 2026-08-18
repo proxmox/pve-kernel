@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 24 Jun 2026 17:38:15 +0100
+Subject: [PATCH] rxrpc: Fix potential infinite loop in rxrpc_recvmsg()
+
+commit 67a0332f442ef07713cd2d9c13d59db0f1c23648 upstream.
+
+Fix the wait in rxrpc_recvmsg() also take check the oob queue.
+
+Fixes: 5800b1cf3fd8 ("rxrpc: Allow CHALLENGEs to the passed to the app for a RESPONSE")
+Link: https://sashiko.dev/#/patchset/20260616155749.2125907-1-dhowells%40redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marc Dionne <marc.dionne@auristor.com>
+cc: Jeffrey Altman <jaltman@auristor.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260624163819.3017002-9-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit da371b003a4a44f44741275d5e8dc74181cbb017)
+CVE-2026-74431
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/rxrpc/recvmsg.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index 58dab124410b5468be50a4a056994a1c4c7c29b7..a0bf29652a8955cbe0b73615f47deef8fb65e995 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -437,7 +437,8 @@ int rxrpc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 		return -EAGAIN;
+ 	}
+ 
+-	if (list_empty(&rx->recvmsg_q)) {
++	if (list_empty(&rx->recvmsg_q) &&
++	    skb_queue_empty_lockless(&rx->recvmsg_oobq)) {
+ 		ret = -EWOULDBLOCK;
+ 		if (timeo == 0) {
+ 			call = NULL;

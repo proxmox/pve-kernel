@@ -1,0 +1,140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Fri, 12 Jun 2026 07:56:41 -0700
+Subject: [PATCH] KVM: nVMX: Move vTPR vs. TPR Threshold consistency check into
+ "normal" checks
+
+commit ebdac7554abb347ca4197be241116842161acd9b upstream.
+
+Move the off-by-default consistency check for vmcs12.tpr_threshold vs.
+the virtual APIC vTPR into the "normal" controls checks, as waiting until
+KVM has loaded some amount of state is unnecessary and actively dangerous.
+Specifically, failure to unwind vmcs01.GUEST_CR3 to KVM's value when EPT
+is disabled results in KVM running L1 with an L1-controlled CR3, not with
+KVM's CR3!
+
+Alternatively, KVM could simply reset the MMU to force a reload of
+vmcs01.GUEST_CR3, but the _only_ reason the check was shoved into a "late"
+flow was to wait until the vmcs12 pages were retrieved.  Rather than build
+up more crusty code, simply access vTPR using a regular guest memory access
+(performance isn't a concern).  To circumvent the restrictions that led to
+KVM deferring nested_get_vmcs12_pages(), (a) use a VM-scoped API to read
+guest memory so that it always hits non-SMM memslots (for RSM), and (b)
+skip the check (since its off-by-default anyways) when the vCPU doesn't
+want to run, i.e. when userspace is restoring/stuffing state.
+
+If reading guest memory fails, simply skip the consistency check, as KVM's
+de facto ABI is that VMX instruction accesses to non-existent memory get
+PCI Bus Error semantics, where reads return 0xFFs.  And if vTPR=0xFF, then
+the vTPR is guaranteed to be greater than or equal to TPR_THRESHOLD.
+
+Fixes: 1100e4910ad2 ("KVM: nVMX: Add an off-by-default module param to WARN on missed consistency checks")
+Cc: stable@vger.kernel.org
+Link: https://patch.msgid.link/20260612145642.452392-2-seanjc@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 7d066368f72e6192af7e21c5817626f6da666991)
+CVE-2026-72287
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/x86/kvm/vmx/nested.c | 66 +++++++++++++++++----------------------
+ 1 file changed, 29 insertions(+), 37 deletions(-)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index a483cdcfbc3e18eef5970943260a305d39785d13..0d931237b514093683b954478978d2bdbd2c672a 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -572,6 +572,9 @@ static int nested_vmx_check_msr_bitmap_controls(struct kvm_vcpu *vcpu,
+ static int nested_vmx_check_tpr_shadow_controls(struct kvm_vcpu *vcpu,
+ 						struct vmcs12 *vmcs12)
+ {
++	gpa_t vtpr_gpa = vmcs12->virtual_apic_page_addr + APIC_TASKPRI;
++	u32 vtpr;
++
+ 	if (!nested_cpu_has(vmcs12, CPU_BASED_TPR_SHADOW))
+ 		return 0;
+ 
+@@ -581,6 +584,32 @@ static int nested_vmx_check_tpr_shadow_controls(struct kvm_vcpu *vcpu,
+ 	if (CC(!nested_cpu_has_vid(vmcs12) && vmcs12->tpr_threshold >> 4))
+ 		return -EINVAL;
+ 
++	/*
++	 * Do the illegal vTPR vs. TPR Threshold consistency check if and only
++	 * if KVM is configured to WARN on missed consistency checks, otherwise
++	 * it's a waste of time.  KVM needs to rely on hardware to fully detect
++	 * an illegal combination due to the vTPR being writable by L1 at all
++	 * times (it's an in-memory value, not a VMCS field).  I.e. even if the
++	 * check passes now, it might fail at the actual VM-Enter.
++	 *
++	 * If reading guest memory fails, skip the check as KVM's de facto ABI
++	 * for VMX instruction accesses to non-existent memory is to provide
++	 * PCI Bus Error semantics (reads return 0xFFs), in which case the vTPR
++	 * is guaranteed to greater than or equal to the threshold.
++	 *
++	 * Note!  Deliberately use the VM-scoped API when reading guest memory,
++	 * to ensure the read doesn't hit SMRAM when restoring L2 state on RSM,
++	 * and only perform the check when in KVM_RUN, to avoid a false failure
++	 * if userspace hasn't yet configured memslots during state restore.
++	 */
++	if (warn_on_missed_cc && vcpu->wants_to_run &&
++	    nested_cpu_has(vmcs12, CPU_BASED_TPR_SHADOW) &&
++	    !nested_cpu_has_vid(vmcs12) &&
++	    !nested_cpu_has2(vmcs12, SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&
++	    !kvm_read_guest(vcpu->kvm, vtpr_gpa, &vtpr, sizeof(vtpr)) &&
++	    CC((vmcs12->tpr_threshold & GENMASK(3, 0)) > ((vtpr >> 4) & GENMASK(3, 0))))
++		return -EINVAL;
++
+ 	return 0;
+ }
+ 
+@@ -3105,38 +3134,6 @@ static int nested_vmx_check_controls(struct kvm_vcpu *vcpu,
+ 	return 0;
+ }
+ 
+-static int nested_vmx_check_controls_late(struct kvm_vcpu *vcpu,
+-					  struct vmcs12 *vmcs12)
+-{
+-	void *vapic = to_vmx(vcpu)->nested.virtual_apic_map.hva;
+-	u32 vtpr = vapic ? (*(u32 *)(vapic + APIC_TASKPRI)) >> 4 : 0;
+-
+-	/*
+-	 * Don't bother with the consistency checks if KVM isn't configured to
+-	 * WARN on missed consistency checks, as KVM needs to rely on hardware
+-	 * to fully detect an illegal vTPR vs. TRP Threshold combination due to
+-	 * the vTPR being writable by L1 at all times (it's an in-memory value,
+-	 * not a VMCS field).  I.e. even if the check passes now, it might fail
+-	 * at the actual VM-Enter.
+-	 *
+-	 * Keying off the module param also allows treating an invalid vAPIC
+-	 * mapping as a consistency check failure without increasing the risk
+-	 * of breaking a "real" VM.
+-	 */
+-	if (!warn_on_missed_cc)
+-		return 0;
+-
+-	if ((exec_controls_get(to_vmx(vcpu)) & CPU_BASED_TPR_SHADOW) &&
+-	    nested_cpu_has(vmcs12, CPU_BASED_TPR_SHADOW) &&
+-	    !nested_cpu_has_vid(vmcs12) &&
+-	    !nested_cpu_has2(vmcs12, SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&
+-	    (CC(!vapic) ||
+-	     CC((vmcs12->tpr_threshold & GENMASK(3, 0)) > (vtpr & GENMASK(3, 0)))))
+-		return -EINVAL;
+-
+-	return 0;
+-}
+-
+ static int nested_vmx_check_address_space_size(struct kvm_vcpu *vcpu,
+ 				       struct vmcs12 *vmcs12)
+ {
+@@ -3686,11 +3683,6 @@ enum nvmx_vmentry_status nested_vmx_enter_non_root_mode(struct kvm_vcpu *vcpu,
+ 			return NVMX_VMENTRY_KVM_INTERNAL_ERROR;
+ 		}
+ 
+-		if (nested_vmx_check_controls_late(vcpu, vmcs12)) {
+-			vmx_switch_vmcs(vcpu, &vmx->vmcs01);
+-			return NVMX_VMENTRY_VMFAIL;
+-		}
+-
+ 		if (nested_vmx_check_guest_state(vcpu, vmcs12,
+ 						 &entry_failure_code)) {
+ 			exit_reason.basic = EXIT_REASON_INVALID_STATE;

@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Fri, 12 Jun 2026 13:59:49 +0000
+Subject: [PATCH] tipc: fix UAF in tipc_l2_send_msg()
+
+[ Upstream commit f4c3d89fc986b0da196ddfc6cfe0ea5d5d08bec6 ]
+
+Syzbot reported a slab-use-after-free in ipvlan_hard_header() when
+called from tipc_l2_send_msg().
+
+The root cause is that tipc_disable_l2_media() calls synchronize_net()
+while b->media_ptr is still valid. This allows concurrent RCU readers
+to obtain the device pointer after synchronize_net() has finished.
+The pointer is cleared later in bearer_disable(), but without any
+subsequent synchronization, allowing the device to be freed while
+still in use by readers.
+
+Fix this by clearing b->media_ptr in tipc_disable_l2_media() before
+calling synchronize_net().
+
+This is safe to do now because the call order in bearer_disable()
+was reversed in 0d051bf93c06 ("tipc: make bearer packet filtering generic")
+to call tipc_node_delete_links() (which needs the pointer) before
+disable_media().
+
+Fixes: 282b3a056225 ("tipc: send out RESET immediately when link goes down")
+https: //lore.kernel.org/netdev/6a2c1007.428ffe26.258b27.015d.GAE@google.com/T/#u
+Reported-by: syzbot+64ec81389cbad56a8c35@syzkaller.appspotmail.com
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jon Maloy <jmaloy@redhat.com>
+Reviewed-by: Tung Nguyen <tung.quang.nguyen@est.tech>
+Link: https://patch.msgid.link/20260612135949.4010482-1-edumazet@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 35e0297a93c3c34a3924eeef816c03504e3ab5c5)
+CVE-2026-74255
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/tipc/bearer.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index a3bd1ef17558a37787bb92f2c3805c0fda874d8a..05dcd2f9e887a6e5ca6665ab41e4d5b5107f158c 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -482,6 +482,7 @@ void tipc_disable_l2_media(struct tipc_bearer *b)
+ 	dev = (struct net_device *)rtnl_dereference(b->media_ptr);
+ 	dev_remove_pack(&b->pt);
+ 	RCU_INIT_POINTER(dev->tipc_ptr, NULL);
++	RCU_INIT_POINTER(b->media_ptr, NULL);
+ 	synchronize_net();
+ 	dev_put(dev);
+ }

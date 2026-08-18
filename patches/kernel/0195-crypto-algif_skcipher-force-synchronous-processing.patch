@@ -1,0 +1,158 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Muhammet=20Kaan=20KILIN=C3=87?=
+ <muhammetkaankilinc@gmail.com>
+Date: Thu, 16 Jul 2026 02:58:36 +0000
+Subject: [PATCH] crypto: algif_skcipher - force synchronous processing
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The AIO/async path in skcipher_recvmsg() passes the socket-wide ctx->iv
+directly into the skcipher request. After io_submit() the socket lock is
+dropped and the request is processed asynchronously by a worker (e.g.
+cryptd), which dereferences ctx->iv only later.
+
+A concurrent sendmsg(ALG_SET_IV) on the same socket can overwrite ctx->iv
+inside this window, so the in-flight request runs under an
+attacker-controlled IV. For CTR and other stream modes this causes
+IV/keystream reuse and allows an unprivileged user to recover the
+plaintext of a concurrent operation.
+
+Snapshotting ctx->iv into per-request storage for the async path is not
+sufficient here. For ciphers with statesize == 0 - which includes cbc
+and ctr - skcipher_prepare_alg() installs skcipher_noimport()/
+skcipher_noexport(), so ctx->state carries nothing and the MSG_MORE
+inter-chunk IV chaining is carried solely by the in-place req->iv
+writeback. A snapshot redirects that writeback into per-request memory
+that af_alg_free_resources() releases on completion, so AIO + MSG_MORE
+with cbc/ctr would silently produce wrong output. Writing the IV back
+from the completion callback instead is not possible either: that would
+require lock_sock() there, but the callback can run in softirq/atomic
+context, so it must not sleep.
+
+Make the operation synchronous instead. ctx->iv is then only ever
+dereferenced under the socket lock held by recvmsg(), which removes the
+race, and the req->iv writeback lands in ctx->iv as before, which keeps
+MSG_MORE chaining intact for statesize == 0 ciphers. The ctx->state
+import/export path is unchanged for ciphers that do have state.
+
+This is equivalent to the upstream resolution: commit fcc77d33a34c
+("net: Remove support for AIO on sockets") removed the AIO socket path
+across net/ entirely, producing the same end state for this file -
+algif_skcipher never processes an AIO request asynchronously. After this
+patch, _skcipher_recvmsg() matches mainline's crypto/algif_skcipher.c as
+it stands today, including the same now-dead -EIOCBQUEUED check. This
+patch deviates from that commit deliberately: rather than removing AIO
+socket support tree-wide, which would be far too invasive for stable, it
+removes only the AIO branch in crypto/algif_skcipher.c. io_submit() now
+completes synchronously, which is valid for the AIO interface; AF_ALG
+async is rarely used in practice.
+
+The -EIOCBQUEUED check in skcipher_recvmsg() is now dead but harmless,
+and is left alone to keep the fix minimal.
+
+Fixes: e870456d8e7c ("crypto: algif_skcipher - overhaul memory management")
+Cc: <stable@vger.kernel.org>
+Reported-by: Muhammet Kaan KILINÇ <muhammetkaankilinc@gmail.com>
+Signed-off-by: Muhammet Kaan KILINÇ <muhammetkaankilinc@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit b05defc41b27c7d0c05c45f67bf5b91c28f93669)
+CVE-2026-74578
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ crypto/algif_skcipher.c | 75 +++++++++++++----------------------------
+ 1 file changed, 24 insertions(+), 51 deletions(-)
+
+diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
+index ba0a17fd95aca22aa58ebf510c7d9b5f0cea2c2e..35ebc3e0201b0441cbd480d41da6d7727a7f3a88 100644
+--- a/crypto/algif_skcipher.c
++++ b/crypto/algif_skcipher.c
+@@ -79,20 +79,6 @@ static int algif_skcipher_export(struct sock *sk, struct skcipher_request *req)
+ 	return err;
+ }
+ 
+-static void algif_skcipher_done(void *data, int err)
+-{
+-	struct af_alg_async_req *areq = data;
+-	struct sock *sk = areq->sk;
+-
+-	if (err)
+-		goto out;
+-
+-	err = algif_skcipher_export(sk, &areq->cra_u.skcipher_req);
+-
+-out:
+-	af_alg_async_cb(data, err);
+-}
+-
+ static int _skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			     size_t ignored, int flags)
+ {
+@@ -171,43 +157,30 @@ static int _skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
+ 		cflags |= CRYPTO_SKCIPHER_REQ_CONT;
+ 	}
+ 
+-	if (msg->msg_iocb && !is_sync_kiocb(msg->msg_iocb)) {
+-		/* AIO operation */
+-		sock_hold(sk);
+-		areq->iocb = msg->msg_iocb;
+-
+-		/* Remember output size that will be generated. */
+-		areq->outlen = len;
+-
+-		skcipher_request_set_callback(&areq->cra_u.skcipher_req,
+-					      cflags |
+-					      CRYPTO_TFM_REQ_MAY_SLEEP,
+-					      algif_skcipher_done, areq);
+-		err = ctx->enc ?
+-			crypto_skcipher_encrypt(&areq->cra_u.skcipher_req) :
+-			crypto_skcipher_decrypt(&areq->cra_u.skcipher_req);
+-
+-		/* AIO operation in progress */
+-		if (err == -EINPROGRESS)
+-			return -EIOCBQUEUED;
+-
+-		sock_put(sk);
+-	} else {
+-		/* Synchronous operation */
+-		skcipher_request_set_callback(&areq->cra_u.skcipher_req,
+-					      cflags |
+-					      CRYPTO_TFM_REQ_MAY_SLEEP |
+-					      CRYPTO_TFM_REQ_MAY_BACKLOG,
+-					      crypto_req_done, &ctx->wait);
+-		err = crypto_wait_req(ctx->enc ?
+-			crypto_skcipher_encrypt(&areq->cra_u.skcipher_req) :
+-			crypto_skcipher_decrypt(&areq->cra_u.skcipher_req),
+-						 &ctx->wait);
+-
+-		if (!err)
+-			err = algif_skcipher_export(
+-				sk, &areq->cra_u.skcipher_req);
+-	}
++	/*
++	 * Force synchronous processing.  The async (AIO) path passed the
++	 * socket-wide ctx->iv into the request, which the worker
++	 * dereferenced after the socket lock had been dropped, letting a
++	 * concurrent sendmsg(ALG_SET_IV) inject an attacker IV.  Mainline
++	 * removed the AIO socket path in commit fcc77d33a34c ("net: Remove
++	 * support for AIO on sockets"); the minimal stable fix is to always
++	 * complete synchronously, so ctx->iv is only ever dereferenced under
++	 * the socket lock.  This also keeps the IV chaining intact: for
++	 * ciphers with statesize == 0 (e.g. ctr, cbc) the chained IV is
++	 * carried by the req->iv writeback into ctx->iv, which is only
++	 * consistent on the synchronous path.
++	 */
++	skcipher_request_set_callback(&areq->cra_u.skcipher_req,
++				      cflags |
++				      CRYPTO_TFM_REQ_MAY_SLEEP |
++				      CRYPTO_TFM_REQ_MAY_BACKLOG,
++				      crypto_req_done, &ctx->wait);
++	err = crypto_wait_req(ctx->enc ?
++		crypto_skcipher_encrypt(&areq->cra_u.skcipher_req) :
++		crypto_skcipher_decrypt(&areq->cra_u.skcipher_req),
++				 &ctx->wait);
++	if (!err)
++		err = algif_skcipher_export(sk, &areq->cra_u.skcipher_req);
+ 
+ free:
+ 	af_alg_free_resources(areq);

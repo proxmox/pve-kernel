@@ -1,0 +1,166 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oliver Upton <oupton@kernel.org>
+Date: Thu, 18 Jun 2026 16:42:04 -0700
+Subject: [PATCH] KVM: arm64: nv: Re-translate VNCR before injecting abort
+
+commit bb645aa0a4caeaf7f9cd32e9a948594d434c1a8f upstream.
+
+KVM faults in the VNCR page with FOLL_WRITE whenever the guest aborts
+for a write, similar to how a regular stage-2 mapping is handled. It is
+entirely possible that the guest reads from the VNCR before writing to
+it, in which case the PFN could only be read-only.
+
+Invalidate the VNCR TLB and re-fetch the translation upon taking a VNCR
+abort, allowing the host mapping to be faulted in for write the second
+time around. Interestingly enough, this also satisfies the ordering
+requirements of FEAT_ETS2/3 between descriptor updates and MMU faults.
+
+Cc: stable@vger.kernel.org
+Fixes: 2a359e072596 ("KVM: arm64: nv: Handle mapping of VNCR_EL2 at EL2")
+Reported-by: Sashiko <sashiko-bot@kernel.org>
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Link: https://patch.msgid.link/20260618234207.1063941-4-oupton@kernel.org
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 0a5dd8cf4d58ea28da132c2097cd1c525302ac48)
+CVE-2026-72278
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/arm64/kvm/nested.c | 111 +++++++++++++++-------------------------
+ 1 file changed, 42 insertions(+), 69 deletions(-)
+
+diff --git a/arch/arm64/kvm/nested.c b/arch/arm64/kvm/nested.c
+index dee03a8e5260f3ba6518bdcee92e86dc22ef9078..845f0f532b11a96228d647e2ae555fc3103d0ab1 100644
+--- a/arch/arm64/kvm/nested.c
++++ b/arch/arm64/kvm/nested.c
+@@ -1376,88 +1376,61 @@ static void handle_vncr_perm(struct kvm_vcpu *vcpu)
+ 	kvm_inject_nested_sync(vcpu, esr);
+ }
+ 
+-static bool kvm_vncr_tlb_lookup(struct kvm_vcpu *vcpu)
+-{
+-	struct vncr_tlb *vt = vcpu->arch.vncr_tlb;
+-
+-	lockdep_assert_held_read(&vcpu->kvm->mmu_lock);
+-
+-	if (!vt->valid)
+-		return false;
+-
+-	if (read_vncr_el2(vcpu) != vt->gva)
+-		return false;
+-
+-	if (vt->wr.nG)
+-		return get_asid_by_regime(vcpu, TR_EL20) == vt->wr.asid;
+-
+-	return true;
+-}
+-
+ int kvm_handle_vncr_abort(struct kvm_vcpu *vcpu)
+ {
+ 	struct vncr_tlb *vt = vcpu->arch.vncr_tlb;
+ 	u64 esr = kvm_vcpu_get_esr(vcpu);
++	bool is_gmem = false;
++	bool perm;
++	int ret;
+ 
+ 	WARN_ON_ONCE(!(esr & ESR_ELx_VNCR));
+ 
+ 	if (kvm_vcpu_abt_issea(vcpu))
+ 		return kvm_handle_guest_sea(vcpu);
+ 
+-	if (esr_fsc_is_permission_fault(esr)) {
+-		handle_vncr_perm(vcpu);
+-	} else if (esr_fsc_is_translation_fault(esr)) {
+-		bool valid, is_gmem = false;
+-		int ret;
+-
+-		scoped_guard(read_lock, &vcpu->kvm->mmu_lock)
+-			valid = kvm_vncr_tlb_lookup(vcpu);
+-
+-		if (!valid)
+-			ret = kvm_translate_vncr(vcpu, &is_gmem);
+-		else
+-			ret = -EPERM;
++	if (!esr_fsc_is_translation_fault(esr) && !esr_fsc_is_permission_fault(esr)) {
++		WARN_ONCE(1, "Unhandled VNCR abort, ESR=%llx\n", esr);
++		return 1;
++	}
+ 
+-		switch (ret) {
+-		case -EAGAIN:
+-			/* Let's try again... */
+-			break;
+-		case -ENOMEM:
+-			/*
+-			 * For guest_memfd, this indicates that it failed to
+-			 * create a folio to back the memory. Inform userspace.
+-			 */
+-			if (is_gmem)
+-				return 0;
+-			/* Otherwise, let's try again... */
+-			break;
+-		case -EFAULT:
+-		case -EIO:
+-		case -EHWPOISON:
+-			if (is_gmem)
+-				return 0;
+-			fallthrough;
+-		case -EINVAL:
+-		case -ENOENT:
+-		case -EACCES:
+-			/*
+-			 * Translation failed, inject the corresponding
+-			 * exception back to EL2.
+-			 */
+-			esr &= ~ESR_ELx_FSC;
+-			esr |= FIELD_PREP(ESR_ELx_FSC, vt->wr.fst);
++	ret = kvm_translate_vncr(vcpu, &is_gmem);
++	switch (ret) {
++	case -EAGAIN:
++		/* Let's try again... */
++		return 1;
++	case -ENOMEM:
++		/*
++		 * For guest_memfd, this indicates that it failed to
++		 * create a folio to back the memory. Inform userspace.
++		 */
++		if (is_gmem)
++			return 0;
++		/* Otherwise, let's try again... */
++		break;
++	case -EFAULT:
++	case -EIO:
++	case -EHWPOISON:
++		if (is_gmem)
++			return 0;
++		fallthrough;
++	case -EINVAL:
++	case -ENOENT:
++	case -EACCES:
++		/*
++		 * Translation failed, inject the corresponding
++		 * exception back to EL2.
++		 */
++		esr &= ~ESR_ELx_FSC;
++		esr |= FIELD_PREP(ESR_ELx_FSC, vt->wr.fst);
+ 
+-			kvm_inject_nested_sync(vcpu, esr);
+-			break;
+-		case -EPERM:
+-			/* Hack to deal with POE until we get kernel support */
++		kvm_inject_nested_sync(vcpu, esr);
++		break;
++	case 0:
++		perm = kvm_is_write_fault(vcpu) ? vt->wr.pw && vt->hpa_writable : vt->wr.pr;
++		if (!perm)
+ 			handle_vncr_perm(vcpu);
+-			break;
+-		case 0:
+-			break;
+-		}
+-	} else {
+-		WARN_ONCE(1, "Unhandled VNCR abort, ESR=%llx\n", esr);
++		break;
+ 	}
+ 
+ 	return 1;

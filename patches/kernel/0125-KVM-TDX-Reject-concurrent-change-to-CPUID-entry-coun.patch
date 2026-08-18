@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Binbin Wu <binbin.wu@linux.intel.com>
+Date: Fri, 10 Jul 2026 11:53:23 +0800
+Subject: [PATCH] KVM: TDX: Reject concurrent change to CPUID entry count
+
+commit cfbebb55e5127dc162e73fa8956000055a78606c upstream.
+
+Reject KVM_TDX_INIT_VM if userspace changes cpuid.nent between the
+initial read and the subsequent copy of the initialization data.
+
+tdx_td_init() first reads user_data->cpuid.nent to size the flexible
+kvm_tdx_init_vm copy.  The copied structure also contains cpuid.nent,
+and that field can differ from the value used to size the allocation if
+userspace modifies the input concurrently.  setup_tdparams_cpuids() later
+passes init_vm->cpuid.nent to kvm_find_cpuid_entry2(), which uses it as
+the array bound for the copied entries.
+
+Require the copied count to match the value used to size the allocation
+so that CPUID parsing cannot access beyond the entries actually copied.
+
+Fixes: 0bd0a4a1428b ("KVM: TDX: Replace kmalloc + copy_from_user with memdup_user in tdx_td_init()")
+Reported-by: Sashiko:gemini-3.1-pro-preview
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Binbin Wu <binbin.wu@linux.intel.com>
+Reviewed-by: Xiaoyao Li <xiaoyao.li@intel.com>
+Reviewed-by: Thorsten Blum <thorsten.blum@linux.dev>
+Link: https://patch.msgid.link/20260710035324.3170534-1-binbin.wu@linux.intel.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit d6b5aba65e99531c97b146622a406c75653819d5)
+CVE-2026-72285
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/x86/kvm/vmx/tdx.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/vmx/tdx.c b/arch/x86/kvm/vmx/tdx.c
+index b4f56df41ee83152b017f82c7f8b87f601e6d36c..0de1b39678e9115864362022253f70bf884257ba 100644
+--- a/arch/x86/kvm/vmx/tdx.c
++++ b/arch/x86/kvm/vmx/tdx.c
+@@ -2737,7 +2737,11 @@ static int tdx_td_init(struct kvm *kvm, struct kvm_tdx_cmd *cmd)
+ 		goto out;
+ 	}
+ 
+-	if (init_vm->cpuid.padding) {
++	/*
++	 * Reject the request if userspace changes cpuid.nent between the
++	 * initial read and the subsequent copy.
++	 */
++	if (init_vm->cpuid.padding || init_vm->cpuid.nent != nr_user_entries) {
+ 		ret = -EINVAL;
+ 		goto out;
+ 	}

@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 25 Jun 2026 15:06:32 +0100
+Subject: [PATCH] netfs: Fix folio state after ENOMEM whilst under writeback
+ iteration
+
+[ Upstream commit b6a713fd34b9498ee2164d5d3e8460732a392efc ]
+
+Fix the state of the current folio when ENOMEM occurs during writeback
+iteration.  The folio needs to be redirtied and unlocked before the
+terminal writeback_iter() is invoked.
+
+Fixes: 06fa229ceb36 ("netfs: Abstract out a rolling folio buffer implementation")
+Link: https://sashiko.dev/#/patchset/20260619140646.2633762-1-dhowells%40redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+Link: https://patch.msgid.link/20260625140640.3116900-15-dhowells@redhat.com
+cc: Paulo Alcantara <pc@manguebit.org>
+cc: Matthew Wilcox <willy@infradead.org>
+cc: netfs@lists.linux.dev
+cc: linux-fsdevel@vger.kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 1a4421c7a5611db554328f721a4f7642440b44bd)
+CVE-2026-72363
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/netfs/write_issue.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/fs/netfs/write_issue.c b/fs/netfs/write_issue.c
+index 0767fe282976d0b132a2ef71b0a1e6f85652ddfb..5ef3fa605457cc6f323ab9397fac86731ecdee3d 100644
+--- a/fs/netfs/write_issue.c
++++ b/fs/netfs/write_issue.c
+@@ -588,6 +588,10 @@ int netfs_writepages(struct address_space *mapping,
+ 		}
+ 
+ 		error = netfs_write_folio(wreq, wbc, folio);
++		if (error == -ENOMEM) {
++			folio_redirty_for_writepage(wbc, folio);
++			folio_unlock(folio);
++		}
+ 	} while ((folio = writeback_iter(mapping, wbc, folio, &error)));
+ 
+ 	netfs_end_issue_write(wreq);

@@ -1,0 +1,136 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Benjamin Coddington <ben.coddington@hammerspace.com>
+Date: Tue, 7 Jul 2026 11:07:16 -0400
+Subject: [PATCH] NFS: Charge unstable writes by request size, not folio size
+
+commit 27934d02cbeb8a957dd11c985a579e58d30c5270 upstream.
+
+nfs_folio_mark_unstable() and nfs_folio_clear_commit() charge and
+uncharge NR_WRITEBACK/WB_WRITEBACK by folio_nr_pages(folio) once per
+*request* added to or removed from a commit list. This is correct only
+when a folio has a single associated request. When pg_test splits a
+folio into N sub-folio requests (e.g. pNFS flexfiles striping with a
+stripe unit smaller than the folio size, or plain wsize-limited
+splitting), each of the N requests independently charges the whole
+folio's page count, inflating the accounting by a factor of N per
+folio. With large folios and small stripe units this reaches multiple
+orders of magnitude: a 2 MiB folio split into 512 4 KiB requests can
+charge up to 512x its real size, pushing global dirty+writeback
+accounting past the system's dirty threshold and forcing every
+buffered writer on the host into the hard-throttle path, including
+unrelated in-kernel NFS server threads sharing the box.
+
+Charge each request only for the pages it actually covers.
+
+Fixes: 0c493b5cf16e ("NFS: Convert buffered writes to use folios")
+Cc: stable@vger.kernel.org
+Signed-off-by: Benjamin Coddington <bcodding@hammerspace.com>
+Assisted-By: Claude Sonnet 5 <noreply@anthropic.com>
+Signed-off-by: Anna Schumaker <anna.schumaker@hammerspace.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit a192b6c149c6ea10cc88869accb78165eb454456)
+CVE-2026-72132
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/nfs/internal.h | 12 +++++++-----
+ fs/nfs/pnfs_nfs.c |  2 +-
+ fs/nfs/write.c    | 14 ++++++++------
+ 3 files changed, 16 insertions(+), 12 deletions(-)
+
+diff --git a/fs/nfs/internal.h b/fs/nfs/internal.h
+index 0338603e9674c80603306e5eef870941906b1003..f7a6de4229652e2908450680971f5f074fbe3c72 100644
+--- a/fs/nfs/internal.h
++++ b/fs/nfs/internal.h
+@@ -847,17 +847,19 @@ void nfs_super_set_maxbytes(struct super_block *sb, __u64 maxfilesize)
+ }
+ 
+ /*
+- * Record the page as unstable (an extra writeback period) and mark its
+- * inode as dirty.
++ * Record the request's range as unstable (an extra writeback period) and
++ * mark its inode as dirty.
+  */
+-static inline void nfs_folio_mark_unstable(struct folio *folio,
++static inline void nfs_folio_mark_unstable(struct nfs_page *req,
+ 					   struct nfs_commit_info *cinfo)
+ {
++	struct folio *folio = nfs_page_to_folio(req);
++
+ 	if (folio && !cinfo->dreq) {
+ 		struct inode *inode = folio->mapping->host;
+-		long nr = folio_nr_pages(folio);
++		long nr = DIV_ROUND_UP(req->wb_bytes, PAGE_SIZE);
+ 
+-		/* This page is really still in write-back - just that the
++		/* This range is really still in write-back - just that the
+ 		 * writeback is happening on the server now.
+ 		 */
+ 		node_stat_mod_folio(folio, NR_WRITEBACK, nr);
+diff --git a/fs/nfs/pnfs_nfs.c b/fs/nfs/pnfs_nfs.c
+index 0ff43dbcb7cd77aeab5fe0048182cce6cf724199..648c95b78eeab73ab4481e2531ed6f303879b34c 100644
+--- a/fs/nfs/pnfs_nfs.c
++++ b/fs/nfs/pnfs_nfs.c
+@@ -1199,7 +1199,7 @@ pnfs_layout_mark_request_commit(struct nfs_page *req,
+ 
+ 	nfs_request_add_commit_list_locked(req, list, cinfo);
+ 	mutex_unlock(&NFS_I(cinfo->inode)->commit_mutex);
+-	nfs_folio_mark_unstable(nfs_page_to_folio(req), cinfo);
++	nfs_folio_mark_unstable(req, cinfo);
+ 	return;
+ out_resched:
+ 	mutex_unlock(&NFS_I(cinfo->inode)->commit_mutex);
+diff --git a/fs/nfs/write.c b/fs/nfs/write.c
+index 1ed4b3590b1ac8fc361fff6cc4b33e299f11389f..4fcdd0677b40059bdaf0e021b907c449c6ef3104 100644
+--- a/fs/nfs/write.c
++++ b/fs/nfs/write.c
+@@ -807,7 +807,7 @@ nfs_request_add_commit_list(struct nfs_page *req, struct nfs_commit_info *cinfo)
+ 	mutex_lock(&NFS_I(cinfo->inode)->commit_mutex);
+ 	nfs_request_add_commit_list_locked(req, &cinfo->mds->list, cinfo);
+ 	mutex_unlock(&NFS_I(cinfo->inode)->commit_mutex);
+-	nfs_folio_mark_unstable(nfs_page_to_folio(req), cinfo);
++	nfs_folio_mark_unstable(req, cinfo);
+ }
+ EXPORT_SYMBOL_GPL(nfs_request_add_commit_list);
+ 
+@@ -866,10 +866,12 @@ nfs_mark_request_commit(struct nfs_page *req, struct pnfs_layout_segment *lseg,
+ 	nfs_request_add_commit_list(req, cinfo);
+ }
+ 
+-static void nfs_folio_clear_commit(struct folio *folio)
++static void nfs_folio_clear_commit(struct nfs_page *req)
+ {
++	struct folio *folio = nfs_page_to_folio(req);
++
+ 	if (folio) {
+-		long nr = folio_nr_pages(folio);
++		long nr = DIV_ROUND_UP(req->wb_bytes, PAGE_SIZE);
+ 
+ 		node_stat_mod_folio(folio, NR_WRITEBACK, -nr);
+ 		wb_stat_mod(&inode_to_bdi(folio->mapping->host)->wb,
+@@ -890,7 +892,7 @@ static void nfs_clear_request_commit(struct nfs_commit_info *cinfo,
+ 			nfs_request_remove_commit_list(req, cinfo);
+ 		}
+ 		mutex_unlock(&NFS_I(inode)->commit_mutex);
+-		nfs_folio_clear_commit(nfs_page_to_folio(req));
++		nfs_folio_clear_commit(req);
+ 	}
+ }
+ 
+@@ -1735,7 +1737,7 @@ void nfs_retry_commit(struct list_head *page_list,
+ 		req = nfs_list_entry(page_list->next);
+ 		nfs_list_remove_request(req);
+ 		nfs_mark_request_commit(req, lseg, cinfo, ds_commit_idx);
+-		nfs_folio_clear_commit(nfs_page_to_folio(req));
++		nfs_folio_clear_commit(req);
+ 		nfs_unlock_and_release_request(req);
+ 	}
+ }
+@@ -1807,7 +1809,7 @@ static void nfs_commit_release_pages(struct nfs_commit_data *data)
+ 		req = nfs_list_entry(data->pages.next);
+ 		nfs_list_remove_request(req);
+ 		folio = nfs_page_to_folio(req);
+-		nfs_folio_clear_commit(folio);
++		nfs_folio_clear_commit(req);
+ 
+ 		dprintk("NFS:       commit (%s/%llu %d@%lld)",
+ 			nfs_req_openctx(req)->dentry->d_sb->s_id,

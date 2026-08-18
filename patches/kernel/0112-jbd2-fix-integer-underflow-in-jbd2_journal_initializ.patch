@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Junrui Luo <moonafterrain@outlook.com>
+Date: Wed, 13 May 2026 17:28:40 +0800
+Subject: [PATCH] jbd2: fix integer underflow in
+ jbd2_journal_initialize_fast_commit()
+
+commit 289a2ca0c9b7eae74f93fc213b0b971669b8683d upstream.
+
+jbd2_journal_initialize_fast_commit() validates journal capacity by
+checking (journal->j_last - num_fc_blks < JBD2_MIN_JOURNAL_BLOCKS).
+Both j_last and num_fc_blks are unsigned, so when num_fc_blks exceeds
+j_last the subtraction wraps to a large value, bypassing the bounds
+check.
+
+The resulting underflow corrupts j_last, j_fc_first, and j_free,
+leading to journal abort.
+
+Fix by checking num_fc_blks against j_last before the subtraction,
+returning -EFSCORRUPTED.
+
+Fixes: 6866d7b3f2bb ("ext4 / jbd2: add fast commit initialization")
+Reported-by: Yuhao Jiang <danisjiang@gmail.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Junrui Luo <moonafterrain@outlook.com>
+Fixes: e029c5f27987 ("ext4: make num of fast commit blocks configurable")
+Reviewed-by: Baokun Li <libaokun@linux.alibaba.com>
+Fixes: e029c5f279872 ("ext4: make num of fast commit blocks configurable")
+Reviewed-by: Zhang Yi <yi.zhang@huawei.com>
+Reviewed-by: Jan Kara <jack@suse.cz>
+Link: https://patch.msgid.link/SYBPR01MB7881663C927DE9D7BBF4D1DFAF062@SYBPR01MB7881.ausprd01.prod.outlook.com
+Signed-off-by: Theodore Ts'o <tytso@mit.edu>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit a58fc10adf503969fec2007b5afe8987258046c4)
+CVE-2026-72225
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/jbd2/journal.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
+index cb2c529a8f1bea33df6d4135e5782b9a77792732..0bb97459fbf0ed6d5d0405ff873f11d2fc15ca7f 100644
+--- a/fs/jbd2/journal.c
++++ b/fs/jbd2/journal.c
+@@ -2263,6 +2263,8 @@ jbd2_journal_initialize_fast_commit(journal_t *journal)
+ 	unsigned long long num_fc_blks;
+ 
+ 	num_fc_blks = jbd2_journal_get_num_fc_blks(sb);
++	if (num_fc_blks > journal->j_last)
++		return -EFSCORRUPTED;
+ 	if (journal->j_last - num_fc_blks < JBD2_MIN_JOURNAL_BLOCKS)
+ 		return -ENOSPC;
+ 

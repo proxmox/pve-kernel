@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 25 Jun 2026 15:06:31 +0100
+Subject: [PATCH] netfs: Fix writeback error handling
+
+[ Upstream commit ac5f95ac5d6d0f4c567b8b642825705a2bf0d79e ]
+
+Fix the error handling in writeback_iter() loop.  If an error occurs,
+writeback_iter() needs to be called again with *error set to the error so
+that it can clean up iteration state.  Further, the current folio needs
+unlocking and redirtying.
+
+Fixes: 288ace2f57c9 ("netfs: New writeback implementation")
+Link: https://sashiko.dev/#/patchset/20260619140646.2633762-1-dhowells%40redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+Link: https://patch.msgid.link/20260625140640.3116900-14-dhowells@redhat.com
+cc: Paulo Alcantara <pc@manguebit.org>
+cc: Matthew Wilcox <willy@infradead.org>
+cc: netfs@lists.linux.dev
+cc: linux-fsdevel@vger.kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 89df9c158a25d0a7c6ca079a9bd9ca7009d75c7b)
+CVE-2026-72364
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/netfs/write_issue.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/fs/netfs/write_issue.c b/fs/netfs/write_issue.c
+index c03c7cc45e4716344cc7347aaa0d474a036b9faf..0767fe282976d0b132a2ef71b0a1e6f85652ddfb 100644
+--- a/fs/netfs/write_issue.c
++++ b/fs/netfs/write_issue.c
+@@ -588,8 +588,6 @@ int netfs_writepages(struct address_space *mapping,
+ 		}
+ 
+ 		error = netfs_write_folio(wreq, wbc, folio);
+-		if (error < 0)
+-			break;
+ 	} while ((folio = writeback_iter(mapping, wbc, folio, &error)));
+ 
+ 	netfs_end_issue_write(wreq);
+@@ -602,7 +600,14 @@ int netfs_writepages(struct address_space *mapping,
+ 	return error;
+ 
+ couldnt_start:
+-	netfs_kill_dirty_pages(mapping, wbc, folio);
++	if (error == -ENOMEM) {
++		folio_redirty_for_writepage(wbc, folio);
++		folio_unlock(folio);
++		folio = writeback_iter(mapping, wbc, folio, &error);
++		WARN_ON_ONCE(folio != NULL);
++	} else {
++		netfs_kill_dirty_pages(mapping, wbc, folio);
++	}
+ out:
+ 	mutex_unlock(&ictx->wb_lock);
+ 	_leave(" = %d", error);

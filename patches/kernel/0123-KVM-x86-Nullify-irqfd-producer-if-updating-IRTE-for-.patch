@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: leixiang <leixiang@kylinos.cn>
+Date: Mon, 22 Jun 2026 15:51:01 +0800
+Subject: [PATCH] KVM: x86: Nullify irqfd->producer if updating IRTE for bypass
+ fails
+
+commit ed446e8aa894883c08892cfee69782fdf8f6c3ca upstream.
+
+Nullify irqfd->producer if updating the IRTE for bypass fails, as leaving a
+dangling pointer will result in a use-after-free if the irqfd is reachable
+through KVM's routing, but the producer is freed separately.  E.g. for VFIO
+PCI, the producer is embedded in struct "vfio_pci_irq_ctx" and freed when
+the vector is disabled, which can happen independent of routing updates.
+
+Fixes: 77e1b8332d1d ("KVM: x86: Decouple device assignment from IRQ bypass")
+Cc: stable@vger.kernel.org
+Signed-off-by: leixiang <leixiang@kylinos.cn>
+Link: https://patch.msgid.link/1782119051448443.14545.seg@mailgw.kylinos.cn
+[sean: drop PPC change, massage changelog]
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit d5560b6569cd05ba72c6b33427fbabc6ec46b8cf)
+CVE-2026-72283
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/x86/kvm/irq.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/irq.c b/arch/x86/kvm/irq.c
+index 9519fec09ee6f519ab0a94c8a1e995884d07b8d2..c5c2f778c6692dcc27cdf8a58730f3752459c3f6 100644
+--- a/arch/x86/kvm/irq.c
++++ b/arch/x86/kvm/irq.c
+@@ -488,8 +488,10 @@ int kvm_arch_irq_bypass_add_producer(struct irq_bypass_consumer *cons,
+ 
+ 	if (irqfd->irq_entry.type == KVM_IRQ_ROUTING_MSI) {
+ 		ret = kvm_pi_update_irte(irqfd, &irqfd->irq_entry);
+-		if (ret)
++		if (ret) {
+ 			kvm->arch.nr_possible_bypass_irqs--;
++			irqfd->producer = NULL;
++		}
+ 	}
+ 	spin_unlock_irq(&kvm->irqfds.lock);
+ 

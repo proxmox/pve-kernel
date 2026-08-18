@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 25 Jun 2026 06:59:36 +0000
+Subject: [PATCH] net: udp_tunnel: prevent double queueing in
+ udp_tunnel_nic_device_sync
+
+[ Upstream commit ecf69d4b43370c587e48d4d70289dbdb7e039d4d ]
+
+Yue Sun reported a use-after-free and debugobjects warning in
+udp_tunnel_nic_device_sync_work() during concurrent device operations.
+
+The workqueue core clears the internal pending bit before invoking the
+worker. At that point, a concurrent thread can queue the work again.
+When the already running worker eventually clears the work_pending flag
+to 0, it mistakenly clears the flag for the newly queued instance.
+udp_tunnel_nic_unregister() then observes work_pending as 0 and frees
+the structure while the second work item is still active in the queue,
+leading to UAF.
+
+Fix this by returning early in udp_tunnel_nic_device_sync() if
+work_pending is already set, preventing redundant work queueing.
+
+Fixes: cc4e3835eff4 ("udp_tunnel: add central NIC RX port offload infrastructure")
+Reported-by: Yue Sun <samsun1006219@gmail.com>
+Suggested-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Link: https://patch.msgid.link/20260625065938.654652-2-edumazet@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 54292b167466cdf42176b7b6f01da66c184deb12)
+CVE-2026-72405
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/ipv4/udp_tunnel_nic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/udp_tunnel_nic.c b/net/ipv4/udp_tunnel_nic.c
+index 9944ed923ddfd10f9adf6ad788c0740daeaf2adb..3b32a0afa9798d3c416d9ae570e6d529f70e6697 100644
+--- a/net/ipv4/udp_tunnel_nic.c
++++ b/net/ipv4/udp_tunnel_nic.c
+@@ -301,7 +301,7 @@ __udp_tunnel_nic_device_sync(struct net_device *dev, struct udp_tunnel_nic *utn)
+ static void
+ udp_tunnel_nic_device_sync(struct net_device *dev, struct udp_tunnel_nic *utn)
+ {
+-	if (!utn->need_sync)
++	if (!utn->need_sync || utn->work_pending)
+ 		return;
+ 
+ 	queue_work(udp_tunnel_nic_workqueue, &utn->work);

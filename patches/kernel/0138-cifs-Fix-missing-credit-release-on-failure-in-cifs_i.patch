@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 2 Jul 2026 09:25:00 +0100
+Subject: [PATCH] cifs: Fix missing credit release on failure in
+ cifs_issue_read()
+
+[ Upstream commit c16b8c4cfb4fe2244cc33e469a93c1ab8684146b ]
+
+Fix missing release of credits in the failure path in cifs_issue_read()
+lest retrying the subreq just overwrites the credits value.
+
+Fixes: 69c3c023af25 ("cifs: Implement netfslib hooks")
+Link: https://sashiko.dev/#/patchset/20260608145432.681865-1-dhowells%40redhat.com
+Signed-off-by: David Howells <dhowells@redhat.com>
+Acked-by: Paulo Alcantara (Red Hat) <pc@manguebit.org>
+cc: linux-cifs@vger.kernel.org
+cc: netfs@lists.linux.dev
+cc: linux-fsdevel@vger.kernel.org
+Signed-off-by: Steve French <stfrench@microsoft.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 3a303f985c6bec8787c2ad4a16b39c14c5bcd765)
+CVE-2026-72356
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ fs/smb/client/file.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/smb/client/file.c b/fs/smb/client/file.c
+index 703244508096ec689030d1f9b5e104fa7fb97ee7..1000a0d538209e90c413ab35a245c5c6ece17e31 100644
+--- a/fs/smb/client/file.c
++++ b/fs/smb/client/file.c
+@@ -242,6 +242,7 @@ static void cifs_issue_read(struct netfs_io_subrequest *subreq)
+ 	return;
+ 
+ failed:
++	add_credits_and_wake_if(rdata->server, &rdata->credits, 0);
+ 	subreq->error = rc;
+ 	netfs_read_subreq_terminated(subreq);
+ }

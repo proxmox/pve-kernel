@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 9 Jun 2026 15:09:07 +0100
+Subject: [PATCH] rxrpc: Fix UAF in rxgk_issue_challenge()
+
+commit 107a4cb0d47e735830f852d83970d5c81f8e1e08 upstream.
+
+Fix rxgk_issue_challenge() to free the page containing the challenge
+content after invoking the tracepoint as the whdr passed to the tracepoint
+points into the page just freed.
+
+Fixes: 9d1d2b59341f ("rxrpc: rxgk: Implement the yfs-rxgk security class (GSSAPI)")
+Reported-by: Marc Dionne <marc.dionne@auristor.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Simon Horman <horms@kernel.org>
+cc: linux-afs@lists.infradead.org
+cc: stable@kernel.org
+Link: https://patch.msgid.link/20260609140911.838677-4-dhowells@redhat.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 83bb0ed050e2ad9453d8ef50e4d6e624eac6eed8)
+CVE-2026-74433
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/rxrpc/rxgk.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/rxrpc/rxgk.c b/net/rxrpc/rxgk.c
+index a1ee102abae18a3109f76e64eb95a91cdd7a48f2..77a67ace1d2481397658f9d57c58d463a9862192 100644
+--- a/net/rxrpc/rxgk.c
++++ b/net/rxrpc/rxgk.c
+@@ -687,16 +687,17 @@ static int rxgk_issue_challenge(struct rxrpc_connection *conn)
+ 	ret = do_udp_sendmsg(conn->local->socket, &msg, len);
+ 	if (ret > 0)
+ 		rxrpc_peer_mark_tx(conn->peer);
+-	__free_page(page);
+ 
+ 	if (ret < 0) {
+ 		trace_rxrpc_tx_fail(conn->debug_id, serial, ret,
+ 				    rxrpc_tx_point_rxgk_challenge);
++		__free_page(page);
+ 		return -EAGAIN;
+ 	}
+ 
+ 	trace_rxrpc_tx_packet(conn->debug_id, whdr,
+ 			      rxrpc_tx_point_rxgk_challenge);
++	__free_page(page);
+ 	_leave(" = 0");
+ 	return 0;
+ }

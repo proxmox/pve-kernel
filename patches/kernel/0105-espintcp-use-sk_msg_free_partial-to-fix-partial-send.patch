@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Fri, 12 Jun 2026 16:11:39 +0200
+Subject: [PATCH] espintcp: use sk_msg_free_partial to fix partial send
+
+commit 007800408002d871f5699bdb944f985896730b8f upstream.
+
+sk_msg_free_partial() ensures consistency of the skmsg at every
+iteration, without having to manually handle uncharges and offsets.
+This simplifies the code, and fixes some bugs in skmsg accounting when
+we don't send the full contents.
+
+Cc: stable@vger.kernel.org
+Fixes: e27cca96cd68 ("xfrm: add espintcp (RFC 8229)")
+Reported-by: Aaron Esau <aaron1esau@gmail.com>
+Reported-by: Yiming Qian <yimingqian591@gmail.com>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit a338ce41bc933d8f74c39d9b3b6f1d8ca53d9714)
+CVE-2026-72041
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/xfrm/espintcp.c | 34 +++++++---------------------------
+ 1 file changed, 7 insertions(+), 27 deletions(-)
+
+diff --git a/net/xfrm/espintcp.c b/net/xfrm/espintcp.c
+index cbb3637e26ad1d8122731b8cfe0418ff77dc8bb0..c5a37250cd4762ed10243426852ab4d17572b21a 100644
+--- a/net/xfrm/espintcp.c
++++ b/net/xfrm/espintcp.c
+@@ -215,43 +215,23 @@ static int espintcp_sendskmsg_locked(struct sock *sk,
+ 	struct sk_msg *skmsg = &emsg->skmsg;
+ 	bool more = flags & MSG_MORE;
+ 	struct scatterlist *sg;
+-	int done = 0;
+ 	int ret;
+ 
+-	sg = &skmsg->sg.data[skmsg->sg.start];
+ 	do {
+ 		struct bio_vec bvec;
+-		size_t size = sg->length - emsg->offset;
+-		int offset = sg->offset + emsg->offset;
+-		struct page *p;
+-
+-		emsg->offset = 0;
+ 
++		sg = &skmsg->sg.data[skmsg->sg.start];
+ 		if (sg_is_last(sg) && !more)
+ 			msghdr.msg_flags &= ~MSG_MORE;
+ 
+-		p = sg_page(sg);
+-retry:
+-		bvec_set_page(&bvec, p, size, offset);
+-		iov_iter_bvec(&msghdr.msg_iter, ITER_SOURCE, &bvec, 1, size);
+-		ret = tcp_sendmsg_locked(sk, &msghdr, size);
+-		if (ret < 0) {
+-			emsg->offset = offset - sg->offset;
+-			skmsg->sg.start += done;
++		bvec_set_page(&bvec, sg_page(sg), sg->length, sg->offset);
++		iov_iter_bvec(&msghdr.msg_iter, ITER_SOURCE, &bvec, 1, sg->length);
++		ret = tcp_sendmsg_locked(sk, &msghdr, sg->length);
++		if (ret < 0)
+ 			return ret;
+-		}
+-
+-		if (ret != size) {
+-			offset += ret;
+-			size -= ret;
+-			goto retry;
+-		}
+ 
+-		done++;
+-		put_page(p);
+-		sk_mem_uncharge(sk, sg->length);
+-		sg = sg_next(sg);
+-	} while (sg);
++		sk_msg_free_partial(sk, skmsg, ret);
++	} while (skmsg->sg.size);
+ 
+ 	memset(emsg, 0, sizeof(*emsg));
+ 

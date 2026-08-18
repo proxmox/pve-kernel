@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hyunwoo Kim <imv4bel@gmail.com>
+Date: Fri, 5 Jun 2026 05:59:15 +0900
+Subject: [PATCH] KVM: arm64: vgic: Check the interrupt is still ours before
+ migrating it
+
+commit 0074b82cdfcb5fd13710a0ac308ade68ac6f6fbe upstream.
+
+vgic_prune_ap_list() drops both ap_list_lock and irq_lock while migrating
+an interrupt to another vCPU. After reacquiring the locks it only checks
+that the affinity is unchanged (target_vcpu == vgic_target_oracle(irq))
+before moving the interrupt, which assumes that an interrupt whose affinity
+is preserved is still queued on this vCPU's ap_list.
+
+That assumption no longer holds if the interrupt is taken off the ap_list
+while the locks are dropped. vgic_flush_pending_lpis() removes the
+interrupt from the list and sets irq->vcpu to NULL, but leaves
+enabled/pending/target_vcpu untouched. As the interrupt is still enabled
+and pending, vgic_target_oracle() returns the same target_vcpu, so the
+affinity check passes and list_del() is run a second time on an entry that
+has already been removed.
+
+Also check that the interrupt is still assigned to this vCPU
+(irq->vcpu == vcpu) before moving it.
+
+Fixes: 0919e84c0fc1 ("KVM: arm/arm64: vgic-new: Add IRQ sync/flush framework")
+Signed-off-by: Hyunwoo Kim <imv4bel@gmail.com>
+Link: https://patch.msgid.link/aiHnI1mu6SGQrgnz@v4bel
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Cc: stable@vger.kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 0658b09cba7fe866c6cd70cd2dcdfdcabe80328f)
+CVE-2026-72289
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/arm64/kvm/vgic/vgic.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/kvm/vgic/vgic.c b/arch/arm64/kvm/vgic/vgic.c
+index 900c9d2c703422e227727a1fad6855d3a2b928d6..c7c9996bffcfa483aeb92710aa77b52e9ee9af55 100644
+--- a/arch/arm64/kvm/vgic/vgic.c
++++ b/arch/arm64/kvm/vgic/vgic.c
+@@ -782,15 +782,16 @@ static void vgic_prune_ap_list(struct kvm_vcpu *vcpu)
+ 		raw_spin_lock(&irq->irq_lock);
+ 
+ 		/*
+-		 * If the affinity has been preserved, move the
+-		 * interrupt around. Otherwise, it means things have
+-		 * changed while the interrupt was unlocked, and we
+-		 * need to replay this.
++		 * If the interrupt is still ours and its affinity has
++		 * been preserved, move it around. Otherwise, it means
++		 * things have changed while the interrupt was unlocked
++		 * (it may even have been taken off the list with its
++		 * affinity left untouched), and we need to replay this.
+ 		 *
+ 		 * In all cases, we cannot trust the list not to have
+ 		 * changed, so we restart from the beginning.
+ 		 */
+-		if (target_vcpu == vgic_target_oracle(irq)) {
++		if (irq->vcpu == vcpu && target_vcpu == vgic_target_oracle(irq)) {
+ 			struct vgic_cpu *new_cpu = &target_vcpu->arch.vgic_cpu;
+ 
+ 			list_del(&irq->ap_list);

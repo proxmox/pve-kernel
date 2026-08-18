@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Michael Bommarito <michael.bommarito@gmail.com>
+Date: Wed, 10 Jun 2026 08:40:03 -0400
+Subject: [PATCH] tipc: reject inverted service ranges from peer bindings
+
+[ Upstream commit 2afb648f7b99216c687db1f89739c995e1144153 ]
+
+tipc_update_nametbl() inserts a binding advertised by a peer node using
+the lower and upper service-range bounds taken directly from the wire,
+without checking that lower <= upper. The local bind path validates the
+ordering (tipc_uaddr_valid()), but the name-distribution path does not.
+
+A binding with lower > upper is inserted at the far end of the
+service-range rbtree (keyed on lower) where no lookup or withdrawal can
+ever match it (service_range_foreach_match() requires sr->lower <= end).
+The publication, its service_range node and the augmented rbtree entry
+are then leaked for the lifetime of the namespace, and there is no
+per-peer cap equivalent to TIPC_MAX_PUBL on locally created bindings.
+
+Reject inverted ranges in the network path as well. A peer node can
+otherwise leak unbounded binding-table memory by sending PUBLICATION
+items with lower > upper.
+
+Fixes: 37922ea4a310 ("tipc: permit overlapping service ranges in name table")
+Signed-off-by: Michael Bommarito <michael.bommarito@gmail.com>
+Reviewed-by: Tung Nguyen <tung.quang.nguyen@est.tech>
+Link: https://patch.msgid.link/20260610124003.3831170-4-michael.bommarito@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 973bf0ed896b9898668dbadb82ed849d7d573010)
+CVE-2026-74281
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ net/tipc/name_distr.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index 190b49c5cbc3ec5029ffbf45455a971ab56b5d6c..ba4f4906e13b70f0415f290122973f065f029482 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -280,12 +280,21 @@ static bool tipc_update_nametbl(struct net *net, struct distr_item *i,
+ 				u32 node, u32 dtype)
+ {
+ 	struct publication *p = NULL;
++	u32 lower = ntohl(i->lower);
++	u32 upper = ntohl(i->upper);
+ 	struct tipc_socket_addr sk;
+-	struct tipc_uaddr ua;
+ 	u32 key = ntohl(i->key);
++	struct tipc_uaddr ua;
++
++	/* A peer-advertised binding with lower > upper can never be matched
++	 * or withdrawn and would leak the publication; the local bind path
++	 * rejects such ranges, so reject ranges learned from the network too.
++	 */
++	if (lower > upper)
++		return false;
+ 
+ 	tipc_uaddr(&ua, TIPC_SERVICE_RANGE, TIPC_CLUSTER_SCOPE,
+-		   ntohl(i->type), ntohl(i->lower), ntohl(i->upper));
++		   ntohl(i->type), lower, upper);
+ 	sk.ref = ntohl(i->port);
+ 	sk.node = node;
+ 

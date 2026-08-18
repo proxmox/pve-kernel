@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 2 Mar 2026 03:51:49 -0500
+Subject: [PATCH] vhost: fix vhost_get_avail_idx for a non empty ring
+
+[ Upstream commit 09861858a68342f851f71c669ac0f69865c32151 ]
+
+vhost_get_avail_idx is supposed to report whether it has updated
+vq->avail_idx. Instead, it returns whether all entries have been
+consumed, which is usually the same. But not always - in
+drivers/vhost/net.c and when mergeable buffers have been enabled, the
+driver checks whether the combined entries are big enough to store an
+incoming packet. If not, the driver re-enables notifications with
+available entries still in the ring. The incorrect return value from
+vhost_get_avail_idx propagates through vhost_enable_notify and causes
+the host to livelock if the guest is not making progress, as vhost will
+immediately disable notifications and retry using the available entries.
+
+This goes back to commit d3bb267bbdcb ("vhost: cache avail index in
+vhost_enable_notify()") which changed vhost_enable_notify() to compare
+the freshly read avail index against vq->last_avail_idx instead of the
+previously cached vq->avail_idx. Commit 7ad472397667 ("vhost: move
+smp_rmb() into vhost_get_avail_idx()") then carried over the same
+comparison when refactoring vhost_enable_notify() to call the unified
+vhost_get_avail_idx().
+
+The obvious fix is to make vhost_get_avail_idx do what the comment
+says it does and report whether new entries have been added.
+
+Reported-by: ShuangYu <shuangyu@yunyoo.cc>
+Fixes: d3bb267bbdcb ("vhost: cache avail index in vhost_enable_notify()")
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Acked-by: Jason Wang <jasowang@redhat.com>
+Reviewed-by: Stefano Garzarella <sgarzare@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Message-Id: <559b04ae6ce52973c535dc47e461638b7f4c3d63.1772441455.git.mst@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a9326b652bc7acd748d7a1143573845c7924d847)
+CVE-2026-74356
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ drivers/vhost/vhost.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 2f2c45d2088320a29ca5c7f565cf42d6fa37b366..db329a6f61458966d95daf0a255792097f28f50b 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1522,6 +1522,7 @@ static void vhost_dev_unlock_vqs(struct vhost_dev *d)
+ static inline int vhost_get_avail_idx(struct vhost_virtqueue *vq)
+ {
+ 	__virtio16 idx;
++	u16 avail_idx;
+ 	int r;
+ 
+ 	r = vhost_get_avail(vq, idx, &vq->avail->idx);
+@@ -1532,17 +1533,19 @@ static inline int vhost_get_avail_idx(struct vhost_virtqueue *vq)
+ 	}
+ 
+ 	/* Check it isn't doing very strange thing with available indexes */
+-	vq->avail_idx = vhost16_to_cpu(vq, idx);
+-	if (unlikely((u16)(vq->avail_idx - vq->last_avail_idx) > vq->num)) {
++	avail_idx = vhost16_to_cpu(vq, idx);
++	if (unlikely((u16)(avail_idx - vq->last_avail_idx) > vq->num)) {
+ 		vq_err(vq, "Invalid available index change from %u to %u",
+-		       vq->last_avail_idx, vq->avail_idx);
++		       vq->last_avail_idx, avail_idx);
+ 		return -EINVAL;
+ 	}
+ 
+ 	/* We're done if there is nothing new */
+-	if (vq->avail_idx == vq->last_avail_idx)
++	if (avail_idx == vq->avail_idx)
+ 		return 0;
+ 
++	vq->avail_idx = avail_idx;
++
+ 	/*
+ 	 * We updated vq->avail_idx so we need a memory barrier between
+ 	 * the index read above and the caller reading avail ring entries.

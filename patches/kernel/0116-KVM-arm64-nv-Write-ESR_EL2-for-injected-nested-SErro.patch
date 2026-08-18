@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fuad Tabba <tabba@google.com>
+Date: Mon, 15 Jun 2026 14:11:16 +0100
+Subject: [PATCH] KVM: arm64: nv: Write ESR_EL2 for injected nested SError
+ exceptions
+
+commit e2cb1f4578625e71f461d5c1ce70984193389cbb upstream.
+
+kvm_inject_el2_exception() writes ESR_EL2 for synchronous exceptions
+but not for SError. enter_exception64() does not write ESR_ELx for any
+exception type, so the constructed syndrome is dropped. A guest L2
+hypervisor taking a nested SError observes stale ESR_EL2.
+
+This affects both kvm_inject_nested_serror() and the EASE path in
+kvm_inject_nested_sea().
+
+Write ESR_EL2 for except_type_serror, matching except_type_sync.
+
+Fixes: 77ee70a07357 ("KVM: arm64: nv: Honor SError exception routing / masking")
+Reported-by: sashiko <sashiko@sashiko.dev>
+Signed-off-by: Fuad Tabba <tabba@google.com>
+Link: https://patch.msgid.link/20260615131116.390977-1-tabba@google.com
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Cc: stable@vger.kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 29227821e2320ff6a174c91742b4ce221fe8d563)
+Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
+---
+ arch/arm64/kvm/emulate-nested.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/kvm/emulate-nested.c b/arch/arm64/kvm/emulate-nested.c
+index 22d497554c949a15dd6fb50843d41cc854b70ea5..c2580d40197e362ad0feb4249d49ef1465d2e155 100644
+--- a/arch/arm64/kvm/emulate-nested.c
++++ b/arch/arm64/kvm/emulate-nested.c
+@@ -2750,6 +2750,7 @@ static void kvm_inject_el2_exception(struct kvm_vcpu *vcpu, u64 esr_el2,
+ 		break;
+ 	case except_type_serror:
+ 		kvm_pend_exception(vcpu, EXCEPT_AA64_EL2_SERR);
++		vcpu_write_sys_reg(vcpu, esr_el2, ESR_EL2);
+ 		break;
+ 	default:
+ 		WARN_ONCE(1, "Unsupported EL2 exception injection %d\n", type);
