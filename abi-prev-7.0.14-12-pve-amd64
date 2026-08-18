@@ -20359,10 +20359,10 @@ EXPORT_SYMBOL_GPL net/sched/sch_pie 0x5f667c01	pie_calculate_probability
 EXPORT_SYMBOL_GPL net/sched/sch_pie 0x7d3b23c9	pie_process_dequeue
 EXPORT_SYMBOL_GPL net/sched/sch_taprio 0x80dffead	taprio_offload_get
 EXPORT_SYMBOL_GPL net/sched/sch_taprio 0xc6bdc68b	taprio_offload_free
-EXPORT_SYMBOL_GPL net/sctp/sctp 0x0ef1110b	sctp_transport_lookup_process
-EXPORT_SYMBOL_GPL net/sctp/sctp 0x78dd0294	sctp_for_each_endpoint
-EXPORT_SYMBOL_GPL net/sctp/sctp 0xbed7598e	sctp_get_sctp_info
-EXPORT_SYMBOL_GPL net/sctp/sctp 0xc697758b	sctp_transport_traverse_process
+EXPORT_SYMBOL_GPL net/sctp/sctp 0xb0945c63	sctp_transport_lookup_process
+EXPORT_SYMBOL_GPL net/sctp/sctp 0xe081ebd8	sctp_transport_traverse_process
+EXPORT_SYMBOL_GPL net/sctp/sctp 0xe47d3a03	sctp_get_sctp_info
+EXPORT_SYMBOL_GPL net/sctp/sctp 0xe79bc825	sctp_for_each_endpoint
 EXPORT_SYMBOL_GPL net/smc/smc 0xd4fc59e7	smc_proto
 EXPORT_SYMBOL_GPL net/smc/smc 0xd4fc59e7	smc_proto6
 EXPORT_SYMBOL_GPL net/sunrpc/auth_gss/auth_rpcgss 0x3701b209	gss_mech_register
