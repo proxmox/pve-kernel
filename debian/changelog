@@ -1,3 +1,20 @@
+proxmox-kernel-7.0 (7.0.14-14) trixie; urgency=medium
+
+  * update ZFS to 2.4.4.
+
+  * cherry-pick fixes for relevant CVEs announced since 18.08.2026:
+    - CVE-2026-74579: too broad match mask when offloading nftables rules
+      that match only part of a header field
+    - CVE-2026-74581: use-after-free of a route suppressed by an IPv6
+      routing rule
+    - CVE-2026-74580: out-of-bounds host memory access through a stale vhost
+      IOTLB metadata cache after a vring was reconfigured
+    - CVE-2026-74582: out-of-bounds write in the AF_PACKET send path when a
+      device changes its link-layer header length concurrently
+    - CVE-2026-74583: use-after-free in the route4 traffic classifier
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 22 Aug 2026 17:01:19 +0200
+
 proxmox-kernel-7.0 (7.0.14-13) trixie; urgency=medium
 
   * cherry-pick fixes for relevant CVEs announced since 11.08.2026.
