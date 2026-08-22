@@ -87,6 +87,9 @@ Link: https://patch.msgid.link/20260715105137.3973823-4-clopez@suse.de
 Signed-off-by: Marc Zyngier <maz@kernel.org>
 Signed-off-by: Sasha Levin <sashal@kernel.org>
 (cherry picked from commit 292e80a159aa88635bf668a7212cfdf526b8bd52)
+[ adapted for 7.0: irq_is_lpi() only exists since the GICv5 interrupt
+  type helpers landed in 7.1, use the equivalent VGIC_MIN_LPI test that
+  the surrounding code already uses ]
 CVE-2026-74568
 Signed-off-by: Fiona Ebner <f.ebner@proxmox.com>
 ---
@@ -156,7 +159,7 @@ index c7c9996bffcfa483aeb92710aa77b52e9ee9af55..e885541bfccdc17efb09ab4ead59f18e
  	}
  
 -	if (!__vgic_put_irq(kvm, irq))
-+	if (!irq_is_lpi(kvm, irq->intid))
++	if (irq->intid < VGIC_MIN_LPI)
  		return;
  
 -	xa_lock_irqsave(&dist->lpi_xa, flags);
