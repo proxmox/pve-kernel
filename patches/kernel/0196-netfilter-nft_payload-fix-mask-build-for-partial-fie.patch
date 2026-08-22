@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Xiang Mei (Microsoft)" <xmei5@asu.edu>
+Date: Sun, 19 Jul 2026 22:15:23 +0000
+Subject: [PATCH] netfilter: nft_payload: fix mask build for partial field
+ offload
+
+[ Upstream commit 39e88f28fb32bf02bd4b525c24c842c9cff5663d ]
+
+nft_payload_offload_mask() builds the offload match mask for a payload
+expression that covers only part of a header field.  For a partial IPv6
+address match (field_len = 16, priv_len = 1) that shift is 1 << 120, which
+is undefined on the 32-bit int operand.  It also trims only one word, so
+the remaining words stay 0xffffffff (and when priv_len is a multiple of 4
+the trim is skipped entirely), leaving the mask covering more bytes than
+the rule matches.
+
+  UBSAN: shift-out-of-bounds in net/netfilter/nft_payload.c:278:20
+  shift exponent 120 is too large for 32-bit type 'int'
+  ...
+
+The match is byte-granular and struct nft_data is zero-initialised, so the
+correct mask is simply the first priv_len bytes set to 0xff. Set those
+bytes directly and drop the word/shift trimming; this removes the undefined
+shift and no longer over-masks the trailing bytes.
+
+Fixes: a5d45bc0dc50 ("netfilter: nftables_offload: build mask based from the matching bytes")
+Reported-by: AutonomousCodeSecurity@microsoft.com
+Signed-off-by: Xiang Mei (Microsoft) <xmei5@asu.edu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 630295d5bba1d0e0f494cc459452eb0a0058c545)
+CVE-2026-74579
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/netfilter/nft_payload.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/net/netfilter/nft_payload.c b/net/netfilter/nft_payload.c
+index b0214418f75acd97f949b75f64382a76cc7fa865..edf3481a7bd7a89edd0809ab4ad453d686fd1559 100644
+--- a/net/netfilter/nft_payload.c
++++ b/net/netfilter/nft_payload.c
+@@ -278,9 +278,7 @@ static bool nft_payload_reduce(struct nft_regs_track *track,
+ static bool nft_payload_offload_mask(struct nft_offload_reg *reg,
+ 				     u32 priv_len, u32 field_len)
+ {
+-	unsigned int remainder, delta, k;
+ 	struct nft_data mask = {};
+-	__be32 remainder_mask;
+ 
+ 	if (priv_len == field_len) {
+ 		memset(&reg->mask, 0xff, priv_len);
+@@ -289,15 +287,7 @@ static bool nft_payload_offload_mask(struct nft_offload_reg *reg,
+ 		return false;
+ 	}
+ 
+-	memset(&mask, 0xff, field_len);
+-	remainder = priv_len % sizeof(u32);
+-	if (remainder) {
+-		k = priv_len / sizeof(u32);
+-		delta = field_len - priv_len;
+-		remainder_mask = htonl(~((1 << (delta * BITS_PER_BYTE)) - 1));
+-		mask.data[k] = (__force u32)remainder_mask;
+-	}
+-
++	memset(&mask, 0xff, priv_len);
+ 	memcpy(&reg->mask, &mask, field_len);
+ 
+ 	return true;

@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhiling Zou <zhilinz@nebusec.ai>
+Date: Fri, 24 Jul 2026 00:48:52 +0800
+Subject: [PATCH] net: ipv6: clear suppressed fib6 rule result
+
+commit 6aea62e433fe1b586202a5fee8b5807ce635e1d7 upstream.
+
+fib6_rule_suppress() drops a suppressed route with ip6_rt_put_flags(),
+but leaves res->rt6 pointing at the released rt6_info.
+
+If no later rule supplies a replacement, fib6_rule_lookup() still sees
+res.rt6 and returns that stale dst to its caller. A suppressing rule can
+therefore leak a released route back to rt6_lookup(), and the next put
+hits rcuref_put_slowpath() from dst_release().
+
+Clear res->rt6 when suppressing the route so suppressed lookups fall
+through to the null dst instead of reusing the released one.
+
+Fixes: cdef485217d3 ("ipv6: fix memory leak in fib6_rule_suppress")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Signed-off-by: Zhiling Zou <zhilinz@nebusec.ai>
+Signed-off-by: Ren Wei <enjou1224z@gmail.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/4b8acb7787d54e440155585dd32ebdf0bef7d122.1784710966.git.zhilinz@nebusec.ai
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit a341c091ca0bfae377747b1b59a3bd8ebe18a937)
+CVE-2026-74581
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/fib6_rules.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index fd5f7112a51ff4c7e3783899fdea3fd4d1281c6d..3024e77b3847b0fb0503e502648cf8cbbff45a95 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -305,6 +305,7 @@ INDIRECT_CALLABLE_SCOPE bool fib6_rule_suppress(struct fib_rule *rule,
+ 
+ suppress_route:
+ 	ip6_rt_put_flags(rt, flags);
++	res->rt6 = NULL;
+ 	return true;
+ }
+ 
