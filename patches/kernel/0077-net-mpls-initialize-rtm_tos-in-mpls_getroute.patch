@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yehyeong Lee <yhlee@isslab.korea.ac.kr>
+Date: Thu, 23 Jul 2026 10:08:29 +0900
+Subject: [PATCH] net: mpls: initialize rtm_tos in mpls_getroute()
+
+[ Upstream commit 295dd295e2137e10e9a5b1891d97e0f08de76f03 ]
+
+mpls_getroute() builds the RTM_NEWROUTE reply to an RTM_GETROUTE
+request by filling a struct rtmsg allocated from an skb whose data
+area is not zeroed (alloc_skb(NLMSG_GOODSIZE, ...)). It sets every
+field of the header except rtm_tos:
+
+	r = nlmsg_data(nlh);
+	r->rtm_family	 = AF_MPLS;
+	r->rtm_dst_len	= 20;
+	r->rtm_src_len	= 0;
+	r->rtm_table	= RT_TABLE_MAIN;
+	r->rtm_type	= RTN_UNICAST;
+	r->rtm_scope	= RT_SCOPE_UNIVERSE;
+	r->rtm_protocol = rt->rt_protocol;
+	r->rtm_flags	= 0;
+
+struct rtmsg has no padding, so the one uninitialised byte rtm_tos
+(offset 3) is copied straight to user space on recvmsg(), leaking a
+byte of uninitialised heap memory. This is in contrast to
+mpls_dump_route(), which fills the very same header and does set
+rtm_tos = 0.
+
+Initialize rtm_tos to 0, matching mpls_dump_route().
+
+Reproduced with KMSAN by adding an MPLS route and issuing a
+non-RTM_F_FIB_MATCH RTM_GETROUTE for its label:
+
+  BUG: KMSAN: kernel-infoleak in _copy_to_iter+0x36c/0x33f0
+   _copy_to_iter+0x36c/0x33f0
+   __skb_datagram_iter+0x196/0x12c0
+   skb_copy_datagram_iter+0x5b/0x210
+   netlink_recvmsg+0x37b/0xef0
+   ...
+  Uninit was created at:
+   __alloc_skb+0x8ca/0x10e0
+   mpls_getroute+0x1280/0x3a40
+   rtnetlink_rcv_msg+0x1138/0x15a0
+   ...
+  Byte 19 of 64 is uninitialized
+
+(byte 19 = nlmsghdr(16) + rtmsg offset 3 = rtm_tos)
+
+Fixes: 397fc9e5cefe ("mpls: route get support")
+Signed-off-by: Yehyeong Lee <yhlee@isslab.korea.ac.kr>
+Link: https://patch.msgid.link/20260723010830.289917-1-yhlee@isslab.korea.ac.kr
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 2dc2fffc704a4365cae1aae078ba62223aaeff93)
+CVE-2026-74577
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/mpls/af_mpls.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 74b4292309592497641111209803554221d41edd..e5d37fbc4b7eb8837aeada5b8eb61bf80cb76ac2 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -2545,6 +2545,7 @@ static int mpls_getroute(struct sk_buff *in_skb, struct nlmsghdr *in_nlh,
+ 	r->rtm_family	 = AF_MPLS;
+ 	r->rtm_dst_len	= 20;
+ 	r->rtm_src_len	= 0;
++	r->rtm_tos	= 0;
+ 	r->rtm_table	= RT_TABLE_MAIN;
+ 	r->rtm_type	= RTN_UNICAST;
+ 	r->rtm_scope	= RT_SCOPE_UNIVERSE;

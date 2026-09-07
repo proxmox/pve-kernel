@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jinu Kim <kimjw04271234@gmail.com>
+Date: Tue, 21 Jul 2026 19:35:11 +0900
+Subject: [PATCH] KVM: x86/mmu: Check write tracking in all address spaces
+
+[ Upstream commit 0f38453cdb2e17566ccb7c0f3dabd5bd21caca26 ]
+
+kvm_gfn_is_write_tracked() checks only the supplied memslot, but page
+tracking is per-address-space and shadow pages are shared across all
+address spaces.  With SMM, a GFN can therefore be write-tracked in one
+address space and appear untracked through the other.
+
+Check the supplied slot first, then the slot for the other address space.
+This ensures all callers honor write tracking regardless of the active
+address space.  In particular, it prevents mmu_try_to_unsync_pages() from
+marking an upper-level shadow page unsync and eventually triggering the
+BUG in pte_list_remove().
+
+Fixes: 699023e23965 ("KVM: x86: add SMM to the MMU role, support SMRAM address space")
+Assisted-by: Codex:GPT-5
+Signed-off-by: Jinu Kim <kimjw04271234@gmail.com>
+Message-ID: <20260721103512.2136240-2-kimjw04271234@gmail.com>
+[invert direction of the conditional. - Paolo]
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit ec8fcaf354c1cbb36755d48e9f5a00c9591349e5)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/page_track.c | 32 ++++++++++++++++++++++++++------
+ 1 file changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu/page_track.c b/arch/x86/kvm/mmu/page_track.c
+index 1b17b12393a8cb2d8624d39a7b419433debe9516..7e8195a311bb028e2af2fa8e2420714886cb74ea 100644
+--- a/arch/x86/kvm/mmu/page_track.c
++++ b/arch/x86/kvm/mmu/page_track.c
+@@ -130,13 +130,23 @@ void __kvm_write_track_remove_gfn(struct kvm *kvm,
+ 	kvm_mmu_gfn_allow_lpage(slot, gfn);
+ }
+ 
+-/*
+- * check if the corresponding access on the specified guest page is tracked.
+- */
++static bool __kvm_gfn_is_write_tracked(const struct kvm_memory_slot *slot,
++				       gfn_t gfn)
++{
++	int index;
++
++	if (!slot)
++		return false;
++
++	index = gfn_to_index(gfn, slot->base_gfn, PG_LEVEL_4K);
++	return !!READ_ONCE(slot->arch.gfn_write_track[index]);
++}
++
++/* check if write access is tracked on the specified guest page.  */
+ bool kvm_gfn_is_write_tracked(struct kvm *kvm,
+ 			      const struct kvm_memory_slot *slot, gfn_t gfn)
+ {
+-	int index;
++	const struct kvm_memory_slot *other_slot;
+ 
+ 	if (!slot)
+ 		return false;
+@@ -144,8 +154,18 @@ bool kvm_gfn_is_write_tracked(struct kvm *kvm,
+ 	if (!kvm_page_track_write_tracking_enabled(kvm))
+ 		return false;
+ 
+-	index = gfn_to_index(gfn, slot->base_gfn, PG_LEVEL_4K);
+-	return !!READ_ONCE(slot->arch.gfn_write_track[index]);
++	BUILD_BUG_ON(KVM_MAX_NR_ADDRESS_SPACES > 2);
++
++	if (__kvm_gfn_is_write_tracked(slot, gfn))
++		return true;
++
++	if (kvm_arch_nr_memslot_as_ids(kvm) > 1) {
++		other_slot = __gfn_to_memslot(__kvm_memslots(kvm, slot->as_id ^ 1), gfn);
++		if (__kvm_gfn_is_write_tracked(other_slot, gfn))
++			return true;
++	}
++
++	return false;
+ }
+ 
+ #ifdef CONFIG_KVM_EXTERNAL_WRITE_TRACKING

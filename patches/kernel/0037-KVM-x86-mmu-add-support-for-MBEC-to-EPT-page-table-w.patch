@@ -26,10 +26,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 43 insertions(+), 8 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 4dd2add844ceb054c35fe27bec4acb27ab8e2953..6cc2bc8b69a0162c60db0e6604af2c497c4cbaad 100644
+index 895de3b7d208f52a2d1f951d5753be58b8eaf2ba..ab8864b1bd18e61a340857a5316a80a8f5a3aeb4 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5556,7 +5556,6 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5557,7 +5557,6 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  {
  	unsigned byte;
  
@@ -37,7 +37,7 @@ index 4dd2add844ceb054c35fe27bec4acb27ab8e2953..6cc2bc8b69a0162c60db0e6604af2c49
  	const u16 w = ACC_BITS_MASK(ACC_WRITE_MASK);
  	const u16 r = ACC_BITS_MASK(ACC_READ_MASK);
  
-@@ -5597,8 +5596,18 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5598,8 +5597,18 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  		u16 smapf = 0;
  
  		if (ept) {
@@ -58,7 +58,7 @@ index 4dd2add844ceb054c35fe27bec4acb27ab8e2953..6cc2bc8b69a0162c60db0e6604af2c49
  
  			/* Faults from kernel mode accesses to user pages */
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index d4ce55195a7c051cafeab19c92163a723982c179..f741f7d4cc2df9463bcecae04a79c9023bea9d12 100644
+index ffe9672f7be71694a1a2b90c621e2bd07c56cecc..3cf96311360b76205bbcb9ec6ebbfefe0005128c 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -124,12 +124,17 @@ static inline void FNAME(protect_clean_gpte)(struct kvm_mmu *mmu, unsigned *acce
@@ -151,10 +151,10 @@ index f5261d993eac0316e5115f3cc63ae53d9989f625..fe9571837fee6d37b8dfbc7ac6660968
  }
  
 diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
-index e0ef2cb8f2cd3a2599480b4d6e85067d537dbdc4..925dfa7f54df2aa12f96960cec81499e2bf1cbf8 100644
+index 1b00f24f937e6a7fe824927b9a3f1ba1bdc9f457..e74518013c424f6ac0ea6ec34973ea95a18cfa61 100644
 --- a/arch/x86/kvm/vmx/nested.c
 +++ b/arch/x86/kvm/vmx/nested.c
-@@ -7450,6 +7450,15 @@ static gpa_t vmx_translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa,
+@@ -7451,6 +7451,15 @@ static gpa_t vmx_translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa,
  	struct kvm_mmu *mmu = vcpu->arch.mmu;
  
  	BUG_ON(!mmu_is_nested(vcpu));

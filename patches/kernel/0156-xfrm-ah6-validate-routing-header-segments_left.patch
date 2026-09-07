@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Asim Viladi Oglu Manizada <manizada@pm.me>
+Date: Thu, 23 Jul 2026 09:35:48 +0000
+Subject: [PATCH] xfrm: ah6: validate routing header segments_left
+
+commit 7bad4bda74dc4713f398d3b7624ff05478e3a568 upstream.
+
+AH6 rearranges routing-header addresses before computing or verifying the
+ICV. ipv6_rearrange_rthdr() assumes that segments_left is not larger than
+the number of addresses described by the routing header's hdrlen field.
+
+That assumption does not hold for raw IPv6 HDRINCL packets. A packet with
+hdrlen equal to 2 describes one address, but can carry an arbitrary
+segments_left value. With segments_left equal to 255, the function moves
+its address pointer 4,064 bytes backwards and passes a 4,064-byte length to
+memmove(), resulting in an out-of-bounds access.
+
+Validate the invariant locally before modifying the routing header or
+performing any address-pointer arithmetic, and propagate malformed-header
+errors to the existing AH6 input and output error paths.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Assisted-by: avom-custom-harness:gpt-5.5-qwen3.6-mod-mix
+Signed-off-by: Asim Viladi Oglu Manizada <manizada@pm.me>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 0bf11081ad3753938a2b48723ce6298dbac743a1)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/ah6.c | 29 ++++++++++++++++++-----------
+ 1 file changed, 18 insertions(+), 11 deletions(-)
+
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 76f7a2de9108eb45827d9da06cdf68ecf184ef95..c96f7e0d0a48158c444fbbd928e2b6b11e550904 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -232,26 +232,28 @@ static void ipv6_rearrange_destopt(struct ipv6hdr *iph, struct ipv6_opt_hdr *des
+  *	Rearrange the destination address in @iph and the addresses in @rthdr
+  *	so that they appear in the order they will at the final destination.
+  *	See Appendix A2 of RFC 2402 for details.
++ *
++ * Return: 0 on success, -EINVAL if segments_left exceeds the number of
++ * addresses described by hdrlen.
+  */
+-static void ipv6_rearrange_rthdr(struct ipv6hdr *iph, struct ipv6_rt_hdr *rthdr)
++static int ipv6_rearrange_rthdr(struct ipv6hdr *iph, struct ipv6_rt_hdr *rthdr)
+ {
+-	int segments, segments_left;
++	unsigned int segments, segments_left;
+ 	struct in6_addr *addrs;
+ 	struct in6_addr final_addr;
+ 
+ 	segments_left = rthdr->segments_left;
+ 	if (segments_left == 0)
+-		return;
+-	rthdr->segments_left = 0;
++		return 0;
+ 
+-	/* The value of rthdr->hdrlen has been verified either by the system
+-	 * call if it is locally generated, or by ipv6_rthdr_rcv() for incoming
+-	 * packets.  So we can assume that it is even and that segments is
+-	 * greater than or equal to segments_left.
+-	 *
+-	 * For the same reason we can assume that this option is of type 0.
++	/* Raw locally generated packets can reach AH6 without the invariant
++	 * required by the rt0-style address rearrangement below.
+ 	 */
+ 	segments = rthdr->hdrlen >> 1;
++	if (segments_left > segments)
++		return -EINVAL;
++
++	rthdr->segments_left = 0;
+ 
+ 	addrs = ((struct rt0_hdr *)rthdr)->addr;
+ 	final_addr = addrs[segments - 1];
+@@ -261,6 +263,8 @@ static void ipv6_rearrange_rthdr(struct ipv6hdr *iph, struct ipv6_rt_hdr *rthdr)
+ 
+ 	addrs[0] = iph->daddr;
+ 	iph->daddr = final_addr;
++
++	return 0;
+ }
+ 
+ static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len, int dir)
+@@ -273,6 +277,7 @@ static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len, int dir)
+ 	} exthdr = { .iph = iph };
+ 	char *end = exthdr.raw + len;
+ 	int nexthdr = iph->nexthdr;
++	int err;
+ 
+ 	exthdr.iph++;
+ 
+@@ -292,7 +297,9 @@ static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len, int dir)
+ 			break;
+ 
+ 		case NEXTHDR_ROUTING:
+-			ipv6_rearrange_rthdr(iph, exthdr.rth);
++			err = ipv6_rearrange_rthdr(iph, exthdr.rth);
++			if (err)
++				return err;
+ 			break;
+ 
+ 		default:

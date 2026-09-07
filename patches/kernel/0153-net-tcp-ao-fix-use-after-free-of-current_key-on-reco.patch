@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hyunwoo Kim <imv4bel@gmail.com>
+Date: Mon, 17 Aug 2026 06:28:42 +0900
+Subject: [PATCH] net/tcp-ao: fix use-after-free of current_key on reconnect to
+ another peer
+
+commit da4471557f279d0f56605158a625bb6e49ef7d41 upstream.
+
+tcp_inbound_ao_hash() is called before bh_lock_sock_nested() is taken,
+with only rcu_read_lock() held. On the fast path for established
+sockets, if the rnext_keyid sent by the peer differs from
+current_key->sndid, the key the peer asked for is looked up and stored
+in current_key. The lookup is inside the RCU read side, but current_key
+outlives it.
+
+When the socket is disconnected and connect() is called again for
+another peer, tcp_ao_connect_init() unlinks every key that does not
+match the new peer and frees it with call_rcu(). If current_key points
+at such a key, it is cleared to NULL.
+
+The fast path reads sk_state only once on entry, so a softirq that got
+into it while the socket was still established can update current_key
+after that loop has already run. The update is inside the RCU read side,
+so it comes before the call_rcu() callback, and once the callback frees
+the key, current_key is left pointing at freed memory.
+
+The next transmission picks that pointer up in tcp_get_current_key().
+tcp_ao_transmit_skb() then reads the traffic key from the freed object,
+which is the use-after-free.
+
+Wait for one grace period before unlinking, and only if a key is going
+to be removed. By the time tcp_connect() runs the socket is already in
+TCP_SYN_SENT, and TCP_AO_ESTABLISHED does not contain TCPF_SYN_SENT, so
+a softirq entering after the wait cannot reach the fast path, and the
+ones already in it have finished. The existing NULL handling in the loop
+is then enough.
+
+Fixes: 0a3a809089eb ("net/tcp: Verify inbound TCP-AO signed segments")
+Cc: stable@vger.kernel.org
+Signed-off-by: Hyunwoo Kim <imv4bel@gmail.com>
+Reviewed-by: Simon Horman <horms@kernel.org>
+Acked-by: Paolo Abeni <pabeni@redhat.com>
+Link: https://patch.msgid.link/aoIriv3pHDgII2YR@v4bel
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit e54ad693eddb40c595add013f545354c538e325b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/tcp_ao.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/net/ipv4/tcp_ao.c b/net/ipv4/tcp_ao.c
+index c6ffa714f01850d06875a7d3cfafb90bbffa05a8..0a70e8087a1fef3dbb6d2d0746ad6647265449fa 100644
+--- a/net/ipv4/tcp_ao.c
++++ b/net/ipv4/tcp_ao.c
+@@ -1120,6 +1120,15 @@ void tcp_ao_connect_init(struct sock *sk)
+ 	l3index = l3mdev_master_ifindex_by_index(sock_net(sk),
+ 						 sk->sk_bound_dev_if);
+ 
++	hlist_for_each_entry(key, &ao_info->head, node) {
++		if (tcp_ao_key_cmp(key, l3index, addr, key->prefixlen,
++				   family, -1, -1)) {
++			/* pairs with tcp_inbound_ao_hash() */
++			synchronize_rcu();
++			break;
++		}
++	}
++
+ 	hlist_for_each_entry_safe(key, next, &ao_info->head, node) {
+ 		if (!tcp_ao_key_cmp(key, l3index, addr, key->prefixlen, family, -1, -1))
+ 			continue;

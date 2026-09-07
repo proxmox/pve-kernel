@@ -18,7 +18,7 @@ Link: https://lore.kernel.org/20260309-tcp_rfc7323_retract_wnd_rfc-v3-2-4c7f96b1
  1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/net/mptcp/options.c b/net/mptcp/options.c
-index 845860311ea672c0d8af5d291175bc24ff7cbeca..0a53e03915ebd025a3ff859393decb60d857797d 100644
+index cbece69dc5f01bc95bf6418a6c59aa014289576a..150015a5e6d72accf426e12263a04991b2348df2 100644
 --- a/net/mptcp/options.c
 +++ b/net/mptcp/options.c
 @@ -1063,6 +1063,7 @@ static void rwin_update(struct mptcp_sock *msk, struct sock *ssk,

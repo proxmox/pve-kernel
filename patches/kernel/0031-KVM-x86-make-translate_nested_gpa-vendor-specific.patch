@@ -109,10 +109,10 @@ index 486df8043311c9e76e1c592bdc29294f00014a2f..dabb932bf012fd093f6d1899888a7b57
  	.check_events = svm_check_nested_events,
  	.triple_fault = nested_svm_triple_fault,
 diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
-index 937aeb474af7dc18630213fcb922bc5f0281d1a9..e4cb317807abda2f0daa613b75d32aa57bda7f59 100644
+index 9cc31bcba33eb8301105c2f1ddb0d634608fa0ab..db353b0df6e7df7424356b12b8c792e36e755fff 100644
 --- a/arch/x86/kvm/vmx/nested.c
 +++ b/arch/x86/kvm/vmx/nested.c
-@@ -7436,8 +7436,20 @@ __init int nested_vmx_hardware_setup(int (*exit_handlers[])(struct kvm_vcpu *))
+@@ -7437,8 +7437,20 @@ __init int nested_vmx_hardware_setup(int (*exit_handlers[])(struct kvm_vcpu *))
  	return 0;
  }
  

@@ -1,0 +1,200 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Stanislav Fomichev <sdf.kernel@gmail.com>
+Date: Mon, 27 Jul 2026 09:19:55 -0700
+Subject: [PATCH] xsk: pass TX metadata pointer by reference
+
+[ Upstream commit 19366db6dfccac9b0867a151678cd7b89fb8fd99 ]
+
+Completion handling needs to know whether a timestamp was requested when
+the metadata was processed. Let xsk_tx_metadata_request() update the
+caller's metadata pointer so that decision can be carried forward without
+rereading user-controlled flags.
+
+This only changes the interface; behavior remains unchanged.
+
+Fixes: ca4419f15abd ("xsk: Add launch time hardware offload support to XDP Tx metadata")
+Cc: Cen Zhang (Microsoft) <blbllhy@gmail.com>
+Signed-off-by: Stanislav Fomichev <sdf@fomichev.me>
+Link: https://patch.msgid.link/20260727161959.885642-3-sdf@fomichev.me
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 8948aab6c349bf5f3351de2d490c7d2300866aed)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ethernet/intel/igc/igc_main.c          |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c   | 14 +++++++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h   |  4 ++--
+ .../net/ethernet/mellanox/mlx5/core/en/xsk/tx.c    |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  2 +-
+ include/net/libeth/xsk.h                           |  2 +-
+ include/net/xdp_sock.h                             |  8 +++++---
+ 8 files changed, 21 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/igc/igc_main.c b/drivers/net/ethernet/intel/igc/igc_main.c
+index 7d59dfff1fa85b4302bde8503bb1218689823491..506a33f25cff133a0df9c3215f11ee7ec2bb4a28 100644
+--- a/drivers/net/ethernet/intel/igc/igc_main.c
++++ b/drivers/net/ethernet/intel/igc/igc_main.c
+@@ -3082,7 +3082,7 @@ static void igc_xdp_xmit_zc(struct igc_ring *ring)
+ 		meta_req.tx_buffer = bi;
+ 		meta_req.meta = meta;
+ 		meta_req.used_desc = 0;
+-		xsk_tx_metadata_request(meta, &igc_xsk_tx_metadata_ops,
++		xsk_tx_metadata_request(&meta, &igc_xsk_tx_metadata_ops,
+ 					&meta_req);
+ 
+ 		/* xsk_tx_metadata_request() may have updated next_to_use */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 2e3dae1e13e0ca6e4417a024ba07b20e6acdf21e..7aebaf9151b388790133d182f173eef88f7bf0ec 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -479,7 +479,7 @@ typedef int (*mlx5e_fp_xmit_xdp_frame_check)(struct mlx5e_xdpsq *);
+ typedef bool (*mlx5e_fp_xmit_xdp_frame)(struct mlx5e_xdpsq *,
+ 					struct mlx5e_xmit_data *,
+ 					int,
+-					struct xsk_tx_metadata *);
++					struct xsk_tx_metadata **);
+ 
+ struct mlx5e_xdpsq {
+ 	/* data path */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c b/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c
+index 7b335da1d0cd22f277c9167a149864213965a94a..685cbfeb58d0d0307e49731713c5f5c6e15c8a31 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c
+@@ -451,11 +451,11 @@ INDIRECT_CALLABLE_SCOPE int mlx5e_xmit_xdp_frame_check_mpwqe(struct mlx5e_xdpsq
+ 
+ INDIRECT_CALLABLE_SCOPE bool
+ mlx5e_xmit_xdp_frame(struct mlx5e_xdpsq *sq, struct mlx5e_xmit_data *xdptxd,
+-		     int check_result, struct xsk_tx_metadata *meta);
++		     int check_result, struct xsk_tx_metadata **meta);
+ 
+ INDIRECT_CALLABLE_SCOPE bool
+ mlx5e_xmit_xdp_frame_mpwqe(struct mlx5e_xdpsq *sq, struct mlx5e_xmit_data *xdptxd,
+-			   int check_result, struct xsk_tx_metadata *meta)
++			   int check_result, struct xsk_tx_metadata **meta)
+ {
+ 	struct mlx5e_tx_mpwqe *session = &sq->mpwqe;
+ 	struct mlx5e_xdpsq_stats *stats = sq->stats;
+@@ -503,7 +503,10 @@ mlx5e_xmit_xdp_frame_mpwqe(struct mlx5e_xdpsq *sq, struct mlx5e_xmit_data *xdptx
+ 		 * and it's safe to complete it at any time.
+ 		 */
+ 		mlx5e_xdp_mpwqe_session_start(sq);
+-		xsk_tx_metadata_request(meta, &mlx5e_xsk_tx_metadata_ops, &session->wqe->eth);
++		if (meta)
++			xsk_tx_metadata_request(meta,
++						&mlx5e_xsk_tx_metadata_ops,
++						&session->wqe->eth);
+ 	}
+ 
+ 	mlx5e_xdp_mpwqe_add_dseg(sq, p, stats);
+@@ -534,7 +537,7 @@ INDIRECT_CALLABLE_SCOPE int mlx5e_xmit_xdp_frame_check(struct mlx5e_xdpsq *sq)
+ 
+ INDIRECT_CALLABLE_SCOPE bool
+ mlx5e_xmit_xdp_frame(struct mlx5e_xdpsq *sq, struct mlx5e_xmit_data *xdptxd,
+-		     int check_result, struct xsk_tx_metadata *meta)
++		     int check_result, struct xsk_tx_metadata **meta)
+ {
+ 	struct mlx5e_xmit_data_frags *xdptxdf =
+ 		container_of(xdptxd, struct mlx5e_xmit_data_frags, xd);
+@@ -648,7 +651,8 @@ mlx5e_xmit_xdp_frame(struct mlx5e_xdpsq *sq, struct mlx5e_xmit_data *xdptxd,
+ 
+ 	sq->pc += num_wqebbs;
+ 
+-	xsk_tx_metadata_request(meta, &mlx5e_xsk_tx_metadata_ops, eseg);
++	if (meta)
++		xsk_tx_metadata_request(meta, &mlx5e_xsk_tx_metadata_ops, eseg);
+ 
+ 	sq->doorbell_cseg = cseg;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h b/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h
+index 46ab0a9e8cddbb1419c07297add0d7d7d7247fe5..1a9eb77981cc38846e9cd27cc9329c9f281a8dc3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h
+@@ -113,11 +113,11 @@ extern const struct xsk_tx_metadata_ops mlx5e_xsk_tx_metadata_ops;
+ INDIRECT_CALLABLE_DECLARE(bool mlx5e_xmit_xdp_frame_mpwqe(struct mlx5e_xdpsq *sq,
+ 							  struct mlx5e_xmit_data *xdptxd,
+ 							  int check_result,
+-							  struct xsk_tx_metadata *meta));
++							  struct xsk_tx_metadata **meta));
+ INDIRECT_CALLABLE_DECLARE(bool mlx5e_xmit_xdp_frame(struct mlx5e_xdpsq *sq,
+ 						    struct mlx5e_xmit_data *xdptxd,
+ 						    int check_result,
+-						    struct xsk_tx_metadata *meta));
++						    struct xsk_tx_metadata **meta));
+ INDIRECT_CALLABLE_DECLARE(int mlx5e_xmit_xdp_frame_check_mpwqe(struct mlx5e_xdpsq *sq));
+ INDIRECT_CALLABLE_DECLARE(int mlx5e_xmit_xdp_frame_check(struct mlx5e_xdpsq *sq));
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c
+index 8aeab4b21035cd18cfc05ac0dc98a74165c8a4ef..3d19dad8f86889cbb8667bc25ba4fb90a01648d4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c
+@@ -105,7 +105,7 @@ bool mlx5e_xsk_tx(struct mlx5e_xdpsq *sq, unsigned int budget)
+ 
+ 		ret = INDIRECT_CALL_2(sq->xmit_xdp_frame, mlx5e_xmit_xdp_frame_mpwqe,
+ 				      mlx5e_xmit_xdp_frame, sq, &xdptxd,
+-				      check_result, meta);
++				      check_result, &meta);
+ 		if (unlikely(!ret)) {
+ 			if (sq->mpwqe.wqe)
+ 				mlx5e_xdp_mpwqe_complete(sq);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 715c28269b8a8d8d4eb490aeaafc6c0b942e52ce..db9fc0e872621331789f618b61486e6aa3c12427 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2709,7 +2709,7 @@ static bool stmmac_xdp_xmit_zc(struct stmmac_priv *priv, u32 queue, u32 budget)
+ 		meta_req.set_ic = &set_ic;
+ 		meta_req.tbs = tx_q->tbs;
+ 		meta_req.edesc = &tx_q->dma_entx[entry];
+-		xsk_tx_metadata_request(meta, &stmmac_xsk_tx_metadata_ops,
++		xsk_tx_metadata_request(&meta, &stmmac_xsk_tx_metadata_ops,
+ 					&meta_req);
+ 		if (set_ic) {
+ 			tx_q->tx_count_frames = 0;
+diff --git a/include/net/libeth/xsk.h b/include/net/libeth/xsk.h
+index 82b5d21aae878486def8d48abcfdf11ea42ef23a..e2fa6bf6b1b31e50774968272ea00e29203db339 100644
+--- a/include/net/libeth/xsk.h
++++ b/include/net/libeth/xsk.h
+@@ -205,7 +205,7 @@ __libeth_xsk_xmit_fill_buf_md(const struct xdp_desc *xdesc,
+ 	BUILD_BUG_ON(!__builtin_constant_p(tmo == libeth_xsktmo));
+ 	tmo = tmo == libeth_xsktmo ? &__libeth_xsktmo : tmo;
+ 
+-	xsk_tx_metadata_request(ctx.meta, tmo, &desc);
++	xsk_tx_metadata_request(&ctx.meta, tmo, &desc);
+ 
+ 	return desc;
+ }
+diff --git a/include/net/xdp_sock.h b/include/net/xdp_sock.h
+index ebac60a3d8a17b418f2bc17dbdf8820c827198bc..fbed1b3e3c47ea8508a5d7f315df440a27777a7b 100644
+--- a/include/net/xdp_sock.h
++++ b/include/net/xdp_sock.h
+@@ -152,17 +152,19 @@ static inline void xsk_tx_metadata_to_compl(struct xsk_tx_metadata *meta,
+ /**
+  *  xsk_tx_metadata_request - Evaluate AF_XDP TX metadata at submission
+  *  and call appropriate xsk_tx_metadata_ops operation.
+- *  @meta: pointer to AF_XDP metadata area
++ *  @pmeta: pointer to pointer to AF_XDP metadata area
+  *  @ops: pointer to struct xsk_tx_metadata_ops
+  *  @priv: pointer to driver-private aread
+  *
+  *  This function should be called by the networking device when
+  *  it prepares AF_XDP egress packet.
+  */
+-static inline void xsk_tx_metadata_request(const struct xsk_tx_metadata *meta,
++static inline void xsk_tx_metadata_request(struct xsk_tx_metadata **pmeta,
+ 					   const struct xsk_tx_metadata_ops *ops,
+ 					   void *priv)
+ {
++	const struct xsk_tx_metadata *meta = *pmeta;
++
+ 	if (!meta)
+ 		return;
+ 
+@@ -230,7 +232,7 @@ static inline void xsk_tx_metadata_to_compl(struct xsk_tx_metadata *meta,
+ {
+ }
+ 
+-static inline void xsk_tx_metadata_request(struct xsk_tx_metadata *meta,
++static inline void xsk_tx_metadata_request(struct xsk_tx_metadata **pmeta,
+ 					   const struct xsk_tx_metadata_ops *ops,
+ 					   void *priv)
+ {

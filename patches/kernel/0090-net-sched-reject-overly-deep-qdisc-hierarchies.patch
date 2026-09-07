@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zijie Huang <milkory@outlook.com>
+Date: Sat, 1 Aug 2026 21:42:33 +0800
+Subject: [PATCH] net/sched: reject overly deep qdisc hierarchies
+
+commit dedd34b0f2310e28c5f6d4875cfbf4b7ed821c01 upstream.
+
+Deep qdisc hierarchies can lead to excessive recursion in qdisc tree
+walkers and exhaust the kernel stack. The existing loop check does not
+cover the create-and-graft path, so a hierarchy can still be extended by
+creating a new child qdisc below an already deep parent.
+
+Store the hierarchy depth in struct Qdisc and update it when qdiscs are
+grafted. Reject new child qdiscs once the parent is already at the maximum
+allowed depth.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Reported-by: Vega <vega@nebusec.ai>
+Assisted-by: Codex:gpt-5.4
+Signed-off-by: Zijie Huang <milkory@outlook.com>
+Signed-off-by: Ren Wei <enjou1224z@gmail.com>
+Reviewed-by: Victor Nogueira <victor@mojatatu.com>
+Link: https://patch.msgid.link/1e9ab39597423fd5d13cfaaf52279b8ee3d9fc3c.1785434373.git.milkory@outlook.com
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit e2d658c6427844cee5bc654b436ca68d680b6148)
+CVE-2026-74663
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/sch_generic.h | 1 +
+ net/sched/sch_api.c       | 9 +++++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 173afc4618b459867971a1c1e5903886dd0bfbb1..8e9d7943261ab52aa9d61e9e43f939e2542e6e51 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -96,6 +96,7 @@ struct Qdisc {
+ 	struct hlist_node       hash;
+ 	u32			handle;
+ 	u32			parent;
++	int			depth;
+ 
+ 	struct netdev_queue	*dev_queue;
+ 
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 4fe74c83ef16848233e2bdc7fd58806945d3a8de..0ddb3d3022ac48a73125987911abd5279e176486 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1110,6 +1110,9 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 		unsigned int i, num_q, ingress;
+ 		struct netdev_queue *dev_queue;
+ 
++		if (new)
++			new->depth = 0;
++
+ 		ingress = 0;
+ 		num_q = dev->num_tx_queues;
+ 		if ((q && q->flags & TCQ_F_INGRESS) ||
+@@ -1207,9 +1210,15 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 			NL_SET_ERR_MSG(extack, "STAB not supported on a non root");
+ 			return -EINVAL;
+ 		}
++		if (new && parent->depth >= 7) {
++			NL_SET_ERR_MSG(extack, "Qdisc hierarchy is too deep");
++			return -E2BIG;
++		}
+ 		err = cops->graft(parent, cl, new, &old, extack);
+ 		if (err)
+ 			return err;
++		if (new)
++			new->depth = parent->depth + 1;
+ 		notify_and_destroy(net, skb, n, classid, old, new, extack);
+ 	}
+ 	return 0;

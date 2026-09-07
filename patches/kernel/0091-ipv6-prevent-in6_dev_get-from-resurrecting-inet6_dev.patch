@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Mon, 3 Aug 2026 12:27:57 +0000
+Subject: [PATCH] ipv6: prevent in6_dev_get() from resurrecting inet6_dev
+
+commit 0e243671bc7b8eaf00f83dd2f4367436dc0cff98 upstream.
+
+in6_dev_get() reads dev->ip6_ptr under RCU and then unconditionally
+increments its refcount. Device teardown can clear the pointer and drop
+the last reference between these operations. The increment then
+resurrects an object whose RCU free has already been queued, so callers
+can use it after it is freed.
+
+Use refcount_inc_not_zero() and return NULL when the object has already
+reached zero. RCU keeps the memory accessible through the attempted
+reference acquisition, and a successful increment pins the object for
+the caller.
+
+An independent run on the exact unpatched 6f5156d7a31a (v7.2-rc3)
+kernel reproduced the invalid reference acquisition as UID 1000:
+
+  refcount_t: addition on 0; use-after-free.
+  ip6_mc_source+0xef4/0x17e0
+
+It was followed by the corresponding reference underflow in
+ip6_mc_source(). The supplied trace from the same unpatched revision
+additionally shows the access after the RCU read-side section ends:
+
+  BUG: KASAN: slab-use-after-free in mutex_lock+0x76/0xe0
+  Write of size 8 at addr ffff888015b50240 by task poc/1219
+
+Bug found and triaged by OpenAI Security Research and
+validated by Trail of Bits.
+
+Fixes: 8814c4b53381 ("[IPV6] ADDRCONF: Convert addrconf_lock to RCU.")
+Cc: stable@vger.kernel.org
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Co-developed-by: David Lee <david.lee@trailofbits.com>
+Signed-off-by: David Lee <david.lee@trailofbits.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20260803122758.666112-1-david.lee@trailofbits.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 14e812ab41df0cac033479da835ec9a5de633404)
+CVE-2026-74630
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/addrconf.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 8ced27a8229b6e0580f934be2223676cc123307b..e6764245995f25855fdbd2725d461fb2473b3dc8 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -405,8 +405,8 @@ static inline struct inet6_dev *in6_dev_get(const struct net_device *dev)
+ 
+ 	rcu_read_lock();
+ 	idev = rcu_dereference(dev->ip6_ptr);
+-	if (idev)
+-		refcount_inc(&idev->refcnt);
++	if (idev && !refcount_inc_not_zero(&idev->refcnt))
++		idev = NULL;
+ 	rcu_read_unlock();
+ 	return idev;
+ }

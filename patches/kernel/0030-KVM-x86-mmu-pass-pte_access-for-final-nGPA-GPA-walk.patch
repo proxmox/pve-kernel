@@ -75,7 +75,7 @@ index 23f37535c0ce1d1e8e855ef3f94cae97cbb9c33c..635c2e5d8513dc0327f2d221007d21cf
  
  static inline bool kvm_has_mirrored_tdp(const struct kvm *kvm)
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 6764d0ce668990d7a01496f99cd742382f1d933a..2270e045d772e24102ce871a3f93704fb30896dc 100644
+index 76af1be1207d5d6deae997f7a0551ea4bd00e95d..52c4954575dd101e494cb061fe8a0edb4a7cc34e 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -4334,8 +4334,14 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
@@ -95,7 +95,7 @@ index 6764d0ce668990d7a01496f99cd742382f1d933a..2270e045d772e24102ce871a3f93704f
  
  static bool mmio_info_in_cache(struct kvm_vcpu *vcpu, u64 addr, bool direct)
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 567f8b77ffe05752d2e7bbac39a9d2b342d36b05..8dd9d510fc34d6eaa972b6641bc108afa3f154b7 100644
+index 1ab9ed3100453c6c9133d256073d873b424e9acf..5bb1ca2278f4dd3c8f43c0e3f11b23af94740665 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -377,7 +377,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,

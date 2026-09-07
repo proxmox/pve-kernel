@@ -41,7 +41,7 @@ index 8b4a55cc0918ebd093aeaf435de7cfe18e382e18..e20f729f6eb2ee5a36edeb3decd6a2bb
  };
  
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index f9c5c230f079744fd7e2ff56f9a901a7e630968b..c1fc923f49e5499f3f21a550a5ee7b11dd240ca1 100644
+index 0e78af2d6e6cabfa05eac7588777d93d1d310299..5cf32f8de42c6e92d62a2d3f96bb6782b5e8de7e 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -236,6 +236,11 @@ BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
@@ -56,7 +56,7 @@ index f9c5c230f079744fd7e2ff56f9a901a7e630968b..c1fc923f49e5499f3f21a550a5ee7b11
  static inline bool is_cr0_pg(struct kvm_mmu *mmu)
  {
          return mmu->cpu_role.base.level > 0;
-@@ -5779,6 +5784,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5780,6 +5785,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  	role.ext.cr4_pke = ____is_efer_lma(regs) && ____is_cr4_pke(regs);
  	role.ext.cr4_la57 = ____is_efer_lma(regs) && ____is_cr4_la57(regs);
  	role.ext.efer_lma = ____is_efer_lma(regs);
@@ -65,7 +65,7 @@ index f9c5c230f079744fd7e2ff56f9a901a7e630968b..c1fc923f49e5499f3f21a550a5ee7b11
  	return role;
  }
  
-@@ -5932,6 +5939,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
+@@ -5933,6 +5940,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
  
  	/* NPT requires CR0.PG=1. */
  	WARN_ON_ONCE(cpu_role.base.direct || !cpu_role.base.guest_mode);
@@ -74,7 +74,7 @@ index f9c5c230f079744fd7e2ff56f9a901a7e630968b..c1fc923f49e5499f3f21a550a5ee7b11
  	root_role = cpu_role.base;
  	root_role.level = kvm_mmu_get_tdp_level(vcpu);
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 047400af924d2e8f1263dfc77df0681afce500ea..07100bbfc270178dcc48aa0db7a63b4f563c550e 100644
+index 14b00ee4e4516eec02a94f1e607ba2c1b1c936b2..4ad66037c10d9d6375eff9db39611a5a8406b3de 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -489,7 +489,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,

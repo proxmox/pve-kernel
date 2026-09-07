@@ -139,10 +139,10 @@ index a46ccd6707859f69db4166e72d636939fdb0a5f7..c0dd506bed649844d6d831d4ceb1a1bf
  	.get_exit_info = vt_op(get_exit_info),
  	.get_entry_info = vt_op(get_entry_info),
 diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
-index e4cb317807abda2f0daa613b75d32aa57bda7f59..cdc35a2728d945bf2202093a07e1af217c095707 100644
+index db353b0df6e7df7424356b12b8c792e36e755fff..e0c9c955b8a05583fa67f1c2570bc63d1269aaec 100644
 --- a/arch/x86/kvm/vmx/nested.c
 +++ b/arch/x86/kvm/vmx/nested.c
-@@ -2440,6 +2440,7 @@ static void prepare_vmcs02_early(struct vcpu_vmx *vmx, struct loaded_vmcs *vmcs0
+@@ -2476,6 +2476,7 @@ static void prepare_vmcs02_early(struct vcpu_vmx *vmx, struct loaded_vmcs *vmcs0
  				  SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY |
  				  SECONDARY_EXEC_APIC_REGISTER_VIRT |
  				  SECONDARY_EXEC_ENABLE_VMFUNC |
