@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Thu, 6 Aug 2026 13:56:55 -0700
+Subject: [PATCH] perf: Reject exited events as group leaders
+
+[ Upstream commit fa091f46c3833fb22384f10eade2b4e1e1d0b278 ]
+
+perf_event_remove_on_exec() sets remove-on-exec events to the EXIT state
+and detaches their group relationships.  The event's file descriptor can
+remain open, however, and perf_event_open() currently accepts that event
+as a group leader because its early validation rejects only REVOKED and
+DEAD events.
+
+A new sibling can consequently be linked to the detached leader.  When
+the leader is closed, perf_group_detach() observes that its
+PERF_ATTACH_GROUP bit is already clear and skips the new sibling.  The
+sibling then retains a group_leader pointer to the freed event.
+
+Reject group leaders in the EXIT state.  Perform the check while holding
+the shared context mutex so that an exec in the target task cannot detach
+the leader between validation and group attachment.
+
+[peterz: make the earlier test fully consistent]
+Fixes: 037a3c43edfb ("perf/core: Detach event groups during remove_on_exec")
+Assisted-by: Codex:gpt-5.6-sol
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Link: https://patch.msgid.link/20260806205655.75722-1-kylebot@openai.com
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 7ce010275c531475f9d6e7efb11b9e522c74ed2e)
+CVE-2026-74753
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ kernel/events/core.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index f55fdb280309ecd5fff80f7484f8adde012525d5..ce014bdd9fbc5686194d9ba4862b833fbfc2edd6 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -13904,7 +13904,7 @@ SYSCALL_DEFINE5(perf_event_open,
+ 			goto err_fd;
+ 		}
+ 		group_leader = fd_file(group)->private_data;
+-		if (group_leader->state <= PERF_EVENT_STATE_REVOKED) {
++		if (group_leader->state <= PERF_EVENT_STATE_EXIT) {
+ 			err = -ENODEV;
+ 			goto err_fd;
+ 		}
+@@ -14035,6 +14035,12 @@ SYSCALL_DEFINE5(perf_event_open,
+ 		if (group_leader->ctx != ctx)
+ 			goto err_locked;
+ 
++		/* Recheck under ctx::mutex to serialize against remove-on-exec. */
++		if (group_leader->state <= PERF_EVENT_STATE_EXIT) {
++			err = -ENODEV;
++			goto err_locked;
++		}
++
+ 		/*
+ 		 * Only a group leader can be exclusive or pinned
+ 		 */

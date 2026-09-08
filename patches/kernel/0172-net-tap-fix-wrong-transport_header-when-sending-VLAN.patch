@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Wei Fang <wei.fang@nxp.com>
+Date: Fri, 7 Aug 2026 14:34:05 +0800
+Subject: [PATCH] net: tap: fix wrong transport_header when sending VLAN-tagged
+ frame
+
+[ Upstream commit cbb35cbe8db268fefe34c23df15348cf99025298 ]
+
+In tap_get_user_xdp(), when processing a VLAN-tagged frame (e.g.
+ETH_P_8021Q), skb_set_network_header() is called first to advance
+network_header past the VLAN tag to the inner protocol header.
+skb_probe_transport_header() is then called with skb->protocol still
+set to ETH_P_8021Q, while nhoff (derived from skb_network_offset())
+already points past the VLAN tag to the inner protocol header.
+
+In __skb_flow_dissect(), proto is initialized to ETH_P_8021Q and nhoff
+points past the VLAN tag. When the dissector hits case ETH_P_8021Q, it
+reads a struct vlan_hdr at the current nhoff via __skb_header_pointer(),
+but that offset contains the inner protocol header (e.g. an IP header).
+The bytes are misinterpreted as a VLAN header, yielding a garbage
+encapsulated EtherType that matches no known protocol. The dissector
+returns false, so skb_probe_transport_header() never calls
+skb_set_transport_header(), leaving transport_header at its uninitialized
+sentinel value (~0U).
+
+Move skb_set_network_header() to after skb_probe_transport_header(). At
+the time skb_probe_transport_header() is called, network_header still
+points to the VLAN header (offset ETH_HLEN), so nhoff is correct and the
+flow dissector can parse the VLAN header, extract the inner EtherType,
+and advance nhoff to the inner protocol header, allowing transport_header
+to be set correctly.
+
+Fixes: 8c76e77f9069 ("tap: call skb_probe_transport_header after setting skb->dev")
+Assisted-by: WChat:claude-opus-4-8
+Signed-off-by: Wei Fang <wei.fang@nxp.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Link: https://patch.msgid.link/20260807063405.688780-3-wei.fang@oss.nxp.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 88b79ac89ecc04d7f2613f7e1c0b46f0c4ddb2f3)
+CVE-2026-80905
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/net/tap.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/tap.c b/drivers/net/tap.c
+index 5d2d34d24ce818477d281c26ba4aa2be9a19b80f..9b5af08cdd479ed314d7e61e80e9831a16548a2e 100644
+--- a/drivers/net/tap.c
++++ b/drivers/net/tap.c
+@@ -1091,12 +1091,13 @@ static int tap_get_user_xdp(struct tap_queue *q, struct xdp_buff *xdp)
+ 		}
+ 	}
+ 
++	skb_probe_transport_header(skb);
++
+ 	/* Move network header to the right position for VLAN tagged packets */
+ 	if (eth_type_vlan(skb->protocol) &&
+ 	    vlan_get_protocol_and_depth(skb, skb->protocol, &depth) != 0)
+ 		skb_set_network_header(skb, depth);
+ 
+-	skb_probe_transport_header(skb);
+ 	dev_queue_xmit(skb);
+ 	rcu_read_unlock();
+ 

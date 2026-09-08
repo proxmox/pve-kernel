@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yong Wang <edragain@163.com>
+Date: Fri, 14 Aug 2026 01:35:26 +0800
+Subject: [PATCH] ipv4: reject undersized MTUs in ip_do_fragment()
+
+commit c0726f0caf8c6b3208552949e17d23634a2f3129 upstream.
+
+ip_do_fragment() subtracts the IPv4 header length from the effective
+MTU and passes the resulting payload MTU to ip_frag_next().
+
+If the effective MTU is smaller than hlen + 8, ip_frag_next() rounds
+the fragment payload length down to zero. The fragmentation state then
+never makes forward progress: state->left, state->ptr and state->offset
+stay unchanged while ip_do_fragment() keeps allocating and transmitting
+header-only fragments until the softlockup detector fires.
+
+This is reproducible with a route installed using "mtu lock 20", but it
+is also reproducible without route MTU lock, for example by forwarding a
+packet to a device whose MTU is 20.
+
+Fix it in ip_do_fragment() by rejecting mtu < hlen + 8 with -EMSGSIZE,
+matching the existing IPv6 fragmentation check.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Signed-off-by: Yong Wang <edragain@163.com>
+Signed-off-by: Ren Wei <weir@nebusec.ai>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/8809ef6314b98913681b0b370a05a85c2b6cd579.1786599079.git.edragain@163.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 3556beb8ca86677af2aca5bfbed6f8e790fccc83)
+CVE-2026-80793
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ipv4/ip_output.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index ec790bad1679a60b170e5db5f6a8ece4cd0320ea..dcffa5d92884bf0131c71ef37637bd840336b6e9 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -791,6 +791,10 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 	 */
+ 
+ 	hlen = iph->ihl * 4;
++	if (mtu < hlen + 8) {
++		err = -EMSGSIZE;
++		goto fail;
++	}
+ 	mtu = mtu - hlen;	/* Size of data space */
+ 	IPCB(skb)->flags |= IPSKB_FRAG_COMPLETE;
+ 	ll_rs = LL_RESERVED_SPACE(rt->dst.dev);

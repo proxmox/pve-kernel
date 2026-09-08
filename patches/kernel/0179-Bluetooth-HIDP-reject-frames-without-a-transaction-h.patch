@@ -1,0 +1,108 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sangho Lee <kudo3228@gmail.com>
+Date: Thu, 23 Jul 2026 12:28:06 +0900
+Subject: [PATCH] Bluetooth: HIDP: reject frames without a transaction header
+
+commit 47778d2c2087b5d192398f6fddf692d16a5431cf upstream.
+
+hidp_recv_ctrl_frame() and hidp_recv_intr_frame() read skb->data[0]
+before checking that the L2CAP SDU contains a transaction header. A
+connected HIDP peer can send an empty basic-mode SDU and make both paths
+use an uninitialized byte from skb tailroom.
+
+KMSAN reports the use in hidp_session_run(), with the uninitialized value
+originating in __alloc_skb() through vhci_write(). The control path
+produces two reports and the interrupt path produces one.
+
+The byte can also be controlled by a malformed lower-layer packet. If an
+HCI ACL packet contains an L2CAP PDU with a declared zero-length payload
+followed by an extra 0x15 byte, l2cap_recv_acldata() reduces skb->len to
+the declared PDU length before dispatch. The current HIDP path nevertheless
+consumes the extra byte as HIDP_TRANS_HID_CONTROL |
+HIDP_CTRL_VIRTUAL_CABLE_UNPLUG and terminates the HIDP session. With this
+change, the same packet is discarded and a subsequent feature report
+request succeeds.
+
+Pull the transaction header with skb_pull_data() and discard frames that
+do not contain it.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Signed-off-by: Sangho Lee <kudo3228@gmail.com>
+Signed-off-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 854194494a6f726a60b90b76059148bf08df023d)
+CVE-2026-74508
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/bluetooth/hidp/core.c | 25 +++++++++++++++----------
+ 1 file changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 6d4745d357c1b5b632dd66b8af535d3baf9c6d4a..82f84f8d3233b69e98fae7f1b278d2a2cd0ce6eb 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -564,16 +564,18 @@ static int hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
+ static void hidp_recv_ctrl_frame(struct hidp_session *session,
+ 					struct sk_buff *skb)
+ {
+-	unsigned char hdr, type, param;
++	unsigned char type, param;
++	u8 *hdr;
+ 	int free_skb = 1;
+ 
+ 	BT_DBG("session %p skb %p len %u", session, skb, skb->len);
+ 
+-	hdr = skb->data[0];
+-	skb_pull(skb, 1);
++	hdr = skb_pull_data(skb, 1);
++	if (!hdr)
++		goto free;
+ 
+-	type = hdr & HIDP_HEADER_TRANS_MASK;
+-	param = hdr & HIDP_HEADER_PARAM_MASK;
++	type = *hdr & HIDP_HEADER_TRANS_MASK;
++	param = *hdr & HIDP_HEADER_PARAM_MASK;
+ 
+ 	switch (type) {
+ 	case HIDP_TRANS_HANDSHAKE:
+@@ -594,6 +596,7 @@ static void hidp_recv_ctrl_frame(struct hidp_session *session,
+ 		break;
+ 	}
+ 
++free:
+ 	if (free_skb)
+ 		kfree_skb(skb);
+ }
+@@ -601,14 +604,15 @@ static void hidp_recv_ctrl_frame(struct hidp_session *session,
+ static void hidp_recv_intr_frame(struct hidp_session *session,
+ 				struct sk_buff *skb)
+ {
+-	unsigned char hdr;
++	u8 *hdr;
+ 
+ 	BT_DBG("session %p skb %p len %u", session, skb, skb->len);
+ 
+-	hdr = skb->data[0];
+-	skb_pull(skb, 1);
++	hdr = skb_pull_data(skb, 1);
++	if (!hdr)
++		goto free;
+ 
+-	if (hdr == (HIDP_TRANS_DATA | HIDP_DATA_RTYPE_INPUT)) {
++	if (*hdr == (HIDP_TRANS_DATA | HIDP_DATA_RTYPE_INPUT)) {
+ 		hidp_set_timer(session);
+ 
+ 		if (session->input)
+@@ -620,9 +624,10 @@ static void hidp_recv_intr_frame(struct hidp_session *session,
+ 			BT_DBG("report len %d", skb->len);
+ 		}
+ 	} else {
+-		BT_DBG("Unsupported protocol header 0x%02x", hdr);
++		BT_DBG("Unsupported protocol header 0x%02x", *hdr);
+ 	}
+ 
++free:
+ 	kfree_skb(skb);
+ }
+ 

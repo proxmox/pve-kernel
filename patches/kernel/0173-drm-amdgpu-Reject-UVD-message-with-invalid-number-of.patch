@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Rosca <david.rosca@amd.com>
+Date: Tue, 11 Aug 2026 11:03:10 +0200
+Subject: [PATCH] drm/amdgpu: Reject UVD message with invalid number of h265
+ refs
+
+commit 9fca434208f1f9ab977feac62df8ebb1cc7ce893 upstream.
+
+Same change as for h264, avoids overflow later when calculating
+min dpb size.
+
+Signed-off-by: David Rosca <david.rosca@amd.com>
+Reviewed-by: Leo Liu <leo.liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit a4b0720e4f1601f97f59a2be9c1b4b94fa6527d5)
+Cc: stable@vger.kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 0acdf1a575f59bd46717d5c487d84575af5bee8f)
+CVE-2026-80909
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+index 47a256e1acf6daa3921649854e5fc033e1dd6bd8..44d52dd2a9b7aae478b7987e103b499fb5b816b7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+@@ -803,6 +803,9 @@ static int amdgpu_uvd_cs_msg_decode(struct amdgpu_device *adev, uint32_t *msg,
+ 		image_size = ALIGN(image_size, 256);
+ 
+ 		num_dpb_buffer = (le32_to_cpu(msg[59]) & 0xff) + 2;
++		if (num_dpb_buffer > 17)
++			return -EINVAL;
++
+ 		min_dpb_size = image_size * num_dpb_buffer;
+ 		min_ctx_size = ((width + 255) / 16) * ((height + 255) / 16)
+ 					   * 16 * num_dpb_buffer + 52 * 1024;

@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Rosca <david.rosca@amd.com>
+Date: Thu, 30 Jul 2026 18:05:52 +0200
+Subject: [PATCH] drm/amdgpu: Fix UVD min buffer sizes
+
+commit 18727670b44753865b81c56a9338c0d7bd102c54 upstream.
+
+Use correct size for message buffer = sizeof(struct ruvd_msg).
+Add ITSCALING_TABLE_BUFFER size.
+
+Signed-off-by: David Rosca <david.rosca@amd.com>
+Acked-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Ruijing Dong <ruijing.dong@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit 37519d007e4261febbcf35b3045f8344f3145497)
+Cc: stable@vger.kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 4530aa81c907dc8681d1f14b6a9ed8612ef23efd)
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+index 44d52dd2a9b7aae478b7987e103b499fb5b816b7..b049082fa172c79beda949bac4c9c6c090a4cfe6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+@@ -975,15 +975,16 @@ static int amdgpu_uvd_cs_pass2(struct amdgpu_uvd_cs_ctx *ctx)
+ 				  ctx->buf_sizes[cmd]);
+ 			return -EINVAL;
+ 		}
++	} else if (cmd == 0x204 || cmd == 0x206) {
++		unsigned int min_size = ctx->buf_sizes[cmd == 0x204 ? 5 : 4];
+ 
+-	} else if (cmd == 0x206) {
+-		if ((end - start) < ctx->buf_sizes[4]) {
++		if ((end - start) < min_size) {
+ 			DRM_ERROR("buffer (%d) to small (%d / %d)!\n", cmd,
+ 					  (unsigned int)(end - start),
+-					  ctx->buf_sizes[4]);
++					  min_size);
+ 			return -EINVAL;
+ 		}
+-	} else if ((cmd != 0x100) && (cmd != 0x204)) {
++	} else if ((cmd != 0x100)) {
+ 		DRM_ERROR("invalid UVD command %X!\n", cmd);
+ 		return -EINVAL;
+ 	}
+@@ -1113,11 +1114,12 @@ int amdgpu_uvd_ring_parse_cs(struct amdgpu_cs_parser *parser,
+ {
+ 	struct amdgpu_uvd_cs_ctx ctx = {};
+ 	unsigned int buf_sizes[] = {
+-		[0x00000000]	=	2048,
++		[0x00000000]	=	3556,
+ 		[0x00000001]	=	0xFFFFFFFF,
+ 		[0x00000002]	=	0xFFFFFFFF,
+ 		[0x00000003]	=	2048,
+ 		[0x00000004]	=	0xFFFFFFFF,
++		[0x00000005]	=	992,
+ 	};
+ 	int r;
+ 

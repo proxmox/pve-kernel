@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jiale Yao <yaojiale02@163.com>
+Date: Sun, 26 Jul 2026 00:27:51 +0800
+Subject: [PATCH] USB: serial: option: fix slab OOB read in interrupt URB
+ callback
+
+commit 885d802f544ca7bfa8f3984d94233cce715bb6b3 upstream.
+
+The interrupt URB buffer is allocated in setup_port_interrupt_in() based
+on the endpoint's wMaxPacketSize:
+
+    buffer_size = usb_endpoint_maxp(epd);
+    port->interrupt_in_buffer = kmalloc(buffer_size, GFP_KERNEL);
+
+When a USB device declares wMaxPacketSize = 8 on its interrupt IN
+endpoint, the buffer is allocated from kmalloc-8 cache (exactly
+8 bytes).
+
+If the device sends a short packet (actual_length < wMaxPacketSize),
+the URB completes with status == 0 and the callback proceeds to read:
+
+    data[sizeof(struct usb_ctrlrequest)]
+
+which evaluates to data[8], accessing 1 byte beyond the allocated 8-byte
+buffer. This results in a slab out-of-bounds read.
+
+Fix this by adding the missing bounds check: first verify that the
+actual length is large enough to contain the struct usb_ctrlrequest
+header before accessing req_pkt->bRequestType and req_pkt->bRequest,
+and then verify that there is an additional byte for the modem signal
+state before reading data[sizeof(struct usb_ctrlrequest)] inside the
+conditional.  Use sizeof(*req_pkt) instead of sizeof(struct
+usb_ctrlrequest) for consistency.
+
+Assisted-by: Claude:deepseek-v4-pro
+Signed-off-by: Jiale Yao <yaojiale02@163.com>
+Fixes: 58cfe9113e48 ("[PATCH] USB: add Option Card driver")
+Cc: stable@vger.kernel.org	# v2.6.12
+[ johan: use dev_err(); split signals declaration and initialisation ]
+Signed-off-by: Johan Hovold <johan@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit a72a13c83a652516a0e469d275b81d29a7429049)
+CVE-2026-80827
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/usb/serial/option.c | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
+index 7470a04090f99a493854ee9f8a2fb2464b6e73e3..71d9d3fca30ae5c9ceb3f8bf1b8d6f4e868fc3b5 100644
+--- a/drivers/usb/serial/option.c
++++ b/drivers/usb/serial/option.c
+@@ -2690,12 +2690,26 @@ static void option_instat_callback(struct urb *urb)
+ 			dev_dbg(dev, "%s: NULL req_pkt\n", __func__);
+ 			return;
+ 		}
++
++		if (urb->actual_length < sizeof(*req_pkt)) {
++			dev_err(dev, "%s: short packet: %u bytes\n", __func__,
++				urb->actual_length);
++			return;
++		}
++
+ 		if ((req_pkt->bRequestType == 0xA1) &&
+ 				(req_pkt->bRequest == 0x20)) {
++			unsigned char signals;
+ 			int old_dcd_state;
+-			unsigned char signals = *((unsigned char *)
+-					urb->transfer_buffer +
+-					sizeof(struct usb_ctrlrequest));
++
++			if (urb->actual_length < sizeof(*req_pkt) + 1) {
++				dev_err(dev, "%s: short interrupt transfer: %u bytes\n",
++					__func__, urb->actual_length);
++				return;
++			}
++
++			signals = *((unsigned char *)urb->transfer_buffer +
++					sizeof(*req_pkt));
+ 
+ 			dev_dbg(dev, "%s: signal x%x\n", __func__, signals);
+ 

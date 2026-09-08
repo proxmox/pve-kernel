@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Wei Fang <wei.fang@nxp.com>
+Date: Fri, 7 Aug 2026 14:34:04 +0800
+Subject: [PATCH] net: packet: fix wrong transport_header when sending
+ VLAN-tagged frame
+
+[ Upstream commit 01fdecc0480d916c799dbee584833a4a37e94d06 ]
+
+In packet_parse_headers(), when processing a VLAN-tagged frame,
+skb_set_network_header() is called to advance network_header past the
+VLAN tag to the inner protocol header. skb_probe_transport_header() is
+then called with skb->protocol still set to the outer VLAN EtherType
+(e.g. ETH_P_8021Q), while nhoff (derived from skb_network_offset())
+already points past the VLAN tag to the inner protocol header.
+
+In __skb_flow_dissect(), proto is initialized to ETH_P_8021Q and nhoff
+points past the VLAN tag. When the dissector hits case ETH_P_8021Q, it
+reads a struct vlan_hdr at nhoff via __skb_header_pointer(), but that
+offset contains the inner protocol header (e.g. an IP header). The bytes
+are misinterpreted as a VLAN header, yielding a garbage encapsulated
+EtherType that matches no known protocol. The dissector returns false,
+so skb_probe_transport_header() never calls skb_set_transport_header(),
+leaving transport_header at its uninitialized sentinel value (~0U).
+
+Move skb_probe_transport_header() to before skb_set_network_header(). At
+the time skb_probe_transport_header() is called, network_header still
+points to the VLAN header, so nhoff correctly points to the VLAN header.
+The flow dissector can then parse the VLAN header, extract the inner
+EtherType, and advance nhoff to the inner protocol header, allowing
+transport_header to be set correctly.
+
+Fixes: dfed913e8b55 ("net/af_packet: add VLAN support for AF_PACKET SOCK_RAW GSO")
+Assisted-by: WChat:claude-opus-4-8
+Signed-off-by: Wei Fang <wei.fang@nxp.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Link: https://patch.msgid.link/20260807063405.688780-2-wei.fang@oss.nxp.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 6386a6ffa2efba2965ed8e4fa303582c0b76a215)
+CVE-2026-80906
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/packet/af_packet.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index c8fa4e67322ce57df5df417b0db515537a9134af..e080ed9b8d51fe10fe824e5734a5989d99c76c9f 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1945,13 +1945,13 @@ static void packet_parse_headers(struct sk_buff *skb, struct socket *sock)
+ 	    sock->type == SOCK_RAW)
+ 		skb->protocol = dev_parse_header_protocol(skb);
+ 
++	skb_probe_transport_header(skb);
++
+ 	/* Move network header to the right position for VLAN tagged packets */
+ 	if (likely(skb->dev->type == ARPHRD_ETHER) &&
+ 	    eth_type_vlan(skb->protocol) &&
+ 	    vlan_get_protocol_and_depth(skb, skb->protocol, &depth) != 0)
+ 		skb_set_network_header(skb, depth);
+-
+-	skb_probe_transport_header(skb);
+ }
+ 
+ /*

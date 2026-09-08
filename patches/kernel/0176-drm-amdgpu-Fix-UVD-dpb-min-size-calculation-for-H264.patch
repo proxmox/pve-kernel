@@ -1,0 +1,116 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Rosca <david.rosca@amd.com>
+Date: Thu, 30 Jul 2026 17:56:17 +0200
+Subject: [PATCH] drm/amdgpu: Fix UVD dpb min size calculation for H264
+
+commit 21a8084cd76223a13493237e04d45f5226d7cee6 upstream.
+
+This should use actual number of references from the decode
+message, instead of maximum derived from level.
+
+Signed-off-by: David Rosca <david.rosca@amd.com>
+Acked-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Ruijing Dong <ruijing.dong@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit 64b525edb7e7bdfcdc77883c5e413804e2396856)
+Cc: stable@vger.kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit ff4361816b6ba4bd29b548b17d993056a1ae2502)
+CVE-2026-80907
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c | 62 ++-----------------------
+ 1 file changed, 4 insertions(+), 58 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+index d37043ed6794ec6762b505734a50cac1a75dc3f7..f65c76b9318b2ee642280f9bb3f9e16313c948b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+@@ -646,11 +646,9 @@ static int amdgpu_uvd_cs_msg_decode(struct amdgpu_device *adev, uint32_t *msg,
+ 	unsigned int height = msg[7];
+ 	unsigned int dpb_size = msg[9];
+ 	unsigned int pitch = msg[28];
+-	unsigned int level = msg[57];
+ 
+ 	unsigned int width_in_mb = width / 16;
+ 	unsigned int height_in_mb = ALIGN(height / 16, 2);
+-	unsigned int fs_in_mb = width_in_mb * height_in_mb;
+ 
+ 	unsigned int image_size, tmp, min_dpb_size, num_dpb_buffer;
+ 	unsigned int min_ctx_size = ~0;
+@@ -669,35 +667,9 @@ static int amdgpu_uvd_cs_msg_decode(struct amdgpu_device *adev, uint32_t *msg,
+ 
+ 	switch (stream_type) {
+ 	case 0: /* H264 */
+-		switch (level) {
+-		case 30:
+-			num_dpb_buffer = 8100 / fs_in_mb;
+-			break;
+-		case 31:
+-			num_dpb_buffer = 18000 / fs_in_mb;
+-			break;
+-		case 32:
+-			num_dpb_buffer = 20480 / fs_in_mb;
+-			break;
+-		case 41:
+-			num_dpb_buffer = 32768 / fs_in_mb;
+-			break;
+-		case 42:
+-			num_dpb_buffer = 34816 / fs_in_mb;
+-			break;
+-		case 50:
+-			num_dpb_buffer = 110400 / fs_in_mb;
+-			break;
+-		case 51:
+-			num_dpb_buffer = 184320 / fs_in_mb;
+-			break;
+-		default:
+-			num_dpb_buffer = 184320 / fs_in_mb;
+-			break;
+-		}
+-		num_dpb_buffer++;
++		num_dpb_buffer = ((msg[61] >> 16) & 0xff) + 1;
+ 		if (num_dpb_buffer > 17)
+-			num_dpb_buffer = 17;
++			return -EINVAL;
+ 
+ 		/* reference picture buffer */
+ 		min_dpb_size = image_size * num_dpb_buffer;
+@@ -747,35 +719,9 @@ static int amdgpu_uvd_cs_msg_decode(struct amdgpu_device *adev, uint32_t *msg,
+ 		break;
+ 
+ 	case 7: /* H264 Perf */
+-		switch (level) {
+-		case 30:
+-			num_dpb_buffer = 8100 / fs_in_mb;
+-			break;
+-		case 31:
+-			num_dpb_buffer = 18000 / fs_in_mb;
+-			break;
+-		case 32:
+-			num_dpb_buffer = 20480 / fs_in_mb;
+-			break;
+-		case 41:
+-			num_dpb_buffer = 32768 / fs_in_mb;
+-			break;
+-		case 42:
+-			num_dpb_buffer = 34816 / fs_in_mb;
+-			break;
+-		case 50:
+-			num_dpb_buffer = 110400 / fs_in_mb;
+-			break;
+-		case 51:
+-			num_dpb_buffer = 184320 / fs_in_mb;
+-			break;
+-		default:
+-			num_dpb_buffer = 184320 / fs_in_mb;
+-			break;
+-		}
+-		num_dpb_buffer++;
++		num_dpb_buffer = ((msg[61] >> 16) & 0xff) + 1;
+ 		if (num_dpb_buffer > 17)
+-			num_dpb_buffer = 17;
++			return -EINVAL;
+ 
+ 		/* reference picture buffer */
+ 		min_dpb_size = image_size * num_dpb_buffer;

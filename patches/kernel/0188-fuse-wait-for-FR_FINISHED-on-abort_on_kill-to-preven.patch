@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rochan Avlur <rochan.avlur@gmail.com>
+Date: Tue, 1 Sep 2026 19:36:56 -0600
+Subject: [PATCH] fuse: wait for FR_FINISHED on abort_on_kill to prevent
+ use-after-free
+
+[ Upstream commit 64b0b5cacbd2fea88001464cb712c9dfc795b26e ]
+
+The abort_on_kill path in request_wait_answer() calls fuse_abort_conn()
+and returns without waiting for FR_FINISHED.  If fuse_dev_do_write() is
+concurrently processing the same request (FR_LOCKED set), the caller
+frees req->args while it is still being accessed, causing a
+use-after-free.
+
+Fix this by jumping to the existing wait_event(FR_FINISHED) instead of
+returning early.  The wait will not hang because fuse_abort_conn()
+ensures all requests are ended.
+
+Reported-by: syzbot+d6540a3fa1626e11360d@syzkaller.appspotmail.com
+Fixes: 204aa22a686b ("fuse: abort on fatal signal during sync init")
+Cc: stable@vger.kernel.org
+Assisted-by: Claude:claude-opus-4-6
+Signed-off-by: Rochan Avlur <rochan.avlur@gmail.com>
+Signed-off-by: Miklos Szeredi <mszeredi@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a8bbb2a60513bf322170903c21462f0bf4f62be2)
+CVE-2026-80857
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ fs/fuse/dev.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
+index 6f2d4b2dffcc91c422dc4f8ac351fb13412c63af..596f8700f88a5c3bcb93c151250b630dbfc94e20 100644
+--- a/fs/fuse/dev.c
++++ b/fs/fuse/dev.c
+@@ -580,7 +580,7 @@ static void request_wait_answer(struct fuse_req *req)
+ 
+ 		if (req->args->abort_on_kill) {
+ 			fuse_abort_conn(fc);
+-			return;
++			goto wait_for_finish;
+ 		}
+ 
+ 		if (test_bit(FR_URING, &req->flags))
+@@ -591,6 +591,7 @@ static void request_wait_answer(struct fuse_req *req)
+ 			return;
+ 	}
+ 
++wait_for_finish:
+ 	/*
+ 	 * Either request is already in userspace, or it was forced.
+ 	 * Wait it out.

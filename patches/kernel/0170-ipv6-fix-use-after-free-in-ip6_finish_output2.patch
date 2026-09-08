@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luxiao Xu <rakukuip@gmail.com>
+Date: Wed, 12 Aug 2026 20:54:38 +0800
+Subject: [PATCH] ipv6: fix use-after-free in ip6_finish_output2()
+
+commit d0d48d999b0eee6bb176ef4e39d9be868fa80f7e upstream.
+
+ip6_finish_output2() caches a pointer to the IPv6 destination
+address (daddr) before invoking lwtunnel_xmit().  The LWT-BPF
+transmit path or other encapsulation operations within
+lwtunnel_xmit() can reallocate the skb head, freeing the memory
+that daddr points to.  When lwtunnel_xmit() returns
+LWTUNNEL_XMIT_CONTINUE, the function continues to use the stale
+daddr pointer to compute the nexthop and to look up or create the
+neighbour entry.  This results in a use-after-free read, which can
+leak sensitive kernel data, pollute the neighbour table with
+arbitrary values, misdirect traffic, or crash the system.
+
+Fix this by re-fetching the IPv6 header and the destination
+address pointer after lwtunnel_xmit() returns
+LWTUNNEL_XMIT_CONTINUE, ensuring that the subsequent nexthop
+computation and neighbour lookup operate on valid memory.
+
+Fixes: e415ed3a4b8b ("ipv6: use skb_expand_head in ip6_finish_output2")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Signed-off-by: Luxiao Xu <rakukuip@gmail.com>
+Signed-off-by: Ren Wei <weir@nebusec.ai>
+Reviewed-by: Vadim Fedorenko <vadim.fedorenko@linux.dev>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/4aa3f53bc44e79572c6dd2340ec7b68ef1a3d87d.1786516730.git.rakukuip@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 99219c82804f266189388e8bf1cf5135d10d5515)
+CVE-2026-80792
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ net/ipv6/ip6_output.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index d2aa48a0acaad97e49074b7c3debd120f84aa1ad..f1a56555f590c48fb33875c0dbf151dd03a11fcc 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -116,6 +116,8 @@ static int ip6_finish_output2(struct net *net, struct sock *sk, struct sk_buff *
+ 
+ 		if (res != LWTUNNEL_XMIT_CONTINUE)
+ 			return res;
++		hdr = ipv6_hdr(skb);
++		daddr = &hdr->daddr;
+ 	}
+ 
+ 	IP6_UPD_PO_STATS(net, idev, IPSTATS_MIB_OUT, skb->len);

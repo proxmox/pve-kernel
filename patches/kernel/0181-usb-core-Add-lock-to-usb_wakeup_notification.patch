@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Griffin Kroah-Hartman <griffin@kroah.com>
+Date: Mon, 13 Jul 2026 17:43:53 +0200
+Subject: [PATCH] usb: core: Add lock to usb_wakeup_notification()
+
+commit e263e18a9e7b1ff3e7301f0801c6ff87c31adfb6 upstream.
+
+Add a spin lock to usb_wakeup notification to prevent a race condition
+with dereferencing freed memory. This could be hit by the xHCI driver as
+it calls this function from an IRQ and could race with the
+hub_disconnect() function, which properly grabs this lock to protect the
+state of the device.
+
+Assisted-by: gkh_clanker_t1000
+Signed-off-by: Griffin Kroah-Hartman <griffin@kroah.com>
+Link: https://patch.msgid.link/20260713-usb_core_patches_1-v1-3-7721c2b33f53@kroah.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 960ca456faf61824b178f47967340300b24183db)
+CVE-2026-80830
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/usb/core/hub.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+index 1740e96f73cc627e4a20c72af1993699c3310a06..8aee9a3b54be97c01930985b2a86a5b269ce6401 100644
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -753,10 +753,12 @@ void usb_wakeup_notification(struct usb_device *hdev,
+ {
+ 	struct usb_hub *hub;
+ 	struct usb_port *port_dev;
++	unsigned long flags;
+ 
+ 	if (!hdev)
+ 		return;
+ 
++	spin_lock_irqsave(&device_state_lock, flags);
+ 	hub = usb_hub_to_struct_hub(hdev);
+ 	if (hub) {
+ 		port_dev = hub->ports[portnum - 1];
+@@ -766,6 +768,7 @@ void usb_wakeup_notification(struct usb_device *hdev,
+ 		set_bit(portnum, hub->wakeup_bits);
+ 		kick_hub_wq(hub);
+ 	}
++	spin_unlock_irqrestore(&device_state_lock, flags);
+ }
+ EXPORT_SYMBOL_GPL(usb_wakeup_notification);
+ 
