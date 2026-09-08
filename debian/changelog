@@ -1,3 +1,21 @@
+proxmox-kernel-7.0 (7.0.14-17) trixie; urgency=medium
+
+  * update submodules and patches to Ubuntu-7.0.0-38.38
+    - upstream stable changes from 6.18.43 and 7.1.7
+
+  * cherry-picks for the following CVEs from stable 7.1:
+    CVE-2026-80857, CVE-2026-80904, CVE-2026-80789, CVE-2026-80534,
+    CVE-2026-80804, CVE-2026-80808, CVE-2026-74753, CVE-2026-80830,
+    CVE-2026-80827, CVE-2026-74508, CVE-2026-74507, CVE-2026-80908,
+    CVE-2026-80907, CVE-2026-80540, CVE-2026-80909, CVE-2026-80905,
+    CVE-2026-80906, CVE-2026-80792, CVE-2026-80793, CVE-2026-80847,
+    CVE-2026-80918, CVE-2026-80923, CVE-2026-80924
+
+  * backport 2 fixes for amd gpus, to handle regressions introduced
+    in the stable updates this version includes.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 10 Sep 2026 12:16:37 +0200
+
 proxmox-kernel-7.0 (7.0.14-16) trixie; urgency=medium
 
   * cherry-pick fixes for relevant CVEs, most notable ones:
