@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jann Horn <jannh@google.com>
+Date: Fri, 3 Jul 2026 20:30:02 +0200
+Subject: [PATCH] HID: core: fix number/pointer type confusion on long items
+
+commit 28abce951343fcec26e397610868efa4e1395c3f upstream.
+
+When fetch_item() is called by hid_scan_report() on an item with
+HID_ITEM_TAG_LONG, it stores a pointer to the item data in
+item->data.longdata instead of storing a value directly in
+item->data.{u8/u16/u32}.
+
+When item_udata() or item_sdata() encounters such an item, it incorrectly
+assumes that the item is in short format, and therefore returns the lower
+part of a kernel pointer reinterpreted as a number.
+
+When a HID device is connected whose descriptor contains a
+HID_GLOBAL_ITEM_TAG_REPORT_SIZE encoded in long format with size=4, this
+causes the lower half of a kernel pointer to be printed into dmesg as a
+number, like this:
+
+    hid (null): invalid report_size 107953555
+
+To fix it, let item_udata() and item_sdata() verify that the item is in
+short format.
+
+Note that this bug only affects hid_scan_report(), while the main parsing
+pass hid_parse_collections() will always bail out when encountering a long
+item.
+
+Sidenote: There are currently no users of data.longdata; maybe we should
+just remove any parsing of long-format descriptors as a follow-up.
+
+Fixes: 3dc8fc083dbf ("HID: Use hid_parser for pre-scanning the report descriptors")
+Cc: stable@vger.kernel.org
+Signed-off-by: Jann Horn <jannh@google.com>
+Signed-off-by: Jiri Kosina <jkosina@suse.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit e60159f5ea60254a5c3de4ea4f2f939f0171031b)
+CVE-2026-80918
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ drivers/hid/hid-core.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
+index c0fc07a0c08b8757f45bda688f652c48abc7058e..d7a12c547a8efb16b9b5ce080e904804b8dd739c 100644
+--- a/drivers/hid/hid-core.c
++++ b/drivers/hid/hid-core.c
+@@ -379,6 +379,9 @@ static int hid_add_field(struct hid_parser *parser, unsigned report_type, unsign
+ 
+ static u32 item_udata(struct hid_item *item)
+ {
++	if (item->format != HID_ITEM_FORMAT_SHORT)
++		return 0;
++
+ 	switch (item->size) {
+ 	case 1: return item->data.u8;
+ 	case 2: return item->data.u16;
+@@ -389,6 +392,9 @@ static u32 item_udata(struct hid_item *item)
+ 
+ static s32 item_sdata(struct hid_item *item)
+ {
++	if (item->format != HID_ITEM_FORMAT_SHORT)
++		return 0;
++
+ 	switch (item->size) {
+ 	case 1: return item->data.s8;
+ 	case 2: return item->data.s16;

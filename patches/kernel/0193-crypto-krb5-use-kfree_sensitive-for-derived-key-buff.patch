@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jan=20Sebastian=20G=C3=B6tte?= <linux@jaseg.de>
+Date: Mon, 3 Aug 2026 21:26:21 +0200
+Subject: [PATCH] crypto: krb5 - use kfree_sensitive() for derived key buffers
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit f7d53dd3f267e46a784f219a75072f2f400d42b9 upstream.
+
+crypto_krb5_prepare_encryption() and crypto_krb5_prepare_checksum()
+free the buffer holding the freshly derived keys with plain kfree(),
+leaving the key material behind in the freed slab object.
+
+Fixes: 3936f02bf2d3 ("crypto/krb5: Implement Kerberos crypto core")
+Cc: stable@vger.kernel.org
+Signed-off-by: Jan Sebastian Götte <linux@jaseg.de>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 91b96dc9cc250cd16751f53de525cf3442ca0962)
+CVE-2026-80924
+Signed-off-by: Stoiko Ivanov <s.ivanov@proxmox.com>
+---
+ crypto/krb5/krb5_api.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/crypto/krb5/krb5_api.c b/crypto/krb5/krb5_api.c
+index 03395b89cc61e3eef3d07c057ffb1c75d48829c4..b377f4f7558da3accbc7531a6b4e0481b895679f 100644
+--- a/crypto/krb5/krb5_api.c
++++ b/crypto/krb5/krb5_api.c
+@@ -263,10 +263,10 @@ struct crypto_aead *crypto_krb5_prepare_encryption(const struct krb5_enctype *kr
+ 		goto err;
+ 	}
+ 
+-	kfree(keys.data);
++	kfree_sensitive(keys.data);
+ 	return ci;
+ err:
+-	kfree(keys.data);
++	kfree_sensitive(keys.data);
+ 	return ERR_PTR(ret);
+ }
+ EXPORT_SYMBOL(crypto_krb5_prepare_encryption);
+@@ -333,10 +333,10 @@ struct crypto_shash *crypto_krb5_prepare_checksum(const struct krb5_enctype *krb
+ 		goto err;
+ 	}
+ 
+-	kfree(keys.data);
++	kfree_sensitive(keys.data);
+ 	return ci;
+ err:
+-	kfree(keys.data);
++	kfree_sensitive(keys.data);
+ 	return ERR_PTR(ret);
+ }
+ EXPORT_SYMBOL(crypto_krb5_prepare_checksum);
