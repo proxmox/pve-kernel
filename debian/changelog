@@ -1,3 +1,60 @@
+proxmox-kernel-7.0 (7.0.14-18) trixie; urgency=medium
+
+  * update submodules and patches to current Ubuntu resolute
+    - upstream stable changes 6.18.44-6.18.49 and 7.1.8-7.1.13
+
+  * cherry-picks for the following CVEs from stable 6.18/7.2:
+    - CVE-2026-89761: apparmor: fix out-of-bounds write when null terminating
+      a label vec
+    - CVE-2026-89762: apparmor: fix cred UAF caused by
+      begin_current_label_crit_section()
+    - CVE-2026-89775: Guest-to-Host Escape in KVM/arm64
+    - CVE-2026-89775: KVM: arm64: Handle negative S1 walk levels in VNCR TLB
+      size evaluation
+    - CVE-2026-89776: vxlan: vnifilter: enforce exact length of GROUP/GROUP6
+      attributes
+    - CVE-2026-89777: vfio/pci: clear vdev->msi_perm after freeing it on init
+      failure
+    - CVE-2026-89780: net: qualcomm: rmnet: restore skb->dev on deaggregated
+      frames
+    - CVE-2026-89783: xfrm6: fix out-of-bounds write in xfrm6_input_addr
+    - CVE-2026-89786: ext4: fix out-of-bounds read in ext4_read_inline_dir
+    - CVE-2026-89787: ext4: check dir entry fits before reading the hash
+      trailer in ext4_search_dir
+    - CVE-2026-89790: ipv6: avoid divide by zero in rt6_multipath_rebalance
+    - CVE-2026-89791: perf: Fix use-after-free when perf mmap
+    - CVE-2026-89911: KVM: arm64: Correctly cap TLBI Range to the architural
+      limit
+    - CVE-2026-89912: KVM: arm64: vgic-its: Don't dereference a NULL
+      collection on ITT save
+    - CVE-2026-89913: KVM: arm64: vgic-v3: take an LPI reference in
+      vgic_v3_save_pending_tables
+    - CVE-2026-89914: KVM: arm64: Sign-extend VA for range-based TLBI
+      invalidation
+    - CVE-2026-89915: KVM: arm64: Remove VM-wide VNCR mapping counter
+    - CVE-2026-89916: KVM: arm64: Make VNCR invalidation participate in MMU
+      invalidation retry
+    - CVE-2026-89917: KVM: arm64: Handle VNCR TLB invalidation race with
+      vcpu_put
+    - CVE-2026-89918: KVM: arm64: Correctly handle end of VA space TLBI
+      invalidation
+    - CVE-2026-89927: KVM: x86: hyper-v: Clamp stimer deadline to avoid
+      livelock
+    - CVE-2026-89929: KVM: nVM: Ensure INVVPID is emulated on the correct
+      physical CPU
+    - CVE-2026-89930: KVM: nVMX: Service local TLB flushes on failed nested
+      VM-Enter
+    - CVE-2026-89931: KVM: nVMX: Ensure KVM_REQ_GET_NESTED_STATE_PAGES is
+      cleared on VM-Exit
+    - CVE-2026-89932: KVM: nVMX: Always flush vpid02 on first use
+    - CVE-2026-89987: mm/huge_memory: transfer the pmd dirty bit to the folio
+      on zap
+    - CVE-2026-89990: ceph: lock mutex in ceph_mds_check_access
+    - CVE-2026-90042: ceph: properly decrypt filenames in vmalloc
+    - CVE-2026-90049: net: skbuff: don't skb_tx_error
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Sep 2026 11:39:26 +0200
+
 proxmox-kernel-7.0 (7.0.14-17) trixie; urgency=medium
 
   * update submodules and patches to Ubuntu-7.0.0-38.38
