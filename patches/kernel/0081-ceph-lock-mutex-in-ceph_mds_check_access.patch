@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Max Kellermann <max.kellermann@ionos.com>
+Date: Mon, 24 Aug 2026 18:47:07 +0200
+Subject: [PATCH] ceph: lock mutex in ceph_mds_check_access()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit a61c6ae1dae2611082b831b4aaa780878099c012 upstream.
+
+MDS session OPEN handling replaces mdsc->s_cap_auths under
+mdsc->mutex, freeing the previous array and its strings.
+
+ceph_mds_check_access() traverses this array without holding the
+mutex.  A concurrent session reopen can therefore free the array while
+it is being inspected, resulting in a use-after-free like this:
+
+  Unable to handle kernel paging request at virtual address 003aaad64b2c8bb9
+  [...]
+  Internal error: Oops: 0000000096000004 [#1]  SMP
+  Modules linked in:
+  CPU: 56 UID: 2953037534 PID: 1253231 Comm: php-cgi8.4 Not tainted 6.18.45-i2-ampere #1146 NONE
+  [..]
+  pc : ceph_mds_check_access+0xd4/0x550
+  lr : ceph_mds_check_access+0xc8/0x550
+  [...]
+  Call trace:
+   ceph_mds_check_access+0xd4/0x550 (P)
+   ceph_atomic_open+0x138/0xbe8
+   path_openat+0xa24/0xfa8
+   do_filp_open+0x94/0x158
+   do_sys_openat2+0x88/0xf8
+
+Cc: stable@vger.kernel.org
+Fixes: 596afb0b8933 ("ceph: add ceph_mds_check_access() helper")
+Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit df1a97d5313fccadb08390306d49b194fb027392)
+CVE-2026-89990
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ fs/ceph/mds_client.c | 4 ++++
+ fs/ceph/mds_client.h | 1 +
+ 2 files changed, 5 insertions(+)
+
+diff --git a/fs/ceph/mds_client.c b/fs/ceph/mds_client.c
+index 197126da63f749cb7cab21feff021d20ca1873d6..1f661748710f36476c29157e98061a3dd660f0e4 100644
+--- a/fs/ceph/mds_client.c
++++ b/fs/ceph/mds_client.c
+@@ -5809,11 +5809,13 @@ int ceph_mds_check_access(struct ceph_mds_client *mdsc, char *tpath, int mask)
+ 	doutc(cl, "tpath '%s', mask %d, caller_uid %d, caller_gid %d\n",
+ 	      tpath, mask, caller_uid, caller_gid);
+ 
++	mutex_lock(&mdsc->mutex);
+ 	for (i = 0; i < mdsc->s_cap_auths_num; i++) {
+ 		struct ceph_mds_cap_auth *s = &mdsc->s_cap_auths[i];
+ 
+ 		err = ceph_mds_auth_match(mdsc, s, cred, tpath);
+ 		if (err < 0) {
++			mutex_unlock(&mdsc->mutex);
+ 			put_cred(cred);
+ 			return err;
+ 		} else if (err > 0) {
+@@ -5835,6 +5837,7 @@ int ceph_mds_check_access(struct ceph_mds_client *mdsc, char *tpath, int mask)
+ 	doutc(cl, "root_squash_perms %d, rw_perms_s %p\n", root_squash_perms,
+ 	      rw_perms_s);
+ 	if (root_squash_perms && rw_perms_s == NULL) {
++		mutex_unlock(&mdsc->mutex);
+ 		doutc(cl, "access allowed\n");
+ 		return 0;
+ 	}
+@@ -5849,6 +5852,7 @@ int ceph_mds_check_access(struct ceph_mds_client *mdsc, char *tpath, int mask)
+ 		      !!(mask & MAY_READ), !!(mask & MAY_WRITE));
+ 	}
+ 	doutc(cl, "access denied\n");
++	mutex_unlock(&mdsc->mutex);
+ 	return -EACCES;
+ }
+ 
+diff --git a/fs/ceph/mds_client.h b/fs/ceph/mds_client.h
+index 3720d5f16e064aa4cc160ec4fb6c0e064c6040db..17c1b99e4bf8695415e3494d3fd64caea34e2abc 100644
+--- a/fs/ceph/mds_client.h
++++ b/fs/ceph/mds_client.h
+@@ -545,6 +545,7 @@ struct ceph_mds_client {
+ 	struct rw_semaphore     pool_perm_rwsem;
+ 	struct rb_root		pool_perm_tree;
+ 
++	/* protected by mutex */
+ 	u32			 s_cap_auths_num;
+ 	struct ceph_mds_cap_auth *s_cap_auths;
+ 

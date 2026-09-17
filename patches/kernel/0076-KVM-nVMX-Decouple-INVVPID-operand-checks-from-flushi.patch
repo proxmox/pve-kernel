@@ -1,0 +1,96 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Tue, 16 Jun 2026 21:46:51 +0000
+Subject: [PATCH] KVM: nVMX: Decouple INVVPID operand checks from flushing of
+ vpid02
+
+commit 32912404b4b1ee98400744941c78f019a63d6e8f upstream.
+
+Separate the INVVPID operand checks from the actual flushing of vpid02 so
+the flushing can be adjusted to do the right thing when vmcs02  was last
+loaded on a different pCPU, without having to duplicate the logic across
+multiple case-statements.
+
+Opportunistically let the VM-Fail paths poke out past 80 chars.
+
+No functional change intended.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Yosry Ahmed <yosry@kernel.org>
+Reviewed-by: Kai Huang <kai.huang@intel.com>
+Link: https://patch.msgid.link/20260616214652.2157032-3-yosry@kernel.org
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit d689dd4eae48d5a7d91ec3e0dea108c37c1cd899)
+---
+ arch/x86/kvm/vmx/nested.c | 43 ++++++++++++---------------------------
+ 1 file changed, 13 insertions(+), 30 deletions(-)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index f17f59364117b1e63699f09595098f55a4a36e40..c92c6eb05bb5feb514ba249092b8b11a4f6d6fa5 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -6068,7 +6068,6 @@ static int handle_invvpid(struct kvm_vcpu *vcpu)
+ 		u64 vpid;
+ 		u64 gla;
+ 	} operand;
+-	u16 vpid02;
+ 	int r, gpr_index;
+ 
+ 	if (!(vmx->nested.msrs.secondary_ctls_high &
+@@ -6103,8 +6102,15 @@ static int handle_invvpid(struct kvm_vcpu *vcpu)
+ 		return kvm_handle_memory_failure(vcpu, r, &e);
+ 
+ 	if (operand.vpid >> 16)
+-		return nested_vmx_fail(vcpu,
+-			VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
++		return nested_vmx_fail(vcpu, VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
++
++	if (type != VMX_VPID_EXTENT_ALL_CONTEXT && !operand.vpid)
++		return nested_vmx_fail(vcpu, VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
++
++	/* LAM doesn't apply to addresses that are inputs to TLB invalidation. */
++	if (type == VMX_VPID_EXTENT_INDIVIDUAL_ADDR &&
++	    is_noncanonical_invlpg_address(operand.gla, vcpu))
++		return nested_vmx_fail(vcpu, VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+ 
+ 	/*
+ 	 * Always flush the effective vpid02, i.e. never flush the current VPID
+@@ -6112,33 +6118,10 @@ static int handle_invvpid(struct kvm_vcpu *vcpu)
+ 	 * VMCS, and so whether or not the current vmcs12 has VPID enabled is
+ 	 * irrelevant (and there may not be a loaded vmcs12).
+ 	 */
+-	vpid02 = nested_get_vpid02(vcpu);
+-	switch (type) {
+-	case VMX_VPID_EXTENT_INDIVIDUAL_ADDR:
+-		/*
+-		 * LAM doesn't apply to addresses that are inputs to TLB
+-		 * invalidation.
+-		 */
+-		if (!operand.vpid ||
+-		    is_noncanonical_invlpg_address(operand.gla, vcpu))
+-			return nested_vmx_fail(vcpu,
+-				VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+-		vpid_sync_vcpu_addr(vpid02, operand.gla);
+-		break;
+-	case VMX_VPID_EXTENT_SINGLE_CONTEXT:
+-	case VMX_VPID_EXTENT_SINGLE_NON_GLOBAL:
+-		if (!operand.vpid)
+-			return nested_vmx_fail(vcpu,
+-				VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+-		vpid_sync_context(vpid02);
+-		break;
+-	case VMX_VPID_EXTENT_ALL_CONTEXT:
+-		vpid_sync_context(vpid02);
+-		break;
+-	default:
+-		WARN_ON_ONCE(1);
+-		return kvm_skip_emulated_instruction(vcpu);
+-	}
++	if (type == VMX_VPID_EXTENT_INDIVIDUAL_ADDR)
++		vpid_sync_vcpu_addr(nested_get_vpid02(vcpu), operand.gla);
++	else
++		vpid_sync_context(nested_get_vpid02(vcpu));
+ 
+ 	/*
+ 	 * Sync the shadow page tables if EPT is disabled, L1 is invalidating

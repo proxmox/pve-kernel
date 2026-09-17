@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yosry Ahmed <yosry@kernel.org>
+Date: Tue, 16 Jun 2026 21:46:52 +0000
+Subject: [PATCH] KVM: nVM: Ensure INVVPID is emulated on the correct physical
+ CPU
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 6d00e67326d831e6e610933a3800712f4ffe6ec1 upstream.
+
+When emulating INVVPID, KVM executes INVVPID on the physical CPU using
+vpid02 (instead of the L1 assigned VPID), after doing some validations
+on the operands. However, it is possible that the physical CPU KVM
+executes INVVPID on is different from the CPU L2 is running on.
+
+For example, in the following scenario:
+- L2 runs on CPU #1 and exits to L1 (vmx->nested.vmcs02.cpu=1)
+- L1 migrates to CPU #2 and executes INVVPID
+- KVM executes INVVPID on CPU #2
+- L1 migrates back to CPU #1 and runs L2 (vmx->nested.vmcs02.cpu=1)
+
+The TLB entries on CPU #1 are never invalidated, because INVVPID was
+executed on CPU #2, and vmcs02 never ran on a different pCPU (i.e.
+vmx_vcpu_load_vmcs() will *not* request KVM_REQ_TLB_FLUSH).
+
+Ensure that INVVPID is being executed on the same pCPU that L2 last ran
+on, and if not, fallback to clearing last_vpid=0 to trigger a full VPID
+flush on the next nested VM-Enter (as KVM will detect L1 using a
+different VPID for L2). If L2 ends up running on a different pCPU, KVM
+will flush the TLB anyway through vmx_vcpu_load_vmcs().
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Yosry Ahmed <yosry@kernel.org>
+Reviewed-by: Kai Huang <kai.huang@intel.com>
+Link: https://patch.msgid.link/20260616214652.2157032-4-yosry@kernel.org
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 27bdeb5fd19046ffba9ff234e92fe553eb2efb30)
+CVE-2026-89929
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ arch/x86/kvm/vmx/nested.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index 5889e5a754131135ef05d15aca868b2e63f6677b..8681c8a6a8cab80d4bdf88174a2907a44aae2def 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -6078,6 +6078,7 @@ static int handle_invvpid(struct kvm_vcpu *vcpu)
+ 		u64 gla;
+ 	} operand;
+ 	int r, gpr_index;
++	int cpu;
+ 
+ 	if (!(vmx->nested.msrs.secondary_ctls_high &
+ 	      SECONDARY_EXEC_ENABLE_VPID) ||
+@@ -6126,11 +6127,19 @@ static int handle_invvpid(struct kvm_vcpu *vcpu)
+ 	 * and never explicitly flush vpid01.  INVVPID targets a VPID, not a
+ 	 * VMCS, and so whether or not the current vmcs12 has VPID enabled is
+ 	 * irrelevant (and there may not be a loaded vmcs12).
++	 *
++	 * If vmcs02 was last loaded on a different pCPU, then defer the flush
++	 * by invalidating the nested VPID tracking to ensure that KVM performs
++	 * the invalidation on the correct pCPU.
+ 	 */
+-	if (type == VMX_VPID_EXTENT_INDIVIDUAL_ADDR)
++	cpu = get_cpu();
++	if (cpu != vmx->nested.vmcs02.cpu)
++		vmx->nested.last_vpid = 0;
++	else if (type == VMX_VPID_EXTENT_INDIVIDUAL_ADDR)
+ 		vpid_sync_vcpu_addr(nested_get_vpid02(vcpu), operand.gla);
+ 	else
+ 		vpid_sync_context(nested_get_vpid02(vcpu));
++	put_cpu();
+ 
+ 	/*
+ 	 * Sync the shadow page tables if EPT is disabled, L1 is invalidating

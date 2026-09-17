@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xiang Mei <xmei5@asu.edu>
+Date: Sat, 4 Jul 2026 14:03:32 -0700
+Subject: [PATCH] xfrm6: fix out-of-bounds write in xfrm6_input_addr() when
+ secpath is full
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit 5d9e3bf34fec9a5d237e4b7cef4a707bc2e091bc ]
+
+The depth check in xfrm6_input_addr() is off by one:
+
+  if (1 + sp->len == XFRM_MAX_DEPTH)
+          goto drop;
+  ...
+  sp->xvec[sp->len++] = x;
+
+xfrm_input() can leave sp->len == XFRM_MAX_DEPTH, and the transport-mode
+receive path re-enters IPv6 input via xfrm_trans_reinject() with that
+secpath preserved. If the inner packet carries a destination-options HAO
+option or a type-2 routing header, xfrm6_input_addr() is called with
+sp->len == XFRM_MAX_DEPTH; the check (1 + 6 == 6) is false, so
+sp->xvec[sp->len++] writes one slot past the 6-element xvec[]. The write
+stays within the sec_path allocation (invisible to KASAN); UBSAN_BOUNDS
+flags it and panics under panic_on_warn.
+
+Use "sp->len >= XFRM_MAX_DEPTH", matching xfrm_input(). This also
+restores one chain level the old check rejected at sp->len == 5.
+
+  UBSAN: array-index-out-of-bounds in net/ipv6/xfrm6_input.c:309:10
+  index 6 is out of range for type 'xfrm_state *[6]'
+
+Fixes: 9473e1f631de ("[XFRM] MIPv6: Fix to input RO state correctly.")
+Reported-by: Weiming Shi <bestswngs@gmail.com>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Xiang Mei <xmei5@asu.edu>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 5f35a29a5eed3d80befd32050843ac88dea3d61a)
+CVE-2026-89783
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ net/ipv6/xfrm6_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index 89d0443b53073236e2f34b04adf67843aa1928fb..07edef258984415c3d32247dddb3ba385856813e 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -247,7 +247,7 @@ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
+ 		goto drop;
+ 	}
+ 
+-	if (1 + sp->len == XFRM_MAX_DEPTH) {
++	if (sp->len >= XFRM_MAX_DEPTH) {
+ 		XFRM_INC_STATS(net, LINUX_MIB_XFRMINBUFFERERROR);
+ 		goto drop;
+ 	}

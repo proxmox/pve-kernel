@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xiang Mei <xmei5@asu.edu>
+Date: Thu, 20 Aug 2026 12:52:40 -0700
+Subject: [PATCH] net: qualcomm: rmnet: restore skb->dev on deaggregated frames
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit a66734a1c5e36525ea07e9f4547fddc51e916de3 ]
+
+rmnet_map_deaggregate() allocates each sub-frame with alloc_skb() and
+leaves skb->dev NULL. __rmnet_map_ingress_handler() assigns
+skb->dev = ep->egress_dev only on the data path, but a MAP command frame
+is dispatched to rmnet_map_command() before that, so rmnet_map_send_ack()
+runs netif_tx_lock(skb->dev) on a NULL device. An unprivileged user
+reaches this by unsharing a user+net namespace, creating an rmnet link
+over a tap device with INGRESS_DEAGGREGATION and INGRESS_MAP_COMMANDS,
+and writing an aggregated frame carrying a flow-control command to the
+tap fd.
+
+Restore the assignment dropped by 378e25357ac7, so every skb leaving
+rmnet_map_deaggregate() has a valid device.
+
+  BUG: KASAN: null-ptr-deref in _raw_spin_lock (kernel/locking/spinlock.c:158)
+  Write of size 4 at addr 00000000000004b4 by task exploit/144
+  Call Trace:
+   _raw_spin_lock (kernel/locking/spinlock.c:158)
+   netif_tx_lock (net/sched/sch_generic.c:497)
+   rmnet_map_command (drivers/net/ethernet/qualcomm/rmnet/rmnet_map_command.c:67)
+   rmnet_rx_handler (drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c:125)
+   __netif_receive_skb_core.constprop.0 (net/core/dev.c:6103)
+   ...
+   __netif_receive_skb_one_core (net/core/dev.c:6214)
+   netif_receive_skb (net/core/dev.c:6474)
+   tun_get_user (drivers/net/tun.c:1966)
+   tun_chr_write_iter (drivers/net/tun.c:2012)
+   vfs_write (fs/read_write.c:687)
+   ksys_write (fs/read_write.c:739)
+   do_syscall_64 (arch/x86/entry/syscall_64.c:94)
+   entry_SYSCALL_64_after_hwframe (arch/x86/entry/entry_64.S:121)
+  Kernel panic - not syncing: Fatal exception in interrupt
+
+Fixes: 378e25357ac7 ("net: qualcomm: rmnet: Remove unnecessary device assignment")
+Reported-by: co+4638111fe2a12980@bugs.sh
+Closes: https://lore.kernel.org/netdev/ijg79FFMfIvKJbivdJEKvTO90Q9dTvyBkJck@bugs.sh/T/#u
+Signed-off-by: Xiang Mei <xmei5@asu.edu>
+Reviewed-by: Subash Abhinov Kasiviswanathan <subash.a.kasiviswanathan@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260820195240.1631458-1-xmei5@asu.edu
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 200460a0793dc6af97d3b36d92ac245350ac26fc)
+CVE-2026-89780
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+index 305ae15ae8f393ecbe0749cdca3f55f2a5159edf..e6f48dc9fe64d7e563a0ba355c1ede35c73b4593 100644
+--- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
++++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+@@ -394,6 +394,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
+ 	if (!skbn)
+ 		return NULL;
+ 
++	skbn->dev = skb->dev;
+ 	skb_reserve(skbn, RMNET_MAP_DEAGGR_HEADROOM);
+ 	skb_put(skbn, packet_len);
+ 	memcpy(skbn->data, skb->data, packet_len);

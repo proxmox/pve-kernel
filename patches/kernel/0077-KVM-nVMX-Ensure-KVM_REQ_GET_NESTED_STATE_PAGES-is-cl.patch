@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Thu, 23 Jul 2026 17:47:52 -0700
+Subject: [PATCH] KVM: nVMX: Ensure KVM_REQ_GET_NESTED_STATE_PAGES is cleared
+ on VM-Exit
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 11722439fb206c88e6f31be54173efa9880b4ccb upstream.
+
+Always check and clear KVM_REQ_GET_NESTED_STATE_PAGES when emulating a
+nested VM-Exit to ensure the request is cleared, even when KVM was built
+with CONFIG_KVM_HYPERV=n, as KVM subtly relies on the "check" to clear
+the flag and thus avoid double-mapping the vmcs12 pages, e.g. if KVM
+manages to bail from VM-Enter without processing the request, and then
+emulates VMLAUNCH or VMRESUME.
+
+Fixes: b4f69df0f65e ("KVM: x86: Make Hyper-V emulation optional")
+Cc: stable@vger.kernel.org
+Reported-by: Yosry Ahmed <yosry@kernel.org>
+Reviewed-by: Yosry Ahmed <yosry@kernel.org>
+Link: https://patch.msgid.link/20260724004757.131420-2-seanjc@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 674a3244f07f323f21a106a7bdcaebb6db6a5058)
+CVE-2026-89931
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ arch/x86/kvm/vmx/nested.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index c92c6eb05bb5feb514ba249092b8b11a4f6d6fa5..cfb87c76869e48bac2eef5b810e108f148615147 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -5075,8 +5075,9 @@ void __nested_vmx_vmexit(struct kvm_vcpu *vcpu, u32 vm_exit_reason,
+ 	/* trying to cancel vmlaunch/vmresume is a bug */
+ 	WARN_ON_ONCE(vmx->nested.nested_run_pending);
+ 
+-#ifdef CONFIG_KVM_HYPERV
++	/* Note, "checking" the request also clears the request. */
+ 	if (kvm_check_request(KVM_REQ_GET_NESTED_STATE_PAGES, vcpu)) {
++#ifdef CONFIG_KVM_HYPERV
+ 		/*
+ 		 * KVM_REQ_GET_NESTED_STATE_PAGES is also used to map
+ 		 * Enlightened VMCS after migration and we still need to
+@@ -5084,8 +5085,8 @@ void __nested_vmx_vmexit(struct kvm_vcpu *vcpu, u32 vm_exit_reason,
+ 		 * the first L2 run.
+ 		 */
+ 		(void)nested_get_evmcs_page(vcpu);
+-	}
+ #endif
++	}
+ 
+ 	/* Service pending TLB flush requests for L2 before switching to L1. */
+ 	kvm_service_local_tlb_flush_requests(vcpu);

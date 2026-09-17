@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xiang Mei <xmei5@asu.edu>
+Date: Thu, 9 Jul 2026 11:41:01 -0700
+Subject: [PATCH] ext4: check dir entry fits before reading the hash trailer in
+ ext4_search_dir()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit c7e6b863d298f56522d0d08554bbea7f142e6588 ]
+
+For casefolded encrypted directories ext4 stores an 8-byte hash trailer
+after the name (EXT4_DIRENT_HASHES()), at an offset derived from
+de->name_len.  On the sb_no_casefold_compat_fallback() path ext4_match()
+reads that trailer, but ext4_search_dir()'s by-hand pre-check only tests
+de->name + de->name_len <= dlimit, which proves the name fits, not the
+rounded trailer.  A crafted entry whose name ends at the block boundary
+passes the check while EXT4_DIRENT_HASHES(de) lands past the block end,
+so ext4_match() reads out of bounds on an ordinary lookup.  KASAN reports
+it as a use-after-free when the page after the directory block holds a
+freed object:
+
+  BUG: KASAN: use-after-free in ext4_match (fs/ext4/namei.c:1435)
+  Read of size 4 at addr ffff888010458000 by task exploit
+  Call Trace:
+   ext4_match (fs/ext4/namei.c:1435)
+   ext4_search_dir (fs/ext4/namei.c:1470)
+   __ext4_find_entry (fs/ext4/namei.c:1268 fs/ext4/namei.c:1632)
+   ext4_lookup (fs/ext4/namei.c:1703 fs/ext4/namei.c:1769)
+   ...
+   filename_lookup (fs/namei.c:2842)
+   vfs_statx (fs/stat.c:353)
+   __do_sys_newfstatat (fs/stat.c:538)
+   do_syscall_64 (arch/x86/entry/syscall_64.c:94)
+   entry_SYSCALL_64_after_hwframe (arch/x86/entry/entry_64.S:121)
+
+Require, for hash-in-dirent directories, that the whole entry including
+the rounded trailer fits before calling ext4_match().  This is the same
+bound ext4_check_dir_entry() already enforces via ext4_dir_rec_len(), so
+no well-formed entry is rejected.  The other caller, ext4_find_dest_de(),
+runs ext4_check_dir_entry() first and is unaffected.
+
+Fixes: 471fbbea7ff7 ("ext4: handle casefolding with encryption")
+Reported-by: Weiming Shi <bestswngs@gmail.com>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Xiang Mei <xmei5@asu.edu>
+Reviewed-by: Andreas Dilger <adilger@dilger.ca>
+Reviewed-by: Jan Kara <jack@suse.cz>
+Link: https://patch.msgid.link/20260709184101.441348-1-xmei5@asu.edu
+Signed-off-by: Theodore Ts'o <tytso@mit.edu>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 83663c0b739480c00cfe785675db87520ec484ed)
+CVE-2026-89787
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ fs/ext4/namei.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
+index b12b979671ad620e22742576d9c2e1e370614f83..328d3fe6ed1675269765ff9c885fb5767565df21 100644
+--- a/fs/ext4/namei.c
++++ b/fs/ext4/namei.c
+@@ -1467,6 +1467,8 @@ int ext4_search_dir(struct buffer_head *bh, char *search_buf, int buf_size,
+ 		/* this code is executed quadratically often */
+ 		/* do minimal checking `by hand' */
+ 		if (de->name + de->name_len <= dlimit &&
++		    (!ext4_hash_in_dirent(dir) ||
++		     (char *)de + ext4_dir_rec_len(de->name_len, dir) <= dlimit) &&
+ 		    ext4_match(dir, fname, de)) {
+ 			/* found a match - just to be sure, do
+ 			 * a full check */

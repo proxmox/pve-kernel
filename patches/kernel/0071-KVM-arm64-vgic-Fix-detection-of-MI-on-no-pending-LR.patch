@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kajetan Puchalski <kajetan.puchalski@arm.com>
+Date: Mon, 10 Aug 2026 11:29:24 +0100
+Subject: [PATCH] KVM: arm64: vgic: Fix detection of MI on no pending LR
+
+commit a342faadc5acbd5d9fd894fd4499d4fd614dfcf6 upstream.
+
+As per the ARM GICv3 spec, the maintenance interrupt identified by
+ICH_MISR_EL2.NP is asserted when it is enabled and no List register is
+in pending state. This is further described in the document as "no List
+registers with the State field set to 0b01 (pending)". By checking only
+the pending bit of the LR (bit 62), KVM currently asserts the MI when
+there are no LRs in "pending" or "pending and active" states.
+Fix the detection logic to consider only the "pending" state.
+
+Cc: stable@vger.kernel.org
+Fixes: 96c2f03311de ("KVM: arm64: nv: Plumb handling of GICv3 EL2 accesses")
+Signed-off-by: Kajetan Puchalski <kajetan.puchalski@arm.com>
+Reviewed-by: Marc Zyngier <maz@kernel.org>
+Link: https://patch.msgid.link/20260810102923.2426475-2-kajetan.puchalski@arm.com
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit b6c2abf620a45da86fb1f2b2dc0f82e11240d78a)
+---
+ arch/arm64/kvm/vgic/vgic-v3-nested.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/kvm/vgic/vgic-v3-nested.c b/arch/arm64/kvm/vgic/vgic-v3-nested.c
+index 5c69fa615823c18de303c294e96ee160b2f39421..e3e84d7f5ad51028bd18258cee65a7cc0174d385 100644
+--- a/arch/arm64/kvm/vgic/vgic-v3-nested.c
++++ b/arch/arm64/kvm/vgic/vgic-v3-nested.c
+@@ -152,7 +152,7 @@ static void vgic_compute_mi_state(struct kvm_vcpu *vcpu, struct mi_state *mi_sta
+ 			eisr |= BIT(i);
+ 		if (!(lr & ICH_LR_STATE))
+ 			elrsr |= BIT(i);
+-		pend |= (lr & ICH_LR_PENDING_BIT);
++		pend |= (lr & ICH_LR_STATE) == ICH_LR_PENDING_BIT;
+ 	}
+ 
+ 	mi_state->eisr	= eisr;

@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xiang Mei <xmei5@asu.edu>
+Date: Sat, 4 Jul 2026 18:40:10 -0700
+Subject: [PATCH] vfio/pci: clear vdev->msi_perm after freeing it on init
+ failure
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit dc77acfeb979dded39b247b60fef0399536bfa77 ]
+
+vfio_msi_cap_len() lazily allocates the per-device MSI permission table:
+
+	vdev->msi_perm = kmalloc_obj(struct perm_bits, GFP_KERNEL_ACCOUNT);
+	if (!vdev->msi_perm)
+		return -ENOMEM;
+
+	ret = init_pci_cap_msi_perm(vdev->msi_perm, len, flags);
+	if (ret) {
+		kfree(vdev->msi_perm);
+		return ret;		/* vdev->msi_perm left dangling */
+	}
+
+When init_pci_cap_msi_perm() -> alloc_perm_bits() fails with -ENOMEM, the
+error path frees vdev->msi_perm but leaves the freed pointer stored in
+it. vdev->msi_perm is not re-zeroed later because struct
+vfio_pci_core_device is per-device and persists across open/close cycles,
+and the vfio_config_init() error path returns without calling
+vfio_config_free(). So the dangling pointer outlives the failed open.
+
+That leads to two use-after-frees on the same device:
+
+1. Reuse. The next vfio_config_init() sees the stale pointer at
+   "if (vdev->msi_perm) return len;" and reuses the freed object. MSI
+   config accesses in vfio_pci_config_rw_single() then dereference and
+   call the freed perm->readfn / perm->writefn function pointers.
+
+2. Double free. A later vfio_config_free() runs free_perm_bits() and
+   kfree() on the already-freed object.
+
+Fix it by NULLing vdev->msi_perm after the kfree(), matching the
+NULL-after-free discipline already used in free_perm_bits() and
+vfio_config_free().
+
+  BUG: KASAN: slab-use-after-free in vfio_pci_config_rw_single (drivers/vfio/pci/vfio_pci_config.c:1961)
+  Read of size 8 at addr ffff88800fcc88d0 by task exploit/143
+  Call Trace:
+   ...
+   kasan_report (mm/kasan/report.c:595)
+   vfio_pci_config_rw_single (drivers/vfio/pci/vfio_pci_config.c:1961)
+   vfio_pci_config_rw (drivers/vfio/pci/vfio_pci_config.c:1986)
+   vfio_pci_rw (drivers/vfio/pci/vfio_pci_core.c:1599)
+   vfs_read (fs/read_write.c:572)
+   __x64_sys_pread64 (fs/read_write.c:764)
+   do_syscall_64 (arch/x86/entry/syscall_64.c:94)
+   ...
+
+Followed on device close by a double free of the same object:
+
+  Oops: general protection fault, probably for non-canonical address
+    0x1f63e0e8000008: 0000 [#1] SMP KASAN NOPTI
+  RIP: 0010:kfree (mm/slub.c:6711)
+  Call Trace:
+   vfio_config_free (drivers/vfio/pci/vfio_pci_config.c:1861)
+   vfio_pci_core_disable (drivers/vfio/pci/vfio_pci_core.c:685)
+   vfio_pci_core_close_device (drivers/vfio/pci/vfio_pci_core.c:777)
+   vfio_df_close (drivers/vfio/vfio_main.c:602)
+   vfio_device_fops_release (drivers/vfio/vfio_main.c:648)
+   __fput (fs/file_table.c:512)
+   __x64_sys_close (fs/open.c:1496)
+   do_syscall_64 (arch/x86/entry/syscall_64.c:94)
+   ...
+  Kernel panic - not syncing: Fatal exception
+
+Fixes: 30ea32ab1951 ("vfio/pci: Fix potential memory leak in vfio_msi_cap_len")
+Reported-by: Weiming Shi <bestswngs@gmail.com>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Xiang Mei <xmei5@asu.edu>
+Link: https://lore.kernel.org/r/20260705014010.1297885-1-xmei5@asu.edu
+Signed-off-by: Alex Williamson <alex@shazbot.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit fda8fb7e8179561693a786a7af593f6b944a21c1)
+CVE-2026-89777
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ drivers/vfio/pci/vfio_pci_config.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/vfio/pci/vfio_pci_config.c b/drivers/vfio/pci/vfio_pci_config.c
+index b4e39253f98da61a5e2b6dd0089b2f6aef4b85a0..1ebf07e8f00d4fab2bac1f73ca4ad0eeec80a32a 100644
+--- a/drivers/vfio/pci/vfio_pci_config.c
++++ b/drivers/vfio/pci/vfio_pci_config.c
+@@ -1272,6 +1272,7 @@ static int vfio_msi_cap_len(struct vfio_pci_core_device *vdev, u8 pos)
+ 	ret = init_pci_cap_msi_perm(vdev->msi_perm, len, flags);
+ 	if (ret) {
+ 		kfree(vdev->msi_perm);
++		vdev->msi_perm = NULL;
+ 		return ret;
+ 	}
+ 

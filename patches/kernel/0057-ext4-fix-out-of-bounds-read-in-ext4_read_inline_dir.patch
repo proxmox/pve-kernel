@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xiang Mei <xmei5@asu.edu>
+Date: Mon, 15 Jun 2026 12:05:19 -0700
+Subject: [PATCH] ext4: fix out-of-bounds read in ext4_read_inline_dir()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit 9333cc809f0a89e001b814155a6cb8903a6274df ]
+
+ext4_read_inline_dir() can read a dirent header past the end of its inline
+buffer, triggering a slab-out-of-bounds read during getdents64():
+
+  BUG: KASAN: slab-out-of-bounds in __ext4_check_dir_entry
+  Read of size 2 at addr ffff88800f3dd23c by task exploit/148
+   ...
+   __ext4_check_dir_entry
+   ext4_read_inline_dir
+   iterate_dir
+
+The dirent payload lives in a buffer of exactly inline_size bytes:
+
+	dir_buf = kmalloc(inline_size, GFP_NOFS);
+
+but iteration runs in a position space extra_offset bytes larger
+(extra_size = extra_offset + inline_size) so the synthetic "." and ".."
+land at their block-dir offsets. A dirent is formed at "dir_buf + pos -
+extra_offset", yet the ext4_check_dir_entry() length argument uses the
+larger extra_size. A position whose dirent header would extend past
+extra_size is therefore accepted, and the rescan loop's rec_len probe and
+ext4_check_dir_entry() dereference de->rec_len before the entry is rejected.
+
+Reject a position whose minimum-size dirent header would not fit within
+extra_size before forming de, in both the rescan and main loops, and pass
+inline_size rather than extra_size to ext4_check_dir_entry() so the length
+check matches the physical buffer.
+
+Fixes: c4d8b0235aa9 ("ext4: fix readdir error in case inline_data+^dir_index.")
+Reported-by: Weiming Shi <bestswngs@gmail.com>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Xiang Mei <xmei5@asu.edu>
+Reviewed-by: Jan Kara <jack@suse.cz>
+Link: https://patch.msgid.link/20260615190519.946736-1-xmei5@asu.edu
+Signed-off-by: Theodore Ts'o <tytso@mit.edu>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 36bf17bb90cdf7a623499b624b05acde4d2feef5)
+CVE-2026-89786
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ fs/ext4/inline.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/fs/ext4/inline.c b/fs/ext4/inline.c
+index 408677fa8196727563deaa830971511fd596205a..1a48ccaa364dc391d6d7feadb382a8e8950f02cb 100644
+--- a/fs/ext4/inline.c
++++ b/fs/ext4/inline.c
+@@ -1454,6 +1454,8 @@ int ext4_read_inline_dir(struct file *file,
+ 			/* for other entry, the real offset in
+ 			 * the buf has to be tuned accordingly.
+ 			 */
++			if (i + ext4_dir_rec_len(1, NULL) > extra_size)
++				break;
+ 			de = (struct ext4_dir_entry_2 *)
+ 				(dir_buf + i - extra_offset);
+ 			/* It's too expensive to do a full
+@@ -1488,10 +1490,17 @@ int ext4_read_inline_dir(struct file *file,
+ 			continue;
+ 		}
+ 
++		/*
++		 * de lives at dir_buf + ctx->pos - extra_offset, within the
++		 * kmalloc(inline_size) buffer.  Make sure its header fits before
++		 * ext4_check_dir_entry() dereferences de->rec_len.
++		 */
++		if (ctx->pos + ext4_dir_rec_len(1, NULL) > extra_size)
++			goto out;
+ 		de = (struct ext4_dir_entry_2 *)
+ 			(dir_buf + ctx->pos - extra_offset);
+ 		if (ext4_check_dir_entry(inode, file, de, iloc.bh, dir_buf,
+-					 extra_size, ctx->pos))
++					 inline_size, ctx->pos))
+ 			goto out;
+ 		if (le32_to_cpu(de->inode)) {
+ 			if (!dir_emit(ctx, de->name, de->name_len,

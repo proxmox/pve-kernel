@@ -1,0 +1,103 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Marc Zyngier <maz@kernel.org>
+Date: Thu, 6 Aug 2026 10:10:19 +0100
+Subject: [PATCH] KVM: arm64: Remove VM-wide VNCR mapping counter
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit c55bc773b6e814406658fae7dc5c15f639ed816e upstream.
+
+The global VNCR mapping counter is used to decide whether an L1
+provided VNCR page is mapped in L0 on any CPU at the point of
+dealing with a TLB invalidation. It is incremented when a mapping
+is made in the fixmap, and decremented when unmapped.
+
+As it turns out, this tracking has several flaws:
+
+- we are trying to invalidate TLBs, and the mapping is only an
+  opportunistic consequence of the TLB. Checking this counter to
+  decide whether a TLB needs to be invalidated may result in missed
+  invalidations.
+
+- an L1 vcpu invalidating its own TLB (a very likely case) will not
+  succeed in invalidating the VNCR pseudo TLB because that page is
+  not mapped in L0 at this stage.
+
+Given that this tracking fails at delivering the minimum guarantees
+that are required and is only a performance optimisation, remove it
+completely.
+
+Fixes: 4ffa72ad8f37e ("KVM: arm64: nv: Add S1 TLB invalidation primitive for VNCR_EL2")
+Reviewed-by: Yuan Yao <yaoyuan@linux.alibaba.com>
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Cc: stable@vger.kernel.org
+Acked-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
+Link: https://patch.msgid.link/20260806091026.620700-2-maz@kernel.org
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 87c2bbf189829dce4aaada8f82e3d54ccc037976)
+CVE-2026-89915
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ arch/arm64/include/asm/kvm_host.h | 3 ---
+ arch/arm64/kvm/hyp/vhe/switch.c   | 3 +--
+ arch/arm64/kvm/nested.c           | 3 ---
+ 3 files changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/arch/arm64/include/asm/kvm_host.h b/arch/arm64/include/asm/kvm_host.h
+index 35622773969f9e7084eda976762b6188e248b87e..a98b03c2ba4565647fbec801f8dab83eac505525 100644
+--- a/arch/arm64/include/asm/kvm_host.h
++++ b/arch/arm64/include/asm/kvm_host.h
+@@ -397,9 +397,6 @@ struct kvm_arch {
+ 	/* Masks for VNCR-backed and general EL2 sysregs */
+ 	struct kvm_sysreg_masks	*sysreg_masks;
+ 
+-	/* Count the number of VNCR_EL2 currently mapped */
+-	atomic_t vncr_map_count;
+-
+ 	/*
+ 	 * For an untrusted host VM, 'pkvm.handle' is used to lookup
+ 	 * the associated pKVM instance in the hypervisor.
+diff --git a/arch/arm64/kvm/hyp/vhe/switch.c b/arch/arm64/kvm/hyp/vhe/switch.c
+index 9db3f11a4754d688e5e9b89f5ba84407885fb79f..611352391c3dc042b51cce9cc8a7148d516e9e97 100644
+--- a/arch/arm64/kvm/hyp/vhe/switch.c
++++ b/arch/arm64/kvm/hyp/vhe/switch.c
+@@ -427,8 +427,7 @@ static bool kvm_hyp_handle_tlbi_el2(struct kvm_vcpu *vcpu, u64 *exit_code)
+ 	 * If we have to check for any VNCR mapping being invalidated,
+ 	 * go back to the slow path for further processing.
+ 	 */
+-	if (vcpu_el2_e2h_is_set(vcpu) && vcpu_el2_tge_is_set(vcpu) &&
+-	    atomic_read(&vcpu->kvm->arch.vncr_map_count))
++	if (vcpu_el2_e2h_is_set(vcpu) && vcpu_el2_tge_is_set(vcpu))
+ 		return false;
+ 
+ 	__kvm_skip_instr(vcpu);
+diff --git a/arch/arm64/kvm/nested.c b/arch/arm64/kvm/nested.c
+index 208d0421cf35d1a283a36e91d5d1a2616aefef58..1a64d92f1b684924a511401c1c395e111f5957bd 100644
+--- a/arch/arm64/kvm/nested.c
++++ b/arch/arm64/kvm/nested.c
+@@ -48,7 +48,6 @@ void kvm_init_nested(struct kvm *kvm)
+ {
+ 	kvm->arch.nested_mmus = NULL;
+ 	kvm->arch.nested_mmus_size = 0;
+-	atomic_set(&kvm->arch.vncr_map_count, 0);
+ }
+ 
+ static int init_nested_s2_mmu(struct kvm *kvm, struct kvm_s2_mmu *mmu)
+@@ -852,7 +851,6 @@ static void this_cpu_reset_vncr_fixmap(struct kvm_vcpu *vcpu)
+ 	if (unmap_l1_vncr(vcpu->arch.vncr_tlb) == -1)
+ 		clear_fixmap(vncr_fixmap(smp_processor_id()));
+ 	host_data_clear_flag(L1_VNCR_MAPPED);
+-	atomic_dec(&vcpu->kvm->arch.vncr_map_count);
+ }
+ 
+ void kvm_vcpu_put_hw_mmu(struct kvm_vcpu *vcpu)
+@@ -1546,7 +1544,6 @@ static void kvm_map_l1_vncr(struct kvm_vcpu *vcpu)
+ 		atomic_set(&vt->cpu, smp_processor_id());
+ 		__set_fixmap(vncr_fixmap(atomic_read(&vt->cpu)), vt->hpa, prot);
+ 		host_data_set_flag(L1_VNCR_MAPPED);
+-		atomic_inc(&vcpu->kvm->arch.vncr_map_count);
+ 	}
+ }
+ 

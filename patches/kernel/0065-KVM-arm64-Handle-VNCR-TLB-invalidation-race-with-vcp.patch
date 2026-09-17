@@ -1,0 +1,142 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Marc Zyngier <maz@kernel.org>
+Date: Thu, 6 Aug 2026 10:10:23 +0100
+Subject: [PATCH] KVM: arm64: Handle VNCR TLB invalidation race with vcpu_put()
+ VNCR unmapping
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 38640bc32be3fcf9526d477155bc19d3f146231f upstream.
+
+While VNCR TLB invalidation always occurs under the MMU lock,
+vcpu_put() doesn't, while it unmaps the VNCR page.
+
+The problem is that the invalidation evaluates vncr_tlb::cpu to
+decide whether an unmapping needs to take place (cpu != -1) before
+performing it. On the other hand, this_cpu_reset_vncr_fixmap()
+unconditionally unmaps if L1_VNCR_MAPPED is set.
+
+These two obviously can race, with a TOCTOU pattern on the TLBI
+path, and a BUG_ON() on the vcpu_put() path. And the two can end-up
+calling vncr_fixmap(-1), with extra lethal effects.
+
+Move the reset of vncr_tlb::cpu to -1 to a common function, and make
+this update atomic so that only a single thread can reset the field
+and perform the corresponding unmap. The vcpu_put() still need to
+unconditionally unmap the current VNCR to close another ugly race.
+
+Finally, the assignment of vncr_tlb::cpu is moved to be kept in sync
+with the actual mapping, similar to L1_VNCR_MAPPED being set.
+
+Fixes: 7270cc9157f47 ("KVM: arm64: nv: Handle VNCR_EL2 invalidation from MMU notifiers")
+Reported-by: sashiko-bot@kernel.org
+Link: https://lore.kernel.org/r/20260801130237.0FD8F1F00ACA@smtp.kernel.org
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Cc: stable@vger.kernel.org
+Reviewed-by: Yuan Yao <yaoyuan@linux.alibaba.com>
+Link: https://patch.msgid.link/20260806091026.620700-6-maz@kernel.org
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 9065c1261f8a05c6a7a2d90048c7c0665ab2896d)
+CVE-2026-89917
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ arch/arm64/kvm/nested.c | 42 +++++++++++++++++++++++++++++++----------
+ 1 file changed, 32 insertions(+), 10 deletions(-)
+
+diff --git a/arch/arm64/kvm/nested.c b/arch/arm64/kvm/nested.c
+index c71dc68a6b6ba81b399c88261073a48077b76bbe..a2d11232fe31db564e16bc2ebc5f54a7fb245499 100644
+--- a/arch/arm64/kvm/nested.c
++++ b/arch/arm64/kvm/nested.c
+@@ -27,7 +27,7 @@ struct vncr_tlb {
+ 	bool			hpa_writable;
+ 
+ 	/* -1 when not mapped on a CPU */
+-	int			cpu;
++	atomic_t		cpu;
+ 
+ 	/*
+ 	 * true if the TLB is valid. Can only be changed with the
+@@ -817,16 +817,40 @@ void kvm_vcpu_load_hw_mmu(struct kvm_vcpu *vcpu)
+ 	}
+ }
+ 
++/*
++ * Unmapping an L1 VNCR can happen concurrently without the mmu lock being
++ * effective (vcpu_put() vs TLBI handling). The atomic_xchg below ensures
++ * that only one CPU sets it to -1 while getting a valid CPU number back.
++ */
++static int unmap_l1_vncr(struct vncr_tlb *vt)
++{
++	int cpu = atomic_xchg_relaxed(&vt->cpu, -1);
++
++	if (cpu != -1)
++		clear_fixmap(vncr_fixmap(cpu));
++
++	return cpu;
++}
++
+ static void this_cpu_reset_vncr_fixmap(struct kvm_vcpu *vcpu)
+ {
+ 	if (!host_data_test_flag(L1_VNCR_MAPPED))
+ 		return;
+ 
+-	BUG_ON(vcpu->arch.vncr_tlb->cpu != smp_processor_id());
+ 	BUG_ON(is_hyp_ctxt(vcpu));
+ 
+-	clear_fixmap(vncr_fixmap(vcpu->arch.vncr_tlb->cpu));
+-	vcpu->arch.vncr_tlb->cpu = -1;
++	/*
++	 * Unconditionally unmap the local VNCR if we have lost the race
++	 * against a concurrent TLBI. Otherwise we could end-up running
++	 * another vcpu with VNCR still mapped if the TLBI thread is
++	 * preempted between the exchange and the clear_fixmap().
++	 *
++	 * Note that we do not care about the TLBI nuking the fixmap behind
++	 * the back of an running vcpu. This will only generate a fault and
++	 * possibly a retranslation.
++	 */
++	if (unmap_l1_vncr(vcpu->arch.vncr_tlb) == -1)
++		clear_fixmap(vncr_fixmap(smp_processor_id()));
+ 	host_data_clear_flag(L1_VNCR_MAPPED);
+ 	atomic_dec(&vcpu->kvm->arch.vncr_map_count);
+ }
+@@ -919,8 +943,7 @@ u16 get_asid_by_regime(struct kvm_vcpu *vcpu, enum trans_regime regime)
+ static void invalidate_vncr(struct vncr_tlb *vt)
+ {
+ 	vt->valid = false;
+-	if (vt->cpu != -1)
+-		clear_fixmap(vncr_fixmap(vt->cpu));
++	unmap_l1_vncr(vt);
+ }
+ 
+ static bool vncr_tlb_intersects(struct vncr_tlb *vt, u64 addr,
+@@ -1364,7 +1387,7 @@ static int kvm_translate_vncr(struct kvm_vcpu *vcpu, bool *is_gmem)
+ 		vt->hpa = pfn << PAGE_SHIFT;
+ 		vt->hpa_writable = writable;
+ 		vt->valid = true;
+-		vt->cpu = -1;
++		atomic_set(&vt->cpu, -1);
+ 
+ 		kvm_make_request(KVM_REQ_MAP_L1_VNCR_EL2, vcpu);
+ 		kvm_release_faultin_page(vcpu->kvm, page, false, vt->wr.pw && vt->hpa_writable);
+@@ -1491,8 +1514,6 @@ static void kvm_map_l1_vncr(struct kvm_vcpu *vcpu)
+ 	if (vt->wr.nG && get_asid_by_regime(vcpu, TR_EL20) != vt->wr.asid)
+ 		return;
+ 
+-	vt->cpu = smp_processor_id();
+-
+ 	if (vt->hpa_writable && vt->wr.pw && vt->wr.pr)
+ 		prot = PAGE_KERNEL;
+ 	else if (vt->wr.pr)
+@@ -1507,7 +1528,8 @@ static void kvm_map_l1_vncr(struct kvm_vcpu *vcpu)
+ 	 * FIXME: WO doesn't work at all, need POE support in the kernel.
+ 	 */
+ 	if (pgprot_val(prot) != pgprot_val(PAGE_NONE)) {
+-		__set_fixmap(vncr_fixmap(vt->cpu), vt->hpa, prot);
++		atomic_set(&vt->cpu, smp_processor_id());
++		__set_fixmap(vncr_fixmap(atomic_read(&vt->cpu)), vt->hpa, prot);
+ 		host_data_set_flag(L1_VNCR_MAPPED);
+ 		atomic_inc(&vcpu->kvm->arch.vncr_map_count);
+ 	}

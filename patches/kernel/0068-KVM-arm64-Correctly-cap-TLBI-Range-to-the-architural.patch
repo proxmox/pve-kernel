@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Marc Zyngier <maz@kernel.org>
+Date: Mon, 10 Aug 2026 18:06:16 +0100
+Subject: [PATCH] KVM: arm64: Correctly cap TLBI Range to the architural limit
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 69a598288195947a1662b53de702eb6976af96b7 upstream.
+
+TLB Invalidation by Range has a fairly powerful way of encoding pretty
+large ranges in a small number of bits. This range can be based on an
+arbitrary VA, which means it is pretty easy for a guest to generate an
+overflow should the hypervisor be naive enough to add the range to the
+base...
+
+Make sure the range is capped to the limit dictated by the address bit
+that determines the VA range. For an IPA invalidation, this is further
+corrected down the line to ignore the upper range.
+
+Fixes: 4ffa72ad8f37e ("KVM: arm64: nv: Add S1 TLB invalidation primitive for VNCR_EL2")
+Reported-by: Wei-Lin Chang <weilin.chang@arm.com>
+Link: https://lore.kernel.org/r/yifz3wn5gk5sr6mapi32trgk5m5kp33bquctsjmkifebnsnndt@fix6u4rthx4g
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Cc: stable@vger.kernel.org
+Reviewed-by: Wei-Lin Chang <weilin.chang@arm.com>
+Link: https://patch.msgid.link/20260810170616.746100-1-maz@kernel.org
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 2de38f0448b45d27eba984fc0d9edb7a138972c2)
+CVE-2026-89911
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ arch/arm64/include/asm/kvm_nested.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm64/include/asm/kvm_nested.h b/arch/arm64/include/asm/kvm_nested.h
+index 9bd20beba784558ac8998a0d7601d5a1562ffe15..b436d1cdd094b0b4d15664643ba6c5c9e4dcf847 100644
+--- a/arch/arm64/include/asm/kvm_nested.h
++++ b/arch/arm64/include/asm/kvm_nested.h
+@@ -297,6 +297,12 @@ static inline u64 decode_range_tlbi(u64 val, u64 *range, u16 *asid)
+ 	num	= FIELD_GET(GENMASK(43, 39), val);
+ 	*range	= __TLBI_RANGE_PAGES(num, scale) << shift;
+ 
++	/* Cap the range to the correct half of the address space */
++	if (!(base & BIT(48)))
++		*range = min(*range, (BIT(48) - base));
++	else
++		*range = min(*range, ~base + 1);
++
+ 	return base;
+ }
+ 

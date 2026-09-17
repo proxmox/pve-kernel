@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yilin Zhang <yilinzhang@moonshot.ai>
+Date: Tue, 1 Sep 2026 00:21:55 +0800
+Subject: [PATCH] perf: Fix use-after-free when perf mmap() revival races with
+ the last munmap()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 58a8108bc73de0740d5b88150465d6690ea5f85f upstream.
+
+perf_mmap_close() drops rb->mmap_count *without* holding
+event->mmap_mutex (the refcount_dec_and_test() right before the
+refcount_dec_and_mutex_lock() of event->mmap_count). A concurrent
+perf_mmap_rb() can slot its entire "revival" path into that window
+(perf_mmap holds event->mmap_mutex for its whole duration, including
+rb_alloc):
+
+  munmap side (perf_mmap_close)          mmap side (perf_mmap_rb)
+  -----------------------------------    --------------------------------
+  rb->mmap_count 1 -> 0   (no lock)      (holds event->mmap_mutex)
+                                         inc_not_zero(rb->mmap_count) fails
+                                         ring_buffer_attach(event, NULL)
+                                         rb_alloc() + attach new rb
+                                         refcount_set(&event->mmap_count, 1)
+  lock; event->mmap_count 1 -> 0
+  ring_buffer_attach(event, NULL)
+  ring_buffer_put() -> frees the *new* rb
+
+The revival's refcount_set(&event->mmap_count, 1) is an invisible
+1 -> 1 write: the close frees the just-revived buffer although the
+other process still has it mapped -- a page-level use-after-free
+allowing local privilege escalation to root by any unprivileged user
+(default kernel.perf_event_paranoid=2).
+
+Swap the order of the two counter updates: event->mmap_count is
+dropped first via refcount_dec_and_mutex_lock(), so its 1 -> 0
+transition and the ring_buffer_attach() stay serialized with
+perf_mmap(). rb->mmap_count == 0 then implies every event using the
+buffer is detached already, so the result of the rb->mmap_count drop
+can gate the remaining teardown directly and detach_rest is no longer
+needed.
+
+An earlier fix for this race from Kyle Zeng and David Lee takes
+event->mmap_mutex around both counter updates [0]; here the not-last
+close stays lockless.
+
+Fixes: 59741451b49c ("perf: Identify the 0->1 transition for event::mmap_count")
+Reported-by: Kimi Security Team <bug-report@moonshot.ai>
+Suggested-by: Peter Zijlstra <peterz@infradead.org>
+Co-developed-by: Weiming Shi <shiweiming@moonshot.ai>
+Signed-off-by: Weiming Shi <shiweiming@moonshot.ai>
+Signed-off-by: Yilin Zhang <yilinzhang@moonshot.ai>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Link: https://lore.kernel.org/linux-perf-users/20260804060931.711308-1-david.lee@trailofbits.com/ [0]
+Cc: <stable@vger.kernel.org>
+Cc: stable@vger.kernel.org # 6.18+
+Link: https://patch.msgid.link/20260831162155.1437652-1-yilinzhang@moonshot.ai
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 0c739f54f1c77f3a4643160cd2e031b6c2f2aab6)
+CVE-2026-89791
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ kernel/events/core.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 8fb9e2e86e20edf058ff61ffd0468931c656a600..b2239d13b080a9f80ec0e2a575b4e5ad1f54b9e0 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -7035,7 +7035,6 @@ static void perf_mmap_close(struct vm_area_struct *vma)
+ 	mapped_f unmapped = get_mapped(event, event_unmapped);
+ 	struct perf_buffer *rb = ring_buffer_get(event);
+ 	struct user_struct *mmap_user = rb->mmap_user;
+-	bool detach_rest = false;
+ 
+ 	/* FIXIES vs perf_pmu_unregister() */
+ 	if (unmapped)
+@@ -7066,17 +7065,18 @@ static void perf_mmap_close(struct vm_area_struct *vma)
+ 		mutex_unlock(&rb->aux_mutex);
+ 	}
+ 
+-	if (refcount_dec_and_test(&rb->mmap_count))
+-		detach_rest = true;
+-
+-	if (!refcount_dec_and_mutex_lock(&event->mmap_count, &event->mmap_mutex))
+-		goto out_put;
+-
+-	ring_buffer_attach(event, NULL);
+-	mutex_unlock(&event->mmap_mutex);
++	/*
++	 * Drop references in reverse order of perf_mmap() to prevent
++	 * rb revival after rb->mmap_count reaches zero.
++	 */
++	if (refcount_dec_and_mutex_lock(&event->mmap_count,
++					&event->mmap_mutex)) {
++		ring_buffer_attach(event, NULL);
++		mutex_unlock(&event->mmap_mutex);
++	}
+ 
+ 	/* If there's still other mmap()s of this buffer, we're done. */
+-	if (!detach_rest)
++	if (!refcount_dec_and_test(&rb->mmap_count))
+ 		goto out_put;
+ 
+ 	/*

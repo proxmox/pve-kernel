@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fuad Tabba <fuad.tabba@linux.dev>
+Date: Sun, 2 Aug 2026 16:08:45 +0100
+Subject: [PATCH] KVM: arm64: vgic: Reset in_kernel on private IRQ allocation
+ failure
+
+commit 43347154e7ab642474c886bc54ad090166c0d9c9 upstream.
+
+kvm_vgic_create() sets vgic.in_kernel before allocating the per-vCPU
+private IRQs, but the allocation-failure path resets only vgic_model and
+leaves in_kernel set. As irqchip_in_kernel() is !!in_kernel, the VM is
+left with an in-kernel irqchip but no model, and the -EEXIST guard at the
+top of kvm_vgic_create() rejects every retry, so userspace cannot recover
+from a transient -ENOMEM.
+
+Reset in_kernel alongside vgic_model on the failure path.
+
+Fixes: 9435c1e1431003 ("KVM: arm64: gic: Set vgic_model before initing private IRQs")
+Cc: stable@vger.kernel.org
+Signed-off-by: Fuad Tabba <fuad.tabba@linux.dev>
+Acked-by: Marc Zyngier <maz@kernel.org>
+Link: https://patch.msgid.link/20260802150845.3485757-1-fuad.tabba@linux.dev
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 2bf6e59be382a752b1aea33691c04b7f08aa5d42)
+---
+ arch/arm64/kvm/vgic/vgic-init.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/kvm/vgic/vgic-init.c b/arch/arm64/kvm/vgic/vgic-init.c
+index e9b8b5fc480c775b274112cc15d582ed21bb38f6..d539019f68d34304e4d7b50a565a729cf176d4b1 100644
+--- a/arch/arm64/kvm/vgic/vgic-init.c
++++ b/arch/arm64/kvm/vgic/vgic-init.c
+@@ -173,6 +173,7 @@ int kvm_vgic_create(struct kvm *kvm, u32 type)
+ 		}
+ 
+ 		kvm->arch.vgic.vgic_model = 0;
++		kvm->arch.vgic.in_kernel = false;
+ 		goto out_unlock;
+ 	}
+ 

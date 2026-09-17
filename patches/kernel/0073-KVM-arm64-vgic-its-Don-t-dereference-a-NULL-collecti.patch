@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fuad Tabba <fuad.tabba@linux.dev>
+Date: Fri, 7 Aug 2026 11:40:59 +0100
+Subject: [PATCH] KVM: arm64: vgic-its: Don't dereference a NULL collection on
+ ITT save
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit c6c156d931c33b92362383cf76f6d6e1291dcbfe upstream.
+
+MAPC with V=0 drops ite->collection but leaves the ITE on the device's
+ITT list, and vgic_its_save_ite() dereferences it unconditionally. A
+guest that issues MAPD, MAPTI and then MAPC(V=0) therefore oopses the
+host when the VMM issues KVM_DEV_ARM_ITS_SAVE_TABLES to migrate it.
+That sequence is UNPREDICTABLE per the architecture, but KVM already
+handles the resulting state in the translate, MOVI and DISCARD paths.
+
+Save a zeroed entry, which vgic_its_restore_ite() reads back as
+invalid. Skipping the ITE instead would leave the ITT slot holding
+whatever is in guest memory, and restore rejects an entry naming a
+collection the restored collection table does not have.
+
+Fixes: eff484e0298da ("KVM: arm64: vgic-its: ITT save and restore")
+Cc: stable@vger.kernel.org
+Signed-off-by: Fuad Tabba <fuad.tabba@linux.dev>
+Link: https://patch.msgid.link/20260807104102.2410744-2-fuad.tabba@linux.dev
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 36df368861d2664291298feeb37dfef43fcae670)
+CVE-2026-89912
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ arch/arm64/kvm/vgic/vgic-its.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm64/kvm/vgic/vgic-its.c b/arch/arm64/kvm/vgic/vgic-its.c
+index e9ef7686a95240d02d5d683e18755075facef3b8..6e31c1c31be2e98ad9d1a760e3814dc18e2c9aa6 100644
+--- a/arch/arm64/kvm/vgic/vgic-its.c
++++ b/arch/arm64/kvm/vgic/vgic-its.c
+@@ -2120,6 +2120,14 @@ static int vgic_its_save_ite(struct vgic_its *its, struct its_device *dev,
+ 	u32 next_offset;
+ 	u64 val;
+ 
++	/*
++	 * MAPC with V=0 keeps the ITEs mapped but drops their collection,
++	 * and with it the ICID. Save a zeroed entry, which the restore path
++	 * reads back as invalid.
++	 */
++	if (!ite->collection)
++		return vgic_its_write_entry_lock(its, gpa, 0ULL, ite);
++
+ 	next_offset = compute_next_eventid_offset(&dev->itt_head, ite);
+ 	val = ((u64)next_offset << KVM_ITS_ITE_NEXT_SHIFT) |
+ 	       ((u64)ite->irq->intid << KVM_ITS_ITE_PINTID_SHIFT) |

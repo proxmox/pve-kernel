@@ -1,0 +1,116 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Marc Zyngier <maz@kernel.org>
+Date: Thu, 6 Aug 2026 10:10:20 +0100
+Subject: [PATCH] KVM: arm64: Handle negative S1 walk levels in VNCR TLB size
+ evaluation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 8053393680d4fa3eb962667d2be95dd39f0940e5 upstream.
+
+Computing the effects of a TLB invalidation involves looking at
+the size of the mapping cached by the TLB. For S1 mappings such as
+VNCR, this is deducted from the combination of the base granule size
+and the mapping level.
+
+However, this implies that the S1 MMU is *on*. When the MMU is off,
+we indicate this with the level being set to a "creative" value of
+-127 (S1_MMU_DISABLED).
+
+This ends-up being misinterpreted by pgshift_level_to_ttl() as it
+doesn't handle negative levels at all (the level is immediately cast
+to a u8 and only the bottom two bits considered), leading to an
+invalidation size of 0. Not helpful.
+
+Tidy-up pgshift_level_to_ttl() to handle these negative levels, and
+ttl_to_size() to always return SZ_1G when no valid TTL is present.
+This allows the removal of open-coded checks for similar situations.
+
+Note that the check for a negative value not explicitely checking for
+S1_MMU_DISABLED is deliberate, so that actual negative levels introduced
+with LVA2 and D128 can take the same path if we ever support them.
+
+Fixes: 7270cc9157f47 ("KVM: arm64: nv: Handle VNCR_EL2 invalidation from MMU notifiers")
+Reported-by: Hyunwoo Kim <imv4bel@gmail.com>
+Link: https://lore.kernel.org/r/ameGoxbn2wzBq2kL@v4bel
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Cc: stable@vger.kernel.org
+Link: https://patch.msgid.link/20260806091026.620700-3-maz@kernel.org
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 1c9fca34b9625a67a7f1a03c8604f3df760c6c49)
+CVE-2026-89775
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ arch/arm64/kvm/nested.c | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/arch/arm64/kvm/nested.c b/arch/arm64/kvm/nested.c
+index 6c8910e99faae49754712d7069620ebbf67c5c06..5ac4719532ca83513fe9418472c90892cac5e46b 100644
+--- a/arch/arm64/kvm/nested.c
++++ b/arch/arm64/kvm/nested.c
+@@ -433,7 +433,7 @@ int kvm_walk_nested_s2(struct kvm_vcpu *vcpu, phys_addr_t gipa,
+ 	return ret;
+ }
+ 
+-static unsigned int ttl_to_size(u8 ttl)
++static unsigned int __ttl_to_size(u8 ttl)
+ {
+ 	int level = ttl & 3;
+ 	int gran = (ttl >> 2) & 3;
+@@ -489,10 +489,22 @@ static unsigned int ttl_to_size(u8 ttl)
+ 	return max_size;
+ }
+ 
+-static u8 pgshift_level_to_ttl(u16 shift, u8 level)
++static unsigned int ttl_to_size(u8 ttl)
++{
++	return __ttl_to_size(ttl) ?: SZ_1G;
++}
++
++static u8 pgshift_level_to_ttl(u16 shift, s8 level)
+ {
+ 	u8 ttl;
+ 
++	/*
++	 * If we don't have a proper level, fallback to the maximum
++	 * size.
++	 */
++	if (level < 0)
++		return 0;
++
+ 	switch(shift) {
+ 	case 12:
+ 		ttl = TLBI_TTL_TG_4K;
+@@ -602,7 +614,11 @@ unsigned long compute_tlb_inval_range(struct kvm_s2_mmu *mmu, u64 val)
+ 		ttl = get_guest_mapping_ttl(mmu, addr);
+ 	}
+ 
+-	max_size = ttl_to_size(ttl);
++	/*
++	 * Don't use the default 1GB fallback, as we can adapt to the
++	 * max mapping size we allow at S2.
++	 */
++	max_size = __ttl_to_size(ttl);
+ 
+ 	if (!max_size) {
+ 		/* Compute the maximum extent of the invalidation */
+@@ -1042,8 +1058,6 @@ static void compute_s1_tlbi_range(struct kvm_vcpu *vcpu, u32 inst, u64 val,
+ 	case OP_TLBI_VALE1OSNXS:
+ 		scope->type = TLBI_VA;
+ 		scope->size = ttl_to_size(FIELD_GET(TLBI_TTL_MASK, val));
+-		if (!scope->size)
+-			scope->size = SZ_1G;
+ 		scope->va = tlbi_va_s1_to_va(val) & ~(scope->size - 1);
+ 		scope->asid = FIELD_GET(TLBIR_ASID_MASK, val);
+ 		break;
+@@ -1070,8 +1084,6 @@ static void compute_s1_tlbi_range(struct kvm_vcpu *vcpu, u32 inst, u64 val,
+ 	case OP_TLBI_VAALE1OSNXS:
+ 		scope->type = TLBI_VAA;
+ 		scope->size = ttl_to_size(FIELD_GET(TLBI_TTL_MASK, val));
+-		if (!scope->size)
+-			scope->size = SZ_1G;
+ 		scope->va = tlbi_va_s1_to_va(val) & ~(scope->size - 1);
+ 		break;
+ 	case OP_TLBI_RVAE2:

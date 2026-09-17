@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Marc Zyngier <maz@kernel.org>
+Date: Thu, 6 Aug 2026 10:10:24 +0100
+Subject: [PATCH] KVM: arm64: Sign-extend VA for range-based TLBI invalidation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 2393470085649f0b973ecceb26fe8fc71edde0c1 upstream.
+
+When the decode_range_tlbi() helper was moved to be used for S1 TLBIs,
+the required sign extension was omitted. Add it.
+
+As a result, special care must be taken to not overflow PA bits when
+this is used for S2 invalidation.
+
+Fixes: 85bba00425ae0 ("KVM: arm64: nv: Move TLBI range decoding to a helper")
+Reported-by: sashiko-bot@kernel.org
+Link: https://lore.kernel.org/r/20260801130337.EB2BA1F00AC4@smtp.kernel.org
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Cc: stable@vger.kernel.org
+Link: https://patch.msgid.link/20260806091026.620700-7-maz@kernel.org
+Signed-off-by: Oliver Upton <oupton@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 3feb83918e30f0472e058224b926ebfe8a064fac)
+CVE-2026-89914
+Signed-off-by: Fabian Grünbichler <f.gruenbichler@proxmox.com>
+---
+ arch/arm64/include/asm/kvm_nested.h |  7 +++++++
+ arch/arm64/kvm/sys_regs.c           | 11 +++++++++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/arch/arm64/include/asm/kvm_nested.h b/arch/arm64/include/asm/kvm_nested.h
+index b436d1cdd094b0b4d15664643ba6c5c9e4dcf847..e8ad8b0198fb9e77d51fab401a6fc4ab5f6db946 100644
+--- a/arch/arm64/include/asm/kvm_nested.h
++++ b/arch/arm64/include/asm/kvm_nested.h
+@@ -290,6 +290,13 @@ static inline u64 decode_range_tlbi(u64 val, u64 *range, u16 *asid)
+ 
+ 	base	= (val & GENMASK(36, 0)) << shift;
+ 
++	/*
++	 * We only deal with at most 48bit VA/IPA, so 48 is where we
++	 * sign-extend from. Should we support FEAT_L{VP}A* at some point,
++	 * this will need to be revisited.
++	 */
++	base	= (u64)sign_extend64(base, 48);
++
+ 	if (asid)
+ 		*asid = FIELD_GET(TLBIR_ASID_MASK, val);
+ 
+diff --git a/arch/arm64/kvm/sys_regs.c b/arch/arm64/kvm/sys_regs.c
+index 9d980ad6e7c59ace15e1548a494f22ed4a59cc70..0d4195fddbd39c39de7ca65bdec176fa9b7e4e32 100644
+--- a/arch/arm64/kvm/sys_regs.c
++++ b/arch/arm64/kvm/sys_regs.c
+@@ -3954,6 +3954,7 @@ static bool handle_ripas2e1is(struct kvm_vcpu *vcpu, struct sys_reg_params *p,
+ 	u32 sys_encoding = sys_insn(p->Op0, p->Op1, p->CRn, p->CRm, p->Op2);
+ 	u64 vttbr = vcpu_read_sys_reg(vcpu, VTTBR_EL2);
+ 	u64 base, range;
++	int pa_bits;
+ 
+ 	if (!kvm_supported_tlbi_ipas2_op(vcpu, sys_encoding))
+ 		return undef_access(vcpu, p, r);
+@@ -3965,6 +3966,16 @@ static bool handle_ripas2e1is(struct kvm_vcpu *vcpu, struct sys_reg_params *p,
+ 	 */
+ 	base = decode_range_tlbi(p->regval, &range, NULL);
+ 
++	/*
++	 * Ignore TLBIs that start out of PA_bits range, and cap the
++	 * invalidation to the [base:bit(PA_bits)] interval.
++	 */
++	pa_bits = kvm_get_pa_bits(vcpu->kvm);
++	if (fls64(base) > pa_bits)
++		return true;
++
++	range = min(range, BIT_ULL(pa_bits) - base);
++
+ 	kvm_s2_mmu_iterate_by_vmid(vcpu->kvm, get_vmid(vttbr),
+ 				   &(union tlbi_info) {
+ 					   .range = {
