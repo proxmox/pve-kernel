@@ -108,10 +108,10 @@ index b3565ebdc7decbdde4fdb2f86c310e7f1bc0d59e..03fe24886ec6bc3d6df1ba1b0b5c1632
  	dst->event_inj_err        = from->event_inj_err;
  	dst->next_rip             = from->next_rip;
 diff --git a/arch/x86/kvm/svm/sev.c b/arch/x86/kvm/svm/sev.c
-index 66484b1f964b791c9c4badf6673e0edf1b59adec..d430fd3b4c1fff2fc4d533aff433625e26120d5a 100644
+index 3789ea356cc5a77e2f5e670e4dd8d6f42d193fb5..74e321043b1974ff2ce3ae9eec28f4861e960c64 100644
 --- a/arch/x86/kvm/svm/sev.c
 +++ b/arch/x86/kvm/svm/sev.c
-@@ -4655,7 +4655,7 @@ static void sev_es_init_vmcb(struct vcpu_svm *svm, bool init_event)
+@@ -4693,7 +4693,7 @@ static void sev_es_init_vmcb(struct vcpu_svm *svm, bool init_event)
  	struct kvm_sev_info *sev = to_kvm_sev_info(svm->vcpu.kvm);
  	struct vmcb *vmcb = svm->vmcb01.ptr;
  
@@ -120,7 +120,7 @@ index 66484b1f964b791c9c4badf6673e0edf1b59adec..d430fd3b4c1fff2fc4d533aff433625e
  
  	/*
  	 * An SEV-ES guest requires a VMSA area that is a separate from the
-@@ -4726,7 +4726,7 @@ void sev_init_vmcb(struct vcpu_svm *svm, bool init_event)
+@@ -4764,7 +4764,7 @@ void sev_init_vmcb(struct vcpu_svm *svm, bool init_event)
  {
  	struct kvm_vcpu *vcpu = &svm->vcpu;
  
@@ -130,7 +130,7 @@ index 66484b1f964b791c9c4badf6673e0edf1b59adec..d430fd3b4c1fff2fc4d533aff433625e
  
  	/*
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index ffd37b69e34608808faecec87e823bc19ac8d179..9ce0b9697dcd1966862b48d3489f4d73d2a046c0 100644
+index f81c661b35ffa98041ccde58772f8eb49e8eb09c..129060472bff452439138460d185002184942741 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
 @@ -1157,7 +1157,7 @@ static void init_vmcb(struct kvm_vcpu *vcpu, bool init_event)
@@ -152,10 +152,10 @@ index ffd37b69e34608808faecec87e823bc19ac8d179..9ce0b9697dcd1966862b48d3489f4d73
  	pr_err("%-20s%016llx\n", "avic_vapic_bar:", control->avic_vapic_bar);
  	pr_err("%-20s%016llx\n", "ghcb:", control->ghcb_gpa);
 diff --git a/arch/x86/kvm/svm/svm.h b/arch/x86/kvm/svm/svm.h
-index 521787ad1224ac47b7bc71429dfe2a877e422e02..1315802416c93e49915df28dba26ddffc754b291 100644
+index 8701b19c6961e9b5fda1cb3b43ea3052d4bf4a78..9df0e2ec705233ab9e478fe5c415290825c60602 100644
 --- a/arch/x86/kvm/svm/svm.h
 +++ b/arch/x86/kvm/svm/svm.h
-@@ -167,7 +167,7 @@ struct vmcb_ctrl_area_cached {
+@@ -168,7 +168,7 @@ struct vmcb_ctrl_area_cached {
  	u64 exit_info_2;
  	u32 exit_int_info;
  	u32 exit_int_info_err;
@@ -164,7 +164,7 @@ index 521787ad1224ac47b7bc71429dfe2a877e422e02..1315802416c93e49915df28dba26ddff
  	u32 event_inj;
  	u32 event_inj_err;
  	u64 next_rip;
-@@ -579,7 +579,7 @@ static inline bool gif_set(struct vcpu_svm *svm)
+@@ -581,7 +581,7 @@ static inline bool gif_set(struct vcpu_svm *svm)
  
  static inline bool nested_npt_enabled(struct vcpu_svm *svm)
  {

@@ -18,7 +18,7 @@ Link: https://lore.kernel.org/20260309-tcp_rfc7323_retract_wnd_rfc-v3-3-4c7f96b1
  1 file changed, 1 insertion(+)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index f74d87141a27987c2653b5f9a9b7a5fe48b68b17..597b3167421873f688ad1b9636f580a9a33da3e2 100644
+index a98e504c24438174b1b8d5df1c85b190e3db24df..7d48f3fe6e50fa8d97649c873a61bde6ef655968 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -5768,6 +5768,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)

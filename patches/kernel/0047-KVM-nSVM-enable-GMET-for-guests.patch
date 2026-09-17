@@ -45,7 +45,7 @@ index ceaace3a2f500b01f183612107f9c24b05e4b7f2..cd446f86ce4e9e134ff2cab6cdc9ea64
  		nested_svm_init_mmu_context(vcpu);
  	}
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 40e73d3943705d1e7fa9dff33c0bc3ac97b70ff2..3fdf773bef6da262fa29722ccfeb56e5950dca5a 100644
+index 087bc4c3c3b93681a0434cedcd39a4a49dddf19d..ff41034395783ea01b45c62473832a40aedecc98 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
 @@ -5479,6 +5479,9 @@ static __init void svm_set_cpu_caps(void)

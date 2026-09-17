@@ -18,10 +18,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 28 insertions(+), 4 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 370d2563292e4d1e5564ba2d856013100c4dedd5..6bd52d506b2187f842bbb90aa838f1fe77126a28 100644
+index 57295a62e2fea47d73065916d67990b609021618..7f4d0d518cd3ea46a96b5d8c201bf78f8d7c44d2 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5842,7 +5842,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5845,7 +5845,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  {
  	union kvm_mmu_page_role role = {0};
  
@@ -29,7 +29,7 @@ index 370d2563292e4d1e5564ba2d856013100c4dedd5..6bd52d506b2187f842bbb90aa838f1fe
  	role.cr0_wp = true;
  	role.cr4_smep = kvm_x86_call(tdp_has_smep)(vcpu->kvm);
  	role.efer_nx = true;
-@@ -5853,6 +5852,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5856,6 +5855,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  	role.direct = true;
  	role.has_4_byte_gpte = false;
  
@@ -70,7 +70,7 @@ index a94c35190dc8884441444a407e0e711831f741d2..ceaace3a2f500b01f183612107f9c24b
  	vcpu->arch.tsc_offset = kvm_calc_nested_tsc_offset(
  			vcpu->arch.l1_tsc_offset,
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 9ce0b9697dcd1966862b48d3489f4d73d2a046c0..58823d57835e0e09f6f9d328a7f6fd011a84c0e1 100644
+index 129060472bff452439138460d185002184942741..1f3d7d4e36ac43eabe1181ce69265139af8c7b98 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
 @@ -136,6 +136,9 @@ module_param(pause_filter_count_max, ushort, 0444);
@@ -125,7 +125,7 @@ index 9ce0b9697dcd1966862b48d3489f4d73d2a046c0..58823d57835e0e09f6f9d328a7f6fd01
  	kvm_configure_mmu(npt_enabled, get_npt_level(),
  			  get_npt_level(), PG_LEVEL_1G);
 diff --git a/arch/x86/kvm/svm/svm.h b/arch/x86/kvm/svm/svm.h
-index 1315802416c93e49915df28dba26ddffc754b291..d7443a55df9fda911371194ba13334e0cfb0f383 100644
+index 9df0e2ec705233ab9e478fe5c415290825c60602..6e0a6fbbf3e5185834794723c88d5b7328085c48 100644
 --- a/arch/x86/kvm/svm/svm.h
 +++ b/arch/x86/kvm/svm/svm.h
 @@ -44,6 +44,7 @@ static inline struct page *__sme_pa_to_page(unsigned long pa)

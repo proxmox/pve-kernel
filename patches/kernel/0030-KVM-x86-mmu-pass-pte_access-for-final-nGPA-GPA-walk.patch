@@ -75,10 +75,10 @@ index 23f37535c0ce1d1e8e855ef3f94cae97cbb9c33c..635c2e5d8513dc0327f2d221007d21cf
  
  static inline bool kvm_has_mirrored_tdp(const struct kvm *kvm)
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 76af1be1207d5d6deae997f7a0551ea4bd00e95d..52c4954575dd101e494cb061fe8a0edb4a7cc34e 100644
+index 0c863ca9d63f04dc217a62687cee5170f0d3285e..7283f3fddfcc468f4ad1d8105b87eaeaccccb209 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -4334,8 +4334,14 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+@@ -4337,8 +4337,14 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
  {
  	if (exception)
  		exception->error_code = 0;
@@ -134,7 +134,7 @@ index 121bfb2217e83d5c2926e2155cb9ded5ff5d3b00..8a4c09c5cdbfb3000670b92fe9404738
  #define SPTE_LEVEL_SHIFT(level)		__PT_LEVEL_SHIFT(level, SPTE_LEVEL_BITS)
  #define SPTE_INDEX(address, level)	__PT_INDEX(address, level, SPTE_LEVEL_BITS)
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 0890bb23b1beaa223d6ee696b5ab3ef82a8591ca..ecfaafa3fc01be1f3f5f6c98364d7042043c05d4 100644
+index d00d201a0af4c51fa5f09002f512b21adec27c24..8e8b96e204c4ed33eb48a7481511a8238a190ed1 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -1070,7 +1070,7 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)

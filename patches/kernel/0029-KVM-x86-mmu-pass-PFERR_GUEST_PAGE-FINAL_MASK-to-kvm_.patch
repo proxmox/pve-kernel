@@ -37,10 +37,10 @@ index ad59c22979bde5171aeb7baf6e9a2a3c715f8d81..df9c8760b3232362543df892a75e0f20
  			return HV_STATUS_INVALID_HYPERCALL_INPUT;
  	}
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 88eaf6c2ebdefc49b3ed2ea33ffecd27f9693a45..76af1be1207d5d6deae997f7a0551ea4bd00e95d 100644
+index 48fd0c0bd9191a2e44b0a76b193a69a9cdc97caa..0c863ca9d63f04dc217a62687cee5170f0d3285e 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -4334,7 +4334,8 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+@@ -4337,7 +4337,8 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
  {
  	if (exception)
  		exception->error_code = 0;
@@ -76,7 +76,7 @@ index 50db62f2a072dfe0228c8cb982afde9e5cd4e932..1ab9ed3100453c6c9133d256073d873b
  		return 0;
  
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 18a6e962a6fa730d8ed785e11b809541d3e908d8..0890bb23b1beaa223d6ee696b5ab3ef82a8591ca 100644
+index 7c1ada5e4a9230e82984b82bf1dd9a10ffbaa946..d00d201a0af4c51fa5f09002f512b21adec27c24 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
 @@ -1069,7 +1069,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)

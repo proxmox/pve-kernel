@@ -37,10 +37,10 @@ index 23bc5b18efd079df68cd750665e3153d4e438bf0..e1e3869f568b5101ca99a238b4468052
  int kvm_handle_page_fault(struct kvm_vcpu *vcpu, u64 error_code,
  				u64 fault_address, char *insn, int insn_len);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index ab8864b1bd18e61a340857a5316a80a8f5a3aeb4..52c25c02cff0222de3e0607fe81ad3fbfe8a38bc 100644
+index 863f9a18ca55f620489490c61bdb916dae17c954..414eb4b0afa8f39ae62fad50d32cf89ef7663f0c 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5946,7 +5946,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_init_shadow_npt_mmu);
+@@ -5949,7 +5949,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_init_shadow_npt_mmu);
  
  static union kvm_cpu_role
  kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
@@ -49,7 +49,7 @@ index ab8864b1bd18e61a340857a5316a80a8f5a3aeb4..52c25c02cff0222de3e0607fe81ad3fb
  {
  	union kvm_cpu_role role = {0};
  
-@@ -5956,6 +5956,7 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+@@ -5959,6 +5959,7 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
  	 */
  	WARN_ON_ONCE(is_smm(vcpu));
  	role.base.level = level;
@@ -57,7 +57,7 @@ index ab8864b1bd18e61a340857a5316a80a8f5a3aeb4..52c25c02cff0222de3e0607fe81ad3fb
  	role.base.has_4_byte_gpte = false;
  	role.base.direct = false;
  	role.base.ad_disabled = !accessed_dirty;
-@@ -5971,13 +5972,13 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+@@ -5974,13 +5975,13 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
  
  void kvm_init_shadow_ept_mmu(struct kvm_vcpu *vcpu, bool execonly,
  			     int huge_page_level, bool accessed_dirty,

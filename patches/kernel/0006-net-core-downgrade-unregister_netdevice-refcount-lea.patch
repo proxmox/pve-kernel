@@ -15,10 +15,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 159f629bab58bffa63b56a52bb0481e4312c81f6..61ba7714b70696783790ec6fa1c7689ccbb40f2a 100644
+index 427d67d7dd1b90fd2de3ed795e658b7f0860c773..46fcf7fb4f709ccc61cf0db9055449f516526c51 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -11677,7 +11677,7 @@ static struct net_device *netdev_wait_allrefs_any(struct list_head *list)
+@@ -11681,7 +11681,7 @@ static struct net_device *netdev_wait_allrefs_any(struct list_head *list)
  		if (time_after(jiffies, warning_time +
  			       READ_ONCE(netdev_unregister_timeout_secs) * HZ)) {
  			list_for_each_entry(dev, list, todo_list) {

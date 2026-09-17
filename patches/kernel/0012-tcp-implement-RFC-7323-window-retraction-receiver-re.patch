@@ -89,7 +89,7 @@ index c44cf9ae8d16f5cc7808a6ca78c1dad03354dccf..139024106364407ab3a55825baafdd02
  /*
   *      Options received (usually on last packet, some only on SYN packets).
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f812d1714d2e2646df40d78c02afd7d5e191d345..df65d09e4270945ef19146a0ed23d2b7773d75f3 100644
+index 9e34e88fc987c2e96e77264f7ac02e0475435cd6..8ed0fa05def9446f5aea18687f4b57bf130b8163 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -913,6 +913,28 @@ static inline u32 tcp_receive_window(const struct tcp_sock *tp)
@@ -154,7 +154,7 @@ index 9fdc19accafd23c6ab74bd82f7a7d82de1d60b90..4e389d609f919c17435509c5007bc3b2
  	 * and queues the child into listener accept queue.
  	 */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 71d32c34865f7cd90a10c22f0d0d74eca480e3cd..f74d87141a27987c2653b5f9a9b7a5fe48b68b17 100644
+index 832079f68b83bcdee1037bea9f4c5b1b1c2f4889..a98e504c24438174b1b8d5df1c85b190e3db24df 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -4898,20 +4898,18 @@ static enum skb_drop_reason tcp_sequence(const struct sock *sk,
@@ -198,7 +198,7 @@ index 71d32c34865f7cd90a10c22f0d0d74eca480e3cd..f74d87141a27987c2653b5f9a9b7a5fe
  		/* RFC1323: The window in SYN & SYN/ACK segments is
  		 * never scaled.
 diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 87e45e583dc8de6b20661666785c297351386cc7..873fdff7a0ac2cbc5fdec0cdb11cd3b7f1e6b4a8 100644
+index ab41d908ca125db467d305908eeb701474dd1bd0..6f4217ef7f13de76a026f1121a583d708e07b5a1 100644
 --- a/net/ipv4/tcp_minisocks.c
 +++ b/net/ipv4/tcp_minisocks.c
 @@ -604,6 +604,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
@@ -210,7 +210,7 @@ index 87e45e583dc8de6b20661666785c297351386cc7..873fdff7a0ac2cbc5fdec0cdb11cd3b7
  	if (newtp->rx_opt.wscale_ok) {
  		newtp->rx_opt.snd_wscale = ireq->snd_wscale;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 80ae3b61b22d3b8f822483fe135606c25479fc51..be24a6c3526519dda5c1c44870ae1bdadf56b5c4 100644
+index 4cb8c41d949da86b5727e535e02a6fb1de47633b..4df637b3aebc7526b1d21d312d551ace155d574a 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -293,6 +293,7 @@ static u16 tcp_select_window(struct sock *sk)
