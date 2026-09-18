@@ -1,3 +1,11 @@
+proxmox-kernel-7.0 (7.0.14-19) trixie; urgency=medium
+
+  * fix #7734: fix regression with misaligned direct I/O (CVE-2026-89584)
+
+  * fix CVE-2026-81000: net: tun: bound receive headroom ("TUNderflow")
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Sep 2026 09:31:12 +0200
+
 proxmox-kernel-7.0 (7.0.14-18) trixie; urgency=medium
 
   * update submodules and patches to current Ubuntu resolute
