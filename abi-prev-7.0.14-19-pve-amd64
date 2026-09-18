@@ -22274,7 +22274,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x0d85f06c	set_capacity_and_notify
 EXPORT_SYMBOL_GPL vmlinux 0x0d86b9c8	rust_helper_sg_next
 EXPORT_SYMBOL_GPL vmlinux 0x0d8daec0	acpi_pm_set_device_wakeup
 EXPORT_SYMBOL_GPL vmlinux 0x0d8daec0	dev_pm_genpd_set_hwmode
-EXPORT_SYMBOL_GPL vmlinux 0x0d8fff02	iov_iter_extract_bvecs
 EXPORT_SYMBOL_GPL vmlinux 0x0d9b652c	em_cpu_get
 EXPORT_SYMBOL_GPL vmlinux 0x0da0df4e	crypto_spawn_tfm2
 EXPORT_SYMBOL_GPL vmlinux 0x0da68855	__SCT__tp_func_unmap
@@ -22658,6 +22657,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x19a2f5ef	devl_region_destroy
 EXPORT_SYMBOL_GPL vmlinux 0x19a2f5ef	devlink_region_destroy
 EXPORT_SYMBOL_GPL vmlinux 0x19b1c8ca	fuse_do_ioctl
 EXPORT_SYMBOL_GPL vmlinux 0x19ba24e6	divider_determine_rate
+EXPORT_SYMBOL_GPL vmlinux 0x19ba6247	iov_iter_extract_bvecs
 EXPORT_SYMBOL_GPL vmlinux 0x19bf0ac0	regmap_parse_val
 EXPORT_SYMBOL_GPL vmlinux 0x19c35dea	atomic_notifier_chain_register
 EXPORT_SYMBOL_GPL vmlinux 0x19c35dea	atomic_notifier_chain_register_unique_prio
