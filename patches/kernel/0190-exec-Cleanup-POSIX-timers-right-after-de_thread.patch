@@ -1,0 +1,130 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hyunwoo Kim <imv4bel@gmail.com>
+Date: Fri, 11 Sep 2026 11:09:17 +0200
+Subject: [PATCH] exec: Cleanup POSIX timers right after de_thread()
+
+commit acb03d3881818581052924a9bbbe92b8741ed448 upstream.
+
+A per-thread CPU timer holds a reference to the PID of the thread it is
+attached to and, while it is armed, its node is queued in that thread's
+posix_cputimers. The task is looked up by that PID.
+
+When a non-leader thread exec()s, de_thread() changes which task owns
+that PID. pid_task(timer->it.cpu.pid, PIDTYPE_PID) then returns NULL,
+but the node is still queued on tsk, which is alive. timer_lock_sighand()
+takes a failed lookup to mean that the node is already dequeued, so it
+has nothing to undo.
+
+begin_new_exec() calls posix_cpu_timers_exit(me) right after
+exec_task_namespaces() and that removes the leftover node, so the state
+normally stays invisible. But bprm->point_of_no_return is set before
+de_thread(), so if unshare_files(), set_mm_exe_file(), exec_mmap() or
+exec_task_namespaces() fails, the task dies before it gets there.
+exit_itimers() then frees the k_itimer while its node is still queued,
+and reaping tsk later erases that freed node from the rbtree.
+
+In short:
+
+      the non-leader thread B           the parent
+
+  timer_create(CLOCK_THREAD_CPUTIME_ID)
+  timer_settime()
+    arm_timer()            // the node is queued on B
+  execve()
+    de_thread(B)
+      exchange_tids(B, leader)  // B's PID now belongs to the leader
+      release_task(leader)
+        __exit_signal(leader)
+          posix_cpu_timers_exit(leader)  // cleans leader's queue, not B's
+          __unhash_process(leader)  // that PID has no task anymore
+    exec_mmap()
+      mmap_read_lock_killable(old_mm)
+                                kill(B, SIGKILL)
+      // -EINTR
+  get_signal()
+    do_exit()
+      exit_itimers()
+        posix_timer_delete()
+          posix_cpu_timer_del()
+        posix_timer_unhash_and_free()  // freed while still queued
+                                wait4()
+                                  release_task(B)
+                                    posix_cpu_timers_exit(B)
+                                      cleanup_timerqueue()
+                                        timerqueue_del()  // use-after-free
+
+Move the POSIX timer cleanup right after de_thread() before any of the
+later failure conditions brings the task into do_exit().
+
+[ tglx: Move the cleanup right after de_thread() ]
+
+Fixes: 55e8c8eb2c7b ("posix-cpu-timers: Store a reference to a pid not a task")
+Signed-off-by: Hyunwoo Kim <imv4bel@gmail.com>
+Signed-off-by: Thomas Gleixner <tglx@kernel.org>
+Tested-by: Kijo Park <red993688@gmail.com>
+Reviewed-by: Oleg Nesterov <oleg@redhat.com>
+Reviewed-by: Frederic Weisbecker <frederic@kernel.org>
+Cc: stable@vger.kernel.org
+Link: https://patch.msgid.link/ao7Q8miiuLAPVnWv@v4bel
+Link: https://patch.msgid.link/20260911090541.627712075@kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit d602877baf36c43c788a5f472c977e0be414029f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/exec.c | 29 +++++++++++++++++++++--------
+ 1 file changed, 21 insertions(+), 8 deletions(-)
+
+diff --git a/fs/exec.c b/fs/exec.c
+index aa9c548f9826bdf93059edeb3c50aa916e5d5bef..00fa31e604c21528de5979b591376a4196b347c8 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -1086,6 +1086,17 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
+ 	perf_event_comm(tsk, exec);
+ }
+ 
++static void posixtimer_exec(struct task_struct *me)
++{
++#ifdef CONFIG_POSIX_TIMERS
++	spin_lock_irq(&me->sighand->siglock);
++	posix_cpu_timers_exit(me);
++	spin_unlock_irq(&me->sighand->siglock);
++	exit_itimers(me);
++	flush_itimer_signals();
++#endif
++}
++
+ /*
+  * Calling this is the point of no return. None of the failures will be
+  * seen by userspace since either the process is already taking a fatal
+@@ -1119,6 +1130,16 @@ int begin_new_exec(struct linux_binprm * bprm)
+ 	retval = de_thread(me);
+ 	if (retval)
+ 		goto out;
++
++	/*
++	 * This must be done here to ensure that POSIX CPU timers which were
++	 * armed on the current task are dequeued from me::posix_cputimers.
++	 * Otherwise in case of a TID switch the deletion of the related POSIX
++	 * timer would not remove an enqueued timer because the TID lookup
++	 * of the old TID fails.
++	 */
++	posixtimer_exec(me);
++
+ 	/* see the comment in check_unsafe_exec() */
+ 	current->fs->in_exec = 0;
+ 	/*
+@@ -1159,14 +1180,6 @@ int begin_new_exec(struct linux_binprm * bprm)
+ 	if (retval)
+ 		goto out_unlock;
+ 
+-#ifdef CONFIG_POSIX_TIMERS
+-	spin_lock_irq(&me->sighand->siglock);
+-	posix_cpu_timers_exit(me);
+-	spin_unlock_irq(&me->sighand->siglock);
+-	exit_itimers(me);
+-	flush_itimer_signals();
+-#endif
+-
+ 	/*
+ 	 * Make the signal table private.
+ 	 */

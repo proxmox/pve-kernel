@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Fri, 11 Sep 2026 11:04:47 +0200
+Subject: [PATCH] futex: Also allocate private hash on vfork()
+
+[ Upstream commit b61b6f95d6722ddbbbd09e689fa41b55fd36f9a5 ]
+
+As Jann demonstrated, it is entirely feasible to access the mm through vfork().
+Therefore we need to allocate a private hash on vfork() as well as any other
+CLONE_VM user.
+
+Specifically, it must be avoided to have (private) futex waiters before
+allocating the private hash.
+
+Fixes: ee9dce44362b ("futex: Drop CLONE_THREAD requirement for private default hash alloc")
+Reported-by: Jann Horn <jannh@google.com>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Link: https://patch.msgid.link/20260911090447.GT788244@noisy.programming.kicks-ass.net
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit eecbafa8cabbc4d1482f6a5e2acc25a8f934681b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ kernel/fork.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/fork.c b/kernel/fork.c
+index d9be48a6ba971cac917716d22b7c403c91138047..f721b348d24743154d897143268663442c9378f1 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1961,9 +1961,9 @@ static bool need_futex_hash_allocate_default(u64 clone_flags)
+ {
+ 	/*
+ 	 * Allocate a default futex hash for any sibling that will
+-	 * share the parent's mm, except vfork.
++	 * share the parent's mm.
+ 	 */
+-	return (clone_flags & (CLONE_VM | CLONE_VFORK)) == CLONE_VM;
++	return clone_flags & CLONE_VM;
+ }
+ 
+ /*

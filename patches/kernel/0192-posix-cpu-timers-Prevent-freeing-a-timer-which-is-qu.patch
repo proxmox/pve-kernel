@@ -1,0 +1,125 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Gleixner <tglx@kernel.org>
+Date: Wed, 16 Sep 2026 20:48:30 +0200
+Subject: [PATCH] posix-cpu-timers: Prevent freeing a timer which is queued on
+ the expiry list
+
+commit c21eaa72f02fc6e85621cbe09d303d8fb8bd39cd upstream.
+
+Kijo analyzed another race in the POSIX CPU timer code:
+
+Commit bf635681c906 converted cpu_timer::firing from a tristate value to a
+boolean. This lost the distinction between "not owned by the firing list"
+and "still owned, but delivery was canceled". The resulting race is:
+
+    expiry handler              timer_settime()        timer_delete()
+    --------------              ---------------        --------------
+    collect timer onto
+    private firing list
+    firing = true
+                                observes firing = true
+                                firing = false
+                                return TIMER_RETRY
+                                wait for handler
+                                                       observes firing = false
+                                                       finish deletion
+                                                       unhash and free timer
+    resume list traversal
+    read freed elist.next
+    -> UAF
+
+The firing bit is clearly the wrong indicator since that commit.
+
+Check whether the timer is queued on the expiry list or not instead. If it
+is queued clear the firing bit to prevent signal delivery as before and
+return TIMER_RETRY so the caller unlocks the timer which allows the expiry
+code to make progress and remove it from the list.
+
+Fixes: bf635681c906 ("posix-cpu-timers: Cleanup the firing logic")
+Reported-by: Kijo Park <red993688@gmail.com>
+Debugged-by: Kijo Park <red993688@gmail.com>
+Signed-off-by: Thomas Gleixner <tglx@kernel.org>
+Tested-by: Kijo Park <red993688@gmail.com>
+Reviewed-by: Frederic Weisbecker <frederic@kernel.org>
+Cc: stable@vger.kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 4336e3f47d9d516441066e9a65eaf076790d8d45)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ kernel/time/posix-cpu-timers.c | 40 +++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 18 deletions(-)
+
+diff --git a/kernel/time/posix-cpu-timers.c b/kernel/time/posix-cpu-timers.c
+index a7d3e8229c4ba494b045da2c9fb34f7402bb9c10..8e3e3917a2f7a5d4a5cdbda8ff275f1ea7106ef0 100644
+--- a/kernel/time/posix-cpu-timers.c
++++ b/kernel/time/posix-cpu-timers.c
+@@ -408,6 +408,7 @@ static int posix_cpu_timer_create(struct k_itimer *new_timer)
+ 
+ 	new_timer->kclock = &clock_posix_cpu;
+ 	timerqueue_init(&new_timer->it.cpu.node);
++	INIT_LIST_HEAD(&new_timer->it.cpu.elist);
+ 	new_timer->it.cpu.pid = get_pid(pid);
+ 	rcu_read_unlock();
+ 	return 0;
+@@ -565,6 +566,24 @@ static struct task_struct *timer_lock_sighand(struct k_itimer *timer, unsigned l
+ 	return NULL;
+ }
+ 
++/*
++ * If the timer is queued on the expiry list, then it cannot be dequeued because
++ * the firing list is not protected by sighand->lock. The delivery path is
++ * waiting for the timer lock. So go back, unlock and retry.
++ */
++static bool posix_cpu_timer_on_expiry_list(struct k_itimer *timer)
++{
++	if (list_empty(&timer->it.cpu.elist))
++		return false;
++
++	/*
++	 * Prevent signal delivery as there is no point in delivering a signal
++	 * which is made obsolete right away.
++	 */
++	timer->it.cpu.firing = false;
++	return true;
++}
++
+ /*
+  * Clean up a CPU-clock timer that is about to be destroyed.
+  * This is called from timer deletion with the timer already locked.
+@@ -580,18 +599,10 @@ static int posix_cpu_timer_del(struct k_itimer *timer)
+ 	p = timer_lock_sighand(timer, &flags);
+ 
+ 	if (likely(p)) {
+-		if (timer->it.cpu.firing) {
+-			/*
+-			 * Prevent signal delivery. The timer cannot be dequeued
+-			 * because it is on the firing list which is not protected
+-			 * by sighand->lock. The delivery path is waiting for
+-			 * the timer lock. So go back, unlock and retry.
+-			 */
+-			timer->it.cpu.firing = false;
++		if (posix_cpu_timer_on_expiry_list(timer))
+ 			ret = TIMER_RETRY;
+-		} else {
++		else
+ 			disarm_timer(timer, p);
+-		}
+ 		unlock_task_sighand(p, &flags);
+ 	}
+ 
+@@ -731,14 +742,7 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
+ 	/* Retrieve the current expiry time before disarming the timer */
+ 	old_expires = cpu_timer_getexpires(ctmr);
+ 
+-	if (unlikely(timer->it.cpu.firing)) {
+-		/*
+-		 * Prevent signal delivery. The timer cannot be dequeued
+-		 * because it is on the firing list which is not protected
+-		 * by sighand->lock. The delivery path is waiting for
+-		 * the timer lock. So go back, unlock and retry.
+-		 */
+-		timer->it.cpu.firing = false;
++	if (posix_cpu_timer_on_expiry_list(timer)) {
+ 		ret = TIMER_RETRY;
+ 	} else {
+ 		cpu_timer_dequeue(ctmr);

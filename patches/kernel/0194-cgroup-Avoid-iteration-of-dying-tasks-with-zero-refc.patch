@@ -1,0 +1,113 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michal=20Koutn=C3=BD?= <mkoutny@suse.com>
+Date: Mon, 14 Sep 2026 14:19:10 +0200
+Subject: [PATCH] cgroup: Avoid iteration of dying tasks with zero refcount
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 057dac23d329d5c5ed62352f2659a39fd46c6d4a upstream.
+
+The commit 260fbcb92bbea ("cgroup: Move dying_tasks cleanup from
+cgroup_task_release() to cgroup_task_free()") extended the lifetime of
+tasks on the dying_tasks list.
+The iterators have provision to go through dying_tasks because of
+dying threadgroup leaders or explicit CSS_TASK_ITER_WITH_DEAD, however,
+it was expected that such tasks can obtain a new reference (that is
+possible before cgroup_task_release()/put_task_struct_rcu_user()).
+The tasks after cgroup_task_release() and before cgroup_task_free()
+are subject to race when they may or may not have ->usage count > 0.
+
+The race window is between css_task_iter_next() invocations
+when css_set_lock is released and we may arrive at a new ->task_pos.
+The iterator should not attempt to resurrect tasks whose ->usage count
+dropped to zero. (When that happens, __put_task_struct_rcu_cb() is
+already imminent and the returned task_struct would could be used
+after free.)
+
+As for the fix, we cannot simply check the signal->live count of a task
+on the dying list because that won't distinguish regular zombies waiting
+to be reaped from RCU remnant tasks that are going to be free'd.
+Therefore add an extra check to rule out ->usage==0 tasks from any
+iteration.
+
+The repeat: loop in css_task_iter_advance() doesn't consider ->usage
+count, so add a new loop to css_task_iter_next() to skip de-used tasks
+on the dying_list.
+
+Rough illustration of the possible race
+
+  R (reader of cgroup.procs)         T (thread)                       L (group leader)
+  ---------------------------------  -------------------------------- --------------------------------
+                                                                      L exits, signal->live > 0
+                                                                      cgroup_task_dead(L)
+                                                                        css_set_skip_task_iters() // skips only cset->tasks
+                                                                        list_add_tail(&L->cg_list, &cset->dying_tasks)
+  css_task_iter_next()
+    take css_set_lock
+    css_task_iter_advance()
+      leader && signal->live != 0
+      => it->task_pos = &L->cg_list
+    release css_set_lock
+                                     T exits
+                                     --signal->live == 0
+				     cgroup_task_dead(T) // css_set_lock
+                                     release_task(T)
+                                       cgroup_task_release(T)
+                                       release_task(L) // zap_leader
+                                         cgroup_task_release(L)
+                                         put_task_struct_rcu_user(L)
+                                         ...RCU...
+                                         put_task_struct(L)
+                                           L->usage = 0
+                                           /* L still on dying_tasks */
+                                           ...RCU...
+                                           __put_task_struct(L)
+  css_task_iter_next() // another iteration
+    take css_set_lock
+    it->task_pos = &L->cg_list
+    get_task_struct(L)
+      => addition on 0
+    drop css_set_lock
+                                           cgroup_task_free(L)
+                                             css_set_skip_task_iters() // dying skip comes too late
+                                           free_task(L)
+  cgroup_procs_show()
+    task_pid_vnr(L)
+
+Fixes: 260fbcb92bbea ("cgroup: Move dying_tasks cleanup from cgroup_task_release() to cgroup_task_free()")
+Cc: stable@vger.kernel.org # v6.19+
+Link: https://lists.debian.org/debian-kernel/2026/08/msg00220.html
+Reported-by: Noah Elias Feldt <N.Feldt@mittwald.de>
+Reported-by: Salvatore Bonaccorso <carnil@debian.org>
+Tested-by: Salvatore Bonaccorso <carnil@debian.org>
+Signed-off-by: Michal Koutný <mkoutny@suse.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 828938118d6c2bb711301748c3e39e4bed6a62f5)
+CVE-2026-98163
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ kernel/cgroup/cgroup.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
+index 8d3dcbbfa2e84ff9bff97da244b1b277a17ee770..0bdebd3e239e3bfe856d7ba0f649f83d729420ba 100644
+--- a/kernel/cgroup/cgroup.c
++++ b/kernel/cgroup/cgroup.c
+@@ -5243,10 +5243,13 @@ struct task_struct *css_task_iter_next(struct css_task_iter *it)
+ 	if (it->flags & CSS_TASK_ITER_SKIPPED)
+ 		css_task_iter_advance(it);
+ 
+-	if (it->task_pos) {
++	while (it->task_pos && !it->cur_task) {
+ 		it->cur_task = list_entry(it->task_pos, struct task_struct,
+ 					  cg_list);
+-		get_task_struct(it->cur_task);
++		/* a task on dying_tasks with zero refcount is only valid for
++		 * RCU readers, not even interesting for
++		 * CSS_TASK_ITER_WITH_DEAD, find another one */
++		it->cur_task = tryget_task_struct(it->cur_task);
+ 		css_task_iter_advance(it);
+ 	}
+ 
