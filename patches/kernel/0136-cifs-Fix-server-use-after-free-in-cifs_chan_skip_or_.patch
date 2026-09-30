@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Wentao Liang <vulab@iscas.ac.cn>
+Date: Thu, 17 Sep 2026 16:34:39 +0000
+Subject: [PATCH] cifs: Fix server use-after-free in
+ cifs_chan_skip_or_disable()
+
+commit 717e0a25036b6c92cecace30913b2d874a4c22b8 upstream.
+
+When a secondary channel is no longer supported by the server,
+cifs_chan_skip_or_disable() drops the channel reference with
+cifs_put_tcp_session() and then continues to use the server pointer by
+calling cifs_signal_cifsd_for_reconnect() on it and reading its
+primary_server pointer. cifs_put_tcp_session() can drop the last
+reference of the channel and tear it down, so both the channel and the
+primary server (whose reference is also dropped by
+cifs_put_tcp_session()) can be freed before they are signaled for
+reconnect.
+
+Signal the channel and the primary server and capture the primary
+server pointer before dropping the channel reference with
+cifs_put_tcp_session().
+
+Fixes: f591062bdbf4 ("cifs: handle servers that still advertise multichannel after disabling")
+Cc: stable@vger.kernel.org
+Signed-off-by: Wentao Liang <vulab@iscas.ac.cn>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 7a1b27780b113583a94256d58dabfe7c0d9286e7)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/smb2pdu.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/fs/smb/client/smb2pdu.c b/fs/smb/client/smb2pdu.c
+index 42f43f60db32d3a9ed59e1092660cb4a830fbcfa..baeacb9ba064531a8ab8be6626b33ac2031af660 100644
+--- a/fs/smb/client/smb2pdu.c
++++ b/fs/smb/client/smb2pdu.c
+@@ -190,18 +190,19 @@ cifs_chan_skip_or_disable(struct cifs_ses *ses,
+ 		spin_unlock(&ses->chan_lock);
+ 
+ 		/*
+-		 * the above reference of server by channel
+-		 * needs to be dropped without holding chan_lock
+-		 * as cifs_put_tcp_session takes a higher lock
+-		 * i.e. cifs_tcp_ses_lock
++		 * signal the channel and its primary server to
++		 * reconnect before dropping the above reference of
++		 * server by channel, which is done without holding
++		 * chan_lock as cifs_put_tcp_session takes a higher
++		 * lock i.e. cifs_tcp_ses_lock
+ 		 */
+-		cifs_put_tcp_session(server, from_reconnect);
+-
+ 		cifs_signal_cifsd_for_reconnect(server, false);
+ 
+ 		/* mark primary server as needing reconnect */
+ 		pserver = server->primary_server;
+ 		cifs_signal_cifsd_for_reconnect(pserver, false);
++
++		cifs_put_tcp_session(server, from_reconnect);
+ skip_terminate:
+ 		return -EHOSTDOWN;
+ 	}

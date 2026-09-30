@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Frank Sorenson <sorenson@redhat.com>
+Date: Wed, 16 Sep 2026 16:33:52 -0500
+Subject: [PATCH] smb: client: fix next_buffer UAF and NextCommand bounds in
+ compound PDUs
+
+commit 05762c5bc1cfdcac36747994fde2c04387a457f1 upstream.
+
+Fix several related bounds checking and pointer lifecycle issues in
+receive_encrypted_standard()'s handling of compound encrypted frames:
+
+- Clear next_buffer after assigning it to server->bigbuf. A stale
+  next_buffer pointer can lead to a use-after-free on subsequent
+  error paths.
+- Update pdu_length to the decrypted plaintext size (buf_size). Using
+  the pre-decryption length allows NextCommand to point into stale
+  ciphertext residue.
+- Reject next_cmd values smaller than MID_HEADER_SIZE(server).
+- Fix an integer overflow in the upper bound check by verifying
+  pdu_length - next_cmd < MID_HEADER_SIZE(server), ensuring the
+  trailing slice is large enough for a header.
+
+Fixes: b24df3e30cbf ("cifs: update receive_encrypted_standard to handle compounded responses")
+Cc: stable@vger.kernel.org
+Signed-off-by: Frank Sorenson <sorenson@redhat.com>
+Reviewed-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 858d5ac22cb889266993e7670f9f0c4f4aeedd78)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/smb2ops.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
+index ee4c2001b77f4c60eedb00e02741bc6582bda21b..980b42ea9909074677358763d100ab3caa284e80 100644
+--- a/fs/smb/client/smb2ops.c
++++ b/fs/smb/client/smb2ops.c
+@@ -5158,6 +5158,7 @@ receive_encrypted_standard(struct TCP_Server_Info *server,
+ 	length = decrypt_raw_data(server, buf, buf_size, NULL, false);
+ 	if (length)
+ 		return length;
++	pdu_length = buf_size;
+ 
+ 	next_is_large = server->large_buf;
+ one_more:
+@@ -5170,8 +5171,15 @@ receive_encrypted_standard(struct TCP_Server_Info *server,
+ 	}
+ 
+ 	if (next_cmd) {
+-		if (WARN_ON_ONCE(next_cmd > pdu_length))
++		if (next_cmd < MID_HEADER_SIZE(server) ||
++		    next_cmd > pdu_length ||
++		    pdu_length - next_cmd < MID_HEADER_SIZE(server)) {
++			unsigned int max_next = pdu_length > (unsigned int)MID_HEADER_SIZE(server) ?
++					pdu_length - (unsigned int)MID_HEADER_SIZE(server) : 0;
++			cifs_server_dbg(VFS, "invalid NextCommand offset %u out of range [%zu, %u]\n",
++					next_cmd, MID_HEADER_SIZE(server), max_next);
+ 			return -1;
++		}
+ 		if (next_is_large)
+ 			next_buffer = (char *)cifs_buf_get();
+ 		else
+@@ -5207,6 +5215,7 @@ receive_encrypted_standard(struct TCP_Server_Info *server,
+ 			server->bigbuf = buf = next_buffer;
+ 		else
+ 			server->smallbuf = buf = next_buffer;
++		next_buffer = NULL;
+ 		goto one_more;
+ 	} else if (ret != 0) {
+ 		/*

@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Frank Sorenson <sorenson@redhat.com>
+Date: Wed, 16 Sep 2026 16:33:54 -0500
+Subject: [PATCH] smb: client: fix server->total_read for compound encrypted
+ PDUs
+
+commit f73726b83e4756fdaa099e1bc1143293bd57ad79 upstream.
+
+In receive_encrypted_standard(), server->total_read is left at the
+full decrypted frame size when walking sub-PDUs of a compound encrypted
+frame. As a result, cifs_handle_standard() passes this full size
+to smb2_check_message(), causing the PDU length guards to incorrectly
+validate the entire compound frame instead of the current sub-PDU.
+
+This allows truncated non-last sub-PDUs to bypass length validation,
+leading to out-of-bounds reads in smb2_get_data_area_len().
+
+Fix this by setting server->total_read to the true length of the
+current sub-PDU: next_cmd for non-last sub-PDUs, and the remaining
+pdu_length for the last one.
+
+Fixes: b24df3e30cbf ("cifs: update receive_encrypted_standard to handle compounded responses")
+Cc: stable@vger.kernel.org
+Signed-off-by: Frank Sorenson <sorenson@redhat.com>
+Reviewed-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 282b72f9a7ef31296c48366db4128882999cc048)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/smb2ops.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
+index 980b42ea9909074677358763d100ab3caa284e80..12636dedcd2054768c743ea650c9dfda5e6404f5 100644
+--- a/fs/smb/client/smb2ops.c
++++ b/fs/smb/client/smb2ops.c
+@@ -5164,6 +5164,7 @@ receive_encrypted_standard(struct TCP_Server_Info *server,
+ one_more:
+ 	shdr = (struct smb2_hdr *)buf;
+ 	next_cmd = le32_to_cpu(shdr->NextCommand);
++	server->total_read = next_cmd ? next_cmd : pdu_length;
+ 
+ 	if (*num_mids >= MAX_COMPOUND) {
+ 		cifs_server_dbg(VFS, "too many PDUs in compound\n");

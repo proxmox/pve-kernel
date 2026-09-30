@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paulo Alcantara <pc@manguebit.org>
+Date: Wed, 9 Sep 2026 13:52:14 -0300
+Subject: [PATCH] smb: client: fix rlist race and missing initialization
+
+commit 5f270f091256da1338c3631083e15d7f83cc05e1 upstream.
+
+TCP_Server_Info.rlist is allocated via kzalloc which zeros both ->next
+and ->prev to NULL instead of pointing to itself, making list_empty()
+always return false and list_add() dereference a NULL ->prev pointer.
+
+Also, cifs_signal_cifsd_for_reconnect() can be called concurrently
+from multiple cifsd threads, allowing the same server's rlist node to
+be added twice into the local list, corrupting it.
+
+Closes: https://sashiko.dev/#/patchset/20260911204446.1719356-1-pc%40manguebit.org
+Fixes: df0e03a4fb94 ("smb: client: fix potential deadlock when reconnecting channels")
+Reviewed-by: Namjae Jeon <linkinjeon@kernel.org>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+Cc: David Howells <dhowells@redhat.com>
+Cc: Shyam Prasad N <sprasad@microsoft.com>
+Cc: Ronnie Sahlberg <ronniesahlberg@gmail.com>
+Cc: Tom Talpey <tom@talpey.com>
+Cc: Bharath SM <bharathsm@microsoft.com>
+Cc: Namjae Jeon <linkinjeon@kernel.org>
+Cc: stable@vger.kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit c037d6bde3dd5fa00b017b6b98a5389ec0ebc02f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/connect.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/fs/smb/client/connect.c b/fs/smb/client/connect.c
+index eb219249e8858e4ff8390285c8d50fdf7ba124dd..2f145d2f86c21e743c1d59f87d5b395c02759c46 100644
+--- a/fs/smb/client/connect.c
++++ b/fs/smb/client/connect.c
+@@ -174,6 +174,8 @@ cifs_signal_cifsd_for_reconnect(struct TCP_Server_Info *server,
+ 				nserver = ses->chans[i].server;
+ 				if (!nserver)
+ 					continue;
++				if (!list_empty(&nserver->rlist))
++					continue;
+ 				nserver->srv_count++;
+ 				list_add(&nserver->rlist, &reco);
+ 			}
+@@ -182,11 +184,15 @@ cifs_signal_cifsd_for_reconnect(struct TCP_Server_Info *server,
+ 		}
+ 	}
+ 
++	spin_lock(&cifs_tcp_ses_lock);
+ 	list_for_each_entry_safe(server, nserver, &reco, rlist) {
+ 		list_del_init(&server->rlist);
+ 		set_need_reco(server);
++		spin_unlock(&cifs_tcp_ses_lock);
+ 		cifs_put_tcp_session(server, 0);
++		spin_lock(&cifs_tcp_ses_lock);
+ 	}
++	spin_unlock(&cifs_tcp_ses_lock);
+ }
+ 
+ /*
+@@ -1824,6 +1830,7 @@ cifs_get_tcp_session(struct smb3_fs_context *ctx,
+ 	spin_lock_init(&tcp_ses->mid_counter_lock);
+ 	INIT_LIST_HEAD(&tcp_ses->tcp_ses_list);
+ 	INIT_LIST_HEAD(&tcp_ses->smb_ses_list);
++	INIT_LIST_HEAD(&tcp_ses->rlist);
+ 	INIT_DELAYED_WORK(&tcp_ses->echo, cifs_echo_request);
+ 	INIT_DELAYED_WORK(&tcp_ses->reconnect, smb2_reconnect_server);
+ 	mutex_init(&tcp_ses->reconnect_mutex);

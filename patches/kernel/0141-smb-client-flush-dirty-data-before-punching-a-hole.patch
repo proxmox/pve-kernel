@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Huiwen He <hehuiwen@kylinos.cn>
+Date: Tue, 14 Jul 2026 17:38:34 -0500
+Subject: [PATCH] smb/client: flush dirty data before punching a hole
+
+[ Upstream commit d7d2adcd022baade5cab65ca492ce63421ce3a6e ]
+
+Punching a hole after a large buffered write may leave the range
+reported as data. Reproduce it with:
+
+  xfs_io -f \
+    -c "pwrite -b 3m -S 0x61 0 3m" \
+    -c "fpunch 1m 1m" \
+    -c "seek -h 0" \
+    -c "seek -d 1m" \
+    /mnt/test/repro
+
+Punching 1 MiB at offset 1 MiB should produce:
+
+  0          1 MiB       2 MiB       3 MiB
+  |  DATA    |   HOLE    |   DATA    | EOF
+
+Instead, the entire file is reported as data. SEEK_HOLE(0) returns EOF,
+and SEEK_DATA(1M) returns 1M.
+
+This happens because a dirty folio spanning the punched range can be
+written back after the punch and refill the hole.
+
+Fix this by flushing and waiting for dirty data in the punched range
+before invalidating the page cache and issuing FSCTL_SET_ZERO_DATA.
+
+The xfstests generic/539 pass against Samba/ksmbd with this change.
+
+Signed-off-by: Huiwen He <hehuiwen@kylinos.cn>
+Reviewed-by: ChenXiaoSong <chenxiaosong@kylinos.cn>
+Signed-off-by: Steve French <stfrench@microsoft.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 39562a56cdb515f6635c3e7bfe6629439b18a169)
+CVE-2026-93794
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/smb2ops.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
+index 12636dedcd2054768c743ea650c9dfda5e6404f5..17ba1bb8a1fd6aa7c5a76c2178d9d29e3ee70a8f 100644
+--- a/fs/smb/client/smb2ops.c
++++ b/fs/smb/client/smb2ops.c
+@@ -3488,6 +3488,15 @@ static long smb3_punch_hole(struct file *file, struct cifs_tcon *tcon,
+ 		goto out;
+ 
+ 	filemap_invalidate_lock(inode->i_mapping);
++	/*
++	 * Flush dirty data first, otherwise a dirty folio spanning the punched
++	 * range may be written back after the ioctl and refill the hole.
++	 */
++	rc = filemap_write_and_wait_range(inode->i_mapping, offset,
++					  offset + len - 1);
++	if (rc < 0)
++		goto unlock;
++
+ 	/*
+ 	 * We implement the punch hole through ioctl, so we need remove the page
+ 	 * caches first, otherwise the data may be inconsistent with the server.
