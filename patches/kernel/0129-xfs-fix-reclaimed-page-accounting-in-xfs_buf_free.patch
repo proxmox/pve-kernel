@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Sandeen <sandeen@redhat.com>
+Date: Fri, 21 Aug 2026 17:03:37 -0500
+Subject: [PATCH] xfs: fix reclaimed page accounting in xfs_buf_free
+
+commit 4164b1e3d728c7cc05e0c1171068aa046542ecc3 upstream.
+
+To obtain nr. of pages in "size" bytes, we need howmany(size, PAGE_SIZE)
+not howmany(size, PAGE_SHIFT). This over-reports reclaim by orders of
+magnitude, up to 4096x on a 64k page system.
+
+Fixes: e2874632a621 ("xfs: use vmalloc instead of vm_map_area for buffer backing memory")
+Cc: stable@vger.kernel.org # v6.15+
+Signed-off-by: Eric Sandeen <sandeen@redhat.com>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Darrick J. Wong <djwong@kernel.org>
+Signed-off-by: Carlos Maiolino <cem@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 9bad46d3ec0fe38be0ea893d19ae58e6c52e77be)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/xfs/xfs_buf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/xfs/xfs_buf.c b/fs/xfs/xfs_buf.c
+index 7d729d044aa9ff253c76aa74db448e9cdda225af..6a70b4657e7725cbee78916b739aa240df4c4c5a 100644
+--- a/fs/xfs/xfs_buf.c
++++ b/fs/xfs/xfs_buf.c
+@@ -111,7 +111,7 @@ xfs_buf_free(
+ 	ASSERT(list_empty(&bp->b_lru));
+ 
+ 	if (!xfs_buftarg_is_mem(bp->b_target) && size >= PAGE_SIZE)
+-		mm_account_reclaimed_pages(howmany(size, PAGE_SHIFT));
++		mm_account_reclaimed_pages(howmany(size, PAGE_SIZE));
+ 
+ 	if (is_vmalloc_addr(bp->b_addr))
+ 		vfree(bp->b_addr);

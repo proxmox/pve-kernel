@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Nilesh Javali <njavali@marvell.com>
+Date: Fri, 11 Sep 2026 10:50:41 -0400
+Subject: [PATCH] scsi: qla2xxx: Fix use-after-free of qpair work on queue
+ teardown
+
+[ Upstream commit 19788a55cab61d78e33e0914a5a31d27843e8a4a ]
+
+The response queue MSI-X handler qla2xxx_msix_rsp_q() schedules
+qla_do_work() via queue_work(ha->wq, &qpair->q_work). qla_do_work()
+dereferences the qpair (vha, rsp) and takes qpair->qp_lock.
+
+During teardown, qla2xxx_delete_qpair() deletes the response queue, which
+calls free_irq() in qla25xx_free_rsp_que(), and then frees the queue and
+the qpair. free_irq() waits for running hardirq handlers but does not
+cancel work already placed on ha->wq. A still-pending q_work then runs
+qla_do_work() against the freed qpair and response queue, causing a
+use-after-free. This is especially likely during full adapter teardown,
+where destroy_workqueue(ha->wq) forces pending work to run after the queue
+pairs have been freed.
+
+Flush the work item with cancel_work_sync() in qla25xx_free_rsp_que()
+after free_irq() has released the interrupt (so no new work can be
+queued) and before the response queue and qpair memory are freed (so the
+flushed handler still sees valid memory). Guard on rsp->qpair and ha->wq
+to match the INIT_WORK() condition and avoid operating on an
+uninitialized work_struct.
+
+Fixes: 68ca949cdb04 ("[SCSI] qla2xxx: Add CPU affinity support.")
+Reported-by: Sashiko <sashiko-dev@google.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Nilesh Javali <njavali@marvell.com>
+Link: https://patch.msgid.link/20260730155838.2119230-5-njavali@marvell.com
+Signed-off-by: Martin K. Petersen (Oracle) <mkp@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit f1f4d1cb93eeeb250eac9405121933e268eefbd3)
+CVE-2026-97536
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/scsi/qla2xxx/qla_mid.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/scsi/qla2xxx/qla_mid.c b/drivers/scsi/qla2xxx/qla_mid.c
+index 5b3e457b9e6bc9c048211a16a1019443c453673e..419aaac56f99b49fc2aed5b454432f18f1b27477 100644
+--- a/drivers/scsi/qla2xxx/qla_mid.c
++++ b/drivers/scsi/qla2xxx/qla_mid.c
+@@ -606,6 +606,10 @@ qla25xx_free_rsp_que(struct scsi_qla_host *vha, struct rsp_que *rsp)
+ 		rsp->msix->handle = NULL;
+ 	}
+ 
++	/* Flush any queued response work before freeing the queue/qpair. */
++	if (rsp->qpair && ha->wq)
++		cancel_work_sync(&rsp->qpair->q_work);
++
+ 	if (rsp->ring)
+ 		dma_free_coherent(&ha->pdev->dev,
+ 				  (rsp->length + 1) * rsp_entry_size,

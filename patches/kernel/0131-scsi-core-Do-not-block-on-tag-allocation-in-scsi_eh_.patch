@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zizhi Wo <wozizhi@huawei.com>
+Date: Thu, 23 Jul 2026 12:12:38 +0800
+Subject: [PATCH] scsi: core: Do not block on tag allocation in
+ scsi_eh_lock_door()
+
+[ Upstream commit 732cb6bb37fd26863d5786522fb1997e7f5865b4 ]
+
+scsi_eh_lock_door() is called from scsi_restart_operations() while the
+host is still in the SHOST_RECOVERY state, i.e. before the host is
+switched back to SHOST_RUNNING and scsi_run_host_queues() restarts the
+queues. It allocates a request via scsi_alloc_request() with no flags,
+so blk_mq_get_tag() may block waiting for a free sched tag when all tags
+are already in use.
+
+Those tags can be held by commands that were just requeued by
+scsi_eh_flush_done_q() during error handling. Such commands cannot be
+dispatched until the host leaves SHOST_RECOVERY and
+scsi_run_host_queues() is called - which only happens *after*
+scsi_eh_lock_door() returns.
+
+This forms a circular dependency:
+
+  - scsi_eh_lock_door(), running in the SCSI error handler thread, waits
+    for a sched tag held by a requeued command;
+
+  - the requeued command cannot complete and release its sched tag until
+    the error handler thread leaves scsi_restart_operations() and restart
+    the queues.
+
+For devices with a single driver tag (e.g. USB storage) it is a
+guaranteed deadlock and I/O that can never be submitted. This problem
+has also been reproduced in our environment.
+
+Locking the door is a best-effort operation, and scsi_eh_lock_door()
+already returns silently when the request allocation fails. Pass
+BLK_MQ_REQ_NOWAIT to scsi_alloc_request() so the allocation fails
+instead of blocking when no tag is available. This breaks the circular
+dependency and allows the error handler to finish restarting the queues,
+after which the pending commands are dispatched normally.
+
+Signed-off-by: Zizhi Wo <wozizhi@huawei.com>
+Reviewed-by: Bart Van Assche <bvanassche@acm.org>
+Link: https://patch.msgid.link/20260723041238.1584632-1-wozizhi@huaweicloud.com
+Signed-off-by: Martin K. Petersen (Oracle) <mkp@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit dc9e1b6b9080dd6374cc9a38e4b53abca63c3b1b)
+CVE-2026-93781
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/scsi/scsi_error.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/scsi_error.c b/drivers/scsi/scsi_error.c
+index 74b70801269bd9bd68cf0d46d9ecc5ed2d9ba8bf..b729407348f765ba9581ba1a7e6ef6945e942f3a 100644
+--- a/drivers/scsi/scsi_error.c
++++ b/drivers/scsi/scsi_error.c
+@@ -2161,7 +2161,7 @@ static void scsi_eh_lock_door(struct scsi_device *sdev)
+ 	struct scsi_cmnd *scmd;
+ 	struct request *req;
+ 
+-	req = scsi_alloc_request(sdev->request_queue, REQ_OP_DRV_IN, 0);
++	req = scsi_alloc_request(sdev->request_queue, REQ_OP_DRV_IN, BLK_MQ_REQ_NOWAIT);
+ 	if (IS_ERR(req))
+ 		return;
+ 	scmd = blk_mq_rq_to_pdu(req);

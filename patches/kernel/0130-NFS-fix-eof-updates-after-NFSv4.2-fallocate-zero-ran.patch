@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dai Ngo <dai.ngo@oracle.com>
+Date: Thu, 23 Apr 2026 10:52:10 -0700
+Subject: [PATCH] NFS: fix eof updates after NFSv4.2 fallocate/zero-range
+
+[ Upstream commit 35168eb947f230aaa35fd8416a30563ef89f5421 ]
+
+Generic/075 reliably exposes a regression when the client holds an
+NFSv4 write delegation: ZERO_RANGE/ALLOCATE extends the file on the
+server, but the local inode keeps the old i_size. The test then fails
+with 'Size error' because the post-op attribute refresh refuses to
+touch i_size while a delegation is outstanding, and the cached EOF
+was never marked stale.
+
+Update _nfs42_proc_fallocate() so that on success it:
+
+- bumps i_size when the operation extends the file, and
+- marks NFS_INO_INVALID_BLOCKS since the block count can also change
+
+Tested with xfstests generic/075 over NFSv4.2.
+
+Signed-off-by: Dai Ngo <dai.ngo@oracle.com>
+Signed-off-by: Anna Schumaker <anna.schumaker@hammerspace.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit d48cf0288f1ae2e9a4073fd027512e57c3a4c6ce)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/nfs/nfs42proc.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/fs/nfs/nfs42proc.c b/fs/nfs/nfs42proc.c
+index 7b3ca68fb4bb3bee293f8621e5ed5fa596f5da3f..1f728107a7fbd012b44b560e50085304ee3fdc83 100644
+--- a/fs/nfs/nfs42proc.c
++++ b/fs/nfs/nfs42proc.c
+@@ -81,12 +81,17 @@ static int _nfs42_proc_fallocate(struct rpc_message *msg, struct file *filep,
+ 	status = nfs4_call_sync(server->client, server, msg,
+ 				&args.seq_args, &res.seq_res, 0);
+ 	if (status == 0) {
+-		if (nfs_should_remove_suid(inode)) {
+-			spin_lock(&inode->i_lock);
++		loff_t newsize = offset + len;
++
++		spin_lock(&inode->i_lock);
++		if (newsize > i_size_read(inode))
++			i_size_write(inode, newsize);
++		nfs_set_cache_invalid(inode, NFS_INO_INVALID_BLOCKS);
++		if (nfs_should_remove_suid(inode))
+ 			nfs_set_cache_invalid(inode,
+-				NFS_INO_REVAL_FORCED | NFS_INO_INVALID_MODE);
+-			spin_unlock(&inode->i_lock);
+-		}
++					      NFS_INO_REVAL_FORCED |
++					      NFS_INO_INVALID_MODE);
++		spin_unlock(&inode->i_lock);
+ 		status = nfs_post_op_update_inode_force_wcc(inode,
+ 							    res.falloc_fattr);
+ 	}
