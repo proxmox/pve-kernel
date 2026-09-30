@@ -1,3 +1,109 @@
+proxmox-kernel-7.0 (7.0.14-21) trixie; urgency=medium
+
+  * apparmor: fix a NULL pointer dereference on connected unix datagram sockets
+    that any unprivileged user could trigger. The fix is taken from the mailing
+    list, as it is not merged upstream yet.
+
+  * block: fix possible silent data corruption on NVMe controllers with SGL
+    support. When a large request whose memory segments are not page aligned,
+    for example from direct I/O, got split, its first part could be sent in a
+    format that cannot describe those segments.
+
+  * cherry-picks for the following CVEs from stable 7.2 and 6.18:
+    - CVE-2026-100073: ext4: fix transaction overflow during writeback
+    - CVE-2026-93781: scsi: core: Do not block on tag allocation in
+      scsi_eh_lock_door()
+    - CVE-2026-97530: scsi: qla2xxx: Fix soft lockup polling continuation IOCB
+      signature
+    - CVE-2026-97537: scsi: qla2xxx: Fix queue teardown NULL dma_free and
+      bitmap locking
+    - CVE-2026-97536: scsi: qla2xxx: Fix use-after-free of qpair work on queue
+      teardown
+    - CVE-2026-93829: smb: client: fix races in cifsd thread creation
+    - CVE-2026-93794: smb/client: flush dirty data before punching a hole
+    - CVE-2026-90053: net/sched: sch_htb: limit htb_classify inner-class filter
+      hops
+    - CVE-2026-97611: net: openvswitch: fix use-after-free of the flow table
+      mask array
+    - CVE-2026-98023: vxlan: reject dynamic fdb entries that reference a
+      nexthop id
+    - CVE-2026-97615: net: bridge: use option bits for CFM/MRP frame handlers
+    - CVE-2026-93288: netfilter: nfnetlink_log: wait for rcu grace period
+      before freeing pernet state
+    - CVE-2026-97608: netfilter: nf_log: unregister loggers before per-net
+      teardown
+    - CVE-2026-97523: mptcp: close race between scheduler and state change
+    - CVE-2026-97522: mptcp: fix bad accounting in
+      __mptcp_subflow_push_pending()
+    - CVE-2026-98123: sctp: fix soft lockup from unpadded ASCONF-ACK parameter
+      iteration
+    - CVE-2026-98130: sctp: fix a TOCTOU race in SCTP_CMD_TIMER_START
+    - CVE-2026-97903: exit: hold a reference to thread_pid across
+      proc_flush_pid
+    - CVE-2026-98163: cgroup: Avoid iteration of dying tasks with zero refcount
+    - CVE-2026-97971: nstree: check listing permission before taking a
+      namespace reference
+    - CVE-2026-97594: landlock: Fix use-after-free of the source's parent
+      directory
+    - CVE-2026-97942: x86/alternatives: Exclude text poking against
+      change_page_attr()
+
+  * cherry-pick fixes from stable 7.2 and 6.18 and mainline 7.3 that have no
+    CVE assigned yet:
+    - xfs: fix reclaimed page accounting in xfs_buf_free
+    - NFS: fix eof updates after NFSv4.2 fallocate/zero-range
+    - smb: client: cancel reconnect work in clean_demultiplex_info()
+    - cifs: Fix server use-after-free in cifs_chan_skip_or_disable()
+    - smb: client: fix rlist race and missing initialization
+    - smb: client: fix next_buffer UAF and NextCommand bounds in compound PDUs
+    - smb: client: fix server->total_read for compound encrypted PDUs
+    - net: lock the socket in sock_gettstamp()
+    - netlink: do not free nlk->groups while lockless readers can use it
+    - tcp: exclude old ACKs from tcp fast path
+    - tcp: do not let tcp_rmem be set below 4096
+    - tcp: fix use-after-free of retransmit_skb_hint in tcp_send_synack()
+    - net/sched: codel: bound the dropping loop per dequeue call
+    - net/sched: hhf: cap hh_flows_limit at change time
+    - net/sched: sch_hfsc: bound the classify inner-filter walk with a drift
+      budget
+    - net/sched: reject IDR error pointers when deleting actions
+    - net/sched: cls_u32: fix manual hash table handle IDR aliasing
+    - openvswitch: avoid reallocating confirmed conntrack labels
+    - net: openvswitch: conntrack: avoid modifying shared unconfirmed ct entry
+    - net: openvswitch: conntrack: fix helper UAF due to extensions realloc
+    - net/sched: act_ct: avoid modifying shared unconfirmed ct entry
+    - net/sched: act_ct: fix helper UAF due to extensions realloc
+    - vxlan: use one headroom snapshot for neighbour replies
+    - bonding: use skb_cow_head() in bond_do_alb_xmit() and rlb_arp_xmit()
+    - net: bridge: mdb: restart port group walk after deletion
+    - net: bridge: mcast: don't truncate the port group walk on teardown
+    - netfilter: flowtable: hold reference on ct until flow is released
+    - netfilter: ip6t_rpfilter: reject routes without inet6_dev
+    - ipv6: do not let ipv6_find_hdr() return an offset past the packet end
+    - ipv6: Prevent rt6_insert_exception() for dying fib6_info.
+    - ip6_gre: Call ip6erspan_tunnel_unlink_md() in ip6erspan_changelink().
+    - ip_gre: Reject enabling collect metadata through changelink
+    - sctp: hold asoc or transport before mod_timer() in timer handlers
+    - xfrm: fix compat ALLOCSPI request use-after-free
+    - xfrm: iptfs: fix runt reassembly panic from short inner tot_len
+    - xfrm: iptfs: fix stack OOB read in iptfs_skb_reset_frag_walk()
+    - esp: downgrade zerocopy managed frags before mutating skb frags
+    - xfrm: add missing rcu_read_lock(), skb_dst_force() and dev_hold() for
+      xfrm_trans_reinject()
+    - xfrm: hold net_device reference under RCU in bundle creation
+    - xfrm: save input state data before secpath resets
+    - xfrm: use hlist_del_init_rcu for state_cache and state_cache_input
+    - ipv6: xfrm: use full sockets in local error paths
+    - exec: Cleanup POSIX timers right after de_thread()
+    - signal: Prevent exec() race
+    - posix-cpu-timers: Prevent freeing a timer which is queued on the expiry
+      list
+    - futex: Also allocate private hash on vfork()
+    - workqueue: Fix NULL current_pwq deref in flush dependency check
+    - KVM: x86: Re-pend GET_NESTED_STATE_PAGES if getting said pages fails
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 30 Sep 2026 18:32:36 +0200
+
 proxmox-kernel-7.0 (7.0.14-20) trixie; urgency=medium
 
   * update submodules and patches to Ubuntu-7.0.0-39.39
