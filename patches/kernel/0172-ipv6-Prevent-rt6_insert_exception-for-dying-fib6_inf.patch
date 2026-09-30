@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kuniyuki Iwashima <kuniyu@google.com>
+Date: Fri, 18 Sep 2026 08:22:05 +0000
+Subject: [PATCH] ipv6: Prevent rt6_insert_exception() for dying fib6_info.
+
+Before the cited commit, fib6_nh_flush_exceptions() always set
+from->exception_bucket_flushed = 1 under rt6_exception_lock to
+prevent rt6_insert_exception() from inserting a new exception
+for a dying fib6_info.
+
+The flag was replaced with the FIB6_EXCEPTION_BUCKET_FLUSHED
+bit stored in nh->rt6i_exception_bucket.
+
+The problem is that now the bit is only set when the bucket
+is not NULL and fib6_nh_flush_exceptions() is called from
+fib6_nh_release() after fib6_ref has already reached zero.
+
+If rt6_insert_exception() is called while the target fib6_info
+is being removed via fib6_purge_rt(), a new exception could be
+created successfully because rt6_flush_exceptions() no longer
+sets the bit.
+
+This creates a reference cycle between the fib6_info and the
+exception route, leaking the fib6_info, its nexthop device,
+and all per-CPU routes in fib6_nh->rt6i_pcpu, which stalls netdev
+unregistration.
+
+[   34.680602] unregister_netdevice: waiting for gre6 to become free. Usage count = 68
+[   44.920675] unregister_netdevice: waiting for gre6 to become free. Usage count = 68
+[   55.176582] unregister_netdevice: waiting for gre6 to become free. Usage count = 68
+
+Let's call fib6_drop_pcpu_from() before rt6_flush_exceptions(),
+to set fib6_destroying before rt6_exception_lock, and check
+f6i->fib6_destroying in rt6_insert_exception().
+
+Note that FIB6_EXCEPTION_BUCKET_FLUSHED logic is dead and
+we can clean it up in net-next.
+
+Fixes: cc5c073a693f ("ipv6: Move exception bucket to fib6_nh")
+Signed-off-by: Kuniyuki Iwashima <kuniyu@google.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20260918082209.2853582-1-kuniyu@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 0346ec2f080b40d95ed05b853bb9226289e75212)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/ip6_fib.c | 2 +-
+ net/ipv6/route.c   | 5 +++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 7e55bcc2c3016da15e1aa95373551ec79abc00ae..f7a84be216ebc8364ea4639b2b0af7ba17df91cd 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1041,8 +1041,8 @@ static void fib6_purge_rt(struct fib6_info *rt, struct fib6_node *fn,
+ 	struct fib6_table *table = rt->fib6_table;
+ 
+ 	/* Flush all cached dst in exception table */
+-	rt6_flush_exceptions(rt);
+ 	fib6_drop_pcpu_from(rt);
++	rt6_flush_exceptions(rt);
+ 
+ 	if (rt->nh) {
+ 		spin_lock(&rt->nh->lock);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ac2951756b68e694f9eb4c95e21128e116cf2017..54d0851b9bf468a24beedf0f8267a0e34a2745b1 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1724,6 +1724,11 @@ static int rt6_insert_exception(struct rt6_info *nrt,
+ 
+ 	spin_lock_bh(&rt6_exception_lock);
+ 
++	if (f6i->fib6_destroying) {
++		err = -ENOENT;
++		goto out;
++	}
++
+ 	bucket = rcu_dereference_protected(nh->rt6i_exception_bucket,
+ 					  lockdep_is_held(&rt6_exception_lock));
+ 	if (!bucket) {

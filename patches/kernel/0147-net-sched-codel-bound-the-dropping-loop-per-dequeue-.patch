@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sat, 12 Sep 2026 14:08:30 -0400
+Subject: [PATCH] net/sched: codel: bound the dropping loop per dequeue call
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit 7f4a5ec6258fd7c92633ec4b0493fc51166d9398 ]
+
+The CoDel control law schedules the next drop one interval/sqrt(count)
+after the previous drop, using the configured interval
+(codel_params.interval). For very small intervals the scheduled step
+rounds down to zero, so the dropping loop in codel_dequeue() never
+advances and drains the entire backlog under the qdisc lock in one
+call - an unprivileged user can trigger a soft lockup this way.
+
+Fix in the shared codel code used by both codel and fq_codel:
+
+1. Make the control-law step at least 1 tick so the dropping loop
+   always moves forward.
+
+2. Cap the dropping loop at CODEL_MAX_DROPS_PER_DEQUEUE (256) drops
+   per codel_dequeue() call, resyncing drop_next to now when the cap
+   is hit: the catch-up owed to the loop grows with the idle gap and
+   the backlog, which no interval threshold can bound. This is a
+   deliberate behaviour change after long idle gaps.
+
+The cap applies to fq_codel (4b549a2ef4be) and the mac80211 TXQ path
+(fixed interval, cap only).
+
+The target sojourn delay (codel_params.target) is not validated: it
+does not feed the control law, so a sub-tick value is aggressive
+rather than deadlock-prone.
+
+Conditions to recreate the bug:
+  - tc qdisc add dev lo root handle 1: tbf rate 1kbit burst 2kb limit 1000000
+  - tc qdisc add dev lo parent 1:1 handle 10: codel interval 2us target 1ms noecn limit 1000000 (same for fq_codel)
+  - unpatched kernel: tc accepts it; a UDP flood under the 1kbit tbf
+    soft-lockups (watchdog: BUG: soft lockup) while one
+    codel_dequeue() call drops the backlog under the qdisc lock
+  - patched kernel: same setup, at most 256 drops per dequeue call,
+    no soft lockup
+
+Testing: claim reproducer and interval 2us/3us variants run clean;
+tdc qdisc category passes (see the selftests patch).
+
+Fixes: 76e3cc126bb2 ("codel: Controlled Delay AQM")
+Reported-by: Vega <vega@nebusec.ai>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Victor Nogueira <victor@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Reviewed-by: Toke Høiland-Jørgensen <toke@toke.dk>
+Link: https://patch.msgid.link/QDISC-1L5H.v1.20260912080102@mojatatu.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit bacd72289d34d8c05b7de5a12448b87b6dd93878)
+[TL: context: our base lacks the READ_ONCE/WRITE_ONCE annotations of the codel
+ state, use plain assignments like the surrounding code]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/codel.h      |  5 +++++
+ include/net/codel_impl.h | 16 +++++++++++++++-
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/codel.h b/include/net/codel.h
+index aa80f744826cd713159e8f79508d5d928bb41b03..183d43c2bd4348445cda88d25be7f837ffdf43da 100644
+--- a/include/net/codel.h
++++ b/include/net/codel.h
+@@ -140,6 +140,11 @@ struct codel_vars {
+ /* needed shift to get a Q0.32 number from rec_inv_sqrt */
+ #define REC_INV_SQRT_SHIFT (32 - REC_INV_SQRT_BITS)
+ 
++/* Cap on drops per codel_dequeue() call: the loop's work depends on the
++ * idle gap and backlog, both outside our control; resync when exceeded.
++ */
++#define CODEL_MAX_DROPS_PER_DEQUEUE 256
++
+ /**
+  * struct codel_stats - contains codel shared variables and stats
+  * @maxpacket:	largest packet we've seen so far
+diff --git a/include/net/codel_impl.h b/include/net/codel_impl.h
+index b2c359c6dd1b84e3aeb77834272641bac73f8e6a..13d00326a99a23fd4f24da4c63087c7e0fdf1af9 100644
+--- a/include/net/codel_impl.h
++++ b/include/net/codel_impl.h
+@@ -93,12 +93,17 @@ static void codel_Newton_step(struct codel_vars *vars)
+  * CoDel control_law is t + interval/sqrt(count)
+  * We maintain in rec_inv_sqrt the reciprocal value of sqrt(count) to avoid
+  * both sqrt() and divide operation.
++ *
++ * Clamp the increment to at least 1 tick: a very small interval (or a
++ * large count) can truncate it to zero, stalling the dropping loop.
+  */
+ static codel_time_t codel_control_law(codel_time_t t,
+ 				      codel_time_t interval,
+ 				      u32 rec_inv_sqrt)
+ {
+-	return t + reciprocal_scale(interval, rec_inv_sqrt << REC_INV_SQRT_SHIFT);
++	return t + max_t(u32, 1,
++			 reciprocal_scale(interval,
++					  rec_inv_sqrt << REC_INV_SQRT_SHIFT));
+ }
+ 
+ static bool codel_should_drop(const struct sk_buff *skb,
+@@ -154,6 +159,7 @@ static struct sk_buff *codel_dequeue(void *ctx,
+ 				     codel_skb_dequeue_t dequeue_func)
+ {
+ 	struct sk_buff *skb = dequeue_func(vars, ctx);
++	unsigned int drops = 0;
+ 	codel_time_t now;
+ 	bool drop;
+ 
+@@ -180,6 +186,14 @@ static struct sk_buff *codel_dequeue(void *ctx,
+ 			 */
+ 			while (vars->dropping &&
+ 			       codel_time_after_eq(now, vars->drop_next)) {
++				if (++drops > CODEL_MAX_DROPS_PER_DEQUEUE) {
++					/* fell far behind the schedule */
++					vars->drop_next =
++						codel_control_law(now,
++								  params->interval,
++								  vars->rec_inv_sqrt);
++					break;
++				}
+ 				vars->count++; /* dont care of possible wrap
+ 						* since there is no more divide
+ 						*/

@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Tue, 4 Aug 2026 06:10:37 +0000
+Subject: [PATCH] xfrm: fix compat ALLOCSPI request use-after-free
+
+[ Upstream commit d1ebd9081879fd9ae9c8fb7e8928f19cc88ae320 ]
+
+xfrm_state_netlink() builds the ALLOCSPI response with
+dump_one_state(), which already calls alloc_compat() with the response
+skb and header.
+
+xfrm_alloc_userspi() then calls alloc_compat() again, but passes the
+original request skb and its header. For a compat request, the
+translator therefore interprets the 228-byte compat xfrm_userspi_info
+as the 232-byte native layout and reads four bytes past the declared
+payload. It also publishes the translated child through the request's
+frag_list.
+
+A multicast clone of the request shares skb_shared_info and can observe
+that child. xfrm_user_rcv_msg() frees it after the request handler
+returns, racing a compat receiver which may still be copying from it and
+resulting in a use-after-free.
+
+Remove the redundant conversion. The response keeps its correct compat
+translation from dump_one_state(), and no child is attached to the
+inbound request.
+
+Fixes: 5f3eea6b7e8f ("xfrm/compat: Attach xfrm dumps to 64=>32 bit translator")
+Assisted-by: Codex:gpt-5.6-sol Codex:gpt-5.5-cyber
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Co-developed-by: David Lee <david.lee@trailofbits.com>
+Signed-off-by: David Lee <david.lee@trailofbits.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit e70f639aee2ff0def155c256cace9e0f81d998e2)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_user.c | 12 ------------
+ 1 file changed, 12 deletions(-)
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 4e80e1b5ef4b44bfdd2aa289a16fb711a2244f51..2560f3653bd38fc9a0f68f610263ea1114a081da 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1830,7 +1830,6 @@ static int xfrm_alloc_userspi(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	struct net *net = sock_net(skb->sk);
+ 	struct xfrm_state *x;
+ 	struct xfrm_userspi_info *p;
+-	struct xfrm_translator *xtr;
+ 	struct sk_buff *resp_skb;
+ 	xfrm_address_t *daddr;
+ 	int family;
+@@ -1896,17 +1895,6 @@ static int xfrm_alloc_userspi(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		goto out;
+ 	}
+ 
+-	xtr = xfrm_get_translator();
+-	if (xtr) {
+-		err = xtr->alloc_compat(skb, nlmsg_hdr(skb));
+-
+-		xfrm_put_translator(xtr);
+-		if (err) {
+-			kfree_skb(resp_skb);
+-			goto out;
+-		}
+-	}
+-
+ 	err = nlmsg_unicast(xfrm_net_nlsk(net, skb), resp_skb, NETLINK_CB(skb).portid);
+ 
+ out:

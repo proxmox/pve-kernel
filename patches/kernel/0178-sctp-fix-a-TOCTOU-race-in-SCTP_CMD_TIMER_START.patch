@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed, 26 Aug 2026 15:49:04 -0400
+Subject: [PATCH] sctp: fix a TOCTOU race in SCTP_CMD_TIMER_START
+
+[ Upstream commit 2188569e7e1b0bc3f3b557dc97ab7a02befc11c8 ]
+
+The SCTP_CMD_TIMER_START handler checks timer_pending() before calling
+timer_reduce(). The timer can expire and detach between these operations,
+causing timer_reduce() to rearm the timer without taking the association
+reference required for the newly armed timer.
+
+The timer callback later unconditionally drops its association reference,
+which can leave the association reference count unbalanced and result in
+use-after-free during association teardown.
+
+Use the return value of timer_reduce() to determine whether the timer was
+actually armed. Take the association reference only when timer_reduce()
+successfully starts a new timer, closing the race between checking the
+timer state and rearming it.
+
+This issue was reported by Nico Yip (@_cyeaa_) working with TrendAI Zero
+Day Initiative.
+
+Fixes: 20a785aa52c8 ("sctp: Don't add the shutdown timer if its already been added")
+Reported-by: Zero Day Initiative <zdi-disclosures@trendmicro.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/9d8f1b5c50329d5ea7c642128d35681abaa9ed20.1787773744.git.lucien.xin@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 3d698d1e6c8bc41e3e1707777a016f1bdd07842d)
+CVE-2026-98130
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sctp/sm_sideeffect.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 94716406d602ce642717453709dd1103e1a1e668..0d99b7e8c082f099416b5f638b0870dc52d44899 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -1545,17 +1545,8 @@ static int sctp_cmd_interpreter(enum sctp_event_type event_type,
+ 			timeout = asoc->timeouts[cmd->obj.to];
+ 			BUG_ON(!timeout);
+ 
+-			/*
+-			 * SCTP has a hard time with timer starts.  Because we process
+-			 * timer starts as side effects, it can be hard to tell if we
+-			 * have already started a timer or not, which leads to BUG
+-			 * halts when we call add_timer. So here, instead of just starting
+-			 * a timer, if the timer is already started, and just mod
+-			 * the timer with the shorter of the two expiration times
+-			 */
+-			if (!timer_pending(timer))
++			if (!timer_reduce(timer, jiffies + timeout))
+ 				sctp_association_hold(asoc);
+-			timer_reduce(timer, jiffies + timeout);
+ 			break;
+ 
+ 		case SCTP_CMD_TIMER_RESTART:

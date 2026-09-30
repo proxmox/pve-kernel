@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Maher Azzouzi <maherazz04@gmail.com>
+Date: Mon, 17 Aug 2026 14:37:52 +0100
+Subject: [PATCH] esp: downgrade zerocopy managed frags before mutating skb
+ frags
+
+[ Upstream commit f89416eb3db151170a6f3c6dfc5239d26cdce4d2 ]
+
+On the out-of-place output path (esp->inplace == false) ESP rewrites the
+skb frag array: esp_output_head() appends a trailer frag and
+esp_output_tail() replaces the frags with a destination page, both
+referenced with get_page().
+
+When the skb carries zerocopy managed frags (SKBFL_MANAGED_FRAG_REFS) the
+payload frags are owned by the ubuf and must not be referenced or
+unreferenced individually, but ESP mutates the frag array without ever
+downgrading the skb.  This breaks the managed-frag invariant two ways:
+
+  - esp_ssg_unref() walks the source scatterlist and drops a page
+    reference for every frag, including the ubuf-owned payload frags,
+    pushing their refcount below the GUP pin bias while the pages are
+    still pinned, i.e. a use-after-free of the zerocopy pages;
+
+  - esp_output_tail() installs its destination page as frag 0 with
+    get_page() but leaves SKBFL_MANAGED_FRAG_REFS set, so
+    skb_release_data() takes the skip_unref branch and never drops that
+    reference, leaking the x->xfrag page at packet rate.
+
+Fix this the way every other frag-mutating site does (__ip_append_data(),
+__ip6_append_data(), tcp_sendmsg_locked()) and call
+skb_zcopy_downgrade_managed() before ESP touches the frag array: it takes
+a real reference on each existing frag and clears SKBFL_MANAGED_FRAG_REFS,
+so the per-frag unref in esp_ssg_unref() and the frag release in
+skb_release_data() are both balanced and no mixed-ownership frag array is
+left behind.
+
+Fixes: 753f1ca4e1e5 ("net: introduce managed frags infrastructure")
+Signed-off-by: Maher Azzouzi <maherazz04@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 0d0845ee61c5df47cc68bc446501f48f71e8dcc6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/esp4.c | 6 ++++++
+ net/ipv6/esp6.c | 6 ++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index dfc81ee969ae03337fbe9f89a976d3d0ace224f4..faa48f5b9739518820218f0e5e4ff82de8606444 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -441,6 +441,12 @@ int esp_output_head(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 
+ 			esp->inplace = false;
+ 
++			/* Take real page refs and clear SKBFL_MANAGED_FRAG_REFS before
++			 * we mutate the frag array, so the per-frag unref stays balanced
++			 * for zerocopy managed frags (see __ip_append_data()).
++			 */
++			skb_zcopy_downgrade_managed(skb);
++
+ 			allocsize = ALIGN(tailen, L1_CACHE_BYTES);
+ 
+ 			spin_lock_bh(&x->lock);
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 296b57926abb985a5761d1f90e678f2956df5ea9..a3a3857eed98a91c49493f0027c383eceb570d27 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -470,6 +470,12 @@ int esp6_output_head(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
+ 
+ 			esp->inplace = false;
+ 
++			/* Take real page refs and clear SKBFL_MANAGED_FRAG_REFS before
++			 * we mutate the frag array, so the per-frag unref stays balanced
++			 * for zerocopy managed frags (see __ip_append_data()).
++			 */
++			skb_zcopy_downgrade_managed(skb);
++
+ 			allocsize = ALIGN(tailen, L1_CACHE_BYTES);
+ 
+ 			spin_lock_bh(&x->lock);

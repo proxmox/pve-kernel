@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Sat, 19 Sep 2026 21:35:46 +0200
+Subject: [PATCH] mptcp: fix bad accounting in __mptcp_subflow_push_pending()
+
+commit f3ef03357396d4b147d8e76c75fb612c2f264ffc upstream.
+
+If __subflow_push_pending() errors out we should avoid updating the
+copied byte counters, to avoid mismatch push call later on.
+
+Fixes: 0fa1b3783a17 ("mptcp: use get_send wrapper")
+Cc: stable@vger.kernel.org
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Reviewed-by: Matthieu Baerts (NGI0) <matttbe@kernel.org>
+Signed-off-by: Matthieu Baerts (NGI0) <matttbe@kernel.org>
+Link: https://patch.msgid.link/20260917-net-mptcp-misc-fixes-7-3-rc4-v2-3-0cf5c72667c8@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Matthieu Baerts (NGI0) <matttbe@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit dc054821e639a2e14f1419436612db70b6af45fc)
+CVE-2026-97522
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/mptcp/protocol.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/mptcp/protocol.c b/net/mptcp/protocol.c
+index 59f33b6fba8e6b75fecb2abfb4b56e35b1c45a10..7a9dcdabb0af868a96d5f6505d441392ec1bdeb4 100644
+--- a/net/mptcp/protocol.c
++++ b/net/mptcp/protocol.c
+@@ -1767,7 +1767,8 @@ static void __mptcp_subflow_push_pending(struct sock *sk, struct sock *ssk, bool
+ 			ret = __subflow_push_pending(sk, ssk, &info);
+ 			if (ret <= 0)
+ 				keep_pushing = false;
+-			copied += ret;
++			else
++				copied += ret;
+ 		}
+ 
+ 		mptcp_for_each_subflow(msk, subflow) {

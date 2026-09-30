@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yilin Zhang <yilinzhang@moonshot.ai>
+Date: Thu, 24 Sep 2026 12:49:00 +0800
+Subject: [PATCH] tcp: fix use-after-free of retransmit_skb_hint in
+ tcp_send_synack()
+
+When tcp_send_synack() replaces the cloned SYN skb at the head of the
+retransmit queue with a copy, it frees the original with
+tcp_rtx_queue_unlink_and_free() and only repairs tp->highest_sack.
+tp->retransmit_skb_hint keeps pointing at the freed
+skbuff_fclone_cache object.
+
+The dangling hint is read in tcp_verify_retransmit_hint() and used as
+the root of the rbtree walk in tcp_xmit_retransmit_queue().  An
+unprivileged TFO client (sendmsg(MSG_FASTOPEN)) can arm the hint with
+an attacker-supplied ICMP fragmentation-needed message, after which a
+simultaneous open frees the armed SYN skb:
+
+  BUG: KASAN: slab-use-after-free in tcp_mark_skb_lost (net/ipv4/tcp_input.c:1316)
+  Read of size 4 at addr ffff88800604d928 by task swapper/1/0
+  Call Trace:
+   tcp_mark_skb_lost (net/ipv4/tcp_input.c:1316)
+   tcp_simple_retransmit (net/ipv4/tcp_input.c:3158)
+   tcp_v4_err (net/ipv4/tcp_ipv4.c:587)
+
+Sync the hint to the copy.
+
+Fixes: c31b70c9968f ("tcp: Add logic to check for SYN w/ data in tcp_simple_retransmit")
+Reported-by: Kimi Security Team <bug-report@moonshot.ai>
+Tested-by: Weiming Shi <shiweiming@moonshot.ai>
+Signed-off-by: Yilin Zhang <yilinzhang@moonshot.ai>
+Reviewed-by: Eric Dumazet <edumazet@google.com>
+Link: https://patch.msgid.link/8a9dff4063a2745653b7e88ceb745d75efa16e68.1790224474.git.yilinzhang@moonshot.ai
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit fe99bbeee5c5dbd3abc30721a8079ced59649d97)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/tcp_output.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 4df637b3aebc7526b1d21d312d551ace155d574a..7477de090d744453ad4dfbd332d25555628f5d1f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3869,6 +3869,7 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority,
+  */
+ int tcp_send_synack(struct sock *sk)
+ {
++	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+ 
+ 	skb = tcp_rtx_queue_head(sk);
+@@ -3886,6 +3887,8 @@ int tcp_send_synack(struct sock *sk)
+ 			if (!nskb)
+ 				return -ENOMEM;
+ 			INIT_LIST_HEAD(&nskb->tcp_tsorted_anchor);
++			if (skb == tp->retransmit_skb_hint)
++				tp->retransmit_skb_hint = nskb;
+ 			tcp_highest_sack_replace(sk, skb, nskb);
+ 			tcp_rtx_queue_unlink_and_free(skb, sk);
+ 			__skb_header_release(nskb);

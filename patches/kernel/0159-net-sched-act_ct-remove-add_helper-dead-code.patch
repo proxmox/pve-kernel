@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ilya Maximets <i.maximets@ovn.org>
+Date: Mon, 21 Sep 2026 16:55:47 +0200
+Subject: [PATCH] net/sched: act_ct: remove 'add_helper' dead code
+
+This variable can only become 'true' when the connection is not
+confirmed, but it is only checked when it is confirmed.  So, it can be
+treated as being always false and just removed.
+
+Fixes: a21b06e73191 ("net: sched: add helper support in act_ct")
+Cc: stable@vger.kernel.org
+Signed-off-by: Ilya Maximets <i.maximets@ovn.org>
+Reviewed-by: Aaron Conole <aconole@redhat.com>
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
+Reviewed-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Link: https://patch.msgid.link/20260921145655.3167436-6-i.maximets@ovn.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 00df72e39f306e2f7adb68528a5c92109da6a0a9)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sched/act_ct.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/act_ct.c b/net/sched/act_ct.c
+index 70c13e1d2e1c75da6b5606c11ce9ed077fd07b24..2c12133159dbd0ba0da195c24712fc9d6775a92f 100644
+--- a/net/sched/act_ct.c
++++ b/net/sched/act_ct.c
+@@ -987,7 +987,6 @@ TC_INDIRECT_SCOPE int tcf_ct_act(struct sk_buff *skb, const struct tc_action *a,
+ 	struct nf_hook_state state;
+ 	int nh_ofs, err, retval;
+ 	struct tcf_ct_params *p;
+-	bool add_helper = false;
+ 	bool skb_is_ours = false;
+ 	bool skip_add = false;
+ 	bool defrag = false;
+@@ -1097,14 +1096,14 @@ TC_INDIRECT_SCOPE int tcf_ct_act(struct sk_buff *skb, const struct tc_action *a,
+ 		err = __nf_ct_try_assign_helper(ct, p->tmpl, GFP_ATOMIC);
+ 		if (err)
+ 			goto drop;
+-		add_helper = true;
++
+ 		if (nat && !nfct_seqadj(ct)) {
+ 			if (!nfct_seqadj_ext_add(ct))
+ 				goto drop;
+ 		}
+ 	}
+ 
+-	if (nf_ct_is_confirmed(ct) ? ((!cached && !skip_add) || add_helper) : commit) {
++	if (nf_ct_is_confirmed(ct) ? (!cached && !skip_add) : commit) {
+ 		err = nf_ct_helper(skb, ct, ctinfo, family);
+ 		if (err != NF_ACCEPT)
+ 			goto nf_error;

@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xuanqiang Luo <luoxuanqiang@kylinos.cn>
+Date: Mon, 21 Sep 2026 11:18:59 +0800
+Subject: [PATCH] ip_gre: Reject enabling collect metadata through changelink
+
+ipgre_netlink_parms() can enable collect_md on an existing GRE, GRETAP
+or ERSPAN device. Unlike newlink, changelink does not enforce metadata
+tunnel uniqueness. Converting a non-metadata device can therefore
+replace the metadata receive entry for another device of the same type
+in the same netns. Deleting either device then clears the shared entry,
+breaking metadata receive lookup for the surviving device.
+
+If parameter validation fails after collect_md is set, deleting the
+modified device can also clear an entry it never owned.
+
+Reject enabling metadata mode in both changelink callbacks before any
+encapsulation or tunnel parameters are modified. Allow requests that
+repeat the metadata attribute on an existing metadata device.
+
+Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
+Signed-off-by: Xuanqiang Luo <luoxuanqiang@kylinos.cn>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Reviewed-by: Hangbin Liu <liuhangbin@kylinos.cn>
+Link: https://patch.msgid.link/20260921031859.9283-1-xuanqiang.luo@linux.dev
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit a3f315be9d30eeb6938d11fa17fd4b32d52f7c42)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/ip_gre.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 300b802125db27e8318dcfeae5920488d49fa1d9..b15cc4ee0d9208c3a09e49c55ef0b470d952d9c8 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1459,6 +1459,12 @@ static int ipgre_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	if (!rtnl_dev_link_net_capable(dev, t->net))
+ 		return -EPERM;
+ 
++	if (data && data[IFLA_GRE_COLLECT_METADATA] && !t->collect_md) {
++		NL_SET_ERR_MSG(extack,
++			       "Enabling collect_md on an existing device is not supported");
++		return -EOPNOTSUPP;
++	}
++
+ 	err = ipgre_newlink_encap_setup(dev, data);
+ 	if (err)
+ 		return err;
+@@ -1491,6 +1497,12 @@ static int erspan_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	if (!rtnl_dev_link_net_capable(dev, t->net))
+ 		return -EPERM;
+ 
++	if (data && data[IFLA_GRE_COLLECT_METADATA] && !t->collect_md) {
++		NL_SET_ERR_MSG(extack,
++			       "Enabling collect_md on an existing device is not supported");
++		return -EOPNOTSUPP;
++	}
++
+ 	err = ipgre_newlink_encap_setup(dev, data);
+ 	if (err)
+ 		return err;

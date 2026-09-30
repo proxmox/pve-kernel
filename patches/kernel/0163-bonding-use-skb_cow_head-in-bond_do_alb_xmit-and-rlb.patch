@@ -1,0 +1,97 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 3 Sep 2026 14:39:40 +0000
+Subject: [PATCH] bonding: use skb_cow_head() in bond_do_alb_xmit() and
+ rlb_arp_xmit()
+
+[ Upstream commit 1746ef2e2df2ad71c66eca56364d56bde284523b ]
+
+In bond_do_alb_xmit() and rlb_arp_xmit(), make sure to unclone
+skb head via skb_cow_head() before modifying the source MAC address
+(Ethernet header and ARP payload) to avoid silent corruption if
+the skb is shared or cloned. Avoid caching the header pointers
+across skb_cow_head().
+
+In rlb_arp_xmit(), only modify arp->mac_src if it differs from
+tx_slave->dev->dev_addr to avoid an unnecessary copy and head
+reallocation.
+
+Also, we should not assume mac header is set in output path.
+
+Use skb_eth_hdr() instead of eth_hdr() to fix the issue,
+and remove now redundant skb_reset_mac_header() calls.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reviewed-by: Hangbin Liu <liuhangbin@kylinos.cn>
+Cc: Jay Vosburgh <jv@jvosburgh.net>
+Reviewed-by: Nikolay Aleksandrov <razor@blackwall.org>
+Link: https://patch.msgid.link/20260903143940.1180513-1-edumazet@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 8e2a5ffdc32ca76e6348a79353e8a00fbf5f2221)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/bonding/bond_alb.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 5073aeeba6c976bb4272a118fcef41c5133fa24e..120673c8967fc5ef349cee4c820d02aa23fd206f 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -678,9 +678,15 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+ 	if (arp->op_code == htons(ARPOP_REPLY)) {
+ 		/* the arp must be sent on the selected rx channel */
+ 		tx_slave = rlb_choose_channel(skb, bond, arp);
+-		if (tx_slave)
++		if (tx_slave &&
++		    !ether_addr_equal_64bits(arp->mac_src,
++					     tx_slave->dev->dev_addr)) {
++			if (unlikely(skb_cow_head(skb, 0)))
++				return NULL;
++			arp = (struct arp_pkt *)skb_network_header(skb);
+ 			bond_hw_addr_copy(arp->mac_src, tx_slave->dev->dev_addr,
+ 					  tx_slave->dev->addr_len);
++		}
+ 		netdev_dbg(bond->dev, "(slave %s): Server sent ARP Reply packet\n",
+ 			   tx_slave ? tx_slave->dev->name : "NULL");
+ 	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
+@@ -1340,7 +1346,6 @@ static netdev_tx_t bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
+ 				    struct slave *tx_slave)
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+-	struct ethhdr *eth_data = eth_hdr(skb);
+ 
+ 	if (!tx_slave) {
+ 		/* unbalanced or unassigned, send through primary */
+@@ -1351,7 +1356,9 @@ static netdev_tx_t bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
+ 
+ 	if (tx_slave && bond_slave_can_tx(tx_slave)) {
+ 		if (tx_slave != rcu_access_pointer(bond->curr_active_slave)) {
+-			ether_addr_copy(eth_data->h_source,
++			if (unlikely(skb_cow_head(skb, 0)))
++				return bond_tx_drop(bond->dev, skb);
++			ether_addr_copy(skb_eth_hdr(skb)->h_source,
+ 					tx_slave->dev->dev_addr);
+ 		}
+ 
+@@ -1375,8 +1382,7 @@ struct slave *bond_xmit_tlb_slave_get(struct bonding *bond,
+ 	struct ethhdr *eth_data;
+ 	u32 hash_index;
+ 
+-	skb_reset_mac_header(skb);
+-	eth_data = eth_hdr(skb);
++	eth_data = skb_eth_hdr(skb);
+ 
+ 	/* Do not TX balance any multicast or broadcast */
+ 	if (!is_multicast_ether_addr(eth_data->h_dest)) {
+@@ -1428,8 +1434,7 @@ struct slave *bond_xmit_alb_slave_get(struct bonding *bond,
+ 	u32 hash_index = 0;
+ 	int hash_size = 0;
+ 
+-	skb_reset_mac_header(skb);
+-	eth_data = eth_hdr(skb);
++	eth_data = skb_eth_hdr(skb);
+ 
+ 	switch (ntohs(skb->protocol)) {
+ 	case ETH_P_IP: {

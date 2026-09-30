@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ilya Maximets <i.maximets@ovn.org>
+Date: Mon, 21 Sep 2026 16:55:44 +0200
+Subject: [PATCH] net: openvswitch: conntrack: remove 'add_helper' dead code
+
+This variable can only become 'true' when the connection is not
+confirmed, but it is only checked when it is confirmed.  So, it can be
+treated as being always false and just removed.
+
+Fixes: 3c1860543fcc ("openvswitch: add nf_ct_is_confirmed check before assigning the helper")
+Cc: stable@vger.kernel.org
+Signed-off-by: Ilya Maximets <i.maximets@ovn.org>
+Reviewed-by: Aaron Conole <aconole@redhat.com>
+Link: https://patch.msgid.link/20260921145655.3167436-3-i.maximets@ovn.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 5e6c14dd42a1c1fe938e573dc6c9098145b2b0c4)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/openvswitch/conntrack.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 431ccf71d22cea43eeefc12392642af0d34cde81..c699d4e37c00278ff61d0a2e0128fe39534466f7 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -779,8 +779,6 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 	if (ct) {
+-		bool add_helper = false;
+-
+ 		/* Packets starting a new connection must be NATted before the
+ 		 * helper, so that the helper knows about the NAT.  We enforce
+ 		 * this by delaying both NAT and helper calls for unconfirmed
+@@ -812,7 +810,6 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 							    GFP_ATOMIC);
+ 			if (err)
+ 				return err;
+-			add_helper = true;
+ 
+ 			/* helper installed, add seqadj if NAT is required */
+ 			if (info->nat && !nfct_seqadj(ct)) {
+@@ -822,13 +819,10 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 		}
+ 
+ 		/* Call the helper only if:
+-		 * - nf_conntrack_in() was executed above ("!cached") or a
+-		 *   helper was just attached ("add_helper") for a confirmed
+-		 *   connection, or
++		 * - nf_conntrack_in() was executed above ("!cached"), or
+ 		 * - When committing an unconfirmed connection.
+ 		 */
+-		if ((nf_ct_is_confirmed(ct) ? !cached || add_helper :
+-					      info->commit)) {
++		if ((nf_ct_is_confirmed(ct) ? !cached : info->commit)) {
+ 			int err = nf_ct_helper(skb, ct, ctinfo, info->family);
+ 
+ 			err = verdict_to_errno(err);

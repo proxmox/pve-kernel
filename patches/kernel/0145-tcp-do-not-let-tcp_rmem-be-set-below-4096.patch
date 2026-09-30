@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Sat, 12 Sep 2026 14:48:48 +0000
+Subject: [PATCH] tcp: do not let tcp_rmem be set below 4096
+
+[ Upstream commit 83a945a529d6e002dd7339c532288a931f463dba ]
+
+We can hit a division by zero crash in tcp_rcvbuf_grow()
+and tcp_rcv_space_adjust():
+
+divide error: 0000 [#1] PREEMPT SMP
+RIP: 0010:tcp_rcvbuf_grow+0x187/0x450 net/ipv4/tcp_input.c:939
+...
+grow = div_u64(((u64)rcvwin << 1) * (newval - oldval), oldval);
+
+The division uses oldval = tp->rcvq_space.space as divisor.
+When tp->rcvq_space.space is zero, this leads to a divide-by-zero
+exception.
+
+tp->rcvq_space.space is initialized in tcp_init_buffer_space():
+    tp->rcvq_space.space = min3(tp->rcv_ssthresh, tp->rcv_wnd,
+                                (u32)TCP_INIT_CWND * tp->advmss);
+
+If tcp_rmem[1] is configured to very small values (such as 1),
+sk->sk_rcvbuf is initialized to 1. Then tcp_full_space(sk), which
+computes (sk->sk_rcvbuf * scaling_ratio) >> 8, truncates to 0.
+This sets tp->window_clamp = 0, tp->rcv_ssthresh = 0, and
+tp->rcvq_space.space = 0. Later, when data arrives and DRS is invoked,
+tcp_rcvbuf_grow() divides by oldval == 0.
+
+Back in 2015, commit b1cb59cf2efe ("net: sysctl_net_core: check SNDBUF
+and RCVBUF for min length") ensured that net.core.rmem_default and
+net.core.rmem_max cannot be set below SOCK_MIN_RCVBUF. Similarly,
+SO_RCVBUF setsockopt enforces max_t(int, val * 2, SOCK_MIN_RCVBUF).
+
+However, net.ipv4.tcp_rmem still had .extra1 = SYSCTL_ONE, allowing
+arbitrarily small values.
+
+Because SOCK_MIN_RCVBUF depends on sizeof(struct sk_buff) and cacheline
+alignment, its value varies across architectures and configuration options.
+Using a fixed constant of 4096 ensures a predictable, architecture-
+independent lower bound that is safely above SOCK_MIN_RCVBUF everywhere
+and matches the documented 4K default.
+
+Fix this by setting tcp_rmem.extra1 to 4096 and updating the documentation.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reviewed-by: Simon Horman <horms@kernel.org>
+Link: https://patch.msgid.link/20260912144848.3448026-1-edumazet@google.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 1c4bb940c3bb4325bb88ac1b7eaf5faaa39e7d63)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ Documentation/networking/ip-sysctl.rst | 2 ++
+ net/ipv4/sysctl_net_ipv4.c             | 4 +++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
+index 6921d8594b8493a25d62ffd586d0b9f6527409cb..80bf02dadc1a9fdd2b2f07dd89125ccbaa222314 100644
+--- a/Documentation/networking/ip-sysctl.rst
++++ b/Documentation/networking/ip-sysctl.rst
+@@ -856,6 +856,8 @@ tcp_rmem - vector of 3 INTEGERs: min, default, max
+ 	case this value is ignored.
+ 	Default: between 131072 and 32MB, depending on RAM size.
+ 
++	Each of the three values cannot be set below 4096.
++
+ tcp_sack - BOOLEAN
+ 	Enable select acknowledgments (SACKS).
+ 
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index c70c12d0b5d49ae02dda7b86b6aaef7c5357702a..e7dde56be2f0c612e62ad4bef6873138fa7d75ce 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -51,6 +51,8 @@ static int tcp_ecn_mode_max = 5;
+ static u32 icmp_errors_extension_mask_all =
+ 	GENMASK_U8(ICMP_ERR_EXT_COUNT - 1, 0);
+ 
++static int tcp_min_rcvbuf = 4096;
++
+ /* obsolete */
+ static int sysctl_tcp_low_latency __read_mostly;
+ 
+@@ -1455,7 +1457,7 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.maxlen		= sizeof(init_net.ipv4.sysctl_tcp_rmem),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+-		.extra1		= SYSCTL_ONE,
++		.extra1		= &tcp_min_rcvbuf,
+ 	},
+ 	{
+ 		.procname	= "tcp_comp_sack_delay_ns",

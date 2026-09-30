@@ -1,0 +1,110 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhiling Zou <zhilinz@nebusec.ai>
+Date: Sat, 29 Aug 2026 17:24:24 +0800
+Subject: [PATCH] xfrm: save input state data before secpath resets
+
+commit 3cf5cdecd99c9c186a5ea518d93bbf3045b6e3aa upstream.
+
+xfrm_input() stores the current xfrm_state in the skb secpath while it
+continues receive-side processing. Some input paths can reset that secpath
+before xfrm_input() has finished dereferencing the state.
+
+Receive callback users such as VTI and XFRM interfaces can reset the
+secpath. The VTI receive path does so before checking whether the packet
+crosses network namespaces, while the XFRM interface path does so only for
+cross-network-namespace packets. The XFRM_MAX_DEPTH error path can also
+reset the secpath before the final drop callback reports the current
+state's protocol.
+
+If secpath_reset() drops the last state reference while the state is
+concurrently deleted, xfrm_input() can still dereference the freed state
+when selecting transport_finish() or reporting the drop callback protocol.
+
+Save the state protocol on the stack while the state is still valid,
+and use the already saved address family for transport_finish(). A larval
+XFRM_STATE_ACQ state has no type, so retain nexthdr as its protocol. This
+preserves the existing drop-path fallback while avoiding the post-reset
+state dereferences without adding an extra state reference to every
+received packet.
+
+Fixes: df3893c176e9 ("vti: Update the ipv4 side to use it's own receive hook.")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Signed-off-by: Zhiling Zou <zhilinz@nebusec.ai>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 537a5ae18b2be70f8eb0aca843682e81a69aab91)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_input.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 8f6109eada7eaaf1c70aa2da610523b42d75b50c..5ed87d51392a527358f30919fb32236252737c99 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -474,6 +474,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 	struct xfrm_state *x = NULL;
+ 	xfrm_address_t *daddr;
+ 	u32 mark = skb->mark;
++	u8 xfrm_proto = nexthdr;
+ 	unsigned int family = AF_UNSPEC;
+ 	int decaps = 0;
+ 	int async = 0;
+@@ -485,6 +486,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 	if (encap_type < 0 || (xo && (xo->flags & XFRM_GRO || encap_type == 0 ||
+ 				      encap_type == UDP_ENCAP_ESPINUDP))) {
+ 		x = xfrm_input_state(skb);
++		xfrm_proto = x->type ? x->type->proto : nexthdr;
+ 
+ 		if (unlikely(x->km.state != XFRM_STATE_VALID)) {
+ 			if (x->km.state == XFRM_STATE_ACQ)
+@@ -592,11 +594,13 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 
+ 		x = xfrm_input_state_lookup(net, mark, daddr, spi, nexthdr, family);
+ 		if (x == NULL) {
++			xfrm_proto = nexthdr;
+ 			secpath_reset(skb);
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINNOSTATES);
+ 			xfrm_audit_state_notfound(skb, family, spi, seq);
+ 			goto drop;
+ 		}
++		xfrm_proto = x->type ? x->type->proto : nexthdr;
+ 
+ 		if (unlikely(x->dir && x->dir != XFRM_SA_DIR_IN)) {
+ 			secpath_reset(skb);
+@@ -604,6 +608,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 			xfrm_audit_state_notfound(skb, family, spi, seq);
+ 			xfrm_state_put(x);
+ 			x = NULL;
++			xfrm_proto = nexthdr;
+ 			goto drop;
+ 		}
+ 
+@@ -728,7 +733,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 	} while (!err);
+ 
+ 	rcu_read_lock();
+-	err = xfrm_rcv_cb(skb, family, x->type->proto, 0);
++	err = xfrm_rcv_cb(skb, family, xfrm_proto, 0);
+ 	if (err) {
+ 		rcu_read_unlock();
+ 		goto drop;
+@@ -753,7 +758,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 			xfrm_gro = xo->flags & XFRM_GRO;
+ 
+ 		err = -EAFNOSUPPORT;
+-		afinfo = xfrm_state_afinfo_get_rcu(x->props.family);
++		afinfo = xfrm_state_afinfo_get_rcu(family);
+ 		if (likely(afinfo))
+ 			err = afinfo->transport_finish(skb, xfrm_gro || async);
+ 		if (xfrm_gro) {
+@@ -776,7 +781,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ drop:
+ 	if (async)
+ 		dev_put(dev);
+-	xfrm_rcv_cb(skb, family, x && x->type ? x->type->proto : nexthdr, -1);
++	xfrm_rcv_cb(skb, family, xfrm_proto, -1);
+ 	kfree_skb(skb);
+ 	return 0;
+ }

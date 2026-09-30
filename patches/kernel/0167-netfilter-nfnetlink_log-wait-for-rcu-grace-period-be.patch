@@ -1,0 +1,86 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 3 Aug 2026 10:43:27 +0200
+Subject: [PATCH] netfilter: nfnetlink_log: wait for rcu grace period before
+ freeing pernet state
+
+[ Upstream commit 33d1469b0124cc0baaea7a2032123b77a81e0940 ]
+
+sashiko reports: "nfnl_log_net_exit() calls nf_log_unset(), which
+clears the logger pointer without an RCU grace period.  Immediately after,
+ops_free_list() frees the per-net state while concurrent packets might
+still be executing nf_log_packet() under rcu_read_lock()."
+
+Clear the pointer via .pre_exit to make sure rcu readers have completed
+before pernet storage is free'd.  The change in nf_log_syslog.c is only
+done for consistency: it doesn't use pernet data.
+
+Link: https://sashiko.dev/#/patchset/20260731151806.849724-1-pablo%40netfilter.org
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit dc20050b6b12ca58066715d088e1a537535d938d)
+CVE-2026-93288
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/netfilter/nf_log_syslog.c |  4 ++--
+ net/netfilter/nfnetlink_log.c | 13 +++++++++----
+ 2 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/net/netfilter/nf_log_syslog.c b/net/netfilter/nf_log_syslog.c
+index dfacd9279f6ee09b067130ac039bf4f8551077ae..d63b73c58abea0e0b298dd2aa65879bd20a3ffd7 100644
+--- a/net/netfilter/nf_log_syslog.c
++++ b/net/netfilter/nf_log_syslog.c
+@@ -1006,7 +1006,7 @@ static int __net_init nf_log_syslog_net_init(struct net *net)
+ 	return ret;
+ }
+ 
+-static void __net_exit nf_log_syslog_net_exit(struct net *net)
++static void __net_exit nf_log_syslog_net_pre_exit(struct net *net)
+ {
+ 	nf_log_unset(net, &nf_ip_logger);
+ 	nf_log_unset(net, &nf_arp_logger);
+@@ -1017,7 +1017,7 @@ static void __net_exit nf_log_syslog_net_exit(struct net *net)
+ 
+ static struct pernet_operations nf_log_syslog_net_ops = {
+ 	.init = nf_log_syslog_net_init,
+-	.exit = nf_log_syslog_net_exit,
++	.pre_exit = nf_log_syslog_net_pre_exit,
+ };
+ 
+ static int __init nf_log_syslog_init(void)
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 1be31263ed8a164f5a7267dae0f48c89652f9ea3..e6554ab59cb0c92a2131f4017f21e75ff4662601 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -1165,21 +1165,26 @@ static int __net_init nfnl_log_net_init(struct net *net)
+ 	return 0;
+ }
+ 
+-static void __net_exit nfnl_log_net_exit(struct net *net)
++static void __net_exit nfnl_log_net_pre_exit(struct net *net)
+ {
+-	struct nfnl_log_net *log = nfnl_log_pernet(net);
+-	unsigned int i;
+-
+ #ifdef CONFIG_PROC_FS
+ 	remove_proc_entry("nfnetlink_log", net->nf.proc_netfilter);
+ #endif
+ 	nf_log_unset(net, &nfulnl_logger);
++}
++
++static void __net_exit nfnl_log_net_exit(struct net *net)
++{
++	struct nfnl_log_net *log = nfnl_log_pernet(net);
++	unsigned int i;
++
+ 	for (i = 0; i < INSTANCE_BUCKETS; i++)
+ 		WARN_ON_ONCE(!hlist_empty(&log->instance_table[i]));
+ }
+ 
+ static struct pernet_operations nfnl_log_net_ops = {
+ 	.init	= nfnl_log_net_init,
++	.pre_exit = nfnl_log_net_pre_exit,
+ 	.exit	= nfnl_log_net_exit,
+ 	.id	= &nfnl_log_net_id,
+ 	.size	= sizeof(struct nfnl_log_net),

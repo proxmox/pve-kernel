@@ -1,0 +1,142 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xin Long <lucien.xin@gmail.com>
+Date: Mon, 21 Sep 2026 14:03:45 -0400
+Subject: [PATCH] sctp: hold asoc or transport before mod_timer() in timer
+ handlers
+
+Take the association or transport reference before rearming a timer in the
+timer handlers.
+
+The existing code calls mod_timer() before taking the reference needed by
+the rearmed timer without holding the sock lock. This creates a race with
+timer cleanup: if the timer is deleted after mod_timer() returns but before
+the reference is taken, the cleanup path can drop the timer's reference and
+destroy the transport or association. The timer handler then takes a
+reference on the already freed object and eventually drops it, causing a
+refcount underflow.
+
+Hold the object before mod_timer() and drop the reference if mod_timer()
+reports that the timer was already pending in timer handlers. Apply the
+same ordering to the proto-unreachable path, which can rearm a transport
+timer outside the timer handlers without holding the sock lock.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Reported-by: Tangxin Xie <xietangxin@h-partners.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/c31b5e3ee2b7274e804f5eba2f21e2412e7eef7a.1790013825.git.lucien.xin@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit cae23ae3f7887a1cf8a75da38edcebeef695040f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sctp/input.c         |  7 ++++---
+ net/sctp/sm_sideeffect.c | 37 ++++++++++++++++++++++---------------
+ 2 files changed, 26 insertions(+), 18 deletions(-)
+
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 864741fae4187e3645474b97e47ba154591b30b2..9494cfa51106c1d31ad482d9f64b9c96746c816f 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -436,9 +436,10 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
+ 		if (timer_pending(&t->proto_unreach_timer))
+ 			return;
+ 		else {
+-			if (!mod_timer(&t->proto_unreach_timer,
+-						jiffies + (HZ/20)))
+-				sctp_transport_hold(t);
++			sctp_transport_hold(t);
++			if (mod_timer(&t->proto_unreach_timer,
++				      jiffies + (HZ / 20)))
++				sctp_transport_put(t);
+ 		}
+ 	} else {
+ 		struct net *net = sock_net(sk);
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 0d99b7e8c082f099416b5f638b0870dc52d44899..35f540fb15fc14546ba69b69fab374db1add2bd7 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -244,8 +244,9 @@ void sctp_generate_t3_rtx_event(struct timer_list *t)
+ 		pr_debug("%s: sock is busy\n", __func__);
+ 
+ 		/* Try again later.  */
+-		if (!mod_timer(&transport->T3_rtx_timer, jiffies + (HZ/20)))
+-			sctp_transport_hold(transport);
++		sctp_transport_hold(transport);
++		if (mod_timer(&transport->T3_rtx_timer, jiffies + (HZ / 20)))
++			sctp_transport_put(transport);
+ 		goto out_unlock;
+ 	}
+ 
+@@ -280,8 +281,9 @@ static void sctp_generate_timeout_event(struct sctp_association *asoc,
+ 			 timeout_type);
+ 
+ 		/* Try again later.  */
+-		if (!mod_timer(&asoc->timers[timeout_type], jiffies + (HZ/20)))
+-			sctp_association_hold(asoc);
++		sctp_association_hold(asoc);
++		if (mod_timer(&asoc->timers[timeout_type], jiffies + (HZ / 20)))
++			sctp_association_put(asoc);
+ 		goto out_unlock;
+ 	}
+ 
+@@ -378,8 +380,9 @@ void sctp_generate_heartbeat_event(struct timer_list *t)
+ 		pr_debug("%s: sock is busy\n", __func__);
+ 
+ 		/* Try again later.  */
+-		if (!mod_timer(&transport->hb_timer, jiffies + (HZ/20)))
+-			sctp_transport_hold(transport);
++		sctp_transport_hold(transport);
++		if (mod_timer(&transport->hb_timer, jiffies + (HZ / 20)))
++			sctp_transport_put(transport);
+ 		goto out_unlock;
+ 	}
+ 
+@@ -388,8 +391,9 @@ void sctp_generate_heartbeat_event(struct timer_list *t)
+ 	timeout = sctp_transport_timeout(transport);
+ 	if (elapsed < timeout) {
+ 		elapsed = timeout - elapsed;
+-		if (!mod_timer(&transport->hb_timer, jiffies + elapsed))
+-			sctp_transport_hold(transport);
++		sctp_transport_hold(transport);
++		if (mod_timer(&transport->hb_timer, jiffies + elapsed))
++			sctp_transport_put(transport);
+ 		goto out_unlock;
+ 	}
+ 
+@@ -422,9 +426,10 @@ void sctp_generate_proto_unreach_event(struct timer_list *t)
+ 		pr_debug("%s: sock is busy\n", __func__);
+ 
+ 		/* Try again later.  */
+-		if (!mod_timer(&transport->proto_unreach_timer,
+-				jiffies + (HZ/20)))
+-			sctp_transport_hold(transport);
++		sctp_transport_hold(transport);
++		if (mod_timer(&transport->proto_unreach_timer,
++			      jiffies + (HZ / 20)))
++			sctp_transport_put(transport);
+ 		goto out_unlock;
+ 	}
+ 
+@@ -458,8 +463,9 @@ void sctp_generate_reconf_event(struct timer_list *t)
+ 		pr_debug("%s: sock is busy\n", __func__);
+ 
+ 		/* Try again later.  */
+-		if (!mod_timer(&transport->reconf_timer, jiffies + (HZ / 20)))
+-			sctp_transport_hold(transport);
++		sctp_transport_hold(transport);
++		if (mod_timer(&transport->reconf_timer, jiffies + (HZ / 20)))
++			sctp_transport_put(transport);
+ 		goto out_unlock;
+ 	}
+ 
+@@ -495,8 +501,9 @@ void sctp_generate_probe_event(struct timer_list *t)
+ 		pr_debug("%s: sock is busy\n", __func__);
+ 
+ 		/* Try again later.  */
+-		if (!mod_timer(&transport->probe_timer, jiffies + (HZ / 20)))
+-			sctp_transport_hold(transport);
++		sctp_transport_hold(transport);
++		if (mod_timer(&transport->probe_timer, jiffies + (HZ / 20)))
++			sctp_transport_put(transport);
+ 		goto out_unlock;
+ 	}
+ 

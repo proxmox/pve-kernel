@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhiling Zou <zhilinz@nebusec.ai>
+Date: Sat, 12 Sep 2026 21:22:43 +0800
+Subject: [PATCH] openvswitch: avoid reallocating confirmed conntrack labels
+
+commit 3f118c8217c109fd13ca61caa301d72c483897ef upstream.
+
+ovs_ct_get_conn_labels() adds the labels extension when a conntrack
+entry does not have one.  Confirmed conntracks can be read locklessly,
+so adding an extension may reallocate and free the extension block
+while another CPU accesses it.
+
+Only add the extension for unconfirmed conntracks.  A confirmed
+conntrack without labels now fails the caller's label operation instead
+of reallocating its extension storage.
+
+Fixes: c2ac66735870 ("openvswitch: Allow matching on conntrack label")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Signed-off-by: Zhiling Zou <zhilinz@nebusec.ai>
+Reviewed-by: Ilya Maximets <i.maximets@ovn.org>
+Reviewed-by: Aaron Conole <aconole@redhat.com>
+Link: https://patch.msgid.link/372fbb062b40ae6723684f55484be86ff0064f8e.1789218015.git.zhilinz@nebusec.ai
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 8c9fcc6c33950d3db551af664d1fd3d998bfee56)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/openvswitch/conntrack.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index d1b46fc1e2eada3b256fafdf2e99819ec1e3907d..c227e139ede92742cb5aa1d7d0c41f8d622a6bad 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -366,7 +366,7 @@ static struct nf_conn_labels *ovs_ct_get_conn_labels(struct nf_conn *ct)
+ 	struct nf_conn_labels *cl;
+ 
+ 	cl = nf_ct_labels_find(ct);
+-	if (!cl) {
++	if (!cl && !nf_ct_is_confirmed(ct)) {
+ 		nf_ct_labels_ext_add(ct);
+ 		cl = nf_ct_labels_find(ct);
+ 	}

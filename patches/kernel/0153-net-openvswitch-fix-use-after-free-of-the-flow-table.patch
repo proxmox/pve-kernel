@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Norbert Szetei <norbert@doyensec.com>
+Date: Sun, 6 Sep 2026 10:21:09 +0200
+Subject: [PATCH] net: openvswitch: fix use-after-free of the flow table mask
+ array
+
+commit ba4ba11ed6eb8972c69070417fc27b48deb002e8 upstream.
+
+tbl_mask_array_realloc() retires the old mask_array before it stops being
+reachable:
+
+	old = ovsl_dereference(tbl->mask_array);
+	if (old) {
+		...
+		call_rcu(&old->rcu, mask_array_rcu_cb);
+	}
+
+	rcu_assign_pointer(tbl->mask_array, new);
+
+call_rcu() only waits for read-side critical sections already in flight.
+tbl->mask_array still points at old between the call_rcu() and the
+rcu_assign_pointer(), so a reader entering ovs_flow_tbl_lookup_stats() in
+that window picks up old in a fresh critical section that the pending
+grace period does not cover.
+
+tbl_mask_array_realloc() runs in process context under ovs_mutex, so the
+window is preemptible and can outlast the grace period. Then
+mask_array_rcu_cb() frees old before the swap runs:
+
+  BUG: KASAN: slab-use-after-free in flow_lookup.constprop.0+0x2bf/0x2f0
+  Read of size 8 at addr ffff888020b3e018 by task poc/741
+   flow_lookup.constprop.0+0x2bf/0x2f0
+   ovs_flow_tbl_lookup_stats+0x4a3/0x5c0
+   ovs_dp_process_packet+0x19c/0x710
+   ovs_vport_receive+0x243/0x390
+   internal_dev_xmit+0x81/0x170
+  Freed by task 728:
+   kfree+0x16a/0x4e0
+   rcu_core+0x853/0x1030
+
+Publish the new array before retiring the old one. The kfree_rcu() that
+call_rcu() replaced ran after the swap.
+
+Fixes: eac87c413bf9 ("net: openvswitch: reorder masks array based on usage")
+Cc: stable@vger.kernel.org
+Signed-off-by: Norbert Szetei <norbert@doyensec.com>
+Reviewed-by: Ilya Maximets <i.maximets@ovn.org>
+Acked-by: Eelco Chaudron echaudro@redhat.com
+Link: https://patch.msgid.link/DE115F9C-2545-423E-A702-986FC952FD62@doyensec.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 035e9c3722067648a99010711d0ce81f42572ef4)
+CVE-2026-97611
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/openvswitch/flow_table.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index 61c6a5f77c2e59d34bb1121744a84c41b6e1b3a6..cf1cca4f9ec72bd1dc74e03bc5cdaf42b3c97544 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -257,11 +257,13 @@ static int tbl_mask_array_realloc(struct flow_table *tbl, int size)
+ 			if (ovsl_dereference(old->masks[i]))
+ 				new->masks[new->count++] = old->masks[i];
+ 		}
+-		call_rcu(&old->rcu, mask_array_rcu_cb);
+ 	}
+ 
+ 	rcu_assign_pointer(tbl->mask_array, new);
+ 
++	if (old)
++		call_rcu(&old->rcu, mask_array_rcu_cb);
++
+ 	return 0;
+ }
+ 

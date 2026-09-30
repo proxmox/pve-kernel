@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Siwei Zhang <fourdizhang@tencent.com>
+Date: Thu, 30 Jul 2026 19:40:08 +0800
+Subject: [PATCH] xfrm: use hlist_del_init_rcu for state_cache and
+ state_cache_input
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 2afb8dc1f4390f164db8352f8e685e126e9db566 upstream.
+
+Commit 14acf9652e56 ("xfrm: defensively unhash xfrm_state lists in
+__xfrm_state_delete") converted bydst/bysrc/byseq/byspi from
+hlist_del_rcu() to hlist_del_init_rcu() so that a second
+__xfrm_state_delete() on the same object becomes a no-op rather than a
+write through LIST_POISON pprev. It missed state_cache and
+state_cache_input, which kept hlist_del_rcu():
+
+- hlist_del_rcu() leaves pprev = LIST_POISON2 (non-NULL), so
+  hlist_unhashed() returns false.
+- hlist_del_init_rcu() leaves pprev = NULL, so hlist_unhashed()
+  returns true.
+
+A second __xfrm_state_delete() therefore enters __hlist_del() on the
+already-deleted state_cache/state_cache_input nodes and does
+WRITE_ONCE(*pprev, next) through LIST_POISON2 — a write use-after-free
+once the slab is reused. The corruption can in turn cause a subsequent
+hlist_for_each_entry_rcu traversal to follow a dangling next pointer,
+producing the read use-after-free reported in xfrm_input_state_lookup().
+
+Switch state_cache and state_cache_input to hlist_del_init_rcu() to
+match the other four lists, closing the write use-after-free and, with
+it, the read use-after-free it spawns.
+
+Assisted-by: CodeBuddy:GLM-5.2
+Fixes: 0045e3d80613 ("xfrm: Cache used outbound xfrm states at the policy.")
+Fixes: 81a331a0e72d ("xfrm: Add an inbound percpu state cache.")
+Cc: stable@vger.kernel.org
+Signed-off-by: Siwei Zhang <fourdizhang@tencent.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 9b74a47a4cbd0d29faff4f3b199212c73e6b6220)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_state.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 37193d2fcc2f2ba5d25e26dc5aecdfbcb29fedf7..02d9a3775a5a7e18c328feab2c4366818c445206 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -823,9 +823,9 @@ int __xfrm_state_delete(struct xfrm_state *x)
+ 		if (!hlist_unhashed(&x->byseq))
+ 			hlist_del_init_rcu(&x->byseq);
+ 		if (!hlist_unhashed(&x->state_cache))
+-			hlist_del_rcu(&x->state_cache);
++			hlist_del_init_rcu(&x->state_cache);
+ 		if (!hlist_unhashed(&x->state_cache_input))
+-			hlist_del_rcu(&x->state_cache_input);
++			hlist_del_init_rcu(&x->state_cache_input);
+ 
+ 		if (!hlist_unhashed(&x->byspi))
+ 			hlist_del_init_rcu(&x->byspi);

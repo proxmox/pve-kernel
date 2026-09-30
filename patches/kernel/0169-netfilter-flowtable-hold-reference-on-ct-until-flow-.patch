@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 7 Sep 2026 21:04:05 +0200
+Subject: [PATCH] netfilter: flowtable: hold reference on ct until flow is
+ released
+
+[ Upstream commit e75a9fa1d44bcbd66ea02e8781bcca6ea4076e0d ]
+
+nf_ct_put() releases the ct->ext area inmediately, the rcu typesafe
+semantics also allow to refer to the wrong conntrack from the flowtable
+datapath. Hold reference on ct until flow is released after rcu grace
+period.
+
+Add rcu_barrier() on module exit path, to ensure pending flow entries
+are release before module goes away.
+
+Fixes: 0ff90b6c2034 ("netfilter: nf_flow_offload: fix use-after-free and a resource leak")
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit d9e6175a3ee48209ee65f294fc567b4e16b29b74)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/netfilter/nf_flow_table_core.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_flow_table_core.c b/net/netfilter/nf_flow_table_core.c
+index 014d4dfc2a24d685240db1dd9a702ea7b596112c..d99f9334f9983d566ff54e9e28d3d75ec9649618 100644
+--- a/net/netfilter/nf_flow_table_core.c
++++ b/net/netfilter/nf_flow_table_core.c
+@@ -257,6 +257,14 @@ static void flow_offload_route_release(struct flow_offload *flow)
+ 	nft_flow_dst_release(flow, FLOW_OFFLOAD_DIR_REPLY);
+ }
+ 
++static void flow_offload_free_rcu(struct rcu_head *rcu_head)
++{
++	struct flow_offload *flow = container_of(rcu_head, struct flow_offload, rcu_head);
++
++	nf_ct_put(flow->ct);
++	kfree(flow);
++}
++
+ void flow_offload_free(struct flow_offload *flow)
+ {
+ 	switch (flow->type) {
+@@ -266,8 +274,7 @@ void flow_offload_free(struct flow_offload *flow)
+ 	default:
+ 		break;
+ 	}
+-	nf_ct_put(flow->ct);
+-	kfree_rcu(flow, rcu_head);
++	call_rcu(&flow->rcu_head, flow_offload_free_rcu);
+ }
+ EXPORT_SYMBOL_GPL(flow_offload_free);
+ 
+@@ -851,6 +858,7 @@ static int __init nf_flow_table_module_init(void)
+ 
+ static void __exit nf_flow_table_module_exit(void)
+ {
++	rcu_barrier();
+ 	nf_flow_table_offload_exit();
+ 	unregister_pernet_subsys(&nf_flow_table_net_ops);
+ 	kmem_cache_destroy(flow_offload_cachep);

@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ilya Maximets <i.maximets@ovn.org>
+Date: Mon, 21 Sep 2026 16:55:43 +0200
+Subject: [PATCH] net: openvswitch: conntrack: avoid modifying shared
+ unconfirmed ct entry
+
+In a case where skb with an unconfirmed ct entry gets cloned, we may
+end up committing both but with different sets of extensions.
+
+The series of events:
+
+ 1. The first clone wants to commit and runs the helpers wiring up
+    the extension pointer into the expectation list.
+ 2. Then it looses the confirmation keeping the entry unconfirmed.
+ 3. Second clone now wants to commit labels and adds the new extension
+    for that breaking the pointer in the expectation list causing
+    UAF on the destruction path later.
+
+While this is possible to trigger, there should be no practical
+network pipeline where committing both clones without modifications
+into the same zone is needed.  So, let's just reset the entry in case
+for some reason we got an skb with a shared one during commit.  This
+doesn't affect any known use cases, but avoids any potential problems
+with sharing and modification of the unconfirmed ct entry.
+
+The fixes tag points to the introduction of helpers, since that's the
+main UAF trigger for the sharing.
+
+Fixes: cae3a2627520 ("openvswitch: Allow attaching helpers to ct action")
+Cc: stable@vger.kernel.org
+Reported-by: Axel Mierczuk <axel.mierczuk@1password.com>
+Signed-off-by: Ilya Maximets <i.maximets@ovn.org>
+Reviewed-by: Aaron Conole <aconole@redhat.com>
+Link: https://patch.msgid.link/20260921145655.3167436-2-i.maximets@ovn.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 26b2bd70d22457556e2fa01cbf1192cb1a94d619)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/netfilter/nf_conntrack.h |  5 +++++
+ net/openvswitch/conntrack.c          | 12 ++++++++++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index bc42dd0e10e65922f1293343774ac2d71ca17956..c39425e54d87d3c24e82d0d2d483c135416fcc99 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -185,6 +185,11 @@ static inline void nf_ct_put(struct nf_conn *ct)
+ 		nf_ct_destroy(&ct->ct_general);
+ }
+ 
++static inline bool nf_ct_shared(const struct nf_conn *ct)
++{
++	return refcount_read(&ct->ct_general.use) > 1;
++}
++
+ /* load module; enable/disable conntrack in this namespace */
+ int nf_ct_netns_get(struct net *net, u8 nfproto);
+ void nf_ct_netns_put(struct net *net, u8 nfproto);
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index c227e139ede92742cb5aa1d7d0c41f8d622a6bad..431ccf71d22cea43eeefc12392642af0d34cde81 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -734,6 +734,18 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct;
+ 
++	/* If the ct entry is not confirmed and shared with some other skb,
++	 * e.g., a cloned one, we can't just modify it with the commit as we
++	 * must not modify the extension set.  Reset.
++	 */
++	if (cached && info->commit) {
++		ct = nf_ct_get(skb, &ctinfo);
++		if (ct && !nf_ct_is_confirmed(ct) && nf_ct_shared(ct)) {
++			nf_reset_ct(skb);
++			cached = false;
++		}
++	}
++
+ 	if (!cached) {
+ 		struct nf_hook_state state = {
+ 			.hook = NF_INET_PRE_ROUTING,

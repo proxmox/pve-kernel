@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sanghyun Park <sanghyun.park.cnu@gmail.com>
+Date: Fri, 18 Sep 2026 12:26:58 +0900
+Subject: [PATCH] vxlan: use one headroom snapshot for neighbour replies
+
+vxlan_na_create() samples LL_RESERVED_SPACE() to size the reply skb and then
+samples it again to reserve headroom. A concurrent vxlan_changelink() can
+update needed_headroom between the two reads, creating a TOCTOU race. The
+second value can exceed the allocation and make the Ethernet header write out
+of bounds.
+
+The race is reproducible on the unpatched kernel. It occurred when
+vxlan_na_create() generated a neighbour reply while vxlan_changelink() changed
+the link headroom. KASAN caught a four-byte write two bytes beyond a 704-byte
+skbuff_small_head allocation.
+
+Snapshot the headroom once and use that value for both allocation and
+reservation.
+
+Fixes: 4b29dba9c085 ("vxlan: fix nonfunctional neigh_reduce()")
+Signed-off-by: Sanghyun Park <sanghyun.park.cnu@gmail.com>
+Link: https://patch.msgid.link/20260918032842.502409-2-sanghyun.park.cnu@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 481506a756dcd828ef42391cb08f38d8d96d38fc)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/vxlan/vxlan_core.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/vxlan/vxlan_core.c b/drivers/net/vxlan/vxlan_core.c
+index fd5c34983d7e038a615554d83ddeaf9bef838f96..83c554d4f3aec1abd10adeb811a614ac2e5b6037 100644
+--- a/drivers/net/vxlan/vxlan_core.c
++++ b/drivers/net/vxlan/vxlan_core.c
+@@ -2125,13 +2125,15 @@ static struct sk_buff *vxlan_na_create(struct sk_buff *request,
+ 	struct ipv6hdr *pip6;
+ 	u8 *daddr;
+ 	int na_olen = 8; /* opt hdr + ETH_ALEN for target */
++	int headroom;
+ 	int ns_olen;
+ 	int i, len;
+ 
+ 	if (dev == NULL || !pskb_may_pull(request, request->len))
+ 		return NULL;
+ 
+-	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
++	headroom = LL_RESERVED_SPACE(dev);
++	len = headroom + sizeof(struct ipv6hdr) +
+ 		sizeof(*na) + na_olen + dev->needed_tailroom;
+ 	reply = alloc_skb(len, GFP_ATOMIC);
+ 	if (reply == NULL)
+@@ -2139,7 +2141,7 @@ static struct sk_buff *vxlan_na_create(struct sk_buff *request,
+ 
+ 	reply->protocol = htons(ETH_P_IPV6);
+ 	reply->dev = dev;
+-	skb_reserve(reply, LL_RESERVED_SPACE(request->dev));
++	skb_reserve(reply, headroom);
+ 	skb_push(reply, sizeof(struct ethhdr));
+ 	skb_reset_mac_header(reply);
+ 

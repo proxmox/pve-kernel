@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ilya Maximets <i.maximets@ovn.org>
+Date: Mon, 21 Sep 2026 16:55:45 +0200
+Subject: [PATCH] net: openvswitch: conntrack: fix helper UAF due to extensions
+ realloc
+
+While calling the helpers, a raw pointer to the extensions area is
+wired into expectations list:
+
+  -> nf_ct_helper()
+   -> helper->help()
+    -> nf_ct_expect_related_report()
+     -> nf_ct_expect_insert()
+      -> hlist_add_head_rcu(&exp->lnode, &master_help->expectations)
+
+In case the connection is not confirmed yet, more extensions can be
+added afterwards with *_ext_add() calls reallocating the extension
+space and leaving the now invalid pointer in the expectations list
+that is later accessed while removing the expectation.
+
+Make sure that helpers are called at the end after all the other
+extensions are already added.
+
+Note that the helper rejection now leaves the mark and labels set,
+but that's not different from how the NAT was handled before or how
+the mark and the labels were handled on confirmation failure.  And
+there are no atomicity guarantees provided by the API anyway.
+
+Fixes: cae3a2627520 ("openvswitch: Allow attaching helpers to ct action")
+Cc: stable@vger.kernel.org
+Reported-by: Axel Mierczuk <axel.mierczuk@1password.com>
+Signed-off-by: Ilya Maximets <i.maximets@ovn.org>
+Reviewed-by: Aaron Conole <aconole@redhat.com>
+Link: https://patch.msgid.link/20260921145655.3167436-4-i.maximets@ovn.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 1a4151e6be57b098b7a5ebfbde58585e83200cdc)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/openvswitch/conntrack.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index c699d4e37c00278ff61d0a2e0128fe39534466f7..84d4923379abb5c31eb090f2c2331ee49dc4a657 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -818,11 +818,14 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			}
+ 		}
+ 
+-		/* Call the helper only if:
+-		 * - nf_conntrack_in() was executed above ("!cached"), or
+-		 * - When committing an unconfirmed connection.
++		/* Call the helper only if nf_conntrack_in() was executed
++		 * above ("!cached").
++		 *
++		 * For unconfirmed connections it will be called later during
++		 * commit as we need to have all the other extensions allocated
++		 * before the call.
+ 		 */
+-		if ((nf_ct_is_confirmed(ct) ? !cached : info->commit)) {
++		if (nf_ct_is_confirmed(ct) && !cached) {
+ 			int err = nf_ct_helper(skb, ct, ctinfo, info->family);
+ 
+ 			err = verdict_to_errno(err);
+@@ -1025,6 +1028,14 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
+ 			return err;
+ 
+ 		nf_conn_act_ct_ext_add(skb, ct, ctinfo);
++
++		/* Call the helpers now.  We couldn't do this before as
++		 * all the extensions must be allocated before the call.
++		 */
++		err = nf_ct_helper(skb, ct, ctinfo, info->family);
++		err = verdict_to_errno(err);
++		if (err)
++			return err;
+ 	} else if (IS_ENABLED(CONFIG_NF_CONNTRACK_LABELS) &&
+ 		   labels_nonzero(&info->labels.mask)) {
+ 		err = ovs_ct_set_labels(ct, key, &info->labels.value,

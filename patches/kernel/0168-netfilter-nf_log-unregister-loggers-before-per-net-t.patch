@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chengfeng Ye <nicoyip.dev@gmail.com>
+Date: Mon, 24 Aug 2026 01:05:38 +0800
+Subject: [PATCH] netfilter: nf_log: unregister loggers before per-net teardown
+
+commit 2c018cc4842c33f0c732962e2ab58635e8ae5823 upstream.
+
+nf_log_syslog and nfnetlink_log unregister their per-network namespace
+operations before unregistering their global logger backends. This
+leaves a window where a sysctl or netlink writer can rebind the still-
+registered logger after the per-net pre-exit callback cleared the old
+selection.
+
+The race looks like this:
+
+  CPU 0                                 CPU 1
+  ----                                  ----
+  unregister_pernet_subsys()
+    nf_log_unset(net, logger)
+      net->nf.nf_loggers[pf] = NULL
+
+                                        lock nf_log_mutex
+                                        find logger in loggers[][]
+                                        net->nf.nf_loggers[pf] = logger
+                                        unlock nf_log_mutex
+
+  nf_log_unregister(logger)
+    lock nf_log_mutex
+    loggers[pf][type] = NULL
+    unlock nf_log_mutex
+    synchronize_rcu()
+  module exit returns
+  module core frees backend memory
+
+Later, a sysctl read or packet logging operation can dereference the
+stale per-net logger pointer.
+
+Fix this by unregistering the global logger backends before tearing down
+per-net state. Once the global registrations are gone, later writers can
+no longer rebind the logger. unregister_pernet_subsys() already waits
+for an RCU grace period after the pre-exit callback clears the per-net
+selection, while nf_log_unregister() continues to cover readers of the
+global logger table.
+
+Apply this ordering fix to both nf_log backends that combine per-net
+teardown with global logger registration.
+
+Fixes: 5b023fc8d8e0 ("netfilter: enable per netns support for nf_loggers")
+Cc: stable@vger.kernel.org
+Signed-off-by: Chengfeng Ye <nicoyip.dev@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit dce24f3a146948595bb1b86347f31e20b4975daa)
+CVE-2026-97608
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/netfilter/nf_log_syslog.c | 2 +-
+ net/netfilter/nfnetlink_log.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_log_syslog.c b/net/netfilter/nf_log_syslog.c
+index d63b73c58abea0e0b298dd2aa65879bd20a3ffd7..f368e090e6450e5864e482344d68478fe5c974c6 100644
+--- a/net/netfilter/nf_log_syslog.c
++++ b/net/netfilter/nf_log_syslog.c
+@@ -1065,12 +1065,12 @@ static int __init nf_log_syslog_init(void)
+ 
+ static void __exit nf_log_syslog_exit(void)
+ {
+-	unregister_pernet_subsys(&nf_log_syslog_net_ops);
+ 	nf_log_unregister(&nf_ip_logger);
+ 	nf_log_unregister(&nf_arp_logger);
+ 	nf_log_unregister(&nf_ip6_logger);
+ 	nf_log_unregister(&nf_netdev_logger);
+ 	nf_log_unregister(&nf_bridge_logger);
++	unregister_pernet_subsys(&nf_log_syslog_net_ops);
+ }
+ 
+ module_init(nf_log_syslog_init);
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index e6554ab59cb0c92a2131f4017f21e75ff4662601..951e08b43b94d197da5dbb5b29fcd9de5598deb2 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -1228,8 +1228,8 @@ static void __exit nfnetlink_log_fini(void)
+ {
+ 	nfnetlink_subsys_unregister(&nfulnl_subsys);
+ 	netlink_unregister_notifier(&nfulnl_rtnl_notifier);
+-	unregister_pernet_subsys(&nfnl_log_net_ops);
+ 	nf_log_unregister(&nfulnl_logger);
++	unregister_pernet_subsys(&nfnl_log_net_ops);
+ }
+ 
+ MODULE_DESCRIPTION("netfilter userspace logging");

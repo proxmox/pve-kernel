@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Roshan Kumar <roshaen09@gmail.com>
+Date: Tue, 28 Jul 2026 10:56:08 +0530
+Subject: [PATCH] xfrm: iptfs: fix stack OOB read in
+ iptfs_skb_reset_frag_walk()
+
+[ Upstream commit d042487dc118e494db2e2c1382310255c90ff544 ]
+
+iptfs_skb_reset_frag_walk() advances to the fragment containing @offset
+with an unbounded loop:
+
+	while (offset >= walk->past + walk->frags[walk->fragi].len)
+		walk->past += walk->frags[walk->fragi++].len;
+
+walk->fragi is advanced and walk->frags[walk->fragi] is dereferenced
+without ever checking fragi against walk->nr_frags. When the requested
+offset is at or beyond the total length spanned by the walk's fragments,
+fragi runs past nr_frags and off the end of the fixed-size on-stack
+frags[MAX_SKB_FRAGS + 1] array, reading out-of-bounds stack memory.
+
+The two callers behave differently: iptfs_skb_add_frags() already guards
+against this with
+
+	if (!walk->nr_frags ||
+	    offset >= walk->total + walk->initial_offset)
+		return len;
+
+but iptfs_skb_can_add_frags() has no such guard and calls
+iptfs_skb_reset_frag_walk() unconditionally, so it performs the
+out-of-range walk. Its own "fragi < walk->nr_frags" bound check runs only
+afterwards, too late to prevent the read.
+
+This is reachable from the receive path: a crafted IP-TFS (AGGFRAG)
+payload delivered to an IPTFS SA drives iptfs_reassem_cont() ->
+iptfs_skb_can_add_frags() with an offset past the fragment total, e.g.:
+
+  BUG: KASAN: stack-out-of-bounds in iptfs_skb_reset_frag_walk+0x235/0x250
+  Read of size 4 at addr ffff888008ad7210 by task repro/345
+   iptfs_skb_reset_frag_walk+0x235/0x250 net/xfrm/xfrm_iptfs.c:392
+   iptfs_skb_can_add_frags+0x155/0x310  net/xfrm/xfrm_iptfs.c:420
+   iptfs_reassem_cont+0xcf8/0x1140      net/xfrm/xfrm_iptfs.c:902
+   iptfs_input_ordered+0x552/0x670      net/xfrm/xfrm_iptfs.c:1280
+   iptfs_input+0x3d6/0xde0              net/xfrm/xfrm_iptfs.c:1741
+   xfrm_input+0x282f/0x6140             net/xfrm/xfrm_input.c:700
+   xfrm4_esp_rcv+0x93/0x120             net/ipv4/xfrm4_protocol.c:104
+   ip_rcv+0x278/0x2d0                   net/ipv4/ip_input.c:612
+
+Give iptfs_skb_can_add_frags() the same up-front guard that
+iptfs_skb_add_frags() already has, so the walk is never entered with an
+out-of-range offset. When it triggers, the caller falls back to the
+existing linearize-and-copy path, which is safe.
+
+Fixes: 5f2b6a909574 ("xfrm: iptfs: add skb-fragment sharing code")
+Reported-by: Roshan Kumar <roshaen09@gmail.com>
+Signed-off-by: Roshan Kumar <roshaen09@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit da56d0ee93d1bad779b0486f2fab92d1bc1f0cf3)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_iptfs.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/xfrm/xfrm_iptfs.c b/net/xfrm/xfrm_iptfs.c
+index f543ae3b49b3c67c41f38c58ce8d1cc72ef321ea..6920940a35b49d2e95e3468c35f199549bf5b121 100644
+--- a/net/xfrm/xfrm_iptfs.c
++++ b/net/xfrm/xfrm_iptfs.c
+@@ -416,6 +416,14 @@ static bool iptfs_skb_can_add_frags(const struct sk_buff *skb,
+ 	if (skb_has_frag_list(skb) || skb->pp_recycle != walk->pp_recycle)
+ 		return false;
+ 
++	/* Reject an @offset that is at or beyond the end of the walk's data
++	 * before calling iptfs_skb_reset_frag_walk(), whose fragment-advance
++	 * loop is otherwise unbounded and would index past walk->frags[].
++	 * This mirrors the guard already present in iptfs_skb_add_frags().
++	 */
++	if (!walk->nr_frags || offset >= walk->total + walk->initial_offset)
++		return false;
++
+ 	/* Make offset relative to current frag after setting that */
+ 	offset = iptfs_skb_reset_frag_walk(walk, offset);
+ 
