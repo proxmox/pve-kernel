@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Keith Busch <kbusch@kernel.org>
+Date: Wed, 19 Aug 2026 08:49:37 -0700
+Subject: [PATCH] block: save page offset gaps in cloned bio
+
+[ Upstream commit 96c8ea3c5add7920b3c43840d1ea76b3354c8d2d ]
+
+The cloned bio needs to inherit the accumulated gaps between vectors so
+that we can know if this bio can subscribe to the iova coalescing
+optimization.
+
+When cloning for a split, the gap only applies to the front bio since
+that's as far as has been processed. The remaining bio can reset its
+gaps to 0 since it advanced past the checked vectors, and will start its
+accounting from there on the next split check.
+
+Fixes: 2f6b2565d43c ("block: accumulate memory segment gaps per bio")
+Reported-by: Eric Auger <eauger@redhat.com>
+Tested-by: Eric Auger <eric.auger@redhat.com>
+Signed-off-by: Keith Busch <kbusch@kernel.org>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Link: https://patch.msgid.link/20260819154937.3903312-1-kbusch@meta.com
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 0f2fe40362f1215aa7ae4a9c6b3c65ff56b7bdac)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ block/bio.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/block/bio.c b/block/bio.c
+index a31a0ba130ea8c4c39b55db64e83e16b7ec23fca..998950af199e39ae39f911801045745ca76a6200 100644
+--- a/block/bio.c
++++ b/block/bio.c
+@@ -873,6 +873,7 @@ static int __bio_clone(struct bio *bio, struct bio *bio_src, gfp_t gfp)
+ 	bio->bi_ioprio = bio_src->bi_ioprio;
+ 	bio->bi_write_hint = bio_src->bi_write_hint;
+ 	bio->bi_write_stream = bio_src->bi_write_stream;
++	bio->bi_bvec_gap_bit = bio_src->bi_bvec_gap_bit;
+ 	bio->bi_iter = bio_src->bi_iter;
+ 
+ 	if (bio->bi_bdev) {
+@@ -1886,6 +1887,14 @@ struct bio *bio_split(struct bio *bio, int sectors,
+ 
+ 	bio_advance(bio, split->bi_iter.bi_size);
+ 
++	/*
++	 * The gap bit is set when splitting to limits and only applies to the
++	 * front bio that was split off. The remaining bio will calcualte its
++	 * gap value when it is subsequently split to limits, so it is safe to
++	 * re-initialize the value back to 0.
++	 */
++	bio->bi_bvec_gap_bit = 0;
++
+ 	if (bio_flagged(bio, BIO_TRACE_COMPLETION))
+ 		bio_set_flag(split, BIO_TRACE_COMPLETION);
+ 
