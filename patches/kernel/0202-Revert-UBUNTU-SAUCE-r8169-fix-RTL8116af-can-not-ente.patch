@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Fri, 2 Oct 2026 13:01:16 +0200
+Subject: [PATCH] Revert "UBUNTU: SAUCE: r8169: fix RTL8116af can not enter
+ s0idle and c10"
+
+This reverts commit bb8f594724b5fe134a1f1f3d0e3f6113512a59c2.
+
+This series, which Ubuntu carries from linux-next to convert r8169 to
+phylink and add new fiber chips, is the only change to the driver since
+7.0.14-19. Since then, RTL8125B NICs that the firmware leaves
+uninitialized, as with UEFI boot, time out waiting for the PHY and get
+no link. Revert the whole series to restore the r8169 driver as shipped
+with 7.0.14-19.
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ethernet/realtek/r8169_main.c | 42 -----------------------
+ 1 file changed, 42 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169_main.c b/drivers/net/ethernet/realtek/r8169_main.c
+index 23fda18a7ad77d9658ec3f027ccbd379fe83feac..fc4ba492d4348e336911fd31fe192636160728a2 100644
+--- a/drivers/net/ethernet/realtek/r8169_main.c
++++ b/drivers/net/ethernet/realtek/r8169_main.c
+@@ -114,7 +114,6 @@
+ #define RTL_INT_HW_ID		0xd006
+ #define RTL_INT_HW_ID_MASK	0x00ff
+ #define RTL_INT_HW_ID_8116AF	0x0000
+-#define RTL_PM_CTRL_D3HOT	0x03
+ 
+ static const struct rtl_chip_info {
+ 	u32 mask;
+@@ -3770,41 +3769,6 @@ static void rtl_hw_start_8168ep_3(struct rtl8169_private *tp)
+ 	r8168_mac_ocp_modify(tp, 0xe860, 0x0000, 0x0080);
+ }
+ 
+-static void rtl_lowpower_hidden_functions(struct pci_dev *pdev)
+-{
+-	unsigned int slot = PCI_SLOT(pdev->devfn);
+-	struct pci_bus *bus = pdev->bus;
+-	int func, pos;
+-	u16 val;
+-
+-	for (func = 2; func < 8; func++) {
+-		unsigned int devfn = PCI_DEVFN(slot, func);
+-
+-		pos = pci_bus_find_capability(bus, devfn, PCI_CAP_ID_EXP);
+-		if (pos) {
+-			pci_bus_read_config_word(bus, devfn, pos + PCI_EXP_LNKCTL, &val);
+-
+-			if (PCI_POSSIBLE_ERROR(val))
+-				continue;
+-
+-			val |= (PCI_EXP_LNKCTL_ASPMC | PCI_EXP_LNKCTL_CLKREQ_EN);
+-			pci_bus_write_config_word(bus, devfn, pos + PCI_EXP_LNKCTL, val);
+-		}
+-
+-		pos = pci_bus_find_capability(bus, devfn, PCI_CAP_ID_PM);
+-		if (pos) {
+-			pci_bus_read_config_word(bus, devfn, pos + PCI_PM_CTRL, &val);
+-
+-			if (PCI_POSSIBLE_ERROR(val))
+-				continue;
+-
+-			val &= ~PCI_PM_CTRL_STATE_MASK;
+-			val |= (RTL_PM_CTRL_D3HOT | PCI_PM_CTRL_PME_STATUS);
+-			pci_bus_write_config_word(bus, devfn, pos + PCI_PM_CTRL, val);
+-		}
+-	}
+-}
+-
+ static void rtl_hw_start_8117(struct rtl8169_private *tp)
+ {
+ 	static const struct ephy_info e_info_8117[] = {
+@@ -5356,9 +5320,6 @@ static int rtl8169_resume(struct device *device)
+ 	/* Some chip versions may truncate packets without this initialization */
+ 	rtl_init_rxcfg(tp);
+ 
+-	if (rtl_is_8116af(tp))
+-		rtl_lowpower_hidden_functions(tp->pci_dev);
+-
+ 	return rtl8169_runtime_resume(device);
+ }
+ 
+@@ -6256,9 +6217,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		rtl8168_driver_start(tp);
+ 	}
+ 
+-	if (rtl_is_8116af(tp))
+-		rtl_lowpower_hidden_functions(tp->pci_dev);
+-
+ 	if (pci_dev_run_wake(pdev))
+ 		pm_runtime_put_sync(&pdev->dev);
+ 

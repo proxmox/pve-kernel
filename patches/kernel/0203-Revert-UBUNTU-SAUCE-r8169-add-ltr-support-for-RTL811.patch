@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Fri, 2 Oct 2026 13:01:17 +0200
+Subject: [PATCH] Revert "UBUNTU: SAUCE: r8169: add ltr support for RTL8117
+ series"
+
+This reverts commit cf8a61016b2c3a4a1d3e939d05d9023e013fe65c.
+
+This series, which Ubuntu carries from linux-next to convert r8169 to
+phylink and add new fiber chips, is the only change to the driver since
+7.0.14-19. Since then, RTL8125B NICs that the firmware leaves
+uninitialized, as with UEFI boot, time out waiting for the PHY and get
+no link. Revert the whole series to restore the r8169 driver as shipped
+with 7.0.14-19.
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ethernet/realtek/r8169_main.c | 22 +---------------------
+ 1 file changed, 1 insertion(+), 21 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169_main.c b/drivers/net/ethernet/realtek/r8169_main.c
+index fc4ba492d4348e336911fd31fe192636160728a2..0f5d21f63e7122d9757c7a4293f133c8bac15cf5 100644
+--- a/drivers/net/ethernet/realtek/r8169_main.c
++++ b/drivers/net/ethernet/realtek/r8169_main.c
+@@ -350,13 +350,11 @@ enum rtl_registers {
+ 	ALDPS_LTR	= 0xe0a2,
+ 	LTR_OBFF_LOCK	= 0xe032,
+ 	LTR_SNOOP	= 0xe034,
+-	SEND_LTR_MSG	= 0xe038,
+ 
+ #define ALDPS_LTR_EN			BIT(0)
+ #define LTR_OBFF_LOCK_EN		BIT(0)
+ #define LINK_SPEED_CHANGE_EN		BIT(14)
+ #define LTR_SNOOP_EN			GENMASK(15, 14)
+-#define LTR_MSG_EN			BIT(0)
+ };
+ 
+ enum rtl8168_8101_registers {
+@@ -3192,23 +3190,8 @@ static void rtl_enable_ltr(struct rtl8169_private *tp)
+ 		r8168_mac_ocp_write(tp, 0xcdf2, 0x9003);
+ 		r8168_mac_ocp_modify(tp, LTR_OBFF_LOCK, 0x0000, LINK_SPEED_CHANGE_EN);
+ 		break;
+-	case RTL_GIGA_MAC_VER_52:
+-		r8168_mac_ocp_write(tp, 0xcdd0, 0x9003);
+-		r8168_mac_ocp_modify(tp, LTR_SNOOP, 0x0000, LTR_SNOOP_EN);
+-		r8168_mac_ocp_write(tp, 0xe02c, 0x1880);
+-		r8168_mac_ocp_write(tp, 0xe02e, 0x4880);
+-		r8168_mac_ocp_modify(tp, ALDPS_LTR, 0x0000, ALDPS_LTR_EN);
+-		r8168_mac_ocp_write(tp, 0xcdd8, 0x9003);
+-		r8168_mac_ocp_write(tp, 0xcdda, 0x9003);
+-		r8168_mac_ocp_write(tp, 0xcddc, 0x9003);
+-		r8168_mac_ocp_write(tp, 0xcdd2, 0x883c);
+-		r8168_mac_ocp_write(tp, 0xcdd4, 0x8c12);
+-		r8168_mac_ocp_write(tp, 0xcdd6, 0x9003);
+-		r8168_mac_ocp_write(tp, 0xe0a6, 0x9003);
+-		r8168_mac_ocp_write(tp, 0xe0a8, 0x9003);
+-		r8168_mac_ocp_modify(tp, LTR_OBFF_LOCK, 0x0000, LINK_SPEED_CHANGE_EN);
+-		break;
+ 	case RTL_GIGA_MAC_VER_46 ... RTL_GIGA_MAC_VER_48:
++	case RTL_GIGA_MAC_VER_52:
+ 		r8168_mac_ocp_modify(tp, ALDPS_LTR, 0x0000, ALDPS_LTR_EN);
+ 		RTL_W8(tp, COMBO_LTR_EXTEND, RTL_R8(tp, COMBO_LTR_EXTEND) | COMBO_LTR_EXTEND_EN);
+ 		fallthrough;
+@@ -3228,7 +3211,6 @@ static void rtl_enable_ltr(struct rtl8169_private *tp)
+ 	}
+ 	/* chip can trigger LTR */
+ 	r8168_mac_ocp_modify(tp, LTR_OBFF_LOCK, 0x0003, LTR_OBFF_LOCK_EN);
+-	r8168_mac_ocp_modify(tp, SEND_LTR_MSG, 0x0000, LTR_MSG_EN);
+ }
+ 
+ static void rtl_hw_aspm_clkreq_enable(struct rtl8169_private *tp, bool enable)
+@@ -3262,7 +3244,6 @@ static void rtl_hw_aspm_clkreq_enable(struct rtl8169_private *tp, bool enable)
+ 		rtl_enable_ltr(tp);
+ 		switch (tp->mac_version) {
+ 		case RTL_GIGA_MAC_VER_46 ... RTL_GIGA_MAC_VER_48:
+-		case RTL_GIGA_MAC_VER_52:
+ 		case RTL_GIGA_MAC_VER_61 ... RTL_GIGA_MAC_VER_LAST:
+ 			/* reset ephy tx/rx disable timer */
+ 			r8168_mac_ocp_modify(tp, 0xe094, 0xff00, 0);
+@@ -3275,7 +3256,6 @@ static void rtl_hw_aspm_clkreq_enable(struct rtl8169_private *tp, bool enable)
+ 	} else {
+ 		switch (tp->mac_version) {
+ 		case RTL_GIGA_MAC_VER_46 ... RTL_GIGA_MAC_VER_48:
+-		case RTL_GIGA_MAC_VER_52:
+ 		case RTL_GIGA_MAC_VER_61 ... RTL_GIGA_MAC_VER_LAST:
+ 			r8168_mac_ocp_modify(tp, 0xe092, 0x00ff, 0);
+ 			break;

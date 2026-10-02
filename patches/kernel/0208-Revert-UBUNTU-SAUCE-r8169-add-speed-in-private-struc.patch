@@ -1,0 +1,111 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Fri, 2 Oct 2026 13:01:18 +0200
+Subject: [PATCH] Revert "UBUNTU: SAUCE: r8169: add speed in private struct"
+
+This reverts commit 648bd647b031f1ebba1edaf827920761aa244ebc.
+
+This series, which Ubuntu carries from linux-next to convert r8169 to
+phylink and add new fiber chips, is the only change to the driver since
+7.0.14-19. Since then, RTL8125B NICs that the firmware leaves
+uninitialized, as with UEFI boot, time out waiting for the PHY and get
+no link. Revert the whole series to restore the r8169 driver as shipped
+with 7.0.14-19.
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ethernet/realtek/r8169_main.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169_main.c b/drivers/net/ethernet/realtek/r8169_main.c
+index affb2d61a74003a5cb90152c382a223eb2f3d0f6..449a1a43810835a44451fc504102b5d9d0bad42f 100644
+--- a/drivers/net/ethernet/realtek/r8169_main.c
++++ b/drivers/net/ethernet/realtek/r8169_main.c
+@@ -747,7 +747,6 @@ struct rtl8169_private {
+ 	u32 irq_mask;
+ 	int irq;
+ 	struct clk *clk;
+-	int speed;
+ 
+ 	struct {
+ 		DECLARE_BITMAP(flags, RTL_FLAG_MAX);
+@@ -1670,14 +1669,16 @@ static void rtl8169_irq_mask_and_ack(struct rtl8169_private *tp)
+ 	rtl_pci_commit(tp);
+ }
+ 
+-static void rtl_link_chg_patch(struct rtl8169_private *tp, int speed)
++static void rtl_link_chg_patch(struct rtl8169_private *tp)
+ {
++	struct phy_device *phydev = tp->phydev;
++
+ 	if (tp->mac_version == RTL_GIGA_MAC_VER_34 ||
+ 	    tp->mac_version == RTL_GIGA_MAC_VER_38) {
+-		if (speed == SPEED_1000) {
++		if (phydev->speed == SPEED_1000) {
+ 			rtl_eri_write(tp, 0x1bc, ERIAR_MASK_1111, 0x00000011);
+ 			rtl_eri_write(tp, 0x1dc, ERIAR_MASK_1111, 0x00000005);
+-		} else if (speed == SPEED_100) {
++		} else if (phydev->speed == SPEED_100) {
+ 			rtl_eri_write(tp, 0x1bc, ERIAR_MASK_1111, 0x0000001f);
+ 			rtl_eri_write(tp, 0x1dc, ERIAR_MASK_1111, 0x00000005);
+ 		} else {
+@@ -1687,7 +1688,7 @@ static void rtl_link_chg_patch(struct rtl8169_private *tp, int speed)
+ 		rtl_reset_packet_filter(tp);
+ 	} else if (tp->mac_version == RTL_GIGA_MAC_VER_35 ||
+ 		   tp->mac_version == RTL_GIGA_MAC_VER_36) {
+-		if (speed == SPEED_1000) {
++		if (phydev->speed == SPEED_1000) {
+ 			rtl_eri_write(tp, 0x1bc, ERIAR_MASK_1111, 0x00000011);
+ 			rtl_eri_write(tp, 0x1dc, ERIAR_MASK_1111, 0x00000005);
+ 		} else {
+@@ -1695,7 +1696,7 @@ static void rtl_link_chg_patch(struct rtl8169_private *tp, int speed)
+ 			rtl_eri_write(tp, 0x1dc, ERIAR_MASK_1111, 0x0000003f);
+ 		}
+ 	} else if (tp->mac_version == RTL_GIGA_MAC_VER_37) {
+-		if (speed == SPEED_10) {
++		if (phydev->speed == SPEED_10) {
+ 			rtl_eri_write(tp, 0x1d0, ERIAR_MASK_0011, 0x4d02);
+ 			rtl_eri_write(tp, 0x1dc, ERIAR_MASK_0011, 0x0060a);
+ 		} else {
+@@ -2069,11 +2070,11 @@ rtl_coalesce_info(struct rtl8169_private *tp)
+ 		ci = rtl_coalesce_info_8168_8136;
+ 
+ 	/* if speed is unknown assume highest one */
+-	if (tp->speed == SPEED_UNKNOWN)
++	if (tp->phydev->speed == SPEED_UNKNOWN)
+ 		return ci;
+ 
+ 	for (; ci->speed; ci++) {
+-		if (tp->speed == ci->speed)
++		if (tp->phydev->speed == ci->speed)
+ 			return ci;
+ 	}
+ 
+@@ -2231,7 +2232,7 @@ static void rtl_set_eee_txidle_timer(struct rtl8169_private *tp)
+ 
+ static unsigned int r8169_get_tx_lpi_timer_us(struct rtl8169_private *tp)
+ {
+-	unsigned int speed = tp->speed;
++	unsigned int speed = tp->phydev->speed;
+ 	unsigned int timer = tp->tx_lpi_timer;
+ 
+ 	if (!timer || speed == SPEED_UNKNOWN)
+@@ -4961,9 +4962,8 @@ static void r8169_phylink_handler(struct net_device *ndev)
+ 	struct rtl8169_private *tp = netdev_priv(ndev);
+ 	struct device *d = tp_to_dev(tp);
+ 
+-	tp->speed = tp->phydev->speed;
+ 	if (netif_carrier_ok(ndev)) {
+-		rtl_link_chg_patch(tp, tp->speed);
++		rtl_link_chg_patch(tp);
+ 		rtl_enable_tx_lpi(tp, tp->phydev->enable_tx_lpi);
+ 		pm_request_resume(d);
+ 	} else {
+@@ -5694,7 +5694,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 				     ext_xid_str, xid);
+ 	tp->mac_version = chip->mac_version;
+ 	tp->fw_name = chip->fw_name;
+-	tp->speed = SPEED_UNKNOWN;
+ 
+ 	/* Disable ASPM L1 as that cause random device stop working
+ 	 * problems as well as full system hangs for some PCIe devices users.
