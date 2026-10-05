@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jens Axboe <axboe@kernel.dk>
+Date: Tue, 29 Sep 2026 06:52:17 -0600
+Subject: [PATCH] io_uring: fix task_work add use-after-free with SQPOLL
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+For SQPOLL, the sqpoll thread runs task_work off its own list and
+doesn't need to be told about it, so it can pop and complete a request
+as soon as mpscq_push() has published it. If that was the last request
+holding the ring alive, io_ring_exit_work() then frees the ctx, stops
+the thread, and with it the tctx, while io_req_normal_work_add() is
+still looking at both after the push:
+
+  BUG: KASAN: slab-use-after-free in io_req_normal_work_add+0x439/0x510
+  Read of size 4 at addr ff11000000ca0000 by task repro/55
+  (...)
+  BUG: KASAN: slab-use-after-free in queue_work_on+0x25/0x70
+  Write of size 8 at addr ff11000000c3bd00 by task repro/55
+
+Hold an RCU read lock across the add, like io_req_local_work_add() already
+does, and have io_ring_exit_work() wait for a grace period for SQPOLL rings
+as well before freeing the ctx.
+
+Reported-by: Jérémy Jean <Jeremy.Jean@oss.cyber.gouv.fr>
+Link: https://lore.kernel.org/io-uring/20260924205056.3759980-2-Jeremy.Jean@oss.cyber.gouv.fr/
+Fixes: af5d68f8892f ("io_uring/sqpoll: manage task_work privately")
+Cc: stable@vger.kernel.org
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+(cherry picked from commit a92193c91e8839fe5fc209616ea95465ae4b919d)
+[TL: the task_work list is an llist in this tree]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ io_uring/io_uring.c | 4 ++--
+ io_uring/tw.c       | 3 +++
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
+index 6e699c0d8aaf0a2b80dcddb87203495f0cfbaa22..4d24bead7fabbdf16cbb4e4b545aee6f907f0256 100644
+--- a/io_uring/io_uring.c
++++ b/io_uring/io_uring.c
+@@ -2395,8 +2395,8 @@ static __cold void io_ring_exit_work(struct work_struct *work)
+ 	spin_lock(&ctx->completion_lock);
+ 	spin_unlock(&ctx->completion_lock);
+ 
+-	/* pairs with RCU read section in io_req_local_work_add() */
+-	if (ctx->flags & IORING_SETUP_DEFER_TASKRUN)
++	/* pairs with the RCU read sections in the task_work add paths */
++	if (ctx->flags & (IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_SQPOLL))
+ 		synchronize_rcu();
+ 
+ 	io_ring_ctx_free(ctx);
+diff --git a/io_uring/tw.c b/io_uring/tw.c
+index afb2eac6b67930ccc29e7c1ea5a259e9b15ae9d4..c0db0232dd346880c3805fab96b5e0064aec5fc2 100644
+--- a/io_uring/tw.c
++++ b/io_uring/tw.c
+@@ -241,6 +241,9 @@ void io_req_normal_work_add(struct io_kiocb *req)
+ 	struct io_uring_task *tctx = req->tctx;
+ 	struct io_ring_ctx *ctx = req->ctx;
+ 
++	/* SQPOLL can retire the request on push, see io_ring_exit_work() */
++	guard(rcu)();
++
+ 	/* task_work already pending, we're done */
+ 	if (!llist_add(&req->io_task_work.node, &tctx->task_list))
+ 		return;
