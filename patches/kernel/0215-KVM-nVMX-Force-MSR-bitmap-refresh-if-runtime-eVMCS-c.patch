@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Thu, 13 Aug 2026 14:44:03 -0700
+Subject: [PATCH] KVM: nVMX: Force MSR bitmap refresh if runtime eVMCS controls
+ are modified
+
+Force a refresh of the vmcs02 MSR bitmap during nested VM-Enter if the
+runtime eVMCS controls (pin, primary, secondary, etc.) are being updated.
+If L1 isn't intercepting TPR writes, runs L2 with TPR virtualization, and
+then runs the same L2 with TPR virtualization disabled, KVM will fail to
+refresh msr_bitmap02 and leave TPR in passthrough mode even though TPR
+virtualization is disabled.  I.e. failure to refresh the bitmap lets L2 (or
+L1 by proxy) read and write L0's TPR.
+
+Fixes: 502d2bf5f2fd ("KVM: nVMX: Implement Enlightened MSR Bitmap feature")
+Cc: stable@vger.kernel.org
+Reviewed-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 2abb25273c82061dd4670690c81c319c03740bf6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/vmx/nested.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index 8681c8a6a8cab80d4bdf88174a2907a44aae2def..abbe4e4dc001522e5dc80e9483c65130db6c841b 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -1740,6 +1740,9 @@ static void copy_vmcs12_to_shadow(struct vcpu_vmx *vmx)
+ static void copy_enlightened_to_vmcs12(struct vcpu_vmx *vmx, u32 hv_clean_fields)
+ {
+ #ifdef CONFIG_KVM_HYPERV
++	const u64 runtime_controls = HV_VMX_ENLIGHTENED_CLEAN_FIELD_CONTROL_GRP1 |
++				     HV_VMX_ENLIGHTENED_CLEAN_FIELD_CONTROL_GRP2 |
++				     HV_VMX_ENLIGHTENED_CLEAN_FIELD_CONTROL_PROC;
+ 	struct vmcs12 *vmcs12 = vmx->nested.cached_vmcs12;
+ 	struct hv_enlightened_vmcs *evmcs = nested_vmx_evmcs(vmx);
+ 	struct kvm_vcpu_hv *hv_vcpu = to_hv_vcpu(&vmx->vcpu);
+@@ -1748,6 +1751,9 @@ static void copy_enlightened_to_vmcs12(struct vcpu_vmx *vmx, u32 hv_clean_fields
+ 	vmcs12->tpr_threshold = evmcs->tpr_threshold;
+ 	vmcs12->guest_rip = evmcs->guest_rip;
+ 
++	if ((hv_clean_fields & runtime_controls) != runtime_controls)
++		vmx->nested.force_msr_bitmap_recalc = true;
++
+ 	if (unlikely(!(hv_clean_fields &
+ 		       HV_VMX_ENLIGHTENED_CLEAN_FIELD_ENLIGHTENMENTSCONTROL))) {
+ 		hv_vcpu->nested.pa_page_gpa = evmcs->partition_assist_page;

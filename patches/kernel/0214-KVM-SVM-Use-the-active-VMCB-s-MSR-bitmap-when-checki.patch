@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 26 Aug 2026 12:58:33 -0700
+Subject: [PATCH] KVM: SVM: Use the active VMCB's MSR bitmap when checking if
+ MSR is intercepted
+
+Use the MSR permission bitmap of the active VMCB instead of assuming that
+KVM is always using vmcb02's bitmap when L2 is active, as KVM uses msrpm02
+if and only if L1 wants to intercept MSR accesses, i.e. if and only if KVM
+needs to merge msprm01 with msrpm12.
+
+Don't bother tracking the virtual address of the bitmap that's being used,
+as __va() is cheap on x86, and caching the virtual address would introduce
+yet another source of potentially stale information.
+
+Fixes: b2ac58f90540 ("KVM/SVM: Allow direct access to MSR_IA32_SPEC_CTRL")
+Cc: stable@vger.kernel.org
+Reported-by: Stefan Teodorescu <fane@google.com>
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Message-ID: <20260826195833.844526-1-seanjc@google.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 9e06bbb9ade7cdf28d4a3b5b14e5812881c8df85)
+[TL: msr_write_intercepted() takes the vCPU in this tree]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/svm/svm.c | 13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
+
+diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
+index ef40f8c00167b4d26fa67ee1a2bde76f01644096..585f92750a51ff199e38449d11d670e50c55f435 100644
+--- a/arch/x86/kvm/svm/svm.c
++++ b/arch/x86/kvm/svm/svm.c
+@@ -658,17 +658,8 @@ static void clr_dr_intercepts(struct vcpu_svm *svm)
+ 
+ static bool msr_write_intercepted(struct kvm_vcpu *vcpu, u32 msr)
+ {
+-	/*
+-	 * For non-nested case:
+-	 * If the L01 MSR bitmap does not intercept the MSR, then we need to
+-	 * save it.
+-	 *
+-	 * For nested case:
+-	 * If the L02 MSR bitmap does not intercept the MSR, then we need to
+-	 * save it.
+-	 */
+-	void *msrpm = is_guest_mode(vcpu) ? to_svm(vcpu)->nested.msrpm :
+-					    to_svm(vcpu)->msrpm;
++	struct vcpu_svm *svm = to_svm(vcpu);
++	void *msrpm = __va(__sme_clr(svm->vmcb->control.msrpm_base_pa));
+ 
+ 	return svm_test_msr_bitmap_write(msrpm, msr);
+ }
