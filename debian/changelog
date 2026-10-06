@@ -1,3 +1,49 @@
+proxmox-kernel-7.0 (7.0.14-22) trixie; urgency=medium
+
+  * rtc: fix the missing /dev/rtc0 hardware clock device on x86 systems with
+    ACPI, which broke hwclock and rtcwake since 7.0.14-20. The ACPI layer
+    started to create the CMOS RTC device itself, but the follow-up change that
+    lets the rtc-cmos driver bind to it was missing.
+
+  * fix #8110: r8169: revert the conversion of the Realtek network driver to
+    phylink, which came in from linux-next with 7.0.14-20. With it, RTL8125B
+    NICs that the firmware leaves uninitialized, as with UEFI boot, never got
+    a link. Support for the RTL8116af and RTL8127atf fiber variants, added by
+    the same series, is dropped again.
+
+  * bnxt_en: fix network outages with Broadcom NetXtreme-C/E NICs since
+    7.0.14-20, often with DMA remapping faults and transmit timeouts. A VLAN
+    fix that reserves more headroom exposed a driver bug where the NIC was
+    told to read more data than mapped for padded short packets.
+
+  * KVM: fix issues that a guest running its own nested guests could use to
+    affect the host:
+    - on AMD hosts, a failed VMRUN could drop a pending TLB flush, so stale
+      address translations of another VM could stay usable.
+    - on AMD hosts, the speculation control MSR value of a nested guest could
+      stay active on the host.
+    - on Intel hosts, a nested guest could access the APIC task priority
+      register of the host if the guest uses the Hyper-V enlightened VMCS,
+      which is enabled for recent Windows guests.
+    - racing a memslot update with a nested page fault could crash the host.
+
+  * fix use-after-free races in the private futex hash and with io_uring
+    instances that use an SQ poll thread, both reachable by any local user.
+
+  * ipv6: fix an out-of-bounds write when forwarding traffic from a VLAN
+    device with reorder_hdr turned off into an SRv6, RPL or IOAM
+    encapsulation route.
+
+  * net: harden the handling of the virtio-net header that guests pass along
+    with their packets through tap devices and vhost-net. Packets whose
+    checksum start points into the IP header are dropped when the host needs
+    to fragment them, as completing the checksum would overwrite already
+    validated header fields. The headers of segmentation offload packets
+    without checksum offload are now validated, avoiding out-of-bounds reads
+    on the host.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 06 Oct 2026 07:41:37 +0200
+
 proxmox-kernel-7.0 (7.0.14-21) trixie; urgency=medium
 
   * apparmor: fix a NULL pointer dereference on connected unix datagram sockets
