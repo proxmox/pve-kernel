@@ -16658,7 +16658,6 @@ EXPORT_SYMBOL_GPL drivers/net/phy/phylink 0xa745bf75	phylink_mii_c22_pcs_encode_
 EXPORT_SYMBOL_GPL drivers/net/phy/phylink 0xab96b024	phylink_mac_change
 EXPORT_SYMBOL_GPL drivers/net/phy/phylink 0xbf7e1c29	phylink_connect_phy
 EXPORT_SYMBOL_GPL drivers/net/phy/phylink 0xc0437783	phylink_ethtool_ksettings_set
-EXPORT_SYMBOL_GPL drivers/net/phy/phylink 0xc5e98fad	phylink_update_mac_pause_capabilities
 EXPORT_SYMBOL_GPL drivers/net/phy/phylink 0xcc4b0d53	phylink_pcs_change
 EXPORT_SYMBOL_GPL drivers/net/phy/phylink 0xde5d1a21	phylink_mii_c22_pcs_get_state
 EXPORT_SYMBOL_GPL drivers/net/phy/phylink 0xdfde5c8d	phylink_mii_c22_pcs_decode_state
