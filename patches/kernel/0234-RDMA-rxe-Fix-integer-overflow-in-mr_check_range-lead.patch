@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gang Yan <yangang@kylinos.cn>
+Date: Fri, 14 Aug 2026 17:37:40 +0800
+Subject: [PATCH] RDMA/rxe: Fix integer overflow in mr_check_range() leading to
+ OOB access
+
+[ Upstream commit d10e2a08799e858d3e71ea4169bcd018f216d444 ]
+
+mr_check_range() validates that [iova, iova+length) falls within the
+registered MR range using wraparound-prone arithmetic:
+
+    if (iova < mr->ibmr.iova ||
+        iova + length > mr->ibmr.iova + mr->ibmr.length)
+
+A remote peer can craft an RDMA-Write/Read RETH so that iova + length
+wraps to 0 (e.g. iova=0xfffffffffffffff8, length=8), bypassing the
+check. rxe_mr_iova_to_index() then computes a huge index (int idx, only
+guarded by WARN_ON) and rxe_mr_copy_xarray() dereferences
+mr->page_info[huge], causing an out-of-bounds read/write and a kernel
+oops that is triggerable by an unauthenticated remote peer.
+
+Rewrite the check in overflow-safe form; the first two clauses guarantee
+that the subsequent subtractions do not underflow:
+
+    if (iova < mr->ibmr.iova ||
+        length > mr->ibmr.length ||
+        iova - mr->ibmr.iova > mr->ibmr.length - length)
+
+With the fix, mr_check_range() returns -EINVAL for the crafted iova and
+the responder reports REMOTE_ACCESS_ERROR instead of triggering the OOB.
+
+Fixes: 8700e3e7c485 ("Soft RoCE driver")
+Signed-off-by: Gang Yan <yangang@kylinos.cn>
+Link: https://patch.msgid.link/20260814093740.292954-1-gang.yan@linux.dev
+Reviewed-by: Zhu Yanjun <yanjun.zhu@linux.dev>
+Reviewed-by: Shukai Ni <shukai.ni@kuleuven.be>
+Tested-by: Shukai Ni <shukai.ni@kuleuven.be>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 3431f525718f6b07da308cda6d44f8cb548bbd37)
+CVE-2026-98365
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/infiniband/sw/rxe/rxe_mr.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/infiniband/sw/rxe/rxe_mr.c b/drivers/infiniband/sw/rxe/rxe_mr.c
+index c696ff874980e248656cb3100c42efaa10257f6c..f1247749fc5abdb764ef608acdfe103004f1457d 100644
+--- a/drivers/infiniband/sw/rxe/rxe_mr.c
++++ b/drivers/infiniband/sw/rxe/rxe_mr.c
+@@ -33,7 +33,8 @@ int mr_check_range(struct rxe_mr *mr, u64 iova, size_t length)
+ 	case IB_MR_TYPE_USER:
+ 	case IB_MR_TYPE_MEM_REG:
+ 		if (iova < mr->ibmr.iova ||
+-		    iova + length > mr->ibmr.iova + mr->ibmr.length) {
++		    length > mr->ibmr.length ||
++		    iova - mr->ibmr.iova > mr->ibmr.length - length) {
+ 			rxe_dbg_mr(mr, "iova/length out of range\n");
+ 			return -EINVAL;
+ 		}
