@@ -1,3 +1,57 @@
+proxmox-kernel-7.0 (7.0.14-23) trixie; urgency=medium
+
+  * bnxt_en: complete the padded-packet fix for Broadcom NetXtreme-C/E NICs,
+    preventing duplicated data and invalid DMA accesses when short packets
+    span multiple buffers.
+
+  * net: fix packet handling and isolation issues:
+    - prevent guest UDP segmentation metadata from stalling host TPACKET_V1/V2
+      capture rings with PACKET_VNET_HDR (CVE-2026-98233).
+    - preserve VRF isolation when delivering IPv4 traffic decapsulated through
+      SRv6 End.DX4 (CVE-2026-98306).
+    - fix an SCTP use-after-free when retrying a stale-cookie handshake.
+    - limit nested IP-in-IP segmentation to prevent kernel stack exhaustion.
+
+  * smb: fix native symlink and ACL handling:
+    - prevent buffer overflows when creating native symlinks with POSIX paths
+      disabled and no symlinkroot mapping (CVE-2026-98318).
+    - on cifsacl or modefromsid mounts, allow for larger owner/group SIDs when
+      rewriting ACLs and reject ACLs that exceed the protocol size limit,
+      preventing heap overflows and corrupted ACLs (CVE-2026-97555,
+      CVE-2026-97559).
+
+  * btrfs: abort transactions after failed inode updates during hole punching
+    or reflinking, preventing partial extent changes from leaving persistent
+    filesystem inconsistencies (CVE-2026-98269).
+
+  * nvmet: fix a heap overflow when an initiator requests a short
+    authentication challenge response. Requires an NVMe target with
+    authentication enabled.
+
+  * iscsi: reject Data-In responses for write commands so a target cannot
+    overwrite the initiator's source buffers or cached file data.
+
+  * hugetlb: fix a possible kernel panic when remapping hugepage mappings with
+    different source and destination page-table offsets (CVE-2026-98373).
+
+  * RDMA: fix memory-protection issues with provisioned software RDMA devices:
+    - prevent Soft-RoCE writes from modifying read-only page-cache mappings
+      without copy-on-write (CVE-2026-98361).
+    - reject wrapping Soft-RoCE memory ranges (CVE-2026-98365).
+    - bound fragmented soft-iWARP header copies to prevent out-of-bounds
+      writes (CVE-2026-98323).
+
+  * KVM: fix interrupt descriptor lifetime and guest memory corruption:
+    - on Intel hosts with IPI virtualization, retire stale interrupt
+      descriptors after failed vCPU creation so a later guest IPI cannot
+      target freed memory that another VM may reuse. Triggering the failure
+      requires host KVM-fd access, not guest execution alone.
+    - on AMD hosts with nested paging, avoid reported Windows guest memory
+      corruption with hv-tlbflush enabled by flushing the guest address space.
+      The extra flushing can reduce the performance benefit of hv-tlbflush.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 07 Oct 2026 22:25:51 +0200
+
 proxmox-kernel-7.0 (7.0.14-22) trixie; urgency=medium
 
   * rtc: fix the missing /dev/rtc0 hardware clock device on x86 systems with
