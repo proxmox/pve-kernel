@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yehyeong Lee <yhlee@isslab.korea.ac.kr>
+Date: Sat, 1 Aug 2026 22:36:35 +0900
+Subject: [PATCH] scsi: libiscsi_tcp: Check the data direction of a Data-In PDU
+
+commit bce07e2f37b5e4a427d36fd6b1c14067b27591db upstream.
+
+The Data-In branch of iscsi_tcp_hdr_dissect() resolves the ITT to a task
+and copies the PDU's data segment into that command's scatterlist without
+asking whether the command was reading. iscsi_tcp_r2t_rsp() in the same
+file does ask, and rejects an R2T for a command that is not DMA_TO_DEVICE.
+
+A target that answers a WRITE command's ITT with a Data-In therefore has
+the initiator write target-supplied bytes into the pages that write was
+about to send. Those are the caller's own pinned pages for an O_DIRECT
+write, and page cache pages for a buffered one.
+
+Observed against a test target that emits one 512-byte Data-In naming a 128
+KB write's ITT, after the R2T for that write. With O_DIRECT the caller's
+buffer ends up holding 512 bytes of the target's data while pwrite()
+returns 131072. Buffered is quieter: pwrite() and fsync() both succeed,
+nothing is logged, and reading those blocks back returns the target's bytes
+out of the page cache without a command going on the wire.
+
+Check the direction before using the scatterlist, the way the R2T path
+already does.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Yehyeong Lee <yhlee@isslab.korea.ac.kr>
+Reviewed-by: Mike Christie <michael.christie@oracle.com>
+Link: https://patch.msgid.link/20260801133635.1986706-1-yhlee@isslab.korea.ac.kr
+Fixes: a081c13e39b5 ("[SCSI] iscsi_tcp: split module into lib and lld")
+Signed-off-by: Martin K. Petersen (Oracle) <mkp@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 24ffc919467d20951f0f132d1c75294e2e91e09b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/scsi/libiscsi_tcp.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/scsi/libiscsi_tcp.c b/drivers/scsi/libiscsi_tcp.c
+index 7223bb18b04809489530668cbe93ff64eb266291..d35f93451ee9bb6222950b4db66a57bbe31d0716 100644
+--- a/drivers/scsi/libiscsi_tcp.c
++++ b/drivers/scsi/libiscsi_tcp.c
+@@ -480,6 +480,9 @@ static int iscsi_tcp_data_in(struct iscsi_conn *conn, struct iscsi_task *task)
+ 	int datasn = be32_to_cpu(rhdr->datasn);
+ 	unsigned total_in_length = task->sc->sdb.length;
+ 
++	if (task->sc->sc_data_direction != DMA_FROM_DEVICE)
++		return ISCSI_ERR_PROTO;
++
+ 	/*
+ 	 * lib iscsi will update this in the completion handling if there
+ 	 * is status.

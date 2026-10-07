@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Weiming Shi <bestswngs@gmail.com>
+Date: Sun, 13 Sep 2026 01:10:11 +0800
+Subject: [PATCH] nvmet-auth: fix out-of-bounds write in nvmet_auth_challenge()
+
+nvmet_auth_challenge() receives its output buffer as a void pointer.
+sizeof(*d) therefore evaluates to one with GCC and undercounts the fixed
+challenge header by 15 bytes.  A short AUTH_RECEIVE buffer can pass the
+check before the challenge is copied past the end of its allocation.
+
+Use the typed challenge pointer when calculating the response size.
+
+  BUG: KASAN: slab-out-of-bounds in nvmet_execute_auth_receive (drivers/nvme/target/fabrics-cmd-auth.c:442 drivers/nvme/target/fabrics-cmd-auth.c:569)
+  Write of size 32 by task kworker/1:1H/64
+  Workqueue: nvmet_tcp_wq nvmet_tcp_io_work
+  Call Trace:
+  nvmet_execute_auth_receive (drivers/nvme/target/fabrics-cmd-auth.c:442 drivers/nvme/target/fabrics-cmd-auth.c:569)
+  nvmet_tcp_try_recv_pdu (drivers/nvme/target/tcp.c:1119 drivers/nvme/target/tcp.c:1243)
+  nvmet_tcp_io_work (drivers/nvme/target/tcp.c:1350 drivers/nvme/target/tcp.c:1382 drivers/nvme/target/tcp.c:1445)
+  process_one_work (kernel/workqueue.c:3322)
+  worker_thread (kernel/workqueue.c:3405 kernel/workqueue.c:3486)
+  kthread (kernel/kthread.c:436)
+  ret_from_fork (arch/x86/kernel/process.c:158)
+  ret_from_fork_asm (arch/x86/entry/entry_64.S:245)
+  The buggy address is located 16 bytes inside of
+   allocated 33-byte region [ffff888000554e80, ffff888000554ea1)
+  Kernel panic - not syncing: KASAN: panic_on_warn set ...
+
+Cc: stable@vger.kernel.org
+Fixes: db1312dd9548 ("nvmet: implement basic In-Band Authentication")
+Reported-by: co+77553a7fc66ac133@bugs.sh
+Closes: https://lore.kernel.org/all/Ah6QavQXwvshtqyUcYD1P1R7XE0ND9fB7lbV@bugs.sh/
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Hannes Reinecke <hare@kernel.org>
+Signed-off-by: Weiming Shi <bestswngs@gmail.com>
+Signed-off-by: Keith Busch <kbusch@kernel.org>
+(cherry picked from commit fa6778e030bed9841ddcdf96bc7018da9ac03562)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/nvme/target/fabrics-cmd-auth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/nvme/target/fabrics-cmd-auth.c b/drivers/nvme/target/fabrics-cmd-auth.c
+index 27c15748fc7b85f28cbce41ec394abe041a5c22b..b8aa5908e0ba3ada792bb1c40de99e2c36b74b05 100644
+--- a/drivers/nvme/target/fabrics-cmd-auth.c
++++ b/drivers/nvme/target/fabrics-cmd-auth.c
+@@ -419,7 +419,7 @@ static int nvmet_auth_challenge(struct nvmet_req *req, void *d, int al)
+ 	struct nvmet_ctrl *ctrl = req->sq->ctrl;
+ 	int ret = 0;
+ 	int hash_len = nvme_auth_hmac_hash_len(ctrl->shash_id);
+-	int data_size = sizeof(*d) + hash_len;
++	int data_size = sizeof(*data) + hash_len;
+ 
+ 	if (ctrl->dh_tfm)
+ 		data_size += ctrl->dh_keysize;
