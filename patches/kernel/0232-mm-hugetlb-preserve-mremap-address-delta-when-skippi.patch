@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jaewook You <jaewook376@gmail.com>
+Date: Mon, 14 Sep 2026 22:23:52 +0900
+Subject: [PATCH] mm/hugetlb: preserve mremap address delta when skipping page
+ tables
+
+commit 9bdad082d44bdcf93716973dcba6be77e8a06e7b upstream.
+
+move_hugetlb_page_tables() optimizes mremap() by advancing to the last
+entry in the page table when the source page table does not exist, either
+initially or after unsharing a PMD table.  The common loop increment then
+steps to the first entry in the next page table.
+
+However, the code advances both the source and destination addresses to
+the last entries in their respective page tables, which is wrong.  The
+destination address must be advanced only by the same amount as the source
+address.
+
+If the source and destination offsets within their page tables differ, the
+destination address can be advanced too far, causing follow-up issues.
+Fix this by advancing the destination address by the source advance
+distance.
+
+With a reproducer, we were able to trigger a kernel panic on x86-64.  With
+this fix in place, we can no longer reproduce the issue.
+
+Link: https://lore.kernel.org/20260914132352.472-1-jaewook376@gmail.com
+Fixes: e95a9851787b ("hugetlb: skip to end of PT page mapping when pte not present")
+Fixes: 4ddb4d91b82f ("hugetlb: do not update address in huge_pmd_unshare")
+Signed-off-by: Jaewook You <jaewook376@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Acked-by: David Hildenbrand (Arm) <david@kernel.org>
+Cc: Johan Hovold <johan@kernel.org>
+Cc: Muchun Song <muchun.song@linux.dev>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 480a39b0a12c977ed6e755f3d12a23424c57d11f)
+CVE-2026-98373
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/hugetlb.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/mm/hugetlb.c b/mm/hugetlb.c
+index 9d978461022d6b0eb3fbe24cffd16eebb50a0877..eb78cd6ca2d6afe6ff9e43096a50e947aa2af1db 100644
+--- a/mm/hugetlb.c
++++ b/mm/hugetlb.c
+@@ -5128,18 +5128,21 @@ int move_hugetlb_page_tables(struct vm_area_struct *vma,
+ 	hugetlb_vma_lock_write(vma);
+ 	i_mmap_lock_write(mapping);
+ 	for (; old_addr < old_end; old_addr += sz, new_addr += sz) {
++		const unsigned long offset_to_last_entry =
++			(old_addr | last_addr_mask) - old_addr;
++
+ 		src_pte = hugetlb_walk(vma, old_addr, sz);
+ 		if (!src_pte) {
+-			old_addr |= last_addr_mask;
+-			new_addr |= last_addr_mask;
++			old_addr += offset_to_last_entry;
++			new_addr += offset_to_last_entry;
+ 			continue;
+ 		}
+ 		if (huge_pte_none(huge_ptep_get(mm, old_addr, src_pte)))
+ 			continue;
+ 
+ 		if (huge_pmd_unshare(&tlb, vma, old_addr, src_pte)) {
+-			old_addr |= last_addr_mask;
+-			new_addr |= last_addr_mask;
++			old_addr += offset_to_last_entry;
++			new_addr += offset_to_last_entry;
+ 			continue;
+ 		}
+ 
