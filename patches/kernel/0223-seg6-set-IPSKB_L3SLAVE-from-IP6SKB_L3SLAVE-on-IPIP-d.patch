@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrea Mayer <andrea.mayer@uniroma2.it>
+Date: Sun, 13 Sep 2026 21:44:21 +0200
+Subject: [PATCH] seg6: set IPSKB_L3SLAVE from IP6SKB_L3SLAVE on IPIP
+ decapsulation
+
+[ Upstream commit 7616242a2b37883f7322aaa1d2bd6cd0fed28315 ]
+
+When an SRv6 packet arrives on an interface enslaved to a VRF,
+vrf_ip6_rcv() sets IP6SKB_L3SLAVE in IP6CB, but decap_and_validate()
+has never set IPSKB_L3SLAVE in IPCB. The bit stayed clear in the
+common case, and with CONFIG_IPV6_MIP6 the leftover frag_max_size of
+a reassembled outer packet could even set it, with no VRF involved.
+Commit 44930446dde4 ("ipv6: seg6: clear IPv4 control block on IPIP
+decapsulation") then made the unreliable bit reliably clear.
+
+The effect of the missing flag is visible with End.DX4 when a
+delivery to a local address of the node reaches the socket lookup.
+For example, a UDP socket bound to the enslaved ingress interface
+does not receive any of the decapsulated packets, while an unbound
+socket outside the VRF does.
+This contradicts Documentation/networking/vrf.rst: by default the
+scope of an unbound UDP or TCP socket is limited to the default VRF.
+
+Set IPSKB_L3SLAVE for IPv4 in decap_and_validate(), which already does
+the same for IPv6. The socket lookup then matches the decapsulated
+packet like any other packet received on that enslaved interface. Such
+a packet matches an unbound UDP or TCP socket only when
+udp_l3mdev_accept or tcp_l3mdev_accept is set.
+
+Fixes: 891ef8dd2a8d ("ipv6: sr: implement additional seg6local actions")
+Signed-off-by: Andrea Mayer <andrea.mayer@uniroma2.it>
+Reviewed-by: David Ahern <dsahern@kernel.org>
+Reviewed-by: Hangbin Liu <liuhangbin@kylinos.cn>
+Link: https://patch.msgid.link/20260913194421.31-1-andrea.mayer@uniroma2.it
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 8c16e1ccc082a3763dfc6bc2d3f658c1a6336f9d)
+CVE-2026-98306
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/seg6_local.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/ipv6/seg6_local.c b/net/ipv6/seg6_local.c
+index 7b52122201858d6f20f59f60cdfcb946e983edc6..d1070aec7b72b955e0d38076b7994b560242332b 100644
+--- a/net/ipv6/seg6_local.c
++++ b/net/ipv6/seg6_local.c
+@@ -257,10 +257,13 @@ static bool decap_and_validate(struct sk_buff *skb, int proto)
+ 		return false;
+ 
+ 	if (proto == IPPROTO_IPIP) {
++		bool l3slave = ipv6_l3mdev_skb(IP6CB(skb)->flags);
+ 		int iif = IP6CB(skb)->iif;
+ 
+ 		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 		IPCB(skb)->iif = iif;
++		if (l3slave)
++			IPCB(skb)->flags |= IPSKB_L3SLAVE;
+ 	} else if (proto == IPPROTO_IPV6) {
+ 		bool l3slave = ipv6_l3mdev_skb(IP6CB(skb)->flags);
+ 		int iif = IP6CB(skb)->iif;

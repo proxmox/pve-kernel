@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mark Amirkan <markdamirkan@gmail.com>
+Date: Sun, 13 Sep 2026 10:28:08 +0000
+Subject: [PATCH] net/packet: clear RX owner on VNET header error
+
+commit 33ff111d7ba3beb86e28938d6382bb5beabd865a upstream.
+
+Commit 61fad6816fc1 ("net/packet: tpacket_rcv: avoid a producer race
+condition") added rx_owner_map and made tpacket_rcv() claim a V1 or V2
+ring slot before converting the virtio-net header.  If the conversion
+fails, the drop path leaves the slot claimed.
+
+With a one-frame TPACKET_V2 ring, an unsupported UDP GSO packet leaves
+the only slot unavailable, so the ring also drops the next valid packet.
+
+Clear the ownership bit on this error path.  TPACKET_V3 already clears
+its block state here.
+
+Fixes: 61fad6816fc1 ("net/packet: tpacket_rcv: avoid a producer race condition")
+Cc: stable@vger.kernel.org
+Signed-off-by: Mark Amirkan <markdamirkan@gmail.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Link: https://patch.msgid.link/20260913-b4-send-packet-vnet-v1-1-5545ffb528ae@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 693209a237fc548791cf402441db8b68d1da7d38)
+CVE-2026-98233
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/packet/af_packet.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 21807ba731fd7278e80b58c49f1a8bd8480693b4..b66b6a2267a6486e227a6627a2cb121ca01a62fd 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2383,7 +2383,9 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	    virtio_net_hdr_from_skb(skb, h.raw + macoff -
+ 				    sizeof(struct virtio_net_hdr),
+ 				    vio_le(), true, 0)) {
+-		if (po->tp_version == TPACKET_V3)
++		if (po->tp_version <= TPACKET_V2)
++			__clear_bit(slot_id, po->rx_ring.rx_owner_map);
++		else
+ 			prb_clear_blk_fill_status(&po->rx_ring);
+ 		goto drop_n_account;
+ 	}

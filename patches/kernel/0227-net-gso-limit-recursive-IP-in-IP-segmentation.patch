@@ -1,0 +1,108 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zihan Xi <zihanx@nebusec.ai>
+Date: Thu, 24 Sep 2026 05:15:21 +0000
+Subject: [PATCH] net: gso: limit recursive IP-in-IP segmentation
+
+IP-in-IP GSO can re-enter inet_gso_segment() or ipv6_gso_segment()
+for each nested IP header. encap_level tracks header bytes, not callback
+depth, so a deep chain can exhaust the kernel stack. Making
+inet_gso_segment() stackable introduced unbounded IPv4 nesting; IPIP
+GSO/TSO later made the path reachable. The IPv6 stackable path was
+introduced separately and uses the same guard.
+
+Count IPv4 and IPv6 GSO handler entries in skb_gso_cb, initialized once
+per top-level GSO operation and preserved across GRE/UDP context changes.
+Use the existing IP_TUNNEL_RECURSION_LIMIT for both handlers. The first
+five entries pass, and the sixth returns -EINVAL before dispatching
+another GSO callback.
+
+Fixes: 3347c9602955 ("ipv4: gso: make inet_gso_segment() stackable")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Closes: https://lore.kernel.org/all/cover.1790157745.git.zihanx@nebusec.ai/
+Co-developed-by: Luxing Yin <root@tr0jan.top>
+Signed-off-by: Luxing Yin <root@tr0jan.top>
+Signed-off-by: Zihan Xi <zihanx@nebusec.ai>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Link: https://patch.msgid.link/20260924051521.32568-2-zihanx@nebusec.ai
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+(cherry picked from commit 006c8b834aed8b02bd8fb9fb05e9e7ead37d1763)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/gso.h      | 8 ++++++++
+ net/core/gso.c         | 1 +
+ net/ipv4/af_inet.c     | 3 +++
+ net/ipv6/ip6_offload.c | 4 ++++
+ 4 files changed, 16 insertions(+)
+
+diff --git a/include/net/gso.h b/include/net/gso.h
+index 29975440cad51e667591ddb1d5df6f866d74c2ee..0749230d414ecbccbee31699791e67a8f04e4277 100644
+--- a/include/net/gso.h
++++ b/include/net/gso.h
+@@ -19,10 +19,18 @@ struct skb_gso_cb {
+ 	int	encap_level;
+ 	__wsum	csum;
+ 	__u16	csum_start;
++	/* Number of IPv4/IPv6 GSO handler entries for this packet. */
++	u8	recursion_counter;
+ };
+ #define SKB_GSO_CB_OFFSET	32
+ #define SKB_GSO_CB(skb) ((struct skb_gso_cb *)((skb)->cb + SKB_GSO_CB_OFFSET))
+ 
++static inline bool gso_recursion_inc_test(struct sk_buff *skb,
++					  unsigned int limit)
++{
++	return ++SKB_GSO_CB(skb)->recursion_counter > limit;
++}
++
+ static inline int skb_tnl_header_len(const struct sk_buff *inner_skb)
+ {
+ 	return (skb_mac_header(inner_skb) - inner_skb->head) -
+diff --git a/net/core/gso.c b/net/core/gso.c
+index bcd156372f4df080f83cc45fc96df1789125a8ae..e96ef63500648742aa03483949461ab16ac8c71e 100644
+--- a/net/core/gso.c
++++ b/net/core/gso.c
+@@ -117,6 +117,7 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 
+ 	SKB_GSO_CB(skb)->mac_offset = skb_headroom(skb);
+ 	SKB_GSO_CB(skb)->encap_level = 0;
++	SKB_GSO_CB(skb)->recursion_counter = 0;
+ 
+ 	skb_reset_mac_header(skb);
+ 	skb_reset_mac_len(skb);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index f1944e8fd9d3f7b7770eaf5e9f8679f227e7b3c8..845c3c5ba17cd20e31d62f560f7ccbf354c92376 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1376,6 +1376,9 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	int id;
+ 
+ 	skb_reset_network_header(skb);
++	if (unlikely(gso_recursion_inc_test(skb,
++					   IP_TUNNEL_RECURSION_LIMIT)))
++		goto out;
+ 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
+ 		goto out;
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index bd7f780e37a5f986cf4957a8d69514f7f42378b9..9b511703df44dbc339d60523f072db4d2ac85997 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -17,6 +17,7 @@
+ #include <net/udp.h>
+ #include <net/gro.h>
+ #include <net/gso.h>
++#include <net/ip_tunnels.h>
+ 
+ #include "ip6_offload.h"
+ #include "tcpv6_offload.c"
+@@ -104,6 +105,9 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	bool gso_partial;
+ 
+ 	skb_reset_network_header(skb);
++	if (unlikely(gso_recursion_inc_test(skb,
++					   IP_TUNNEL_RECURSION_LIMIT)))
++		goto out;
+ 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
+ 		goto out;
