@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dmytro Maluka <dmaluka@chromium.org>
+Date: Wed, 29 Jul 2026 17:06:21 +0000
+Subject: [PATCH] KVM: VMX: Fix stale PID-pointer table entry left after vCPU
+ free
+
+vCPU creation in kvm_vm_ioctl_create_vcpu() may fail after
+kvm_arch_vcpu_create() -> vmx_vcpu_create() already succeeded. In such
+case kvm_vm_ioctl_create_vcpu() destroys the newly created vCPU in the
+failure path. However, that leaves a side effect: the IPIv pid_table
+entry remains configured with this vCPU's pi_desc address. As a result,
+when another vCPU sends an IPI to the APIC ID of this failed-to-create
+vCPU, it will cause HW to write to this (freed!) pi_desc memory. [*]
+
+Fix this by clearing the pid_table entry when destroying the vCPU.
+
+Note that the same issue exists for SVM AVIC as well [1], to be fixed.
+
+[*] Although, since this memory is freed into the kvm_vcpu_cache kmem
+    cache which is only used for allocating kvm_vcpus, _maybe_ this
+    memory will only be reused for pi_desc of another vCPU, not for
+    anything else. So _maybe_ this will only result in delivering the
+    IPI to a wrong vCPU (possibly of another VM) in the worst case, not
+    in a random corruption of kernel memory.
+
+Link: https://lore.kernel.org/kvm/al4rNqpBYy8FGKPw@blrnaveerao1 [1]
+Signed-off-by: Dmytro Maluka <dmaluka@chromium.org>
+Reviewed-by: Kai Huang <kai.huang@intel.com>
+Link: https://patch.msgid.link/20260729170621.308809-3-dmaluka@chromium.org
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit b41f2ca6c06011c36b75f5d53aa17c05ed90be21)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/vmx/vmx.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
+index 076b0c3b65c34baaf2c2ee669dd38f4fdd252def..a3ff4a6ea7052bfe368623aa36bcee8a7864d1e8 100644
+--- a/arch/x86/kvm/vmx/vmx.c
++++ b/arch/x86/kvm/vmx/vmx.c
+@@ -7784,6 +7784,9 @@ void vmx_vcpu_free(struct kvm_vcpu *vcpu)
+ 	nested_vmx_free_vcpu(vcpu);
+ 	free_loaded_vmcs(vmx->loaded_vmcs);
+ 	free_page((unsigned long)vmx->ve_info);
++
++	if (vmx_can_use_ipiv(vcpu))
++		WRITE_ONCE(to_kvm_vmx(vcpu->kvm)->pid_table[vcpu->vcpu_id], 0);
+ }
+ 
+ int vmx_vcpu_create(struct kvm_vcpu *vcpu)

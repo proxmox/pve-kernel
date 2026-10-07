@@ -1,0 +1,116 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dmytro Maluka <dmaluka@chromium.org>
+Date: Wed, 29 Jul 2026 17:06:20 +0000
+Subject: [PATCH] KVM: Check for duplicate vcpu_id as early as possible
+
+If userspace tries to create a vCPU with the same vcpu_id as an existing
+one, kvm_vm_ioctl_create_vcpu() checks for that and fails with -EEXIST
+only after it already created the vCPU via kvm_arch_vcpu_create(). As a
+result, even though this newly created vCPU is destroyed in the failure
+path, the fact that it is temporarily created with an invalid vcpu_id
+and that there are temporarily two vCPUs with the same vcpu_id is a
+potential source of subtle issues.
+
+In particular, this prevents fixing an VMX IPIv issue where a stale entry
+left in the VM's PI descriptor table after the vCPU is destroyed in the
+failure path.  The right way to fix that issue is to clear that entry when
+destroying the vCPU, however right now that would have a nasty side effect:
+since the same entry is used for the other, previously created vCPU with
+same vcpu_id, clearing it would mean effectively disabling IPIv for that
+existing good vCPU.
+
+So to avoid this and similar problems, check for duplicate vcpu_id as
+early in the vCPU creation path as possible, before
+kvm_arch_vcpu_create() and even before kvm_arch_vcpu_precreate().
+
+Simply moving the existing kvm_get_vcpu_by_id() check earlier doesn't work,
+as kvm->lock is dropped and reacquired, i.e. moving kvm_get_vcpu_by_id()
+would introduce a race:
+
+  1. vCPU A is being created but not installed in kvm->vcpu_array yet.
+  2. vCPU B with the same vcpu_id is being created. It passes the
+     duplicated vcpu_id check, since the check doesn't find vCPU A in
+     kvm->vcpu_array.
+  3. vCPU A is installed in kvm->vcpu_array, vCPU creation succeeds.
+  4. vCPU B with the same vcpu_id is installed in kvm->vcpu_array, vCPU
+     creation succeeds.
+
+So introduce the bitmap of vcpu_ids used by the VM, in order to safely
+check if the given vcpu_id is used and mark is as used before releasing
+kvm->lock first time.
+
+Alternatively, KVM could use another Xarray[*] for roughly the same code
+complexity, which would minimize KVM's steady state memory footprint at
+the cost of higher runtime latency (to allocate and free entries).  Given
+that the worst case scenario is 256 bytes per-VM (on x86, which allows up
+to 16KiB vCPU IDs), go with the slightly simpler approach until there's a
+need to save memory.
+
+Suggested-by: Sean Christopherson <seanjc@google.com>
+Link: https://lore.kernel.org/kvm/al6eg7C-2sDBEAFD@google.com [*]
+Signed-off-by: Dmytro Maluka <dmaluka@chromium.org>
+Reviewed-by: Kai Huang <kai.huang@intel.com>
+Link: https://patch.msgid.link/20260729170621.308809-2-dmaluka@chromium.org
+[sean: massage changelog]
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit 97d65b544f48b2ee49f6aea32145e3e7969955dc)
+[TL: The bitmap uses 2048 bytes with the x86 limit of 16384 vCPU IDs.]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/linux/kvm_host.h | 1 +
+ virt/kvm/kvm_main.c      | 9 ++++++++-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/kvm_host.h b/include/linux/kvm_host.h
+index f58f086db65297c59ccde60dbccfad26527518f8..328242eb18fed5eb5d2701b6fee1be30917551ed 100644
+--- a/include/linux/kvm_host.h
++++ b/include/linux/kvm_host.h
+@@ -791,6 +791,7 @@ struct kvm {
+ 	/* The current active memslot set for each address space */
+ 	struct kvm_memslots __rcu *memslots[KVM_MAX_NR_ADDRESS_SPACES];
+ 	struct xarray vcpu_array;
++	DECLARE_BITMAP(vcpu_ids, KVM_MAX_VCPU_IDS);
+ 	/*
+ 	 * Protected by slots_lock, but can be read outside if an
+ 	 * incorrect answer is acceptable.
+diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
+index bb31c0290b4f1e2da10f33f54003d542a687db02..dd763df2791ff55aac786b0b225bcb7e604ba82d 100644
+--- a/virt/kvm/kvm_main.c
++++ b/virt/kvm/kvm_main.c
+@@ -4180,6 +4180,11 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, unsigned long id)
+ 		return -EINVAL;
+ 	}
+ 
++	if (test_bit(id, kvm->vcpu_ids)) {
++		mutex_unlock(&kvm->lock);
++		return -EEXIST;
++	}
++
+ 	r = kvm_arch_vcpu_precreate(kvm, id);
+ 	if (r) {
+ 		mutex_unlock(&kvm->lock);
+@@ -4187,6 +4192,7 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, unsigned long id)
+ 	}
+ 
+ 	kvm->created_vcpus++;
++	__set_bit(id, kvm->vcpu_ids);
+ 	mutex_unlock(&kvm->lock);
+ 
+ 	vcpu = kmem_cache_zalloc(kvm_vcpu_cache, GFP_KERNEL_ACCOUNT);
+@@ -4218,7 +4224,7 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, unsigned long id)
+ 
+ 	mutex_lock(&kvm->lock);
+ 
+-	if (kvm_get_vcpu_by_id(kvm, id)) {
++	if (WARN_ON_ONCE(kvm_get_vcpu_by_id(kvm, id))) {
+ 		r = -EEXIST;
+ 		goto unlock_vcpu_destroy;
+ 	}
+@@ -4272,6 +4278,7 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, unsigned long id)
+ vcpu_decrement:
+ 	mutex_lock(&kvm->lock);
+ 	kvm->created_vcpus--;
++	__clear_bit(id, kvm->vcpu_ids);
+ 	mutex_unlock(&kvm->lock);
+ 	return r;
+ }
