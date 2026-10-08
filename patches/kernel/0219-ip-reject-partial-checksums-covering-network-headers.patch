@@ -34,99 +34,14 @@ Cc: stable@vger.kernel.org
 Assisted-by: LLM
 Signed-off-by: Paulos Yibelo <habte.yibelo@gmail.com>
 Link: https://lore.kernel.org/all/20260922030310.8684-3-habte.yibelo@gmail.com/
+[TL: drop the IPv4 hunks, which upstream commit 6785011f8b16 ("ipv4: validate
+ checksum_start before completing checksum") covers]
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
- net/bridge/netfilter/nf_conntrack_bridge.c | 21 +++++++++++++++-----
- net/ipv4/ip_output.c                       | 23 ++++++++++++++++------
- net/ipv6/ip6_output.c                      | 12 ++++++++---
- net/ipv6/netfilter.c                       | 12 ++++++++---
- 4 files changed, 51 insertions(+), 17 deletions(-)
+ net/ipv6/ip6_output.c | 12 +++++++++---
+ net/ipv6/netfilter.c  | 12 +++++++++---
+ 2 files changed, 18 insertions(+), 6 deletions(-)
 
-diff --git a/net/bridge/netfilter/nf_conntrack_bridge.c b/net/bridge/netfilter/nf_conntrack_bridge.c
-index 7ecb8a26bfa3a7a5cd312be0ecba046bd4160722..d81ed8692e8d7209be5c1469af6aaf9aade18285 100644
---- a/net/bridge/netfilter/nf_conntrack_bridge.c
-+++ b/net/bridge/netfilter/nf_conntrack_bridge.c
-@@ -38,18 +38,29 @@ static int nf_br_ip_fragment(struct net *net, struct sock *sk,
- 	struct iphdr *iph;
- 	int err = 0;
- 
--	/* for offloaded checksums cleanup checksum before fragmentation */
--	if (skb->ip_summed == CHECKSUM_PARTIAL &&
--	    (err = skb_checksum_help(skb)))
-+	iph = ip_hdr(skb);
-+	hlen = iph->ihl * 4;
-+	if (unlikely(hlen < sizeof(*iph) || hlen > skb_headlen(skb))) {
-+		err = -EINVAL;
- 		goto blackhole;
-+	}
- 
--	iph = ip_hdr(skb);
-+	/* Complete offloaded checksums only after the validated IP header. */
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		if (unlikely(skb_checksum_start_offset(skb) < (int)hlen)) {
-+			err = -EINVAL;
-+			goto blackhole;
-+		}
-+		err = skb_checksum_help(skb);
-+		if (err)
-+			goto blackhole;
-+		iph = ip_hdr(skb);
-+	}
- 
- 	/*
- 	 *	Setup starting values
- 	 */
- 
--	hlen = iph->ihl * 4;
- 	frag_max_size -= hlen;
- 	ll_rs = LL_RESERVED_SPACE(skb->dev);
- 	mtu = skb->dev->mtu;
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index dcffa5d92884bf0131c71ef37637bd840336b6e9..b8882158e0537af9398ce710a1dbca1c5c954ea9 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -771,16 +771,28 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 	struct ip_frag_state state;
- 	int err = 0;
- 
--	/* for offloaded checksums cleanup checksum before fragmentation */
--	if (skb->ip_summed == CHECKSUM_PARTIAL &&
--	    (err = skb_checksum_help(skb)))
--		goto fail;
--
- 	/*
- 	 *	Point into the IP datagram header.
- 	 */
- 
- 	iph = ip_hdr(skb);
-+	hlen = iph->ihl * 4;
-+	if (unlikely(hlen < sizeof(*iph) || hlen > skb_headlen(skb))) {
-+		err = -EINVAL;
-+		goto fail;
-+	}
-+
-+	/* Complete offloaded checksums only after the validated IP header. */
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		if (unlikely(skb_checksum_start_offset(skb) < (int)hlen)) {
-+			err = -EINVAL;
-+			goto fail;
-+		}
-+		err = skb_checksum_help(skb);
-+		if (err)
-+			goto fail;
-+		iph = ip_hdr(skb);
-+	}
- 
- 	mtu = ip_skb_dst_mtu(sk, skb);
- 	if (IPCB(skb)->frag_max_size && IPCB(skb)->frag_max_size < mtu)
-@@ -790,7 +802,6 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 	 *	Setup starting values.
- 	 */
- 
--	hlen = iph->ihl * 4;
- 	if (mtu < hlen + 8) {
- 		err = -EMSGSIZE;
- 		goto fail;
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
 index fd62c563b43eec1efdfc4f9e5ededde3a55559cc..146296a395e2b124582ee2052a9dfd9edf5ca94a 100644
 --- a/net/ipv6/ip6_output.c
