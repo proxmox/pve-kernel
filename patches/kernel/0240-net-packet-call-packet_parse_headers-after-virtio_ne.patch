@@ -1,0 +1,123 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Willem de Bruijn <willemb@google.com>
+Date: Wed, 7 Oct 2026 13:57:30 -0400
+Subject: [PATCH] net/packet: call packet_parse_headers after
+ virtio_net_hdr_to_skb
+
+SOCK_RAW packet sockets incorrectly drop VLAN-tagged GSO packets
+without VIRTIO_NET_HDR_F_NEEDS_CSUM.
+
+packet_parse_headers() sets skb->protocol to VLAN but advances
+skb->network_header past the VLAN tags. virtio_net_hdr_to_skb()
+then flow dissects these packets, which parses the network header as a
+VLAN tag, and fails.
+
+Call packet_parse_headers() after virtio_net_hdr_to_skb() instead.
+
+This matches tun_get_user() and tap_get_user() and thus simplifies
+overall complexity.
+
+Commit 01fdecc0480d ("net: packet: fix wrong transport_header when
+sending VLAN-tagged frame") fixed the same issue for the transport
+header probe in packet_parse_headers(). That probe is now skipped if
+virtio_net_hdr_to_skb() already set the transport header, avoiding a
+redundant dissection.
+
+Implementation details:
+- Do not set skb->protocol to the RX wildcard ETH_P_ALL. SOCK_RAW then
+  derives it from the link layer header, as before. SOCK_DGRAM now
+  leaves it 0, or derives it from gso_type for GSO with NEEDS_CSUM.
+- Keep virtio_net_hdr_set_proto() last, so that the link layer protocol
+  takes priority over gso_type.
+
+Reported-by: Junnan Zhang <zhangjn_dev@163.com>
+Closes: https://lore.kernel.org/netdev/20260821085722.24036-1-zhangjn_dev@163.com/
+Fixes: dfed913e8b55 ("net/af_packet: add VLAN support for AF_PACKET SOCK_RAW GSO")
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Link: https://lore.kernel.org/netdev/20261007175816.3138556-1-willemdebruijn.kernel@gmail.com/
+[TL: Adapt TX_RING context to retain the existing frame pointer and
+ destructor-based completion.]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/packet/af_packet.c | 25 +++++++++++++++----------
+ 1 file changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index b66b6a2267a6..a46193607bf4 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1941,8 +1941,7 @@ static void packet_parse_headers(struct sk_buff *skb, struct socket *sock)
+ 	/* On TX skb->data is the L2 header; anchor it for all socket types. */
+ 	skb_reset_mac_header(skb);
+ 
+-	if ((!skb->protocol || skb->protocol == htons(ETH_P_ALL)) &&
+-	    sock->type == SOCK_RAW)
++	if (!skb->protocol && sock->type == SOCK_RAW)
+ 		skb->protocol = dev_parse_header_protocol(skb);
+ 
+ 	skb_probe_transport_header(skb);
+@@ -2602,7 +2601,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 
+ 	ph.raw = frame;
+ 
+-	skb->protocol = proto;
++	if (proto != htons(ETH_P_ALL))
++		skb->protocol = proto;
+ 	skb->dev = dev;
+ 	skb->priority = sockc->priority;
+ 	skb->mark = sockc->mark;
+@@ -2667,8 +2667,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 	if (unlikely(!skb->len))
+ 		return -EINVAL;
+ 
+-	packet_parse_headers(skb, sock);
+-
+ 	return tp_len;
+ }
+ 
+@@ -2904,8 +2902,12 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 				tp_len = -EINVAL;
+ 				goto tpacket_error;
+ 			}
++		}
++
++		packet_parse_headers(skb, po->sk.sk_socket);
++
++		if (has_vnet_hdr)
+ 			virtio_net_hdr_set_proto(skb, &vnet_hdr);
+-		}
+ 
+ 		skb->destructor = tpacket_destruct_skb;
+ 		__packet_set_status(po, ph, TP_STATUS_SENDING);
+@@ -3090,7 +3092,8 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 		goto out_free;
+ 	}
+ 
+-	skb->protocol = proto;
++	if (proto != htons(ETH_P_ALL))
++		skb->protocol = proto;
+ 	skb->dev = dev;
+ 	skb->priority = sockc.priority;
+ 	skb->mark = sockc.mark;
+@@ -3099,15 +3102,17 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	if (unlikely(extra_len == 4))
+ 		skb->no_fcs = 1;
+ 
+-	packet_parse_headers(skb, sock);
+-
+ 	if (vnet_hdr_sz) {
+ 		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
+ 		if (err)
+ 			goto out_free;
+ 		len += vnet_hdr_sz;
++	}
++
++	packet_parse_headers(skb, sock);
++
++	if (vnet_hdr_sz)
+ 		virtio_net_hdr_set_proto(skb, &vnet_hdr);
+-	}
+ 
+ 	err = packet_xmit(po, skb);
+ 
