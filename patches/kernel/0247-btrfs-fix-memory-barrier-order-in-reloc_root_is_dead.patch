@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Filipe Manana <fdmanana@suse.com>
+Date: Fri, 12 Jun 2026 12:02:14 +0100
+Subject: [PATCH] btrfs: fix memory barrier order in reloc_root_is_dead()
+
+[ Upstream commit 6f1c97695a6e230ee15c9e052e1933bdccfd5fa3 ]
+
+When we set a root's reloc_root to NULL, we do it like this:
+
+   static void clear_reloc_root(struct btrfs_root *root)
+   {
+       root->reloc_root = NULL;
+       /*
+        * Need barrier to ensure clear_bit() only happens after
+        * root->reloc_root = NULL. Pairs with have_reloc_root().
+        */
+        smp_wmb();
+        clear_bit(BTRFS_ROOT_DEAD_RELOC_TREE, &root->state);
+   }
+
+So that a NULL reloc_root is always seen before seeing that the bit
+BTRFS_ROOT_DEAD_RELOC_TREE was cleared.
+
+But on the read side we have:
+
+   static bool reloc_root_is_dead(const struct btrfs_root *root)
+   {
+        smp_rmb();
+        if (test_bit(BTRFS_ROOT_DEAD_RELOC_TREE, &root->state))
+            return true;
+        return false;
+   }
+
+And then callers of reloc_root_is_dead() access root->reloc_root.
+
+Because the read memory barrier is placed before testing the bit, the CPU
+is completely free to speculatively reorder those two loads. It can read
+root->reloc_root before it actually checks the dead tree bit.
+
+Sashiko reported this as an existing problem in another patch review, see
+the link in the Link tag below.
+
+Fix this by moving the read memory barrier to happen after testing the bit
+and update the comment to reflect current reality.
+
+Link: https://sashiko.dev/#/patchset/cf84f1a217c719e25b6b69e4298dd7afd36c9427.1781194426.git.fdmanana%40suse.com
+Reviewed-by: Boris Burkov <boris@bur.io>
+Signed-off-by: Filipe Manana <fdmanana@suse.com>
+Signed-off-by: David Sterba <dsterba@suse.com>
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/btrfs/relocation.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/fs/btrfs/relocation.c b/fs/btrfs/relocation.c
+index ad30ffb88b9fc0fd7d6a6cbead5db0993f755a23..ca0d2cf6b971cf54509bb3f49b560e0eb4fc5c6a 100644
+--- a/fs/btrfs/relocation.c
++++ b/fs/btrfs/relocation.c
+@@ -246,14 +246,15 @@ static struct btrfs_backref_node *walk_down_backref(
+ 
+ static bool reloc_root_is_dead(const struct btrfs_root *root)
+ {
++	if (test_bit(BTRFS_ROOT_DEAD_RELOC_TREE, &root->state))
++		return true;
+ 	/*
+-	 * Pair with set_bit/clear_bit in clean_dirty_subvols and
+-	 * btrfs_update_reloc_root. We need to see the updated bit before
+-	 * trying to access reloc_root
++	 * Pairs with set_bit/clear_bit in clear_reloc_root() and
++	 * btrfs_update_reloc_root(). We need to see the updated bit before
++	 * trying to access root->reloc_root in our callers.
+ 	 */
+ 	smp_rmb();
+-	if (test_bit(BTRFS_ROOT_DEAD_RELOC_TREE, &root->state))
+-		return true;
++
+ 	return false;
+ }
+ 

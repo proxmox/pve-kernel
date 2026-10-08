@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Filipe Manana <fdmanana@suse.com>
+Date: Fri, 12 Jun 2026 11:52:55 +0100
+Subject: [PATCH] btrfs: fix reloc root cleanup in merge_reloc_roots()
+
+[ Upstream commit b78fe9563e2d5ae47805f1e5dc722c91fd30e1f8 ]
+
+If the root we got has zero root refs in its root item, we are resetting
+the root's ->reloc_root without using barriers like we do everywhere else.
+Sashiko complained about this while reviewing another patch, and it's
+correct (see the Link tag below).
+
+Also, we should not clear BTRFS_ROOT_DEAD_RELOC_TREE from the root unless
+the root points to the reloc root we have.
+
+Fix this by using clear_reloc_root(), which issues the memory barrier
+after setting the root's ->reloc_root to NULL and before clearing the bit
+BTRFS_ROOT_DEAD_RELOC_TREE from the root.
+
+Link: https://sashiko.dev/#/patchset/cf84f1a217c719e25b6b69e4298dd7afd36c9427.1781194426.git.fdmanana%40suse.com
+Reviewed-by: Boris Burkov <boris@bur.io>
+Signed-off-by: Filipe Manana <fdmanana@suse.com>
+Signed-off-by: David Sterba <dsterba@suse.com>
+CVE-2026-93798
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/btrfs/relocation.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/fs/btrfs/relocation.c b/fs/btrfs/relocation.c
+index a0af43bf737fa5859ed16cf74d88eb5b799b6194..ad30ffb88b9fc0fd7d6a6cbead5db0993f755a23 100644
+--- a/fs/btrfs/relocation.c
++++ b/fs/btrfs/relocation.c
+@@ -1889,11 +1889,10 @@ void merge_reloc_roots(struct reloc_control *rc)
+ 		} else {
+ 			if (!IS_ERR(root)) {
+ 				if (root->reloc_root == reloc_root) {
+-					root->reloc_root = NULL;
++					clear_reloc_root(root);
++					/* Drop the ref for root->reloc_root. */
+ 					btrfs_put_root(reloc_root);
+ 				}
+-				clear_bit(BTRFS_ROOT_DEAD_RELOC_TREE,
+-					  &root->state);
+ 				btrfs_put_root(root);
+ 			}
+ 
