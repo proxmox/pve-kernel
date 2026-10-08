@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Karl Mehltretter <kmehltretter@gmail.com>
+Date: Wed, 2 Sep 2026 20:28:14 +0200
+Subject: [PATCH] smb: client: pin DFS superblock in iterator callback
+
+[ Upstream commit d806d5a85dcbe2a0f181b2f0f9f61ddfbefa1818 ]
+
+tcon_super_cb() stores a raw superblock pointer, but __cifs_get_super()
+takes its active reference only after iterate_supers_type() has dropped
+s_umount and its passive reference. Concurrent DFS automount expiry can
+therefore free the superblock before cifs_sb_active() uses it.
+
+A deterministic KASAN test reproduces the race as:
+
+  BUG: KASAN: slab-use-after-free in cifs_sb_active+0x77/0x80
+
+The same test passes with this change applied.
+
+Take the active reference in the callback while iterate_supers_type()
+still holds s_umount shared. cifs_put_tcp_super() remains the matching
+release.
+
+Fixes: bacd704a95ad ("cifs: handle prefix paths in reconnect")
+Cc: stable@vger.kernel.org
+Assisted-by: LLM
+Signed-off-by: Karl Mehltretter <kmehltretter@gmail.com>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+CVE-2026-97562
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/misc.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/fs/smb/client/misc.c b/fs/smb/client/misc.c
+index 284c16d6062d2e44241ca71e5a2dc60923683580..2a6d8ed8c304688b8e13d8b50c4ad7c4d2763cf0 100644
+--- a/fs/smb/client/misc.c
++++ b/fs/smb/client/misc.c
+@@ -944,8 +944,14 @@ static void tcon_super_cb(struct super_block *sb, void *arg)
+ 	     t1->ses->dfs_root_ses == t2->ses->dfs_root_ses) &&
+ 	    t1->ses->server == t2->ses->server &&
+ 	    t2->origin_fullpath &&
+-	    dfs_src_pathname_equal(t2->origin_fullpath, t1->origin_fullpath))
++	    dfs_src_pathname_equal(t2->origin_fullpath, t1->origin_fullpath)) {
++		/*
++		 * Take the active reference while iterate_supers_type() still
++		 * holds s_umount shared.
++		 */
++		cifs_sb_active(sb);
+ 		sd->sb = sb;
++	}
+ 	spin_unlock(&t2->tc_lock);
+ }
+ 
+@@ -962,15 +968,8 @@ static struct super_block *__cifs_get_super(void (*f)(struct super_block *, void
+ 
+ 	for (; *fs_type; fs_type++) {
+ 		iterate_supers_type(*fs_type, f, &sd);
+-		if (sd.sb) {
+-			/*
+-			 * Grab an active reference in order to prevent automounts (DFS links)
+-			 * of expiring and then freeing up our cifs superblock pointer while
+-			 * we're doing failover.
+-			 */
+-			cifs_sb_active(sd.sb);
++		if (sd.sb)
+ 			return sd.sb;
+-		}
+ 	}
+ 	pr_warn_once("%s: could not find dfs superblock\n", __func__);
+ 	return ERR_PTR(-EINVAL);
