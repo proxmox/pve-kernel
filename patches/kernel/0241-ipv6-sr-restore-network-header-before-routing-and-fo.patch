@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Fri, 28 Aug 2026 14:17:27 +0000
+Subject: [PATCH] ipv6: sr: restore network header before routing and
+ forwarding
+
+[ Upstream commit 975b5b067f525a1b1338c4a3bee1c46545801518 ]
+
+ipv6_srh_rcv() runs with skb->data at the Segment Routing Header (SRH)
+while skb_network_header() points at the IPv6 header.
+
+When segments_left > 0, ipv6_srh_rcv() previously restored the skb->data
+position by pushing sizeof(struct ipv6hdr), assuming the SRH immediately
+followed the fixed IPv6 header. If another extension header (such as a
+Hop-by-Hop options header) precedes the SRH, skb_network_offset()
+remained negative.
+
+This led to two problems:
+1. During ip6_route_input(), fib6_rules_early_flow_dissect() invokes
+   __skb_flow_dissect() which passes the negative skb_network_offset()
+   to flow dissection, breaking BPF and C flow dissector logic.
+2. If forwarded via ip6_forward() or redirected via act_mirred, downstream
+   handlers (like sch_fragment() or neighbour output) pass the negative
+   offset as an unsigned length, triggering OOB memcpy or buffer overflows.
+
+Fix this by pushing -skb_network_offset(skb) before routing, ensuring
+skb_network_offset(skb) is 0 for route lookup / flow dissection as well as
+downstream forwarding. On the loopback path, pull skb_transport_offset(skb)
+to restore skb->data to the SRH before looping back.
+
+Fixes: 1ababeba4a21 ("ipv6: implement dataplane support for rthdr type 4 (Segment Routing Header)")
+Reported-by: TencentOS Corvus AI <corvus@tencent.com>
+Reported-by: Jun Yang <junvyyang@tencent.com>
+Reported-by: Fourie Zhang <fouriezhang@tencent.com>
+Closes: https://lore.kernel.org/netdev/20260817104128.22681-1-juny24602@gmail.com/
+Closes: https://lore.kernel.org/netdev/20260827092345.2301937-1-fouriezhang@tencent.com/
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20260828141727.2372570-1-edumazet@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+CVE-2026-98096
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/exthdrs.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 415b3e67a24668ea43bf6980486c21fffa20ce5b..51c1852f22cc76017fcde57c7ed7ef4cf21661ea 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -448,7 +448,7 @@ static int ipv6_srh_rcv(struct sk_buff *skb, struct inet6_dev *idev)
+ 	hdr->segments_left--;
+ 	addr = hdr->segments + hdr->segments_left;
+ 
+-	skb_push(skb, sizeof(struct ipv6hdr));
++	skb_push(skb, -skb_network_offset(skb));
+ 
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE)
+ 		seg6_update_csum(skb);
+@@ -472,7 +472,7 @@ static int ipv6_srh_rcv(struct sk_buff *skb, struct inet6_dev *idev)
+ 		}
+ 		ipv6_hdr(skb)->hop_limit--;
+ 
+-		skb_pull(skb, sizeof(struct ipv6hdr));
++		skb_pull(skb, skb_transport_offset(skb));
+ 		goto looped_back;
+ 	}
+ 
