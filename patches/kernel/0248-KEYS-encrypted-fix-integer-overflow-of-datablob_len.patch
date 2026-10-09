@@ -1,0 +1,83 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cen Zhang <cenzhang@linux.microsoft.com>
+Date: Sat, 12 Sep 2026 00:31:16 +0300
+Subject: [PATCH] KEYS: encrypted: fix integer overflow of datablob_len
+
+commit 8697c431e297eb0d0ab13dda6bc172b48a34f05c upstream.
+
+encrypted_key_alloc() stores datablob_len in a u16. It is computed from
+multiple string and payload lengths. If the result exceeds U16_MAX, the
+assignment truncates the allocation size. KASAN reports a 32760-byte
+slab-out-of-bounds write when __ekey_init() copies the master key
+description into the undersized buffer.
+
+The total payload length stored in key->datalen is also a u16. Use
+check_add_overflow() to reject values that do not fit either destination,
+and use kzalloc_flex() for the flexible-array allocation.
+
+Fixes: 7e70cb497850 ("keys: add new key-type encrypted")
+Cc: stable@vger.kernel.org
+Assisted-by: GitHub-Copilot:claude-opus-4.6
+Signed-off-by: Cen Zhang <cenzhang@linux.microsoft.com>
+Signed-off-by: Francis Perron <francis@akrites.dev>
+Reviewed-by: Jarkko Sakkinen <jarkko@kernel.org>
+Tested-by: R Nageswara Sastry <rnsastry@linux.ibm.com>
+Link: https://lore.kernel.org/r/20260909153433.83117-1-cenzhang@linux.microsoft.com
+Signed-off-by: Jarkko Sakkinen <jarkko@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit cca38f2102a4cd35eda8d48950df4817b4b24757)
+CVE-2026-98222
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ security/keys/encrypted-keys/encrypted.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/security/keys/encrypted-keys/encrypted.c b/security/keys/encrypted-keys/encrypted.c
+index 56b531587a1ec1c620aa7f88230b68b5558fb430..3625d83aadadcfb619025a0dba541c95b28d9010 100644
+--- a/security/keys/encrypted-keys/encrypted.c
++++ b/security/keys/encrypted-keys/encrypted.c
+@@ -19,6 +19,7 @@
+ #include <linux/parser.h>
+ #include <linux/string.h>
+ #include <linux/err.h>
++#include <linux/overflow.h>
+ #include <keys/user-type.h>
+ #include <keys/trusted-type.h>
+ #include <keys/encrypted-type.h>
+@@ -579,6 +580,7 @@ static struct encrypted_key_payload *encrypted_key_alloc(struct key *key,
+ {
+ 	struct encrypted_key_payload *epayload = NULL;
+ 	unsigned short datablob_len;
++	unsigned short payload_totallen;
+ 	unsigned short decrypted_datalen;
+ 	unsigned short payload_datalen;
+ 	unsigned int encrypted_datalen;
+@@ -632,16 +634,22 @@ static struct encrypted_key_payload *encrypted_key_alloc(struct key *key,
+ 
+ 	encrypted_datalen = roundup(decrypted_datalen, blksize);
+ 
+-	datablob_len = format_len + 1 + strlen(master_desc) + 1
+-	    + strlen(datalen) + 1 + ivsize + 1 + encrypted_datalen;
++	if (check_add_overflow(format_len + 1 + strlen(master_desc) + 1
++			       + strlen(datalen) + 1 + ivsize + 1,
++			       encrypted_datalen, &datablob_len))
++		return ERR_PTR(-EINVAL);
++
++	if (check_add_overflow(datablob_len,
++			       payload_datalen + HASH_SIZE + 1,
++			       &payload_totallen))
++		return ERR_PTR(-EINVAL);
+ 
+-	ret = key_payload_reserve(key, payload_datalen + datablob_len
+-				  + HASH_SIZE + 1);
++	ret = key_payload_reserve(key, payload_totallen);
+ 	if (ret < 0)
+ 		return ERR_PTR(ret);
+ 
+-	epayload = kzalloc(sizeof(*epayload) + payload_datalen +
+-			   datablob_len + HASH_SIZE + 1, GFP_KERNEL);
++	epayload = kzalloc_flex(*epayload, payload_data, payload_totallen,
++				GFP_KERNEL);
+ 	if (!epayload)
+ 		return ERR_PTR(-ENOMEM);
+ 
