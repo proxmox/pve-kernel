@@ -26,13 +26,16 @@ Stable-dep-of: a3df8bbe0a70 ("ACPI: TAD: Add locking around AML evaluations")
 Signed-off-by: Sasha Levin <sashal@kernel.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 (cherry picked from commit 0a7a192862232983322f5aaf0b934ae952570d65)
+[TL: declare cmos_rtc_platform_device_present only on x86, as the 6.18.y
+ backport of the ACPI TAD rework does, since acpi_pnp.c is built for all
+ ACPI architectures but the variable is only defined in x86 code]
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  drivers/acpi/acpi_pnp.c     |  2 +-
  drivers/acpi/x86/cmos_rtc.c |  5 +----
  drivers/rtc/rtc-cmos.c      | 10 ++++++++++
- include/linux/acpi.h        |  6 ++++++
- 4 files changed, 18 insertions(+), 5 deletions(-)
+ include/linux/acpi.h        | 10 ++++++++++
+ 4 files changed, 22 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/acpi/acpi_pnp.c b/drivers/acpi/acpi_pnp.c
 index 85d9f78619a2191bce117f319cbba2cd62866bd6..4ad8f56d1a5d060646fdd20a0c8d9109fa2bbf75 100644
@@ -99,10 +102,10 @@ index f8068c717fb852481d78d33d169f6f5fba0b5b63..7ac39c435f630a4ccb910211444ace74
  };
  
 diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 2bdb801cee017b174b2c50ad7e7d95471b7dca2d..5ecdcdaf31aa3ab8f69cc1120c40b05deadd6321 100644
+index 2bdb801cee017b174b2c50ad7e7d95471b7dca2d..a47422100b81980ede111326f6a01d6a62ebf0de 100644
 --- a/include/linux/acpi.h
 +++ b/include/linux/acpi.h
-@@ -791,6 +791,12 @@ const char *acpi_get_subsystem_id(acpi_handle handle);
+@@ -791,7 +791,17 @@ const char *acpi_get_subsystem_id(acpi_handle handle);
  int acpi_mrrm_max_mem_region(void);
  #endif
  
@@ -112,6 +115,11 @@ index 2bdb801cee017b174b2c50ad7e7d95471b7dca2d..5ecdcdaf31aa3ab8f69cc1120c40b05d
 +	{ "PNP0B02", },		\
 +	{ "", }
 +
++#ifdef CONFIG_X86
  extern bool cmos_rtc_platform_device_present;
++#else
++#define cmos_rtc_platform_device_present	false
++#endif
  
  #else	/* !CONFIG_ACPI */
+ 
