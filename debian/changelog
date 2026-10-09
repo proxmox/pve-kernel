@@ -1,3 +1,43 @@
+proxmox-kernel-7.0 (7.0.14-24) trixie; urgency=medium
+
+  * fix #7969: PCI: revert a change that made the kernel lift the 2.5GT/s
+    link speed limit set by the firmware on PCIe ports. Since 7.0.14-7, this
+    made devices such as NICs or NVMe drives disappear on some systems, and
+    caused a fatal PCIe error at boot on Dell PowerEdge R610 servers.
+
+  * net: fix packet bounds and offload handling:
+    - reject checksum offload metadata that would overwrite IPv4 headers when
+      fragmenting packets, in NFQUEUE, CHECKSUM rules, or software IPsec
+      output.
+    - fix rejection of valid VLAN-tagged segmentation offload packets sent
+      through raw packet sockets without checksum offload.
+    - restore packet header positions before routing and forwarding SRv6
+      traffic with extension headers preceding the Segment Routing Header,
+      preventing invalid bounds in downstream processing (CVE-2026-98096).
+    - prevent kernel memory corruption when MPLS label operations and
+      recirculation leave stale header metadata for Open vSwitch
+      fragmentation (CVE-2026-97612).
+
+  * smb: prevent a use-after-free when reconnecting DFS shares while
+    automounts expire, protecting DFS-backed CIFS storage during failover
+    (CVE-2026-97562).
+
+  * btrfs: fix filesystem failure recovery:
+    - allow verity rollback and orphan cleanup on full filesystems or at
+      qgroup limits, avoiding filesystem-wide read-only transitions and
+      subsequent read-write mount failures (CVE-2026-98279).
+    - prevent use-after-free and double releases after failed relocation
+      during balance or recovery, with consistent root lifetime and memory
+      ordering (CVE-2026-93800, CVE-2026-93798).
+
+  * keys: fix a heap overflow when creating encrypted keys (CVE-2026-98222).
+
+  * fix #7874: ixgbe: fix host crashes on malicious driver detection (MDD)
+    events with Intel X550 and E610 adapters without SR-IOV VFs, and stop
+    enabling MDD when no VFs are configured.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 09 Oct 2026 13:32:39 +0200
+
 proxmox-kernel-7.0 (7.0.14-23) trixie; urgency=medium
 
   * bnxt_en: complete the padded-packet fix for Broadcom NetXtreme-C/E NICs,
