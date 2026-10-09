@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Sun, 4 Oct 2026 21:36:59 +0200
+Subject: [PATCH] ixgbe: fix NULL pointer dereference on MDD event without VFs
+
+ixgbe_check_mdd_event() treats every flagged pool as a VF: it clears
+adapter->vfinfo[pool].clear_to_send and pings the pool's mailbox. But
+PF queues can be flagged too, and ixgbe_msg_task() calls it on every
+mailbox interrupt, also with SR-IOV disabled, where vfinfo is NULL. An
+MDD event on a PF queue then crashes the host in interrupt context:
+
+  ixgbe 0000:01:00.0: Malicious event on VF 0 tx:80000 rx:1
+  BUG: kernel NULL pointer dereference, address: 000000000000004c
+  RIP: 0010:ixgbe_check_mdd_event+0x124/0x160 [ixgbe]
+
+With SR-IOV enabled, the PF pools follow the VF pools, so an event on
+one of them writes past the end of vfinfo instead.
+
+Keep releasing the queues of every flagged pool, as PF queues would
+otherwise stay blocked, but only notify VFs. Check num_vfs under
+vfs_lock, like ixgbe_msg_task() does, as SR-IOV disable frees vfinfo
+after clearing num_vfs under that lock.
+
+Fixes: da3ab95f9b06 ("ixgbe: check for MDD events")
+Reported-by: Melissa Romanus <melissa.romanus@proton.me>
+Closes: https://lore.kernel.org/netdev/bqzPMb-F5iRWe7S2DWkQDhsK8u9ZoIaK34sF2pHpAjP6WHFb70Weq3pc8ZIVUoIx2EbPHd6HLBzz1HHd3xb5rxRZ9F3w1L6TQAd87S18CPQ=@proton.me/
+Reported-by: Viacheslav Tyryshkin <s@tyryshkin.me>
+Closes: https://lore.kernel.org/all/abc23ed3-f194-4546-bf99-7152464b93e2@intel.com/
+Link: https://bugzilla.proxmox.com/show_bug.cgi?id=7874
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Link: https://lore.kernel.org/all/20261004193704.2895700-2-t.lamprecht@proxmox.com/
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 431d77da15a5f5680a90fa40299c22c5a31aa0c1..7edb84986a312bef101cbab51e6f5f5847ea77ce 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1444,6 +1444,7 @@ bool ixgbe_check_mdd_event(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	DECLARE_BITMAP(vf_bitmap, 64);
++	unsigned long flags;
+ 	bool ret = false;
+ 	int i;
+ 
+@@ -1466,11 +1467,16 @@ bool ixgbe_check_mdd_event(struct ixgbe_adapter *adapter)
+ 
+ 			hw->mac.ops.restore_mdd_vf(hw, i);
+ 
+-			/* get the VF to rebuild its queues */
+-			adapter->vfinfo[i].clear_to_send = 0;
+-			ping = IXGBE_PF_CONTROL_MSG |
+-			       IXGBE_VT_MSGTYPE_CTS;
+-			ixgbe_write_mbx(hw, &ping, 1, i);
++			/* indexes >= num_vfs are PF queues, no VF to notify */
++			spin_lock_irqsave(&adapter->vfs_lock, flags);
++			if (i < adapter->num_vfs) {
++				/* get the VF to rebuild its queues */
++				adapter->vfinfo[i].clear_to_send = 0;
++				ping = IXGBE_PF_CONTROL_MSG |
++				       IXGBE_VT_MSGTYPE_CTS;
++				ixgbe_write_mbx(hw, &ping, 1, i);
++			}
++			spin_unlock_irqrestore(&adapter->vfs_lock, flags);
+ 		}
+ 
+ 		ret = true;

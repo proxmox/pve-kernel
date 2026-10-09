@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Sun, 4 Oct 2026 21:37:00 +0200
+Subject: [PATCH] ixgbe: do not enable MDD without VFs
+
+MDD is meant to be enabled only while VFs exist, see commit
+d5e3152037f3 ("ixgbe: add MDD support"), and ixgbe_watchdog_link_is_up()
+accordingly only enables it if there are VFs. But ixgbe_set_rx_drop_en(),
+which disables MDD while rewriting SRRCTL, re-enables it
+unconditionally. It runs on link up unless DCB with PFC is enabled, and
+on DCB PFC changes, so MDD ends up enabled on X550 and E610 adapters
+without VFs, where it can block PF queues and raise events for VFs that
+do not exist.
+
+Only re-enable MDD if there are VFs.
+
+Fixes: 1a3ebc59f717 ("ixgbe: turn off MDD while modifying SRRCTL")
+Reported-by: Melissa Romanus <melissa.romanus@proton.me>
+Closes: https://lore.kernel.org/netdev/bqzPMb-F5iRWe7S2DWkQDhsK8u9ZoIaK34sF2pHpAjP6WHFb70Weq3pc8ZIVUoIx2EbPHd6HLBzz1HHd3xb5rxRZ9F3w1L6TQAd87S18CPQ=@proton.me/
+Reported-by: Viacheslav Tyryshkin <s@tyryshkin.me>
+Closes: https://lore.kernel.org/all/abc23ed3-f194-4546-bf99-7152464b93e2@intel.com/
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Link: https://lore.kernel.org/all/20261004193704.2895700-3-t.lamprecht@proxmox.com/
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 03eb0f4a587887deac347b8c0756d447b3bfa55e..b9b27e004e2c98e9c38185287f3936c0053fa0a3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4132,7 +4132,7 @@ static void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter)
+ 			ixgbe_disable_rx_drop(adapter, adapter->rx_ring[i]);
+ 	}
+ 
+-	if (hw->mac.ops.enable_mdd)
++	if (adapter->num_vfs && hw->mac.ops.enable_mdd)
+ 		hw->mac.ops.enable_mdd(hw);
+ }
+ 
