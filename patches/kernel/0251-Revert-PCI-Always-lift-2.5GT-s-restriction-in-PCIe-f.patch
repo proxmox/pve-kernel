@@ -1,0 +1,110 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Thomas Lamprecht <t.lamprecht@proxmox.com>
+Date: Fri, 9 Oct 2026 13:32:17 +0200
+Subject: [PATCH] Revert "PCI: Always lift 2.5GT/s restriction in PCIe failed
+ link retraining"
+
+This reverts commit d7eadf2ed1320a77198a5c97684a85330186401c.
+
+This stable backport makes the failed link retraining quirk lift a
+2.5GT/s Target Link Speed limit on any downstream port, including limits
+that the platform firmware sets on purpose. On older Intel servers like
+the Dell PowerEdge R610 and HP ProLiant DL360 G7 the links then fail to
+come back, devices behind those ports disappear, and the R610 hits a
+fatal PCIe error during boot. Some NVMe setups lose their drive too.
+
+The fix pending upstream only skips ports without an active link and
+does not help in most of the reported cases. Restore the quirk as
+shipped up to 7.0.14-6, which affected users confirm working.
+
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/pci/quirks.c | 51 ++++++++++++++++++++++++++++----------------
+ 1 file changed, 33 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 9e199025e94f0b56c99c91b4203567241e71a5a8..bbf80e6d1f4af55cb024f36969251c385dec6db6 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -80,10 +80,11 @@ static bool pcie_lbms_seen(struct pci_dev *dev, u16 lnksta)
+  * Restrict the speed to 2.5GT/s then with the Target Link Speed field,
+  * request a retrain and check the result.
+  *
+- * If this turns out successful, or where a 2.5GT/s speed restriction has
+- * been previously arranged by the firmware and the port reports its link
+- * already being up, lift the restriction, in a hope it is safe to do so,
+- * letting the devices negotiate a higher speed.
++ * If this turns out successful and we know by the Vendor:Device ID it is
++ * safe to do so, then lift the restriction, letting the devices negotiate
++ * a higher speed.  Also check for a similar 2.5GT/s speed restriction the
++ * firmware may have already arranged and lift it with ports that already
++ * report their data link being up.
+  *
+  * Otherwise revert the speed to the original setting and request a retrain
+  * again to remove any residual state, ignoring the result as it's supposed
+@@ -94,37 +95,51 @@ static bool pcie_lbms_seen(struct pci_dev *dev, u16 lnksta)
+  */
+ int pcie_failed_link_retrain(struct pci_dev *dev)
+ {
+-	u16 lnksta, lnkctl2, oldlnkctl2;
++	static const struct pci_device_id ids[] = {
++		{ PCI_VDEVICE(ASMEDIA, 0x2824) }, /* ASMedia ASM2824 */
++		{}
++	};
++	u16 lnksta, lnkctl2;
+ 	int ret = -ENOTTY;
+-	u32 lnkcap;
+ 
+ 	if (!pci_is_pcie(dev) || !pcie_downstream_port(dev) ||
+ 	    !pcie_cap_has_lnkctl2(dev) || !dev->link_active_reporting)
+ 		return ret;
+ 
+ 	pcie_capability_read_word(dev, PCI_EXP_LNKSTA, &lnksta);
+-	pcie_capability_read_word(dev, PCI_EXP_LNKCTL2, &oldlnkctl2);
+ 	if (!(lnksta & PCI_EXP_LNKSTA_DLLLA) && pcie_lbms_seen(dev, lnksta)) {
++		u16 oldlnkctl2;
++
+ 		pci_info(dev, "broken device, retraining non-functional downstream link at 2.5GT/s\n");
++
++		pcie_capability_read_word(dev, PCI_EXP_LNKCTL2, &oldlnkctl2);
+ 		ret = pcie_set_target_speed(dev, PCIE_SPEED_2_5GT, false);
+-		if (ret)
+-			goto err;
++		if (ret) {
++			pci_info(dev, "retraining failed\n");
++			pcie_set_target_speed(dev, PCIE_LNKCTL2_TLS2SPEED(oldlnkctl2),
++					      true);
++			return ret;
++		}
++
++		pcie_capability_read_word(dev, PCI_EXP_LNKSTA, &lnksta);
+ 	}
+ 
+ 	pcie_capability_read_word(dev, PCI_EXP_LNKCTL2, &lnkctl2);
+-	pcie_capability_read_dword(dev, PCI_EXP_LNKCAP, &lnkcap);
+-	if ((lnkctl2 & PCI_EXP_LNKCTL2_TLS) == PCI_EXP_LNKCTL2_TLS_2_5GT &&
+-	    (lnkcap & PCI_EXP_LNKCAP_SLS) != PCI_EXP_LNKCAP_SLS_2_5GB) {
++
++	if ((lnksta & PCI_EXP_LNKSTA_DLLLA) &&
++	    (lnkctl2 & PCI_EXP_LNKCTL2_TLS) == PCI_EXP_LNKCTL2_TLS_2_5GT &&
++	    pci_match_id(ids, dev)) {
++		u32 lnkcap;
++
+ 		pci_info(dev, "removing 2.5GT/s downstream link speed restriction\n");
++		pcie_capability_read_dword(dev, PCI_EXP_LNKCAP, &lnkcap);
+ 		ret = pcie_set_target_speed(dev, PCIE_LNKCAP_SLS2SPEED(lnkcap), false);
+-		if (ret)
+-			goto err;
++		if (ret) {
++			pci_info(dev, "retraining failed\n");
++			return ret;
++		}
+ 	}
+ 
+-	return ret;
+-err:
+-	pci_info(dev, "retraining failed\n");
+-	pcie_set_target_speed(dev, PCIE_LNKCTL2_TLS2SPEED(oldlnkctl2), true);
+ 	return ret;
+ }
+ 
