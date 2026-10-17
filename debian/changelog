@@ -1,3 +1,17 @@
+proxmox-kernel-7.0 (7.0.14-25) trixie; urgency=medium
+
+  * update sources to Ubuntu-7.0.0-43.43i1, based on the upstream stable
+    releases up to v7.2.9 and v6.18.55 and carrying many additional security
+    fixes.
+
+  * KVM: fix issues that guests could use to crash the host or make it access
+    memory out of bounds, affecting nested virtualization and Windows guests
+    using Hyper-V on AMD hosts.
+
+  * net/sched: fix a use-after-free when releasing traffic control actions.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 17 Oct 2026 22:42:55 +0200
+
 proxmox-kernel-7.0 (7.0.14-24) trixie; urgency=medium
 
   * fix #7969: PCI: revert a change that made the kernel lift the 2.5GT/s
