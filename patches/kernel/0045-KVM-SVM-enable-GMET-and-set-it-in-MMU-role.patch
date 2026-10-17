@@ -18,10 +18,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 28 insertions(+), 4 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 5498d7950d104b7cb87c3b6d8e19b7453b0a9621..32e09da8b9805f1c1293ab3973217ca6b27378b8 100644
+index dd4485af52cb8609bd26a29a237e9be7a9ad44aa..5363d2118738b64186152744c3bd48d2bbd24aa8 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5850,7 +5850,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5856,7 +5856,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  {
  	union kvm_mmu_page_role role = {0};
  
@@ -29,7 +29,7 @@ index 5498d7950d104b7cb87c3b6d8e19b7453b0a9621..32e09da8b9805f1c1293ab3973217ca6
  	role.cr0_wp = true;
  	role.cr4_smep = kvm_x86_call(tdp_has_smep)(vcpu->kvm);
  	role.efer_nx = true;
-@@ -5861,6 +5860,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5867,6 +5866,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  	role.direct = true;
  	role.has_4_byte_gpte = false;
  
@@ -42,10 +42,10 @@ index 5498d7950d104b7cb87c3b6d8e19b7453b0a9621..32e09da8b9805f1c1293ab3973217ca6
  }
  
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index a94c35190dc8884441444a407e0e711831f741d2..ceaace3a2f500b01f183612107f9c24b05e4b7f2 100644
+index 01dd1bc28abbc51d6ec72406aca68905b4b7ab85..332f0689cb8918a496139a455186298fbfcf9fc6 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -811,7 +811,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
+@@ -812,7 +812,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
  	 * the latter, L1 runs L2 with shadow page tables that translate L2 GVAs
  	 * to L1 GPAs, so the same NPTs can be used for L1 and L2.
  	 */
@@ -54,7 +54,7 @@ index a94c35190dc8884441444a407e0e711831f741d2..ceaace3a2f500b01f183612107f9c24b
  	vmcb02->control.iopm_base_pa = vmcb01->control.iopm_base_pa;
  	vmcb02->control.msrpm_base_pa = vmcb01->control.msrpm_base_pa;
  	vmcb_mark_dirty(vmcb02, VMCB_PERM_MAP);
-@@ -848,9 +848,12 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
+@@ -849,9 +849,12 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
  	/* Also overwritten later if necessary.  */
  	vmcb02->control.tlb_ctl = TLB_CONTROL_DO_NOTHING;
  
@@ -70,7 +70,7 @@ index a94c35190dc8884441444a407e0e711831f741d2..ceaace3a2f500b01f183612107f9c24b
  	vcpu->arch.tsc_offset = kvm_calc_nested_tsc_offset(
  			vcpu->arch.l1_tsc_offset,
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index fb233b08b7b2c2794b29324ef857f75d8adaabda..7eae455997009032c974c7d819d97930d6337304 100644
+index bf37a12a635f62ef54313afb8b4dc8cb0be8d8f3..a2fa9001158213cb32027bf6bd628eff259b38ee 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
 @@ -136,6 +136,9 @@ module_param(pause_filter_count_max, ushort, 0444);
@@ -83,7 +83,7 @@ index fb233b08b7b2c2794b29324ef857f75d8adaabda..7eae455997009032c974c7d819d97930
  /* allow nested virtualization in KVM/SVM */
  static int nested = true;
  module_param(nested, int, 0444);
-@@ -1165,6 +1168,10 @@ static void init_vmcb(struct kvm_vcpu *vcpu, bool init_event)
+@@ -1155,6 +1158,10 @@ static void init_vmcb(struct kvm_vcpu *vcpu, bool init_event)
  		save->g_pat = vcpu->arch.pat;
  		save->cr3 = 0;
  	}
@@ -94,7 +94,7 @@ index fb233b08b7b2c2794b29324ef857f75d8adaabda..7eae455997009032c974c7d819d97930
  	svm->current_vmcb->asid_generation = 0;
  	svm->asid = 0;
  
-@@ -4584,6 +4591,11 @@ svm_patch_hypercall(struct kvm_vcpu *vcpu, unsigned char *hypercall)
+@@ -4581,6 +4588,11 @@ svm_patch_hypercall(struct kvm_vcpu *vcpu, unsigned char *hypercall)
  	hypercall[2] = 0xd9;
  }
  
@@ -106,7 +106,7 @@ index fb233b08b7b2c2794b29324ef857f75d8adaabda..7eae455997009032c974c7d819d97930
  /*
   * The kvm parameter can be NULL (module initialization, or invocation before
   * VM creation). Be sure to check the kvm parameter before using it.
-@@ -5330,6 +5342,7 @@ struct kvm_x86_ops svm_x86_ops __initdata = {
+@@ -5327,6 +5339,7 @@ struct kvm_x86_ops svm_x86_ops __initdata = {
  	.write_tsc_multiplier = svm_write_tsc_multiplier,
  
  	.load_mmu_pgd = svm_load_mmu_pgd,
@@ -114,7 +114,7 @@ index fb233b08b7b2c2794b29324ef857f75d8adaabda..7eae455997009032c974c7d819d97930
  
  	.check_intercept = svm_check_intercept,
  	.handle_exit_irqoff = svm_handle_exit_irqoff,
-@@ -5561,6 +5574,9 @@ static __init int svm_hardware_setup(void)
+@@ -5559,6 +5572,9 @@ static __init int svm_hardware_setup(void)
  	if (!boot_cpu_has(X86_FEATURE_NPT))
  		npt_enabled = false;
  
@@ -125,7 +125,7 @@ index fb233b08b7b2c2794b29324ef857f75d8adaabda..7eae455997009032c974c7d819d97930
  	kvm_configure_mmu(npt_enabled, get_npt_level(),
  			  get_npt_level(), PG_LEVEL_1G);
 diff --git a/arch/x86/kvm/svm/svm.h b/arch/x86/kvm/svm/svm.h
-index 7d044fb8f5f28c985caed259461cf7f4e4c44cc8..b17c321b9198701a6d076405b69049aaaa74036b 100644
+index 83221718fabc360cc90ed792ce11856daca92fe1..2819bd6bad4346b7285f631fc22e020d509554e8 100644
 --- a/arch/x86/kvm/svm/svm.h
 +++ b/arch/x86/kvm/svm/svm.h
 @@ -44,6 +44,7 @@ static inline struct page *__sme_pa_to_page(unsigned long pa)

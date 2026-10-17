@@ -19,7 +19,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 2 insertions(+)
 
 diff --git a/arch/x86/include/asm/cpufeatures.h b/arch/x86/include/asm/cpufeatures.h
-index dbe104df339b8c4d567949f5463e77e147b8d0d4..9f876fbdcc3aaa8701ccc9c3212e8e9ee161165e 100644
+index 31b01f76b409a2733e41566ef78e5b311ab10613..5a7f799236a871ab6e609add2b05bda7b37eb6c3 100644
 --- a/arch/x86/include/asm/cpufeatures.h
 +++ b/arch/x86/include/asm/cpufeatures.h
 @@ -379,6 +379,7 @@

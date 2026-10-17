@@ -63,7 +63,7 @@ index 70024167acda704a7d12821602294f10dde46967..5436a7a86a2d5f2efdc9fb72065a4421
  KVM_X86_OP_OPTIONAL(link_external_spt)
  KVM_X86_OP_OPTIONAL(set_external_spte)
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index 3df776ccfe99b6fdb9cd54ab82c673e4b8c99f6f..0b77f025f323956ead85376f05eabf4121458620 100644
+index 062f9b6800e94162dc65897eb0976bb0c7c81a1d..9a7b2e28ecd8f5a3f91fd7915240f8a1ce88654d 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
 @@ -344,8 +344,8 @@ struct kvm_kernel_irq_routing_entry;
@@ -121,7 +121,7 @@ index 3df776ccfe99b6fdb9cd54ab82c673e4b8c99f6f..0b77f025f323956ead85376f05eabf41
  		unsigned int cr4_la57:1;
  		unsigned int efer_lma:1;
  	};
-@@ -1858,6 +1864,7 @@ struct kvm_x86_ops {
+@@ -1867,6 +1873,7 @@ struct kvm_x86_ops {
  	int (*set_tss_addr)(struct kvm *kvm, unsigned int addr);
  	int (*set_identity_map_addr)(struct kvm *kvm, u64 ident_addr);
  	u8 (*get_mt_mask)(struct kvm_vcpu *vcpu, gfn_t gfn, bool is_mmio);
@@ -130,7 +130,7 @@ index 3df776ccfe99b6fdb9cd54ab82c673e4b8c99f6f..0b77f025f323956ead85376f05eabf41
  	void (*load_mmu_pgd)(struct kvm_vcpu *vcpu, hpa_t root_hpa,
  			     int root_level);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index c12683acdbae24ccb91656d4bdb477c2dfb8d751..3d437e2dda3e36e1980678da8a57697763246029 100644
+index 4a1f6b220f7c68ae098609ef607d5eb6c7ba92f9..f07bdeb95e30cba255d8bed78456293aeec5eb10 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -229,7 +229,7 @@ static inline bool __maybe_unused is_##reg##_##name(struct kvm_mmu *mmu)	\
@@ -142,7 +142,7 @@ index c12683acdbae24ccb91656d4bdb477c2dfb8d751..3d437e2dda3e36e1980678da8a576977
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, smap);
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, pke);
  BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
-@@ -5759,7 +5759,7 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5765,7 +5765,7 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  
  	role.base.efer_nx = ____is_efer_nx(regs);
  	role.base.cr0_wp = ____is_cr0_wp(regs);
@@ -151,7 +151,7 @@ index c12683acdbae24ccb91656d4bdb477c2dfb8d751..3d437e2dda3e36e1980678da8a576977
  	role.base.smap_andnot_wp = ____is_cr4_smap(regs) && !____is_cr0_wp(regs);
  	role.base.has_4_byte_gpte = !____is_cr4_pae(regs);
  
-@@ -5771,7 +5771,6 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5777,7 +5777,6 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  	else
  		role.base.level = PT32_ROOT_LEVEL;
  
@@ -159,7 +159,7 @@ index c12683acdbae24ccb91656d4bdb477c2dfb8d751..3d437e2dda3e36e1980678da8a576977
  	role.ext.cr4_smap = ____is_cr4_smap(regs);
  	role.ext.cr4_pse = ____is_cr4_pse(regs);
  
-@@ -5830,6 +5829,7 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+@@ -5836,6 +5835,7 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
  
  	role.access = ACC_ALL;
  	role.cr0_wp = true;

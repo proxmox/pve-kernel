@@ -25,10 +25,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  6 files changed, 36 insertions(+), 23 deletions(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index 5ba09b50a2e4a7b39ddbee7bfedf0fb276f7d1e9..3df776ccfe99b6fdb9cd54ab82c673e4b8c99f6f 100644
+index 3e52a39ab9a183c44d57ebd09d18583cc762a64e..062f9b6800e94162dc65897eb0976bb0c7c81a1d 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
-@@ -1985,6 +1985,10 @@ struct kvm_x86_nested_ops {
+@@ -1996,6 +1996,10 @@ struct kvm_x86_nested_ops {
  			 struct kvm_nested_state *kvm_state);
  	bool (*get_nested_state_pages)(struct kvm_vcpu *vcpu);
  	int (*write_log_dirty)(struct kvm_vcpu *vcpu, gpa_t l2_gpa);
@@ -40,7 +40,7 @@ index 5ba09b50a2e4a7b39ddbee7bfedf0fb276f7d1e9..3df776ccfe99b6fdb9cd54ab82c673e4
  	int (*enable_evmcs)(struct kvm_vcpu *vcpu,
  			    uint16_t *vmcs_version);
 diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
-index fa1ca067d8f3d7b34f623257328ecdc283fb8a72..1720e6414c10b521d182464a07cb5a6d71a4b547 100644
+index 523a7f9cf4fed9a5062ca6e4dcd66ddaa56776e1..090e7837f81c2e0ad411de55b2a848019d9ea7b3 100644
 --- a/arch/x86/kvm/hyperv.c
 +++ b/arch/x86/kvm/hyperv.c
 @@ -2057,7 +2057,8 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
@@ -81,10 +81,10 @@ index 635c2e5d8513dc0327f2d221007d21cf9235e860..63be5c5efed98ab97977c4c5f1b2f75f
  
  static inline bool kvm_has_mirrored_tdp(const struct kvm *kvm)
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index 486df8043311c9e76e1c592bdc29294f00014a2f..dabb932bf012fd093f6d1899888a7b57e09dc5b5 100644
+index ca05413e6888bd34225415cc604b30b68a7de222..d71030077ccb970a7442b0b9143ebbf8bb16376e 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -2005,8 +2005,23 @@ static bool svm_get_nested_state_pages(struct kvm_vcpu *vcpu)
+@@ -2001,8 +2001,23 @@ static bool svm_get_nested_state_pages(struct kvm_vcpu *vcpu)
  	return true;
  }
  
@@ -109,10 +109,10 @@ index 486df8043311c9e76e1c592bdc29294f00014a2f..dabb932bf012fd093f6d1899888a7b57
  	.check_events = svm_check_nested_events,
  	.triple_fault = nested_svm_triple_fault,
 diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
-index 5a66fa309d1006b74d19e9825a307111aa3beee7..12f1f970269fc869ea0250a06c98dfb323ed67e9 100644
+index 27c066e2ec34d6f7778d796d3e3a1b7aecc987c4..1a3c09600d28cea7968474e21c96fdbf3c627ee7 100644
 --- a/arch/x86/kvm/vmx/nested.c
 +++ b/arch/x86/kvm/vmx/nested.c
-@@ -7448,8 +7448,20 @@ __init int nested_vmx_hardware_setup(int (*exit_handlers[])(struct kvm_vcpu *))
+@@ -7450,8 +7450,20 @@ __init int nested_vmx_hardware_setup(int (*exit_handlers[])(struct kvm_vcpu *))
  	return 0;
  }
  
@@ -134,10 +134,10 @@ index 5a66fa309d1006b74d19e9825a307111aa3beee7..12f1f970269fc869ea0250a06c98dfb3
  	.check_events = vmx_check_nested_events,
  	.has_events = vmx_has_nested_events,
 diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 2da451582e8fef8898949fda310cbc6e0d730f3b..d662ac663f3de17bcfdcbe5a8d4ac93b19095fed 100644
+index 678bbfd1e0fca080eac37af288f30bb171223874..4a2e543d19a9a801e0c6230bf24fcd7496333f4f 100644
 --- a/arch/x86/kvm/x86.c
 +++ b/arch/x86/kvm/x86.c
-@@ -7854,22 +7854,6 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
+@@ -7444,22 +7444,6 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
  	kvm_x86_call(get_segment)(vcpu, var, seg);
  }
  

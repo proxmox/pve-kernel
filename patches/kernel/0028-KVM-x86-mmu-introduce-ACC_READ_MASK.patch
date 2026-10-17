@@ -37,7 +37,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  10 files changed, 68 insertions(+), 63 deletions(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index 5dd9ed9d38f1ebbf5521baa6d8f637fe396136ae..5ba09b50a2e4a7b39ddbee7bfedf0fb276f7d1e9 100644
+index f8fba0a141ea11e5d0ee8ced6a183741a47b4604..3e52a39ab9a183c44d57ebd09d18583cc762a64e 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
 @@ -329,11 +329,11 @@ struct kvm_kernel_irq_routing_entry;
@@ -104,7 +104,7 @@ index 830f46145692aec3e19a5e976b17b7bb04369809..23f37535c0ce1d1e8e855ef3f94cae97
  void kvm_init_mmu(struct kvm_vcpu *vcpu);
  void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 0c8005d22850ab8869846d1a2ef1b02eb51f3150..ebbe164df1d82de835e937d1e999640b078cdc2f 100644
+index a4247b9a7ec3749ab0ebec8a3cb0d0bb2078d1ed..d1e920e27f899911cee9febeabd3d430908b113f 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -2027,7 +2027,7 @@ static bool kvm_sync_page_check(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp)
@@ -116,7 +116,7 @@ index 0c8005d22850ab8869846d1a2ef1b02eb51f3150..ebbe164df1d82de835e937d1e999640b
  		.quadrant = 0x3,
  		.passthrough = 0x1,
  	};
-@@ -5534,7 +5534,7 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+@@ -5540,7 +5540,7 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
   * update_permission_bitmask() builds what is effectively a
   * two-dimensional array of bools.  The second dimension is
   * provided by individual bits of permissions[pfec >> 1], and
@@ -125,7 +125,7 @@ index 0c8005d22850ab8869846d1a2ef1b02eb51f3150..ebbe164df1d82de835e937d1e999640b
   * combinations of ACC_* bits.
   */
  #define ACC_BITS_MASK(access) \
-@@ -5544,15 +5544,23 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+@@ -5550,15 +5550,23 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
  	 (4 & (access) ? 1 << 4 : 0) | \
  	 (5 & (access) ? 1 << 5 : 0) | \
  	 (6 & (access) ? 1 << 6 : 0) | \
@@ -153,7 +153,7 @@ index 0c8005d22850ab8869846d1a2ef1b02eb51f3150..ebbe164df1d82de835e937d1e999640b
  
  	bool cr4_smep = is_cr4_smep(mmu);
  	bool cr4_smap = is_cr4_smap(mmu);
-@@ -5575,32 +5583,33 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5581,32 +5589,33 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  		unsigned pfec = byte << 1;
  
  		/*
@@ -213,7 +213,7 @@ index 764e3015d021b41b7111de68a618cc53d7aa158a..dcfdfedfc4e9ef7a5feb7bf4dd20efb0
  	union kvm_mmu_page_role role;				        \
  								        \
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 6465de820e70a698bfe04cb9ec7a6249214ea3b8..50db62f2a072dfe0228c8cb982afde9e5cd4e932 100644
+index aefc3f949e85e06a5ef072dbc2fd1bcf4dd28012..84bdd414c3fe9d6427dac662e39d9b316b60a42b 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -170,25 +170,24 @@ static bool FNAME(prefetch_invalid_gpte)(struct kvm_vcpu *vcpu,
@@ -383,10 +383,10 @@ index adf925500b9e02bce2f23d7882255ec7664a671f..1afbf272efae3a19afdc294b90960202
  	/* Is it a fetch fault? */
  	error_code |= (exit_qualification & EPT_VIOLATION_ACC_INSTR)
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index d33e5078ec0a248ce94aa687552d078e052c969c..eba6d334c8e82e4f976a7b1095be263bab11e3f3 100644
+index 95ce5df1885dfe05ee32d7fb93c62180a4809179..3f0522a5acf3ffaa57ec5789fbd2f898490776a7 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -8796,8 +8796,7 @@ __init int vmx_hardware_setup(void)
+@@ -8797,8 +8797,7 @@ __init int vmx_hardware_setup(void)
  	set_bit(0, vmx_vpid_bitmap); /* 0 is reserved for host */
  
  	if (enable_ept)

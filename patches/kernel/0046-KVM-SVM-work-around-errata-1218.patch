@@ -24,10 +24,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 12 insertions(+)
 
 diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
-index 7eae455997009032c974c7d819d97930d6337304..526132f533e9c4206a9dfca1ba15633e3a649400 100644
+index a2fa9001158213cb32027bf6bd628eff259b38ee..9b557fca10317ebf96818c293d8b1a59987ed908 100644
 --- a/arch/x86/kvm/svm/svm.c
 +++ b/arch/x86/kvm/svm/svm.c
-@@ -1952,6 +1952,18 @@ static int npf_interception(struct kvm_vcpu *vcpu)
+@@ -1941,6 +1941,18 @@ static int npf_interception(struct kvm_vcpu *vcpu)
  		}
  	}
  

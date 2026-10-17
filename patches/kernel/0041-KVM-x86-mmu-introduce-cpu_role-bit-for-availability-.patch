@@ -23,7 +23,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 16 insertions(+), 1 deletion(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index 0b77f025f323956ead85376f05eabf4121458620..3c6fcb617dc437c8de8943aa492717e57a5dc7b0 100644
+index 9a7b2e28ecd8f5a3f91fd7915240f8a1ce88654d..524b8d5e9a97a8ad0f35317709a748d13c8a05c0 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
 @@ -415,6 +415,13 @@ union kvm_mmu_extended_role {
@@ -41,7 +41,7 @@ index 0b77f025f323956ead85376f05eabf4121458620..3c6fcb617dc437c8de8943aa492717e5
  };
  
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 46b034f78555ccfe7fbe0e2f44ec661d550be185..ed350526b07dfc81b8c6f3bb8e9b68f647db36aa 100644
+index 59299fafa3f8b368a9c2f2bd4481eb668a0450f7..e57c79e0bd53f1aba46cc2461bb2679285ef6d32 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -236,6 +236,11 @@ BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
@@ -56,7 +56,7 @@ index 46b034f78555ccfe7fbe0e2f44ec661d550be185..ed350526b07dfc81b8c6f3bb8e9b68f6
  static inline bool is_cr0_pg(struct kvm_mmu *mmu)
  {
          return mmu->cpu_role.base.level > 0;
-@@ -5788,6 +5793,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+@@ -5794,6 +5799,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
  	role.ext.cr4_pke = ____is_efer_lma(regs) && ____is_cr4_pke(regs);
  	role.ext.cr4_la57 = ____is_efer_lma(regs) && ____is_cr4_la57(regs);
  	role.ext.efer_lma = ____is_efer_lma(regs);
@@ -65,7 +65,7 @@ index 46b034f78555ccfe7fbe0e2f44ec661d550be185..ed350526b07dfc81b8c6f3bb8e9b68f6
  	return role;
  }
  
-@@ -5941,6 +5948,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
+@@ -5947,6 +5954,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
  
  	/* NPT requires CR0.PG=1. */
  	WARN_ON_ONCE(cpu_role.base.direct || !cpu_role.base.guest_mode);
@@ -74,7 +74,7 @@ index 46b034f78555ccfe7fbe0e2f44ec661d550be185..ed350526b07dfc81b8c6f3bb8e9b68f6
  	root_role = cpu_role.base;
  	root_role.level = kvm_mmu_get_tdp_level(vcpu);
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 14b00ee4e4516eec02a94f1e607ba2c1b1c936b2..4ad66037c10d9d6375eff9db39611a5a8406b3de 100644
+index 47cd177536016b87fab5aa89454b2686ba445a8b..06dc898da9b6163346f28b2a3597b65bb282d439 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -489,7 +489,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,

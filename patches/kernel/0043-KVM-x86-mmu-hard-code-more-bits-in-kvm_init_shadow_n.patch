@@ -41,10 +41,10 @@ index e1e3869f568b5101ca99a238b44680529838395c..1b354e1f2d812f34286446f33be3df6b
  			     int huge_page_level, bool accessed_dirty,
  			     bool mbec, gpa_t new_eptp);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index ed350526b07dfc81b8c6f3bb8e9b68f647db36aa..a5a697f797dd23726b9ba1c9ac91a9986618c107 100644
+index e57c79e0bd53f1aba46cc2461bb2679285ef6d32..366a190dbe95bc218449095b3b3e5ff4fa5a7f22 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5934,13 +5934,13 @@ static void kvm_init_shadow_mmu(struct kvm_vcpu *vcpu,
+@@ -5940,13 +5940,13 @@ static void kvm_init_shadow_mmu(struct kvm_vcpu *vcpu,
  	shadow_mmu_init_context(vcpu, context, cpu_role, root_role);
  }
  
@@ -63,10 +63,10 @@ index ed350526b07dfc81b8c6f3bb8e9b68f647db36aa..a5a697f797dd23726b9ba1c9ac91a998
  	};
  	union kvm_cpu_role cpu_role = kvm_calc_cpu_role(vcpu, &regs);
 diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
-index dabb932bf012fd093f6d1899888a7b57e09dc5b5..d5917f29999ec59d2a1589b234ecdf88fdcce6e0 100644
+index d71030077ccb970a7442b0b9143ebbf8bb16376e..a6d03fbdd929d1f1c3f01621335f378afaa4f118 100644
 --- a/arch/x86/kvm/svm/nested.c
 +++ b/arch/x86/kvm/svm/nested.c
-@@ -93,7 +93,7 @@ static void nested_svm_init_mmu_context(struct kvm_vcpu *vcpu)
+@@ -94,7 +94,7 @@ static void nested_svm_init_mmu_context(struct kvm_vcpu *vcpu)
  	 * when called via KVM_SET_NESTED_STATE, that state may _not_ match current
  	 * vCPU state.  CR0.WP is explicitly ignored, while CR0.PG is required.
  	 */

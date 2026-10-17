@@ -28,10 +28,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  4 files changed, 15 insertions(+), 12 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 05d255745a03533772428ebe5e7ae1a8a9e43b0f..46b034f78555ccfe7fbe0e2f44ec661d550be185 100644
+index 232576d337d529a706b1d7cde48725b12d8b3024..59299fafa3f8b368a9c2f2bd4481eb668a0450f7 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -3440,12 +3440,13 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+@@ -3446,12 +3446,13 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
  {
  	struct kvm_shadow_walk_iterator it;
  	struct kvm_mmu_page *sp;
@@ -47,7 +47,7 @@ index 05d255745a03533772428ebe5e7ae1a8a9e43b0f..46b034f78555ccfe7fbe0e2f44ec661d
  	for_each_shadow_entry(vcpu, fault->addr, it) {
  		/*
  		 * We cannot overwrite existing page tables with an NX
-@@ -3458,7 +3459,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+@@ -3464,7 +3465,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
  		if (it.level == fault->goal_level)
  			break;
  
@@ -56,7 +56,7 @@ index 05d255745a03533772428ebe5e7ae1a8a9e43b0f..46b034f78555ccfe7fbe0e2f44ec661d
  		if (sp == ERR_PTR(-EEXIST))
  			continue;
  
-@@ -3471,7 +3472,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+@@ -3477,7 +3478,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
  	if (WARN_ON_ONCE(it.level != fault->goal_level))
  		return -EFAULT;
  
@@ -100,7 +100,7 @@ index 3429c1413f423b8ad709eaaa858a0fff7b37220e..fa01719baf8d4f046e90dc0676109145
  );
  
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 3cf96311360b76205bbcb9ec6ebbfefe0005128c..14b00ee4e4516eec02a94f1e607ba2c1b1c936b2 100644
+index 8d305a1a575272974619ad6216010f03eb0fa5d3..47cd177536016b87fab5aa89454b2686ba445a8b 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -734,7 +734,7 @@ static int FNAME(fetch)(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault,

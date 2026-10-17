@@ -139,10 +139,10 @@ index a46ccd6707859f69db4166e72d636939fdb0a5f7..c0dd506bed649844d6d831d4ceb1a1bf
  	.get_exit_info = vt_op(get_exit_info),
  	.get_entry_info = vt_op(get_entry_info),
 diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
-index 12f1f970269fc869ea0250a06c98dfb323ed67e9..c76d8ec0165f60bd54748665d6498e2d6d9b3699 100644
+index 1a3c09600d28cea7968474e21c96fdbf3c627ee7..dd3ef49054ca8f8db3f2119ab1c476a193d85c0a 100644
 --- a/arch/x86/kvm/vmx/nested.c
 +++ b/arch/x86/kvm/vmx/nested.c
-@@ -2479,6 +2479,7 @@ static void prepare_vmcs02_early(struct vcpu_vmx *vmx, struct loaded_vmcs *vmcs0
+@@ -2486,6 +2486,7 @@ static void prepare_vmcs02_early(struct vcpu_vmx *vmx, struct loaded_vmcs *vmcs0
  				  SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY |
  				  SECONDARY_EXEC_APIC_REGISTER_VIRT |
  				  SECONDARY_EXEC_ENABLE_VMFUNC |
@@ -151,10 +151,10 @@ index 12f1f970269fc869ea0250a06c98dfb323ed67e9..c76d8ec0165f60bd54748665d6498e2d
  
  		if (nested_cpu_has(vmcs12,
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index eba6d334c8e82e4f976a7b1095be263bab11e3f3..5ccbff25f99ab68cd6aceb572db0e81c01eb4082 100644
+index 3f0522a5acf3ffaa57ec5789fbd2f898490776a7..acdc96539e4952e6484c809fb9c71e0532712195 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -113,6 +113,9 @@ module_param(emulate_invalid_guest_state, bool, 0444);
+@@ -114,6 +114,9 @@ module_param(emulate_invalid_guest_state, bool, 0444);
  static bool __read_mostly fasteoi = 1;
  module_param(fasteoi, bool, 0444);
  
@@ -164,7 +164,7 @@ index eba6d334c8e82e4f976a7b1095be263bab11e3f3..5ccbff25f99ab68cd6aceb572db0e81c
  module_param(enable_apicv, bool, 0444);
  module_param(enable_ipiv, bool, 0444);
  
-@@ -2827,6 +2830,7 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,
+@@ -2828,6 +2831,7 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,
  			return -EIO;
  
  		vmx_cap->ept = 0;
@@ -172,7 +172,7 @@ index eba6d334c8e82e4f976a7b1095be263bab11e3f3..5ccbff25f99ab68cd6aceb572db0e81c
  		_cpu_based_2nd_exec_control &= ~SECONDARY_EXEC_EPT_VIOLATION_VE;
  	}
  	if (!(_cpu_based_2nd_exec_control & SECONDARY_EXEC_ENABLE_VPID) &&
-@@ -4861,6 +4865,9 @@ static u32 vmx_secondary_exec_control(struct vcpu_vmx *vmx)
+@@ -4862,6 +4866,9 @@ static u32 vmx_secondary_exec_control(struct vcpu_vmx *vmx)
  	 */
  	exec_control &= ~SECONDARY_EXEC_ENABLE_VMFUNC;
  
@@ -182,7 +182,7 @@ index eba6d334c8e82e4f976a7b1095be263bab11e3f3..5ccbff25f99ab68cd6aceb572db0e81c
  	/* SECONDARY_EXEC_DESC is enabled/disabled on writes to CR4.UMIP,
  	 * in vmx_set_cr4.  */
  	exec_control &= ~SECONDARY_EXEC_DESC;
-@@ -7934,6 +7941,11 @@ u8 vmx_get_mt_mask(struct kvm_vcpu *vcpu, gfn_t gfn, bool is_mmio)
+@@ -7935,6 +7942,11 @@ u8 vmx_get_mt_mask(struct kvm_vcpu *vcpu, gfn_t gfn, bool is_mmio)
  	return (MTRR_TYPE_WRBACK << VMX_EPT_MT_EPTE_SHIFT);
  }
  
@@ -194,7 +194,7 @@ index eba6d334c8e82e4f976a7b1095be263bab11e3f3..5ccbff25f99ab68cd6aceb572db0e81c
  static void vmcs_set_secondary_exec_control(struct vcpu_vmx *vmx, u32 new_ctl)
  {
  	/*
-@@ -8735,6 +8747,8 @@ __init int vmx_hardware_setup(void)
+@@ -8736,6 +8748,8 @@ __init int vmx_hardware_setup(void)
  
  	if (!cpu_has_vmx_ept_ad_bits() || !enable_ept)
  		enable_ept_ad_bits = 0;
@@ -204,10 +204,10 @@ index eba6d334c8e82e4f976a7b1095be263bab11e3f3..5ccbff25f99ab68cd6aceb572db0e81c
  	if (!cpu_has_vmx_unrestricted_guest() || !enable_ept)
  		enable_unrestricted_guest = 0;
 diff --git a/arch/x86/kvm/vmx/vmx.h b/arch/x86/kvm/vmx/vmx.h
-index 70bfe81dea540338849acb3e49f01f177dacd7c1..594717e619d9c7d18b659cd3ad8646a3aa4f8c68 100644
+index db84e8001da586b96da97a91893742ea83d54408..0a4e263c40950c7e386916d3acbcc72af9233d56 100644
 --- a/arch/x86/kvm/vmx/vmx.h
 +++ b/arch/x86/kvm/vmx/vmx.h
-@@ -570,6 +570,7 @@ static inline u8 vmx_get_rvi(void)
+@@ -567,6 +567,7 @@ static inline u8 vmx_get_rvi(void)
  	 SECONDARY_EXEC_ENABLE_VMFUNC |					\
  	 SECONDARY_EXEC_BUS_LOCK_DETECTION |				\
  	 SECONDARY_EXEC_NOTIFY_VM_EXITING |				\

@@ -37,10 +37,10 @@ index 23bc5b18efd079df68cd750665e3153d4e438bf0..e1e3869f568b5101ca99a238b4468052
  int kvm_handle_page_fault(struct kvm_vcpu *vcpu, u64 error_code,
  				u64 fault_address, char *insn, int insn_len);
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index 400fe6857d84acfc57ca376d80c0b2d0bbe1d646..05d255745a03533772428ebe5e7ae1a8a9e43b0f 100644
+index b3a4ce12bbca3915c427d4a21aaf8dc083daf563..232576d337d529a706b1d7cde48725b12d8b3024 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5954,7 +5954,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_init_shadow_npt_mmu);
+@@ -5960,7 +5960,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_init_shadow_npt_mmu);
  
  static union kvm_cpu_role
  kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
@@ -49,7 +49,7 @@ index 400fe6857d84acfc57ca376d80c0b2d0bbe1d646..05d255745a03533772428ebe5e7ae1a8
  {
  	union kvm_cpu_role role = {0};
  
-@@ -5964,6 +5964,7 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+@@ -5970,6 +5970,7 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
  	 */
  	WARN_ON_ONCE(is_smm(vcpu));
  	role.base.level = level;
@@ -57,7 +57,7 @@ index 400fe6857d84acfc57ca376d80c0b2d0bbe1d646..05d255745a03533772428ebe5e7ae1a8
  	role.base.has_4_byte_gpte = false;
  	role.base.direct = false;
  	role.base.ad_disabled = !accessed_dirty;
-@@ -5979,13 +5980,13 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+@@ -5985,13 +5986,13 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
  
  void kvm_init_shadow_ept_mmu(struct kvm_vcpu *vcpu, bool execonly,
  			     int huge_page_level, bool accessed_dirty,
@@ -95,10 +95,10 @@ index 15571bbeaf34d8bf42747997a1aeddf2b2865ce5..ec521f31176c4a56c5427dabac0c9385
  	shadow_xu_mask		= VMX_EPT_USER_EXECUTABLE_MASK;
  	shadow_present_mask	= VMX_EPT_SUPPRESS_VE_BIT;
 diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
-index a568263ff1a6a9d10409d6da142231e89b8f6f18..8681c8a6a8cab80d4bdf88174a2907a44aae2def 100644
+index 60a3ac0773bc264c7f49a9250579d0c2f3b3df66..9e9719405993f335acca3d729e2ca617efee225f 100644
 --- a/arch/x86/kvm/vmx/nested.c
 +++ b/arch/x86/kvm/vmx/nested.c
-@@ -476,6 +476,13 @@ static void nested_ept_inject_page_fault(struct kvm_vcpu *vcpu,
+@@ -477,6 +477,13 @@ static void nested_ept_inject_page_fault(struct kvm_vcpu *vcpu,
  	vmcs12->guest_physical_address = fault->address;
  }
  
@@ -112,7 +112,7 @@ index a568263ff1a6a9d10409d6da142231e89b8f6f18..8681c8a6a8cab80d4bdf88174a2907a4
  static void nested_ept_new_eptp(struct kvm_vcpu *vcpu)
  {
  	struct vcpu_vmx *vmx = to_vmx(vcpu);
-@@ -484,6 +491,7 @@ static void nested_ept_new_eptp(struct kvm_vcpu *vcpu)
+@@ -485,6 +492,7 @@ static void nested_ept_new_eptp(struct kvm_vcpu *vcpu)
  
  	kvm_init_shadow_ept_mmu(vcpu, execonly, ept_lpage_level,
  				nested_ept_ad_enabled(vcpu),
@@ -120,7 +120,7 @@ index a568263ff1a6a9d10409d6da142231e89b8f6f18..8681c8a6a8cab80d4bdf88174a2907a4
  				nested_ept_get_eptp(vcpu));
  }
  
-@@ -7267,6 +7275,9 @@ static void nested_vmx_setup_secondary_ctls(u32 ept_caps,
+@@ -7269,6 +7277,9 @@ static void nested_vmx_setup_secondary_ctls(u32 ept_caps,
  			msrs->ept_caps |= VMX_EPT_AD_BIT;
  		}
  

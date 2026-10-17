@@ -14,16 +14,17 @@ distinguish the two cases.
 Tested-by: David Riley <d.riley@proxmox.com>
 Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 (cherry picked from commit 11e72886fe79e8bad3f564f82ce31f60b7712768)
+[TL: apply the load_pdptrs() hunk to regs.c, where the base moved it]
 Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
 ---
  arch/x86/kvm/hyperv.c          | 3 ++-
  arch/x86/kvm/mmu/mmu.c         | 3 ++-
  arch/x86/kvm/mmu/paging_tmpl.h | 7 +++++--
- arch/x86/kvm/x86.c             | 3 ++-
+ arch/x86/kvm/regs.c            | 3 ++-
  4 files changed, 11 insertions(+), 5 deletions(-)
 
 diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
-index 2d03f136b126fe4c10f17874e0bbecc6cd6a6f62..4f9d7ce2eaf95e9e628271847bd7556915d96b38 100644
+index 95b4836f376365ac113d69799456c0884fd5dd7c..660f308f6ea3f3513210c58e5be2efc0d6ece788 100644
 --- a/arch/x86/kvm/hyperv.c
 +++ b/arch/x86/kvm/hyperv.c
 @@ -2057,7 +2057,8 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
@@ -37,10 +38,10 @@ index 2d03f136b126fe4c10f17874e0bbecc6cd6a6f62..4f9d7ce2eaf95e9e628271847bd75569
  			return HV_STATUS_INVALID_HYPERCALL_INPUT;
  	}
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index ebbe164df1d82de835e937d1e999640b078cdc2f..9441962bb0ec97630a8c92075d95727d7b4cf94e 100644
+index d1e920e27f899911cee9febeabd3d430908b113f..a96d29b81a89b64150db11bc0ee548795b4e369d 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -4342,7 +4342,8 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+@@ -4348,7 +4348,8 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
  {
  	if (exception)
  		exception->error_code = 0;
@@ -51,7 +52,7 @@ index ebbe164df1d82de835e937d1e999640b078cdc2f..9441962bb0ec97630a8c92075d95727d
  
  static bool mmio_info_in_cache(struct kvm_vcpu *vcpu, u64 addr, bool direct)
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 50db62f2a072dfe0228c8cb982afde9e5cd4e932..1ab9ed3100453c6c9133d256073d873b424e9acf 100644
+index 84bdd414c3fe9d6427dac662e39d9b316b60a42b..7e19827b5b11a061e8bbb8a50f405f361e0dd3b4 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -376,7 +376,8 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
@@ -75,11 +76,11 @@ index 50db62f2a072dfe0228c8cb982afde9e5cd4e932..1ab9ed3100453c6c9133d256073d873b
  	if (real_gpa == INVALID_GPA)
  		return 0;
  
-diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
-index 8284fcd704738fc0ffac40e75ae6aca985d78cc8..d1a0d23a135ddfa7ea38d629fe2391301a6e150e 100644
---- a/arch/x86/kvm/x86.c
-+++ b/arch/x86/kvm/x86.c
-@@ -1069,7 +1069,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
+diff --git a/arch/x86/kvm/regs.c b/arch/x86/kvm/regs.c
+index 7b997c4e6329fd076c37e54ebc384061b8d78d28..d19a9e7e41f375a784eac517d99d300fcf7efa7e 100644
+--- a/arch/x86/kvm/regs.c
++++ b/arch/x86/kvm/regs.c
+@@ -122,7 +122,8 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
  	 * to an L1 GPA.
  	 */
  	real_gpa = kvm_translate_gpa(vcpu, mmu, gfn_to_gpa(pdpt_gfn),

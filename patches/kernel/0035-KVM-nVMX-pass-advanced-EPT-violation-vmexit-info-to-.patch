@@ -40,7 +40,7 @@ index 2b449a3948d3061f0eb973768067100f6a9813d2..fcd6237193344f55941dfefc87e04820
  #define EPT_VIOLATION_RWX_TO_PROT(__epte) (((__epte) & VMX_EPT_RWX_MASK) << 3)
  #define EPT_VIOLATION_USER_EXEC_TO_PROT(__epte) (((__epte) & VMX_EPT_USER_EXECUTABLE_MASK) >> 4)
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index 5bb1ca2278f4dd3c8f43c0e3f11b23af94740665..ffe9672f7be71694a1a2b90c621e2bd07c56cecc 100644
+index 13f1b741f2226377ace8980a59f5c4a0d7dba17a..f98c77e34efd071dbe77afc3efc773fdc723d663 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -494,7 +494,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
@@ -53,10 +53,10 @@ index 5bb1ca2278f4dd3c8f43c0e3f11b23af94740665..ffe9672f7be71694a1a2b90c621e2bd0
  	 * The other bits are set to 0.
  	 */
 diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
-index c76d8ec0165f60bd54748665d6498e2d6d9b3699..de70f63053da5ee9c7fb6ad7dccf58b88be69a8f 100644
+index dd3ef49054ca8f8db3f2119ab1c476a193d85c0a..0d5d440faca2e9798a52c9cb03de596c5c643763 100644
 --- a/arch/x86/kvm/vmx/nested.c
 +++ b/arch/x86/kvm/vmx/nested.c
-@@ -450,10 +450,14 @@ static void nested_ept_inject_page_fault(struct kvm_vcpu *vcpu,
+@@ -451,10 +451,14 @@ static void nested_ept_inject_page_fault(struct kvm_vcpu *vcpu,
  			vm_exit_reason = EXIT_REASON_EPT_MISCONFIG;
  			exit_qualification = 0;
  		} else {
@@ -74,7 +74,7 @@ index c76d8ec0165f60bd54748665d6498e2d6d9b3699..de70f63053da5ee9c7fb6ad7dccf58b8
  			vm_exit_reason = EXIT_REASON_EPT_VIOLATION;
  		}
  
-@@ -7250,7 +7254,8 @@ static void nested_vmx_setup_secondary_ctls(u32 ept_caps,
+@@ -7252,7 +7256,8 @@ static void nested_vmx_setup_secondary_ctls(u32 ept_caps,
  			VMX_EPT_PAGE_WALK_5_BIT |
  			VMX_EPTP_WB_BIT |
  			VMX_EPT_INVEPT_BIT |
