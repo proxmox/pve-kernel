@@ -1,0 +1,99 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Naveen N Rao (AMD)" <naveen@kernel.org>
+Date: Wed, 23 Sep 2026 08:51:08 -0700
+Subject: [PATCH] KVM: SVM: Clear AVIC Physical ID table entry if vCPU creation
+ fails
+
+If vCPU creation fails after kvm_arch_vcpu_create(), the AVIC Physical
+ID table entry corresponding to that vCPU continues to point to the
+freed APIC backing page which can result in UAF. Address this by
+clearing out the corresponding AVIC Physical ID table entry in the
+vcpu_free() callback, similar to the VMX commit b41f2ca6c060 ("KVM: VMX:
+Fix stale PID-pointer table entry left after vCPU free").
+
+Though unlikely, it is also possible that svm_vcpu_create() itself fails
+after the AVIC Physical ID table entry has been setup if memory
+allocation fails in svm_vcpu_alloc_msrpm(). Clear the entry in this path
+as well.
+
+Note: this change depends on commit 97d65b544f48 ("KVM: Check for
+duplicate vcpu_id as early as possible"), which ensures that a vCPU with
+a duplicate ID is never created. Otherwise, a valid AVIC Physical ID
+table entry for an existing vCPU will be cleared.
+
+Fixes: 44a95dae1d22 ("KVM: x86: Detect and Initialize AVIC support")
+Signed-off-by: Naveen N Rao (AMD) <naveen@kernel.org>
+Tested-by: Atish Patra <atishp@meta.com>
+[sean: use avic_is_addressable_vcpu()]
+Link: https://patch.msgid.link/20260923155108.1550622-4-seanjc@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit 88c15bbd43ae95a2c81f3f21a7fd8f4fb0914902)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/svm/avic.c | 8 ++++++++
+ arch/x86/kvm/svm/svm.c  | 6 +++++-
+ arch/x86/kvm/svm/svm.h  | 1 +
+ 3 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/svm/avic.c b/arch/x86/kvm/svm/avic.c
+index 6382937f61015dddcf119aaee78e8c8cf683a89e..53289792125788b4dd091807269b8d00a22358bb 100644
+--- a/arch/x86/kvm/svm/avic.c
++++ b/arch/x86/kvm/svm/avic.c
+@@ -848,6 +848,14 @@ int avic_init_vcpu(struct vcpu_svm *svm)
+ 	return ret;
+ }
+ 
++void avic_vcpu_free(struct kvm_vcpu *vcpu)
++{
++	struct kvm_svm *kvm_svm = to_kvm_svm(vcpu->kvm);
++
++	if (kvm_svm->avic_physical_id_table && avic_is_addressable_vcpu(vcpu))
++		WRITE_ONCE(kvm_svm->avic_physical_id_table[vcpu->vcpu_id], 0);
++}
++
+ void avic_apicv_post_state_restore(struct kvm_vcpu *vcpu)
+ {
+ 	avic_handle_dfr_update(vcpu);
+diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
+index 9ba60e6107a632e5edd7e38524dbffe08ea2b579..dd882c0a58546738413fd0dc33ccfc74b7a478a8 100644
+--- a/arch/x86/kvm/svm/svm.c
++++ b/arch/x86/kvm/svm/svm.c
+@@ -1273,7 +1273,7 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
+ 	svm->msrpm = svm_vcpu_alloc_msrpm();
+ 	if (!svm->msrpm) {
+ 		err = -ENOMEM;
+-		goto error_free_sev;
++		goto error_free_avic;
+ 	}
+ 
+ 	svm->x2avic_msrs_intercepted = true;
+@@ -1287,6 +1287,8 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
+ 
+ 	return 0;
+ 
++error_free_avic:
++	avic_vcpu_free(vcpu);
+ error_free_sev:
+ 	sev_free_vcpu(vcpu);
+ error_free_vmcb_page:
+@@ -1301,6 +1303,8 @@ static void svm_vcpu_free(struct kvm_vcpu *vcpu)
+ 
+ 	WARN_ON_ONCE(!list_empty(&svm->ir_list));
+ 
++	avic_vcpu_free(vcpu);
++
+ 	svm_leave_nested(vcpu);
+ 	svm_free_nested(svm);
+ 
+diff --git a/arch/x86/kvm/svm/svm.h b/arch/x86/kvm/svm/svm.h
+index 2819bd6bad4346b7285f631fc22e020d509554e8..9f974566ead2f06e4b403d1a24915a4abb584574 100644
+--- a/arch/x86/kvm/svm/svm.h
++++ b/arch/x86/kvm/svm/svm.h
+@@ -849,6 +849,7 @@ void avic_init_vmcb(struct vcpu_svm *svm, struct vmcb *vmcb);
+ int avic_incomplete_ipi_interception(struct kvm_vcpu *vcpu);
+ int avic_unaccelerated_access_interception(struct kvm_vcpu *vcpu);
+ int avic_init_vcpu(struct vcpu_svm *svm);
++void avic_vcpu_free(struct kvm_vcpu *vcpu);
+ void avic_vcpu_load(struct kvm_vcpu *vcpu, int cpu);
+ void avic_vcpu_put(struct kvm_vcpu *vcpu);
+ void avic_apicv_post_state_restore(struct kvm_vcpu *vcpu);

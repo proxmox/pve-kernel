@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jinu Kim <kimjw04271234@gmail.com>
+Date: Fri, 7 Aug 2026 20:28:18 +0900
+Subject: [PATCH] KVM: x86: Use active memslots for the per-vCPU MMIO cache
+
+KVM tags the per-vCPU MMIO cache with a memslot generation so that a
+memslot update invalidates cached MMIO information.  Both the fill and
+validation paths use kvm_memslots(), which unconditionally selects address
+space 0, even when the vCPU is running in SMM and using address space 1.
+
+Commit 56f17dd3fbc4 ("kvm: x86: fix stale mmio cache bug") added the
+memslot generation to the cache key so that a memslot update could not
+leave a stale entry valid.  When commit 699023e23965 ("KVM: x86: add SMM
+to the MMU role, support SMRAM address space") added the SMM address space,
+these helpers were not converted to use the active memslots.
+
+Consequently, an update to the SMM memslots can leave an entry from the old
+SMM address space apparently valid after the vCPU returns to the normal
+address space.  A guest can then cause an access to valid RAM at the same
+GFN to be returned to userspace as KVM_EXIT_MMIO.
+
+Completing that exit through the VMM's RAM address space writes the backing
+page without going through KVM's write-tracking path.  If the page backs a
+nested EPT table, KVM can continue using shadow translations derived from
+the old contents.  The WARN_ON_ONCE() in kvm_mmu_write_protect_fault()
+catches this invalid cache and memslot combination.
+
+Use the vCPU's active memslots when caching and validating the entry.
+Memslot generations are unique across address spaces, so the generation
+also distinguishes the normal and SMM views.  This matches the MMIO SPTE
+cache, which already uses kvm_vcpu_memslots().
+
+On an unpatched current-mainline kernel, a regression test that fills the
+cache in SMM and updates only the SMM memslots fails the intended RAM write
+and triggers the kvm_mmu_write_protect_fault() warning.  With this change,
+the same test completes the RAM write without a warning.  The x86/smm_test,
+set_memory_region_test, and memslot_modification_stress_test selftests also
+pass.
+
+Fixes: 699023e23965 ("KVM: x86: add SMM to the MMU role, support SMRAM address space")
+Cc: stable@vger.kernel.org
+Signed-off-by: Jinu Kim <kimjw04271234@gmail.com>
+Link: https://patch.msgid.link/20260807112818.958190-1-kimjw04271234@gmail.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit b3e6212dea2e4328a841ceb37f377583176dc735)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/x86.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/x86.h b/arch/x86/kvm/x86.h
+index 004b13c0ddbb46f3bc6e5da02acd892d1108cbc9..872fb7d70e0a331a6712b894850ad6718f7a5d2c 100644
+--- a/arch/x86/kvm/x86.h
++++ b/arch/x86/kvm/x86.h
+@@ -373,7 +373,7 @@ static inline bool is_noncanonical_invlpg_address(u64 la, struct kvm_vcpu *vcpu)
+ static inline void vcpu_cache_mmio_info(struct kvm_vcpu *vcpu,
+ 					gva_t gva, gfn_t gfn, unsigned access)
+ {
+-	u64 gen = kvm_memslots(vcpu->kvm)->generation;
++	u64 gen = kvm_vcpu_memslots(vcpu)->generation;
+ 
+ 	if (unlikely(gen & KVM_MEMSLOT_GEN_UPDATE_IN_PROGRESS))
+ 		return;
+@@ -390,7 +390,7 @@ static inline void vcpu_cache_mmio_info(struct kvm_vcpu *vcpu,
+ 
+ static inline bool vcpu_match_mmio_gen(struct kvm_vcpu *vcpu)
+ {
+-	return vcpu->arch.mmio_gen == kvm_memslots(vcpu->kvm)->generation;
++	return vcpu->arch.mmio_gen == kvm_vcpu_memslots(vcpu)->generation;
+ }
+ 
+ /*

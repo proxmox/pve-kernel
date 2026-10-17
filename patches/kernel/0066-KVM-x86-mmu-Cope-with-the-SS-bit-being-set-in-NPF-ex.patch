@@ -1,0 +1,108 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Fri, 9 Oct 2026 14:37:10 +0200
+Subject: [PATCH] KVM: x86/mmu: Cope with the SS bit being set in #NPF exit
+ codes
+
+When running Hyper-V from Windows 11, KVM is seeing the SS bit set
+in nested page fault error codes produced for shadowed NPT.  The AMD
+manual is unclear about when SS is set, including whether it can be set
+when SupervisorShadowStackEn (bit 6) is not set in the MISC_CTL field
+of the VMCB.
+
+Nevertheless, the unexpected SS bit causes out of bounds accesses in
+permission_fault(), seen as either WARNs or UBSAN reports:
+
+  kernel: UBSAN: array-index-out-of-bounds in arch/x86/kvm/mmu.h:225:27
+  kernel: index 34 is out of range for type 'u16 [16]'
+
+(in this case, the page fault error code is 34*2=0x44, i.e. SS|U; the
+report shows SS|U|W happening as well).  Fix the handling of unknown
+error codes by dropping SS and (with a WARN) any bits not among those
+that permission_fault() expects to receive.
+
+At the same time, given the uncertainty about when hardware sets SS,
+follow the processor's behavior when constructing the fault's error
+code, and preserve the SS bit as passed to FNAME(walk_addr_generic).
+While the behavior is surprising, there's a possibility that Hyper-V
+expects it (Hyper-V does not even enable CET unless it finds MBEC/GMET!),
+so retain the information when reflecting the fault to L1 instead of
+unconditionally discarding it.
+
+Bisection shows that this started happening with commit 687ee95c1b6d ("KVM:
+nSVM: enable GMET for guests"), even though SHSTK was available to guests
+since Linux 6.18.  However, this is not because bit 1 of MISC_CTL (GMET)
+somehow enables reporting the SS bit; rather, it's simply that Hyper-V
+never uses CET unless GMET is also present.  The WARN is reproducible
+even with gmet=0, with some hacking of kvm-unit-tests's cet.c testcase
+to ensure that the first access to the shadow stack triggers a page fault.
+
+Reported-by: SimonP <simonp.git@mailbox.org>
+Fixes: 8db428fd5229 ("KVM: SVM: Enable shadow stack virtualization for SVM")
+Cc: stable@vger.kernel.org
+Reviewed-by: Sean Christopherson <seanjc@google.com>
+Closes: https://lore.kernel.org/all/asUqYEisPp9MJ8mQ@rika.bernkas.tel
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit e90ab3669181c6469e3647ef2b30ae408275f496)
+[TL: adapt to the mmu-> naming of the MMU code in this tree]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu.h             | 16 ++++++++++++----
+ arch/x86/kvm/mmu/paging_tmpl.h |  3 +--
+ 2 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
+index ddf4e467c071ebc21d07613eda1f2ef6a91d16a6..fcb402a7150c9c1aad91c2421e49300434cd05e6 100644
+--- a/arch/x86/kvm/mmu.h
++++ b/arch/x86/kvm/mmu.h
+@@ -198,8 +198,18 @@ static inline u8 permission_fault(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+ 				  unsigned pte_access, unsigned pte_pkey,
+ 				  u64 access)
+ {
+-	/* strip nested paging fault error codes */
+-	unsigned int pfec = access;
++	/*
++	 * Of the error codes that do not contribute to the index in
++	 * mmu->permissions, PK and SS are not supported by shadow paging
++	 * and also not provided to EPT violations, but SS *is* included
++	 * in the NPT exit code.  RSVD faults are handled elsewhere.
++	 */
++	unsigned int pfec = access & ~PFERR_SS_MASK;
++	if (WARN_ON_ONCE(pfec & ~(PFERR_PRESENT_MASK | PFERR_WRITE_MASK |
++				  PFERR_USER_MASK | PFERR_FETCH_MASK)))
++		pfec &= (PFERR_PRESENT_MASK | PFERR_WRITE_MASK |
++			 PFERR_USER_MASK | PFERR_FETCH_MASK);
++
+ 	unsigned long rflags = kvm_x86_call(get_rflags)(vcpu);
+ 
+ 	/*
+@@ -223,8 +233,6 @@ static inline u8 permission_fault(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+ 	kvm_mmu_refresh_passthrough_bits(vcpu, mmu);
+ 
+ 	fault = (mmu->permissions[index] >> pte_access) & 1;
+-
+-	WARN_ON_ONCE(pfec & (PFERR_PK_MASK | PFERR_SS_MASK | PFERR_RSVD_MASK));
+ 	if (unlikely(mmu->pkru_mask)) {
+ 		u32 pkru_bits, offset;
+ 
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index 06dc898da9b6163346f28b2a3597b65bb282d439..60ffc6ff0e95c0cad4c11d111541ca863fcd7d38 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -326,7 +326,6 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 	int offset;
+ 	u64 walk_nx_mask = 0;
+ 	const int write_fault = access & PFERR_WRITE_MASK;
+-	const int user_fault  = access & PFERR_USER_MASK;
+ 	const int fetch_fault = access & PFERR_FETCH_MASK;
+ 	u16 errcode = 0;
+ 	gpa_t real_gpa;
+@@ -488,7 +487,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 	return 1;
+ 
+ error:
+-	errcode |= write_fault | user_fault;
++	errcode |= access & (PFERR_WRITE_MASK | PFERR_USER_MASK | PFERR_SS_MASK);
+ 	if (fetch_fault && has_pferr_fetch(mmu))
+ 		errcode |= PFERR_FETCH_MASK;
+ 

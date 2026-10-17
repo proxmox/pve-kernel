@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Amirmohammad Eftekhar <amirmohammadeftekhar@gmail.com>
+Date: Thu, 1 Oct 2026 14:43:54 -0700
+Subject: [PATCH] KVM: nVMX: Reset MMU back to the root MMU if loading L2 state
+ fails for !VM-Entry
+
+Reset the vCPU's MMU pointer back to the root MMU if loading L2 state fails
+in the "not from VM-Entry" case, i.e. when emulating RSM or handling
+KVM_SET_NESTED_STATE.  Failure to unwind the MMU pointer results in KVM
+trying to run L1 with a nested MMU, and is especially problematic if the
+vCPU manages to free its nested state before the VM crashes.  Constructing
+the root for a nested EPT MMU goes through vmcs12, which is dynamically
+allocated/freed when nVMX is enabled/disabled.  And so if the nested state
+is freed with the MMU still pointing at the nested MMU, KVM will hit a NULL
+pointer deref when attempting to get L1=>L2 EPTP.
+
+  BUG: kernel NULL pointer dereference, address: 0000000000000078
+  #PF: supervisor read access in kernel mode
+  #PF: error_code(0x0000) - not-present page
+  PGD 114a2d067 P4D 111743067 PUD 11141f067 PMD 0
+  Oops: Oops: 0000 [#1] SMP
+  CPU: 20 UID: 1000 PID: 1272 Comm: nested_tdp_faul Not tainted 7.3.0-rc4-8c89f11d1a99b-sink-vm #1914 PREEMPTLAZY
+  Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 0.0.0 02/06/2015
+  RIP: 0010:nested_ept_get_eptp+0xb/0x10 [kvm_intel]
+  Call Trace:
+   <TASK>
+   kvm_mmu_load+0xcd/0x870 [kvm]
+   kvm_arch_vcpu_ioctl_run+0x18f5/0x1f80 [kvm]
+   kvm_vcpu_ioctl+0x2c7/0x970 [kvm]
+   __x64_sys_ioctl+0x90/0xd0
+   do_syscall_64+0x9c/0x4d0
+   entry_SYSCALL_64_after_hwframe+0x4b/0x53
+  RIP: 0033:0x47491b
+   </TASK>
+  Modules linked in: kvm_intel kvm irqbypass
+  CR2: 0000000000000078
+  ---[ end trace 0000000000000000 ]---
+  RIP: 0010:nested_ept_get_eptp+0xb/0x10 [kvm_intel]
+
+Cc: David Woodhouse <dwmw2@infradead.org>
+Fixes: 72e9cbdb4338 ("KVM: nVMX: fix SMI injection in guest mode")
+Fixes: 8fcc4b5923af ("kvm: nVMX: Introduce KVM_CAP_NESTED_STATE")
+Cc: stable@vger.kernel.org
+Signed-off-by: Amirmohammad Eftekhar <amirmohammadeftekhar@gmail.com>
+[sean: write changelog]
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Link: https://patch.msgid.link/20261001214356.3825100-2-seanjc@google.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit c8f4cfe1cf93bce924e27f2abead7a4c4a487505)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/vmx/nested.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index 9e9719405993f335acca3d729e2ca617efee225f..00487f84998cbf513f3b3ef5626f4cadcd9c079f 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -3773,8 +3773,10 @@ enum nvmx_vmentry_status nested_vmx_enter_non_root_mode(struct kvm_vcpu *vcpu,
+ vmentry_fail_vmexit:
+ 	vmx_switch_vmcs(vcpu, &vmx->vmcs01);
+ 
+-	if (!from_vmentry)
++	if (!from_vmentry) {
++		nested_ept_uninit_mmu_context(vcpu);
+ 		return NVMX_VMENTRY_VMEXIT;
++	}
+ 
+ 	nested_put_vmcs12_pages(vcpu);
+ 
