@@ -1417,6 +1417,7 @@ mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin kernel/drivers/net/wireless/me
 mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin kernel/drivers/net/wireless/mediatek/mt76/mt7925/mt7925u.ko
 mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin kernel/drivers/net/wireless/mediatek/mt76/mt7925/mt7925e.ko
 mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin kernel/drivers/net/wireless/mediatek/mt76/mt7925/mt7925u.ko
+mediatek/mt7927/BT_RAM_CODE_MT6639_2_1_hdr.bin kernel/drivers/bluetooth/btmtk.ko
 mediatek/mt7996/mt7990_rom_patch.bin kernel/drivers/net/wireless/mediatek/mt76/mt7996/mt7996e.ko
 mediatek/mt7996/mt7990_wm.bin kernel/drivers/net/wireless/mediatek/mt76/mt7996/mt7996e.ko
 mediatek/mt7996/mt7992_dsp.bin kernel/drivers/net/wireless/mediatek/mt76/mt7996/mt7996e.ko
