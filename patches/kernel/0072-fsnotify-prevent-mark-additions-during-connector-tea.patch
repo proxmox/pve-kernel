@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Fri, 2 Oct 2026 05:59:02 +0000
+Subject: [PATCH] fsnotify: prevent mark additions during connector teardown
+
+fsnotify_destroy_marks() keeps a reference to its current mark while it
+drops conn->lock to destroy the mark. This stabilizes the forward-walk
+cursor, but does not prevent a new mark from being inserted before it.
+For example, an inotify watch re-added after IN_IGNORED sorts before the
+old, detached mark for the same group. The walk can miss the replacement
+and then detach the entire connector from the object.
+
+The replacement is still on its group's marks_list and, for inotify, in
+the watch IDR. The group mutex no longer protects the connector's object
+from disappearing. An unprivileged fdinfo read racing the final detach
+can consequently call igrab(NULL):
+
+  BUG: KASAN: null-ptr-deref in igrab+0x24/0x100
+  Write of size 4 at addr 0000000000000148
+  Call Trace:
+   igrab+0x24/0x100
+   inotify_show_fdinfo+0x1dc/0x5e0
+   seq_show+0x397/0x690
+
+Set a DESTROYING flag under conn->lock before starting the walk, and
+reject new marks on that connector with -ENOENT. The existing add-mark
+error paths undo the temporary group-list entry and the backend's watch
+allocation. Do not wait for teardown while holding the group mutex,
+which the destroyer needs. Once the old connector is detached, an add
+can install a fresh connector as before.
+
+This closes the insertion race for all object types using the common
+connector teardown, without changing the mark reference or SRCU lifetime
+rules.
+
+Fixes: 6b3f05d24d35 ("fsnotify: Detach mark from object list when last reference is dropped")
+Cc: stable@vger.kernel.org
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+(cherry picked from commit 36ebddca56b9d8993d6dc984fdecc748ee1f5e06)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/notify/mark.c                 | 11 +++++++++++
+ include/linux/fsnotify_backend.h |  1 +
+ 2 files changed, 12 insertions(+)
+
+diff --git a/fs/notify/mark.c b/fs/notify/mark.c
+index e256b420100dc89976abc914b5c51d05a922f9f3..47a72025985f3e8a4d60ad3aa677e037f9369cde 100644
+--- a/fs/notify/mark.c
++++ b/fs/notify/mark.c
+@@ -896,6 +896,11 @@ static int fsnotify_add_mark_list(struct fsnotify_mark *mark, void *obj,
+ 		goto restart;
+ 	}
+ 
++	if (conn->flags & FSNOTIFY_CONN_FLAG_DESTROYING) {
++		err = -ENOENT;
++		goto out_err;
++	}
++
+ 	/* is mark the first mark? */
+ 	if (hlist_empty(&conn->list)) {
+ 		hlist_add_head_rcu(&mark->obj_list, &conn->list);
+@@ -1083,6 +1088,12 @@ void fsnotify_destroy_marks(fsnotify_connp_t *connp)
+ 	conn = fsnotify_grab_connector(connp);
+ 	if (!conn)
+ 		return;
++	/*
++	 * New marks could be inserted before our cursor and survive the final
++	 * detachment of the connector from the object. Prevent additions to
++	 * this connector before dropping its lock.
++	 */
++	conn->flags |= FSNOTIFY_CONN_FLAG_DESTROYING;
+ 	/*
+ 	 * We have to be careful since we can race with e.g.
+ 	 * fsnotify_clear_marks_by_group() and once we drop the conn->lock, the
+diff --git a/include/linux/fsnotify_backend.h b/include/linux/fsnotify_backend.h
+index e5cde39d6e85d6c2310283cea7073a8bfe3851e7..e4d22de1e603563db35018388bcb63ebd5434eea 100644
+--- a/include/linux/fsnotify_backend.h
++++ b/include/linux/fsnotify_backend.h
+@@ -546,6 +546,7 @@ struct fsnotify_mark_connector {
+ 	unsigned char prio;	/* Highest priority group */
+ #define FSNOTIFY_CONN_FLAG_IS_WATCHED	0x01
+ #define FSNOTIFY_CONN_FLAG_HAS_IREF	0x02
++#define FSNOTIFY_CONN_FLAG_DESTROYING	0x04
+ 	unsigned short flags;	/* flags [lock] */
+ 	union {
+ 		/* Object pointer [lock] */
