@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ben Cressey <ben@cressey.dev>
+Date: Wed, 26 Aug 2026 00:25:33 +0000
+Subject: [PATCH] dm-crypt: fix a tiny race condition in crypt_dec_pending
+
+crypt_dec_pending reads io->error before calling atomic_dec_and_test.
+Another context, for example crypt_endio called from an interrupt, may
+set io->error and drop its reference between the read and the
+decrement. crypt_dec_pending then drops the last reference and completes
+the bio with the stale status - so a read that failed and was never
+decrypted, or a write that failed, is reported as successful.
+
+The read was placed before the decrement by commit b35f8caa0890 ("dm
+crypt: wait for endio to complete before destruction"), because that
+commit freed dm_crypt_io before calling bio_endio. This is no longer the
+case, dm_crypt_io lives in the per-bio data now.
+
+Read io->error after atomic_dec_and_test instead. atomic_dec_and_test is
+fully ordered, so no additional barrier is needed.
+
+Fixes: b35f8caa0890 ("dm crypt: wait for endio to complete before destruction")
+Cc: stable@vger.kernel.org
+Reviewed-by: Jose Fernandez (Anthropic) <jose.fernandez@linux.dev>
+Signed-off-by: Ben Cressey <ben@cressey.dev>
+Assisted-by: Claude:unspecified
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+(cherry picked from commit 148845aa1921d95ef5dc851c76e6a284f6657df6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/md/dm-crypt.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/md/dm-crypt.c b/drivers/md/dm-crypt.c
+index dfc8e1839f66282ea224c1f70a4baade802d6519..6c314ecccd74fea1f465d99956f46c8061531faf 100644
+--- a/drivers/md/dm-crypt.c
++++ b/drivers/md/dm-crypt.c
+@@ -1780,7 +1780,6 @@ static void crypt_dec_pending(struct dm_crypt_io *io)
+ {
+ 	struct crypt_config *cc = io->cc;
+ 	struct bio *base_bio = io->base_bio;
+-	blk_status_t error = io->error;
+ 
+ 	if (!atomic_dec_and_test(&io->io_pending))
+ 		return;
+@@ -1802,7 +1801,7 @@ static void crypt_dec_pending(struct dm_crypt_io *io)
+ 	else
+ 		kfree(io->integrity_metadata);
+ 
+-	base_bio->bi_status = error;
++	base_bio->bi_status = io->error;
+ 
+ 	bio_endio(base_bio);
+ }
