@@ -1,3 +1,49 @@
+proxmox-kernel-7.0 (7.0.14-26) trixie; urgency=medium
+
+  * fix #8153: revert a CXL change that broke building the NVIDIA open GPU
+    kernel modules since 7.0.14-20.
+
+  * fix #7653: ZFS: fix memory-mapped files serving stale data after a
+    rollback or a receive into their mounted dataset, which could affect
+    containers after storage replication or migration. The data on disk was
+    not affected.
+
+  * fix #8178: ZFS: fix a race in the ARC that could cause a kernel panic and
+    leave the pool hung, seen on nodes receiving storage replication into
+    encrypted datasets.
+
+  * ZFS: fix possible crashes while data is being written to L2ARC cache
+    devices.
+
+  * ZFS: let symlinks, device nodes and FIFOs inherit the project ID too and
+    allow renames within a directory under project quota inheritance, fixing
+    commands like "ln -sfn" failing there with "Invalid cross-device link".
+    Such newly created objects now count towards the project quota.
+
+  * cgroup: fix processes being killed right after creation when cloned
+    directly into a cgroup that cgroup.kill was used on before, as LXC does
+    when starting containers.
+
+  * fs: fix file creation with O_CREAT spuriously failing with "No such file
+    or directory" under concurrent access.
+
+  * dm-crypt: fix a race that could report failed I/O as successful.
+
+  * x86: fix a possible kernel panic when running as a KVM guest, for example
+    in nested setups.
+
+  * KVM: avoid discarding page tables that nested guests still use when
+    reclaiming shadow pages.
+
+  * fix a crash and a hang that local users could trigger through inotify and
+    io_uring, and a CPU lockup through AIO polling.
+
+  * net/sched: fix an out-of-bounds read when setting up tc flower filters,
+    which users with network admin rights, for example in containers, could
+    trigger.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 22 Oct 2026 20:45:24 +0200
+
 proxmox-kernel-7.0 (7.0.14-25) trixie; urgency=medium
 
   * update sources to Ubuntu-7.0.0-43.43i1, based on the upstream stable
