@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daehyeon Ko <4ncienth@gmail.com>
+Date: Thu, 13 Aug 2026 22:38:43 +0900
+Subject: [PATCH] aio: prevent eventfd/epoll recursion on poll
+
+aio_poll_wake() can complete a keyed poll request inline while the
+provider waitqueue lock is held.  If the polled file is an epoll instance
+and the AIO result eventfd is watched by that same instance, signaling the
+result can feed back into epoll and try to take the provider waitqueue lock
+again.
+
+For example, a timerfd wake can follow this path:
+
+  timerfd -> ep_poll_callback -> aio_poll_wake -> aio_complete
+          -> eventfd_signal -> ep_poll_callback -> ep_poll_safewake
+
+The second ep_poll_safewake() recursively acquires ep->poll_wait.lock.
+eventfd_signal_allowed() does not prevent this because the wake chain did
+not begin in eventfd, so the task's eventfd recursion bit is still clear
+when aio_poll_wake() decides to complete inline.
+
+An unprivileged process can construct this graph and make a CPU spin on the
+recursive lock.  DEBUG_SPINLOCK reports "BUG: spinlock recursion", and
+lockdep reports the same epoll waitqueue lock as both held and requested.
+
+Always defer eventfd-backed poll completions through the existing
+aio_poll_put_work() path.  At this point the request has already been
+detached from the waitqueue and active request list, so the work item can
+publish the completion after the provider callback releases its lock.
+Poll completions without a result eventfd remain inline.
+
+Fixes: e8693bcfa0b4 ("aio: allow direct aio poll comletions for keyed wakeups")
+Cc: stable@vger.kernel.org
+Signed-off-by: Daehyeon Ko <4ncienth@gmail.com>
+Link: https://patch.msgid.link/20260813133843.2933127-1-4ncienth@gmail.com
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+(cherry picked from commit 398e3fa789aa5ffddc8689d8cbc7b31e1824130c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/aio.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/fs/aio.c b/fs/aio.c
+index a07bdd1aaaa6097905a344cda16ae43aba0aca52..322813577551c207a7528a5c02c362e8894bab31 100644
+--- a/fs/aio.c
++++ b/fs/aio.c
+@@ -1815,7 +1815,12 @@ static int aio_poll_wake(struct wait_queue_entry *wait, unsigned mode, int sync,
+ 		list_del_init(&req->wait.entry);
+ 		list_del(&iocb->ki_list);
+ 		iocb->ki_res.res = mangle_poll(mask);
+-		if (iocb->ki_eventfd && !eventfd_signal_allowed()) {
++		/*
++		 * We hold an arbitrary provider waitqueue lock here.  Signaling a
++		 * result eventfd can feed back through epoll and try to take the same
++		 * lock again.  Defer all eventfd-backed poll completions.
++		 */
++		if (iocb->ki_eventfd) {
+ 			iocb = NULL;
+ 			INIT_WORK(&req->work, aio_poll_put_work);
+ 			schedule_work(&req->work);

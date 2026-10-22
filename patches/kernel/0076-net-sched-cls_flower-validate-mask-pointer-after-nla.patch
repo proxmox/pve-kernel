@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aohan Mei <henrymei@tencent.com>
+Date: Wed, 26 Aug 2026 10:51:20 +0800
+Subject: [PATCH] net/sched: cls_flower: validate mask pointer after nla_next()
+
+fl_set_enc_opt() iterates the key's nested tunnel-option attributes
+with nla_for_each_attr() while advancing a single mask pointer via
+nla_next() at the bottom of each loop, so the mask cursor is driven
+by the number of key attributes rather than by the mask's own
+attributes.  The nla_ok() added by commit c96adff956191 ("cls_flower:
+call nla_ok() before nla_next()") only validates the mask pointer
+that was just consumed; the pointer produced by nla_next() is used by
+the next iteration (fl_set_geneve_opt() and siblings) without any
+validation.
+
+The mask's nested attributes are validated with NL_VALIDATE_LIBERAL,
+which merely warns on trailing bytes that do not form a complete
+attribute.  A mask carrying one valid attribute plus 1-3 residue
+bytes (or a non-aligned attribute length making msk_depth negative)
+therefore reaches the next iteration with msk_depth != 0, so neither
+the !msk_depth check in fl_set_enc_opt() nor the !depth check in the
+per-type helpers fires.  nla_type() then reads past the mask payload
+and nla_parse_nested_deprecated() iterates with an nla_len taken
+from those bytes, reading well beyond the mask attribute (KASAN:
+slab-out-of-bounds read in __nla_validate_parse from fl_change()).
+
+Validate the advanced mask pointer as well: when the mask is not
+legitimately exhausted (msk_depth != 0) and the new pointer fails
+nla_ok(), reject the filter with -EINVAL.  An exactly exhausted mask
+still skips the check, preserving exact-match behaviour for the
+remaining key attributes.
+
+Fixes: c96adff95619 ("cls_flower: call nla_ok() before nla_next()")
+Reported-by: TencentOS Corvus AI <corvus@tencent.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Aohan Mei <henrymei@tencent.com>
+Link: https://patch.msgid.link/20260826025123.62758-1-ljp1205831794@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit fee10655709c5c597e8e9f722f3035d9ea31ff3a)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sched/cls_flower.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 1d2b1972108347096940b45e0889e1329e18d128..becc4581d2a4905d8ff33ddec186d2fb001237fa 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -1707,6 +1707,11 @@ static int fl_set_enc_opt(struct nlattr **tb, struct fl_flow_key *key,
+ 			return -EINVAL;
+ 		}
+ 		nla_opt_msk = nla_next(nla_opt_msk, &msk_depth);
++
++		if (msk_depth && !nla_ok(nla_opt_msk, msk_depth)) {
++			NL_SET_ERR_MSG(extack, "A mask attribute is invalid");
++			return -EINVAL;
++		}
+ 	}
+ 
+ 	return 0;
