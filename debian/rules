@@ -30,6 +30,10 @@ PMX_CONFIG_OPTS = \
 $(shell cat debian/rules.d/config-common.opts) \
 $(shell cat debian/rules.d/config-$(DEB_BUILD_ARCH).opts 2>/dev/null)
 
+# The objtool klp code in the Ubuntu base relies on helpers it does not carry
+# and fails to build whenever libxxhash-dev is installed. Build objtool without
+# klp support, as on hosts without that library; klp-build is not used.
+OBJTOOL_OPTS = HAVE_XXHASH=n
 
 debian/control: $(wildcard debian/*.in)
 	sed -e 's/@@KVNAME@@/$(KVNAME)/g' < debian/proxmox-kernel.prerm.in > debian/$(PMX_KERNEL_PKG).prerm
@@ -86,7 +90,7 @@ binary: install
 	touch $@
 
 .compile_mark: .config_mark
-	$(MAKE) -C $(KERNEL_SRC) KBUILD_BUILD_VERSION_TIMESTAMP="PMX $(DEB_VERSION) ($(CHANGELOG_DATE_UTC_ISO))"
+	$(MAKE) -C $(KERNEL_SRC) $(OBJTOOL_OPTS) KBUILD_BUILD_VERSION_TIMESTAMP="PMX $(DEB_VERSION) ($(CHANGELOG_DATE_UTC_ISO))"
 	touch $@
 
 .install_mark: .compile_mark .modules_compile_mark
@@ -209,7 +213,7 @@ endif
 	rm -rf $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG)
 	mkdir -p $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG)
 	cp $(KERNEL_SRC)/.config $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG)/.config
-	$(MAKE) -C $(KERNEL_SRC_COPY) O=$(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG) -j1 syncconfig modules_prepare prepare scripts
+	$(MAKE) -C $(KERNEL_SRC_COPY) O=$(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG) $(OBJTOOL_OPTS) -j1 syncconfig modules_prepare prepare scripts
 	cd $(KERNEL_SRC_COPY); cp -a include scripts $(BUILD_DIR)/debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)
 	find $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG) -name \*.o.ur-\* -o -name '*.cmd' | xargs rm -f
 	rsync --ignore-existing -r -v -a $(addprefix $(BUILD_DIR)/$(KERNEL_SRC_COPY)/$(PMX_HEADER_PKG)/,arch include kernel scripts tools) $(BUILD_DIR)/debian/$(PMX_HEADER_PKG)/usr/src/linux-headers-$(KVNAME)/
