@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hyunwoo Kim <imv4bel@gmail.com>
+Date: Sun, 12 Jul 2026 10:14:50 +0900
+Subject: [PATCH] KVM: x86/mmu: Preserve nested TDP shadow page tables if they
+ are used as roots
+
+kvm_mmu_zap_oldest_mmu_pages() excludes a shadow page whose root_count
+is non-zero from top-level reclaim, because such a page cannot be
+freed. The path in mmu_page_zap_pte() that recursively zaps a parentless
+nested TDP child has no such check. As a result, a shadow page can
+be zapped even if the page itself can't be freed; as the comment in
+kvm_mmu_zap_oldest_mmu_pages() notes, zapping it will just force vCPUs
+to rebuild the page.
+
+As in top-level reclaim, do not recursively prepare zapping of a
+nested TDP child whose root_count is non-zero.
+
+Fixes: 2de4085cccea ("KVM: x86/MMU: Recursively zap nested TDP SPs when zapping last/only parent")
+Signed-off-by: Hyunwoo Kim <imv4bel@gmail.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 7a2c70e777a00c32ebafd376a6fe31ebb91c5b20)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/mmu.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index 592bf2a6c8ea9934663b9756fd08dd8383a566ef..f01105587d226e7eef386f3aaf20bfff2ddcce4b 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -2636,6 +2636,7 @@ static int mmu_page_zap_pte(struct kvm *kvm, struct kvm_mmu_page *sp,
+ 			 */
+ 			if (tdp_enabled && invalid_list &&
+ 			    child->role.guest_mode &&
++			    !child->root_count &&
+ 			    !atomic_long_read(&child->parent_ptes.val))
+ 				return kvm_mmu_prepare_zap_page(kvm, child,
+ 								invalid_list);
