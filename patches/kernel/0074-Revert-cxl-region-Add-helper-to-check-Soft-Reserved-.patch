@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fabian=20Gr=C3=BCnbichler?= <f.gruenbichler@proxmox.com>
+Date: Thu, 22 Oct 2026 13:59:29 +0200
+Subject: [PATCH] Revert "cxl/region: Add helper to check Soft Reserved
+ containment by CXL regions"
+
+This reverts commit 86e96316b55f726c46dac841ea17ddfd36563df4.
+---
+ drivers/cxl/core/region.c | 30 ------------------------------
+ include/cxl/cxl.h         | 15 ---------------
+ 2 files changed, 45 deletions(-)
+ delete mode 100644 include/cxl/cxl.h
+
+diff --git a/drivers/cxl/core/region.c b/drivers/cxl/core/region.c
+index b568e9cd3d57c58fed26e4a7dcee867d4e972fd7..a664f3b6cdec4778b02397e450b1b5ef83297288 100644
+--- a/drivers/cxl/core/region.c
++++ b/drivers/cxl/core/region.c
+@@ -12,7 +12,6 @@
+ #include <linux/idr.h>
+ #include <linux/memory-tiers.h>
+ #include <linux/string_choices.h>
+-#include <cxl/cxl.h>
+ #include <cxlmem.h>
+ #include <cxl.h>
+ #include "core.h"
+@@ -4178,35 +4177,6 @@ static int cxl_region_setup_poison(struct cxl_region *cxlr)
+ 	return devm_add_action_or_reset(dev, remove_debugfs, dentry);
+ }
+ 
+-static int region_contains_resource(struct device *dev, void *data)
+-{
+-	struct resource *res = data;
+-	struct cxl_region *cxlr;
+-	struct cxl_region_params *p;
+-
+-	if (!is_cxl_region(dev))
+-		return 0;
+-
+-	cxlr = to_cxl_region(dev);
+-	p = &cxlr->params;
+-
+-	if (p->state != CXL_CONFIG_COMMIT)
+-		return 0;
+-
+-	if (!p->res)
+-		return 0;
+-
+-	return resource_contains(p->res, res) ? 1 : 0;
+-}
+-
+-bool cxl_region_contains_resource(struct resource *res)
+-{
+-	guard(rwsem_read)(&cxl_rwsem.region);
+-	return bus_for_each_dev(&cxl_bus_type, NULL, res,
+-				region_contains_resource) != 0;
+-}
+-EXPORT_SYMBOL_GPL(cxl_region_contains_resource);
+-
+ static int cxl_region_can_probe(struct cxl_region *cxlr)
+ {
+ 	struct cxl_region_params *p = &cxlr->params;
+diff --git a/include/cxl/cxl.h b/include/cxl/cxl.h
+deleted file mode 100644
+index b12d3d0f665884bbd39ef6fea4f969a417fdfd95..0000000000000000000000000000000000000000
+--- a/include/cxl/cxl.h
++++ /dev/null
+@@ -1,15 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0-only */
+-/* Copyright (c) 2026 Advanced Micro Devices, Inc. */
+-#ifndef _CXL_H_
+-#define _CXL_H_
+-
+-#ifdef CONFIG_CXL_REGION
+-bool cxl_region_contains_resource(struct resource *res);
+-#else
+-static inline bool cxl_region_contains_resource(struct resource *res)
+-{
+-	return false;
+-}
+-#endif
+-
+-#endif /* _CXL_H_ */
