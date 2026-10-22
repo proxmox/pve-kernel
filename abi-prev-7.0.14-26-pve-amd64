@@ -13724,7 +13724,6 @@ EXPORT_SYMBOL_GPL drivers/crypto/ccp/ccp 0xdaece2a5	sev_guest_activate
 EXPORT_SYMBOL_GPL drivers/crypto/ccp/ccp 0xe2866a1f	snp_reclaim_pages
 EXPORT_SYMBOL_GPL drivers/crypto/ccp/ccp 0xf9238206	sev_do_cmd
 EXPORT_SYMBOL_GPL drivers/cxl/core/cxl_core 0x50cf69ce	cxl_dpa_setup
-EXPORT_SYMBOL_GPL drivers/cxl/core/cxl_core 0x897712f3	cxl_region_contains_resource
 EXPORT_SYMBOL_GPL drivers/cxl/core/cxl_core 0xabc90a4d	cxl_cper_handle_prot_err
 EXPORT_SYMBOL_GPL drivers/dca/dca 0x0e6608aa	dca_get_tag
 EXPORT_SYMBOL_GPL drivers/dca/dca 0x47886e07	dca_register_notify
