@@ -1,0 +1,108 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yosry Ahmed <yosry@kernel.org>
+Date: Thu, 3 Sep 2026 22:32:58 +0000
+Subject: [PATCH] KVM: SVM: Trigger new ASID allocation in both VMCBs on pCPU
+ switch
+
+When the pCPU where the VMCB was most recently used is switched, reset
+the ASID generation in both VMCBs, triggering new ASID allocation for
+the immediate VMRUN as well as the next VMRUN on the other VMCB.
+
+The ASID is shared between vmcb01 and vmcb02, and gets flushed on every
+nested transition. However, since pCPU tracking is done per VMCB, it is
+possible for one VMCB to allocate a new ASID when migrated to a new
+pCPU, and then the other VMCB reuses that ASID on the old pCPU. This can
+result in the same ASID being used by multiple vCPUs on the old pCPU.
+
+Example scenario:
+- vCPU runs on pCPU A, vmcb01 is active, asid=1.
+- vCPU migrates to pCPU B, vmcb01 pCPU changes, new asid=2.
+- Another vCPU runs on pCPU A and allocates asid=2 as well.
+- vCPU migrates back to pCPU A, and then switches to vmcb02 before it
+  runs again with vmcb01.
+- No pCPU switch is detected for vmcb02, so VMRUN is done with asid=2.
+- Two vCPUs end up using asid=2 on the same pCPU.
+
+Keep the VMCB dirtying to the active VMCB only. Clean bits are tracked
+by a pCPU for each VMCB, so do not unnecessarily dirty a VMCB if its
+pCPU does not change.
+
+Additionally, initialize the tracked pCPU for vmcb02 to -1 on nested
+enablement as hardening, so that a new ASID allocation is always
+triggered when nested is disabled and re-enabled.
+
+No performance regression was noticed when overcommitting L1 vCPUs in L0
+(to force rescheduling), pinning L1 <-> L2 vCPUs, and running CPUID in a
+tight loop bouncing between 2 vCPUs in L2.
+
+An alternative (and perhaps more proper) fix would be tracking the ASID
+per-VMCB instead (e.g. [1]). However, that's a more involved change, and
+it would result in having different ASIDs for L1 and L2 without actually
+properly maintaining them. It would probably work because all TLB
+flushes target the current VMCB, and the other VMCB is always flushed on
+nested transitions, but the code ends up in an arguably more fragile
+state. Punt a proper clean fix to an incoming (and overdue) overhaul of
+SVM's ASID usage [2].
+
+[1] https://lore.kernel.org/lkml/20250205182402.2147495-2-yosry.ahmed@linux.dev
+[2] https://lore.kernel.org/kvm/20260728003557.1136583-1-yosry@kernel.org
+
+Cc: stable@vger.kernel.org
+Reported-by: Stefan Teodorescu <fane@google.com>
+Signed-off-by: Yosry Ahmed <yosry@kernel.org>
+Reviewed-by: Nikunj A Dadhania <nikunj@amd.com>
+Link: https://patch.msgid.link/20260903223258.486034-1-yosry@kernel.org
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit bf260dc9e7b8bfcd06c1a8e739797b1cf0917c72)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/svm/nested.c |  1 +
+ arch/x86/kvm/svm/svm.c    | 19 +++++++++++++++----
+ 2 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index 8adb633f89754741e857e4e7956ed87fad1e2e0c..723ebd2701bb7fc9503e3b08652db0da28d10c28 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -1407,6 +1407,7 @@ int svm_allocate_nested(struct vcpu_svm *svm)
+ 	if (!svm->nested.msrpm)
+ 		goto err_free_vmcb02;
+ 
++	svm->nested.vmcb02.cpu = -1;
+ 	svm->nested.initialized = true;
+ 	return 0;
+ 
+diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
+index dd882c0a58546738413fd0dc33ccfc74b7a478a8..c5090bc7f3a4222d490d0c68af955d4de62084f0 100644
+--- a/arch/x86/kvm/svm/svm.c
++++ b/arch/x86/kvm/svm/svm.c
+@@ -3711,14 +3711,25 @@ static int pre_svm_run(struct kvm_vcpu *vcpu)
+ 	struct vcpu_svm *svm = to_svm(vcpu);
+ 
+ 	/*
+-	 * If the previous vmrun of the vmcb occurred on a different physical
+-	 * cpu, then mark the vmcb dirty and assign a new asid.  Hardware's
+-	 * vmcb clean bits are per logical CPU, as are KVM's asid assignments.
++	 * If the previous VMRUN of the VMCB occurred on a different physical
++	 * cpu, then mark the VMCB dirty as hardware's clean bits are per pCPU.
++	 *
++	 * Reset the ASID generation in both VMCBs. This will lead to assigning
++	 * a new ASID now, and then again when switching to the other VMCB.
++	 * However, this is needed as the ASID is shared between the VMCBs, and
++	 * otherwise it would be possible to use an ASID allocated on one pCPU
++	 * on another, for example:
++	 * - vCPU migrates from pCPU A to pCPU B, allocates a new ASID.
++	 * - vCPU migrates back to pCPU A, and then switches the VMCB.
++	 * - The new VMCB does not detect a pCPU change and runs on pCPU A with
++	 *   the new ASID allocated on pCPU B, which is potentially used by
++	 *   another vCPU/VM.
+ 	 */
+ 	if (unlikely(svm->current_vmcb->cpu != vcpu->cpu)) {
+-		svm->current_vmcb->asid_generation = 0;
+ 		vmcb_mark_all_dirty(svm->vmcb);
+ 		svm->current_vmcb->cpu = vcpu->cpu;
++		svm->vmcb01.asid_generation = 0;
++		svm->nested.vmcb02.asid_generation = 0;
+         }
+ 
+ 	if (sev_guest(vcpu->kvm))

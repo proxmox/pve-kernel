@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 2 Sep 2026 16:20:25 -0700
+Subject: [PATCH] KVM: nSVM: Ignore EFER.LMA if EFER.LME=0 when preparing L2
+ state
+
+Force EFER.LMA=0 if EFER.LME=0 when preparing L2 state for VMRUN, i.e.
+mimic real hardware's behavior of ignoring EFER.LMA if EFER.LME=0.  VMRUN
+unfortunately allows the nonsensical combination, i.e. doesn't fail, but
+KVM itself has an invariant EFER.LMA can be set et if and only if EFER.LME
+is set.   Breaking that invariant can lead to a variety of issue,
+particularly in MMU code that keys off EFER.LMA when determining whether to
+emulate/virtualization 4/5-level paging versus PAE paging.
+
+Cc: stable@vger.kernel.org
+Cc: Yosry Ahmed <yosry@kernel.org>
+Link: https://patch.msgid.link/20260902232028.2767071-3-seanjc@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit 1c4c84a643b704e473cb171f7b61359ff29b12a4)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/svm/nested.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index 723ebd2701bb7fc9503e3b08652db0da28d10c28..ebbdb84fe51ad2734c4b4c4d6d5265b35ecec54f 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -708,6 +708,10 @@ static void nested_vmcb02_prepare_save(struct vcpu_svm *svm, struct vmcb *vmcb12
+ 
+ 	kvm_set_rflags(vcpu, vmcb12->save.rflags | X86_EFLAGS_FIXED);
+ 
++	/* SVM ignores EFER.LMA if EFER.LME=0 (instead of failing VMRUN). */
++	if (!(svm->nested.save.efer & EFER_LME))
++		svm->nested.save.efer &= ~EFER_LMA;
++
+ 	svm_set_efer(vcpu, svm->nested.save.efer);
+ 
+ 	svm_set_cr0(vcpu, svm->nested.save.cr0);
