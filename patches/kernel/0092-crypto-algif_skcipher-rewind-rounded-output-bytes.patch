@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daehyeon Ko <4ncienth@gmail.com>
+Date: Sun, 4 Oct 2026 14:09:46 +0900
+Subject: [PATCH] crypto: algif_skcipher - rewind rounded output bytes
+
+af_alg_get_rsgl() advances the receive iterator by the unrounded RX
+scatterlist length.  For a continuing skcipher request,
+_skcipher_recvmsg() then rounds its local length down to a whole chunksize
+without restoring the iterator.
+
+A later chunk starts after bytes which the provider never wrote, while the
+syscall returns only the processed length.  When copy_splice_read()
+supplies non-zeroed pages and publishes that return as a dense prefix, the
+gap exposes stale bytes from a previous page lifetime.
+
+With unprivileged xts(aes), a 31-byte MSG_MORE request followed by one
+final byte advances a 47-byte destination while returning 32 bytes.  A
+hardened v7.2-rc5 image retained all 15 seeded stale bytes in 4,829 of
+4,829 records.  With init_on_alloc enabled, all 72,345 gap bytes observed
+were zero.
+
+Rewind the iterator by the tail excluded during rounding, before rejecting
+a zero processed length.  The crypto request uses only the rounded length;
+af_alg_free_resources() releases the entire RX list before another receive
+iteration.
+
+The fixed target-like kernel returned byte-identical dense 48-byte output
+in 4,771 of 4,771 rounds.  The unmodified kernel returned the vulnerable
+32-byte short record in 2,409 of 2,409 rounds.
+
+Fixes: e870456d8e7c ("crypto: algif_skcipher - overhaul memory management")
+Cc: stable@vger.kernel.org
+Assisted-by: LLM
+Signed-off-by: Daehyeon Ko <4ncienth@gmail.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+(cherry picked from commit 2f90facc7b94934653eb7ebfadcc25d503b89196)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ crypto/algif_skcipher.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
+index 35ebc3e0201b0441cbd480d41da6d7727a7f3a88..b245d37db76b70c00e8c560a6f96adaecc10b1cb 100644
+--- a/crypto/algif_skcipher.c
++++ b/crypto/algif_skcipher.c
+@@ -116,12 +116,16 @@ static int _skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
+ 	 * full block size buffers.
+ 	 */
+ 	if (ctx->more || len < ctx->used) {
+-		if (len < bs) {
++		size_t excess = len % bs;
++
++		len -= excess;
++		iov_iter_revert(&msg->msg_iter, excess);
++
++		if (!len) {
+ 			err = -EINVAL;
+ 			goto free;
+ 		}
+ 
+-		len -= len % bs;
+ 		cflags |= CRYPTO_SKCIPHER_REQ_NOTFINAL;
+ 	}
+ 

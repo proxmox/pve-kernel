@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Sun, 18 Oct 2026 17:30:00 -0700
+Subject: [PATCH] block: restore the iterator when rejecting a misaligned bio
+
+bio_iov_iter_get_pages() can extract some iovecs before encountering a
+misaligned one.  It releases the pages and rejects the entire bio, but
+leaves the supplied iterator advanced.
+
+An iomap direct-I/O caller may subsequently reexpand the iterator's
+byte count and fall back to buffered I/O.  The reexpanded count then
+includes bytes before the iterator's current segment, potentially
+causing iterate_iovec() to read beyond the imported iovec array.
+
+In a reproducer using an initial empty iovec followed by 10-byte and
+1015-byte segments, writev() returned 1015 instead of 1025 and KASAN
+reported an 8-byte read beyond the nine-element iovec allocation.
+Saving and restoring the iterator on the rejected-bio path makes
+writev() return 1025 and eliminates the KASAN report.
+
+Restore the entire iterator rather than reverting a byte count:
+advancing past an empty segment changes its position without consuming
+any bytes.
+
+Leave successful and partially accepted bio paths unchanged.
+
+Fixes: 14b007e17881 ("block: validate user space vectors during extraction")
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reported-by: Haocheng Yu <l1za0.sec@gmail.com>
+Closes: https://lore.kernel.org/20261018081203.2431035-1-l1za0.sec@gmail.com
+Cc: Jens Axboe <axboe@kernel.dk>
+Cc: Keith Busch <kbusch@kernel.org>
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: Tal Zussman <tz2294@columbia.edu>
+Cc: Daehyeon Ko <4ncienth@gmail.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Hannes Reinecke <hare@kernel.org>
+Cc: stable@vger.kernel.org
+Link: https://patch.msgid.link/20261020170250.014BD1F000C9@smtp.kernel.org
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+(cherry picked from commit 40d070cbb1906896d6fd65c39722d2411830ed9f)
+[TL: adapt to the base, which releases the pages of a misaligned bio
+ inside the extraction loop]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ block/bio.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/block/bio.c b/block/bio.c
+index 8c3340e2b47bdf2a0d29cedc4a09fe42808950d2..c4702bd314d7887c0ca4b4dcb869ce631639a2e6 100644
+--- a/block/bio.c
++++ b/block/bio.c
+@@ -1302,6 +1302,7 @@ int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
+ 			   unsigned mem_align_mask, unsigned len_align_mask)
+ {
+ 	iov_iter_extraction_t flags = 0;
++	struct iov_iter saved_iter;
+ 
+ 	if (WARN_ON_ONCE(bio_flagged(bio, BIO_CLONED)))
+ 		return -EIO;
+@@ -1321,6 +1322,7 @@ int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
+ 	if (bio->bi_bdev && blk_queue_pci_p2pdma(bio->bi_bdev->bd_disk->queue))
+ 		flags |= ITER_ALLOW_P2PDMA;
+ 
++	saved_iter = *iter;
+ 	do {
+ 		ssize_t ret;
+ 
+@@ -1338,6 +1340,7 @@ int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
+ 				bio_release_pages(bio, false);
+ 				bio_clear_flag(bio, BIO_PAGE_PINNED);
+ 				bio->bi_vcnt = 0;
++				*iter = saved_iter;
+ 			}
+ 			if (!bio->bi_vcnt)
+ 				return ret;
