@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Tue, 6 Oct 2026 21:10:01 -0700
+Subject: [PATCH] mm/khugepaged: flush deferred unmaps before dropping a failed
+ folio
+
+collapse_file() can fail its reference-count or dirty-folio check after
+unmapping with TTU_BATCH_FLUSH.  Both paths put back the isolated folio,
+then unlock it and drop the lookup reference before reaching the common
+try_to_unmap_flush().
+
+The page-cache reference does not keep the folio stable once the lock is
+released.  Another collapse can replace and free it.  With its PTEs
+already gone, that collapse cannot flush the first task's per-task TLB
+batch, and retract_page_tables() skips short or unaligned VMAs.  A CPU can
+therefore retain a user translation to the freed folio.  This has been
+reproduced with unprivileged MADV_COLLAPSE on a memfd.
+
+Flush at out_unlock while the lookup reference and folio lock are still
+held.  The common flush continues to cover the accumulated pagelist on
+both success and rollback, preserving batching on successful collapses.
+
+Link: https://lore.kernel.org/20261007041001.43181-1-kylebot@openai.com
+Fixes: 6d9df8a5889c ("mm/thp: collapse_file() do try_to_unmap(TTU_BATCH_FLUSH)")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Acked-by: David Hildenbrand (Arm) <david@kernel.org>
+Reviewed-by: Zi Yan <ziy@nvidia.com>
+Reviewed-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Acked-by: Hugh Dickins <hughd@google.com>
+Assisted-by: LLM
+Cc: Barry Song <baohua@kernel.org>
+Cc: Dev Jain <dev.jain@arm.com>
+Cc: Kiryl Shutsemau <kas@kernel.org>
+Cc: Lance Yang <lance.yang@linux.dev>
+Cc: "Liam R. Howlett" <liam@infradead.org>
+Cc: Nico Pache <nico.pache@linux.dev>
+Cc: Ryan Roberts <ryan.roberts@arm.com>
+Cc: Usama Arif <usama.arif@linux.dev>
+Cc: Matthew Wilcox (Oracle) <willy@infradead.org>
+Cc: <stable@vger.kernel.org>
+(cherry picked from commit bba1cb4bc34d43fda60c3c4567e2ca5459822a2a)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/khugepaged.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/mm/khugepaged.c b/mm/khugepaged.c
+index 8bf666b558eb828f18b66e28f84f23e710a0398f..97590835462460fb574fdf9e2ac8fb32df0bb1e5 100644
+--- a/mm/khugepaged.c
++++ b/mm/khugepaged.c
+@@ -2052,6 +2052,11 @@ static enum scan_result collapse_file(struct mm_struct *mm, unsigned long addr,
+ 		index += folio_nr_pages(folio);
+ 		continue;
+ out_unlock:
++		/*
++		 * The folio may have been unmapped with TTU_BATCH_FLUSH.
++		 * Flush before releasing the lock and our last reference.
++		 */
++		try_to_unmap_flush();
+ 		folio_unlock(folio);
+ 		folio_put(folio);
+ 		goto xa_unlocked;
+@@ -2062,9 +2067,8 @@ static enum scan_result collapse_file(struct mm_struct *mm, unsigned long addr,
+ xa_unlocked:
+ 
+ 	/*
+-	 * If collapse is successful, flush must be done now before copying.
+-	 * If collapse is unsuccessful, does flush actually need to be done?
+-	 * Do it anyway, to clear the state.
++	 * Flush before copying the folios, or releasing them in rollback.
++	 * This is a no-op if out_unlock already flushed the batch.
+ 	 */
+ 	try_to_unmap_flush();
+ 
