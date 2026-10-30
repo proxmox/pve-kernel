@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Namjae Jeon <linkinjeon@kernel.org>
+Date: Wed, 30 Sep 2026 20:39:53 +0900
+Subject: [PATCH] ksmbd: wait for negotiation before receiving another PDU
+
+The receive thread queues a request and can read the next PDU before
+the negotiation worker finishes. While need_neg is set, the next PDU
+can cause ksmbd_init_smb_server() to replace conn->ops. A pipelined
+SMB2 request can therefore make the worker handle an earlier, shorter
+SMB1 request with SMB2 operations and read beyond its buffer.
+
+An SMB1 multi-protocol negotiate may be followed by an SMB2 NEGOTIATE
+that changes conn->ops again. Wait for work queued while the connection
+is new or needs negotiation to complete before reading another PDU.
+This keeps the operations stable for both stages of negotiation without
+changing when need_neg is cleared.
+
+Fixes: dc8289f91238 ("ksmbd: fix slab-out-of-bounds in init_smb2_rsp_hdr")
+Reported-by: ihopenre-eng <ihopenre@gmail.com>
+Reviewed-by: ihopenre-eng <ihopenre@gmail.com>
+Signed-off-by: Namjae Jeon <linkinjeon@kernel.org>
+(cherry picked from commit 68f410faedaf6ee74d81e574733c50ebcc1bd8ed)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/server/server.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/fs/smb/server/server.c b/fs/smb/server/server.c
+index ba91e0dd166930e532731bf50297ec052570d77a..18c39862b6968d11d4566f4e8a40db6361f536eb 100644
+--- a/fs/smb/server/server.c
++++ b/fs/smb/server/server.c
+@@ -294,6 +294,7 @@ static void handle_ksmbd_work(struct work_struct *wk)
+ static int queue_ksmbd_work(struct ksmbd_conn *conn)
+ {
+ 	struct ksmbd_work *work;
++	bool wait_for_neg = ksmbd_conn_new(conn) || ksmbd_conn_need_negotiate(conn);
+ 	int err;
+ 
+ 	err = ksmbd_init_smb_server(conn);
+@@ -316,6 +317,10 @@ static int queue_ksmbd_work(struct ksmbd_conn *conn)
+ 	conn->last_active = jiffies;
+ 	INIT_WORK(&work->work, handle_ksmbd_work);
+ 	ksmbd_queue_work(work);
++	/* Negotiation can change conn->ops, finish it before reading another PDU. */
++	if (wait_for_neg)
++		wait_event(conn->req_running_q,
++			   atomic_read(&conn->req_running) == 0);
+ 	return 0;
+ }
+ 
