@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jiayuan Chen <jiayuan.chen@shopee.com>
+Date: Thu, 15 Oct 2026 14:05:27 +0800
+Subject: [PATCH] mm/swap: fix swap_cache_get_folio() returning a folio that
+ left the swap cache
+
+swap_cache_get_folio() reads the folio from the swap table and takes a
+reference with folio_try_get(), without any lock.  If the folio is removed
+from the swap cache and freed in between, and its memory gets reused,
+folio_try_get() still succeeds and we return a page that has nothing to do
+with the swap entry:
+
+  CPU 0                                  CPU 1
+  do_swap_page()
+    swap_cache_get_folio()
+      swp_tb = swap_table_get()
+      folio = swp_tb_to_folio(swp_tb)
+                                         madvise(MADV_DONTNEED)
+                                           zap_nonpresent_ptes()
+                                             swap_put_entries_direct()
+                                               swap_put_entries_cluster()
+                                                 __try_to_reclaim_swap()
+                                                   swap_cache_del_folio()
+                                                   folio_put()   <- freed
+                                         page reused, e.g. as an anon
+                                         folio of another task
+      folio_try_get(folio)               <- succeeds
+      return folio
+    swap_update_readahead()              <- may clear PG_readahead on it
+    folio_lock_or_retry()                <- locks it
+    folio_matches_swap_entry() fails, unlock and put
+
+filemap_get_entry() does the same lockless lookup for the page cache, and
+after folio_try_get() it rechecks the xarray, because the folio may have
+been freed and reused in between.  swap_cache_get_folio() lost that
+recheck when the swap cache moved to the swap table.
+
+So CPU 0 writes to a folio it doesn't own: it may clear PG_readahead and
+takes the folio lock of someone else's page, before
+folio_matches_swap_entry() finds out the folio is not ours.
+
+When the race occurs, a swap fault can acquire a reference to a
+physical page that has been freed and reused for an unrelated purpose,
+potentially by another process.  The fault handler may then clear that
+page's PG_readahead/PG_reclaim flag, wait on or acquire its folio lock,
+and potentially attempt to remove it from an unrelated swap cache.
+
+These operations can interfere with unrelated workloads and may cause
+unexpected stalls and impaired reclaim.  The subsequent swap-entry
+validation normally prevents the wrong folio from being mapped into the
+faulting process.
+
+It's documented that caller always double checks the folio so this part
+is harmless from the aspect of data corruption or crash.
+
+Recheck the slot after folio_try_get() and retry if it no longer holds
+this folio.
+
+[akpm@linux-foundation.org: add LLM-generated description of userspace impact]
+Link: https://lore.kernel.org/20261015060528.302634-1-jiayuan.chen@linux.dev
+Fixes: 8578e0c00dcf ("mm, swap: use the swap table for the swap cache and switch API")
+Signed-off-by: Jiayuan Chen <jiayuan.chen@shopee.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reviewed-by: Kairui Song <kasong@tencent.com>
+Cc: Chris Li <chrisl@kernel.org>
+Cc: Kemeng Shi <shikemeng@huaweicloud.com>
+Cc: Nhat Pham <nphamcs@gmail.com>
+Cc: Baoquan He <baoquan.he@linux.dev>
+Cc: Barry Song <baohua@kernel.org>
+Cc: Youngjun Park <youngjun.park@lge.com>
+Cc: <stable@vger.kernel.org>
+(cherry picked from commit 60f34fedf3a4c91ed631ed2f80713ab993cde5ee)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/swap_state.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/mm/swap_state.c b/mm/swap_state.c
+index 48aff2c917c089377fc0c4c804a74b88149b01b4..7f271a942e6a504b5156900c8fab27879838f359 100644
+--- a/mm/swap_state.c
++++ b/mm/swap_state.c
+@@ -86,17 +86,27 @@ void show_swap_cache_info(void)
+  */
+ struct folio *swap_cache_get_folio(swp_entry_t entry)
+ {
++	struct swap_cluster_info *ci = __swap_entry_to_cluster(entry);
++	unsigned int ci_off = swp_cluster_offset(entry);
+ 	unsigned long swp_tb;
+ 	struct folio *folio;
+ 
+ 	for (;;) {
+-		swp_tb = swap_table_get(__swap_entry_to_cluster(entry),
+-					swp_cluster_offset(entry));
++		swp_tb = swap_table_get(ci, ci_off);
+ 		if (!swp_tb_is_folio(swp_tb))
+ 			return NULL;
+ 		folio = swp_tb_to_folio(swp_tb);
+-		if (likely(folio_try_get(folio)))
++		if (!folio_try_get(folio))
++			continue;
++		/*
++		 * The folio may have been freed and its memory reused before
++		 * we got the reference. Make sure it is still in the slot.
++		 */
++		swp_tb = swap_table_get(ci, ci_off);
++		if (likely(swp_tb_is_folio(swp_tb) &&
++			   swp_tb_to_folio(swp_tb) == folio))
+ 			return folio;
++		folio_put(folio);
+ 	}
+ 
+ 	return NULL;
