@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fourie Zhang <fouriezhang@tencent.com>
+Date: Thu, 22 Oct 2026 10:26:22 +0800
+Subject: [PATCH] xfrm4: use a full socket for local errors
+
+xfrm4_local_error() passes skb->sk to inet_sk() and ip_local_error()
+without ensuring it points to a full socket. TCP SYN-ACK skbs can be owned
+by TCP_NEW_SYN_RECV request sockets.
+
+xfrm4_tunnel_check_size() already checks sk_fullsock() since commit
+1620c88887b1 ("xfrm: Fix the usage of skb->sk"), so iptfs_is_too_big() is
+the only remaining IPv4 caller passing a request socket here: the sk it
+tests is the listener, while skb->sk is the request socket.
+
+When IP-TFS rejects such an skb because it exceeds its payload MTU, the
+local error path treats the request socket as a struct inet_sock. KASAN
+reports a slab-out-of-bounds read in ip_local_error() beyond the
+request_sock_TCP allocation.
+
+Resolve the skb owner with skb_to_full_sk() before accessing inet_sock
+state or reporting the error. This maps a request socket to its listener
+and rejects sockets that cannot be used as full sockets, matching what
+commit 6973a21ee73c ("ipv6: xfrm: use full sockets in local error paths")
+did for xfrm6_local_error().
+
+Fixes: 0e4fbf013fa5 ("xfrm: iptfs: add user packet (tunnel ingress) handling")
+Cc: stable@vger.kernel.org
+Reported-by: TencentOS Corvus AI <corvus@tencent.com>
+Link: https://lore.kernel.org/netdev/20260908224856.1591189-1-kuba@kernel.org/
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Assisted-by: tencentos-corvus-ai:hy4-preview
+Signed-off-by: Fourie Zhang <fouriezhang@tencent.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+(cherry picked from commit 5def91015ba7b59de62a81384572da7281b8a033)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/xfrm4_output.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index 0ae67d537499a247c139a49e83f6f68dbc5114fa..fffa3c4f456eee0682b4589152afbc30c68ac64f 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -38,9 +38,12 @@ int xfrm4_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 
+ void xfrm4_local_error(struct sk_buff *skb, u32 mtu)
+ {
++	struct sock *sk = skb_to_full_sk(skb);
+ 	struct iphdr *hdr;
+ 
++	if (!sk)
++		return;
++
+ 	hdr = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
+-	ip_local_error(skb->sk, EMSGSIZE, hdr->daddr,
+-		       inet_sk(skb->sk)->inet_dport, mtu);
++	ip_local_error(sk, EMSGSIZE, hdr->daddr, inet_sk(sk)->inet_dport, mtu);
+ }
