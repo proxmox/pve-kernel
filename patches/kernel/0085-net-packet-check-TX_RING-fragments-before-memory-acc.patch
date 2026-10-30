@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Wed, 28 Oct 2026 19:14:50 +0100
+Subject: [PATCH] net/packet: check TX_RING fragments before memory accounting
+
+tpacket_fill_skb() adds the full non-linear payload length to
+skb->truesize and sk_wmem_alloc before checking MAX_SKB_FRAGS. With
+PACKET_VNET_HDR, userspace can submit a ring-sized frame even when it
+greatly exceeds the device MTU.
+
+A near-INT_MAX frame can saturate sk_wmem_alloc before the fragment
+loop rejects it. A subsequent refcount_add(0x40000001) can temporarily
+turn REFCOUNT_SATURATED into 1. A concurrent TX completion can then
+drop that apparent last reference and free the still-live packet
+socket before refcount_warn_saturate() restores the counter.
+
+Check that the remaining payload fits in MAX_SKB_FRAGS pages before
+accounting it. Include the initial page offset in the calculation,
+and move the existing -EFAULT handling out of the fragment loop.
+This preserves the accepted packet sizes and error code while
+preventing an invalid frame from injecting an oversized byte charge.
+
+Fixes: 69e3c75f4d54 ("net: TX_RING and packet mmap")
+Cc: stable@vger.kernel.org
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+[edumazet: use net_warn_ratelimited() instead of pr_err(), add a Fixes: tag]
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Link: https://patch.msgid.link/20261028181450.2221013-1-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit dc4dd12f80e499dc034710cd8195489abcf0b059)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/packet/af_packet.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 310864aadde9fdec859c1ed04e6d1a9c99d8ffeb..df6a151fae324dc5faa955bd5fdc7d56a7e6bc49 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2646,6 +2646,12 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 	}
+ 
+ 	offset = offset_in_page(data);
++	if (unlikely(to_write > MAX_SKB_FRAGS * PAGE_SIZE - offset)) {
++		net_warn_ratelimited("Packet exceed the number of skb frags(%u)\n",
++				     (unsigned int)MAX_SKB_FRAGS);
++		return -EFAULT;
++	}
++
+ 	len_max = PAGE_SIZE - offset;
+ 	len = ((to_write > len_max) ? len_max : to_write);
+ 
+@@ -2657,12 +2663,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 	while (likely(to_write)) {
+ 		nr_frags = skb_shinfo(skb)->nr_frags;
+ 
+-		if (unlikely(nr_frags >= MAX_SKB_FRAGS)) {
+-			pr_err("Packet exceed the number of skb frags(%u)\n",
+-			       (unsigned int)MAX_SKB_FRAGS);
+-			return -EFAULT;
+-		}
+-
+ 		page = pgv_to_page(data);
+ 		data += len;
+ 		flush_dcache_page(page);

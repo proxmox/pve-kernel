@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kamil Sawicki <user148783812897@gmail.com>
+Date: Fri, 23 Oct 2026 20:48:35 -0400
+Subject: [PATCH] net: limit priority VLAN untag depth
+
+The priority VLAN receive path can repeatedly remove VID 0 tags and retry
+packet processing. Unlike the read-only VLAN protocol parser, this path has
+no limit on the number of nested tags it consumes.
+
+Each skb_vlan_untag() advances skb->data and resets header offsets. The
+offsets are stored in 16-bit fields. With enough nested tags, the network
+or transport offset can wrap. A later protocol handler can then derive a
+large pull length from the wrapped offsets and access memory outside the
+skb allocation.
+
+Apply the existing VLAN_MAX_DEPTH limit to the exceptional VID 0 retry.
+Count the tag already stored in skb VLAN metadata as the first level, then
+stop before untagging a ninth level. Keep the accounting inside this
+uncommon branch so the regular VLAN receive path is unaffected.
+
+A single VID 0 priority tag before a real VLAN tag is valid. No normal
+deployment was found that intentionally emits multiple consecutive VID 0
+tags; permitting eight levels is therefore conservative.
+
+The issue was found while researching the Linux network receive path for
+Google kvmCTF, with OpenAI Codex (gpt-5.6-sol) assisting the analysis. The
+affected path, reproducer and fix were manually reviewed and tested.
+
+Fixes: 36b2f61a42c2 ("net: handle 802.1P vlan 0 packets properly")
+Cc: stable@vger.kernel.org
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Kamil Sawicki <user148783812897@gmail.com>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/20261024004835.17862-1-user148783812897@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit d3ff07f5acc573e5f72bf1c581bae5d05191ba61)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/dev.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5f83b5e592398f7c27cc8c79be8a42716af2b0be..2f6865103eeaee62139aff74d994e5104132a98e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6184,6 +6184,8 @@ static int __netif_receive_skb_core(struct sk_buff **pskb, bool pfmemalloc,
+ 	}
+ 
+ 	if (unlikely(skb_vlan_tag_present(skb)) && !netdev_uses_dsa(skb->dev)) {
++		unsigned int priority_tag_depth = 1;
++
+ check_vlan_id:
+ 		if (skb_vlan_tag_get_id(skb)) {
+ 			/* Vlan id is non 0 and vlan_do_receive() above couldn't
+@@ -6195,6 +6197,12 @@ static int __netif_receive_skb_core(struct sk_buff **pskb, bool pfmemalloc,
+ 			 * 802.1Q or 802.1AD and vlan_do_receive() above could
+ 			 * not find vlan dev for vlan id 0.
+ 			 */
++			if (unlikely(priority_tag_depth >= VLAN_MAX_DEPTH)) {
++				drop_reason = SKB_DROP_REASON_RECURSION_LIMIT;
++				goto drop;
++			}
++
++			priority_tag_depth++;
+ 			__vlan_hwaccel_clear_tag(skb);
+ 			skb = skb_vlan_untag(skb);
+ 			if (unlikely(!skb))

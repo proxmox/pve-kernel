@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kaho Jiang <kj2864@nyu.edu>
+Date: Wed, 21 Oct 2026 19:57:33 -0400
+Subject: [PATCH] net: ipv4: add zero check for snd_cwnd_clamp
+
+When RTAX_CWND is locked, user is able to pass 0 into it.
+This could lead to writing 0 to tp->snd_cwnd, leading to a
+division by zero error.
+
+Oops: divide error: 0000 [#1] SMP KASAN NOPTI
+Call Trace:
+ <IRQ>
+ tcp_reno_cong_avoid (net/ipv4/tcp_cong.c:510 (discriminator 1))
+ tcp_ack (net/ipv4/tcp_input.c:3517 net/ipv4/tcp_input.c:3873 net/ipv4/tcp_input.c:4440)
+ tcp_rcv_established (net/ipv4/tcp_input.c:6685)
+ tcp_v4_do_rcv (net/ipv4/tcp_ipv4.c:1854)
+ tcp_v4_rcv (net/ipv4/tcp_ipv4.c:2248)
+ ip_protocol_deliver_rcu (net/ipv4/ip_input.c:207 (discriminator 1))
+ ip_local_deliver_finish (net/ipv4/ip_input.c:241 (discriminator 1))
+ ip_local_deliver (./include/linux/netfilter.h:325 ./include/linux/netfilter.h:319 net/ipv4/ip_input.c:262)
+ ip_rcv (./include/net/dst.h:481 (discriminator 6) net/ipv4/ip_input.c:492 (discriminator 6) ./include/linux/netfilter.h:325 (discriminator 6) ./include/li)
+ __netif_receive_skb_one_core (net/core/dev.c:6297 (discriminator 4))
+ __netif_receive_skb (net/core/dev.c:6410)
+ process_backlog (net/core/dev.c:6761)
+ __napi_poll.constprop.0 (net/core/dev.c:7830)
+ net_rx_action (net/core/dev.c:7893 net/core/dev.c:8050)
+ handle_softirqs (kernel/softirq.c:645)
+ __irq_exit_rcu (kernel/softirq.c:679 kernel/softirq.c:519 kernel/softirq.c:758)
+ irq_exit_rcu (kernel/softirq.c:775)
+ sysvec_apic_timer_interrupt (arch/x86/kernel/apic/apic.c:1062 (discriminator 35) arch/x86/kernel/apic/apic.c:1062 (discriminator 35))
+RIP: 0010:tcp_cong_avoid_ai (net/ipv4/tcp_cong.c:482)
+
+Fix by checking if user pass in zero as parameter and if lock is present.
+
+Fixes: 814d488c6126 ("tcp: fix the timid additive increase on stretch ACKs")
+Cc: stable@vger.kernel.org
+Suggested-by: Eric Dumazet <edumazet@kernel.org>
+Reported-by: co+71b6509cb791e531@bugs.sh
+Signed-off-by: Kaho Jiang <kj2864@nyu.edu>
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/20261021235732.1313305-2-kj2864@nyu.edu
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+(cherry picked from commit 363c8c79220d0db4d65dcd570529ddda15067cb5)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/metrics.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/ipv4/metrics.c b/net/ipv4/metrics.c
+index c1463add48c4e2bf41d294aee7e42ed28bea3f7b..ab7de84dcca047f782da1d43d9bb80278ac358db 100644
+--- a/net/ipv4/metrics.c
++++ b/net/ipv4/metrics.c
+@@ -60,6 +60,11 @@ static int ip_metrics_convert(struct nlattr *fc_mx,
+ 	if (ecn_ca)
+ 		metrics[RTAX_FEATURES - 1] |= DST_FEATURE_ECN_CA;
+ 
++	if ((metrics[RTAX_LOCK - 1] & (1 << RTAX_CWND)) && !metrics[RTAX_CWND - 1]) {
++		NL_SET_ERR_MSG(extack, "Locked cwnd metric must be non zero");
++		return -EINVAL;
++	}
++
+ 	return 0;
+ }
+ 
