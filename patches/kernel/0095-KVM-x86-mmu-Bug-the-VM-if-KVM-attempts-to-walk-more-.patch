@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 2 Sep 2026 16:20:26 -0700
+Subject: [PATCH] KVM: x86/mmu: Bug the VM if KVM attempts to walk more levels
+ than the MMU has
+
+Extend the "EFER.LMA && !CR4.PAE" check, which exists largely to guard
+against KVM configuring a paging32 MMU with more than 2 levels of paging,
+with a very explicit check for exactly that: that KVM isn't trying to walk
+more levels of paging than the MMU template provides.  I.e. harden KVM
+against all bugs that would cause KVM to generates accesses beyond the
+bounds of guest_walker's arrays, regardless of how KVM ended up with the
+misconfigured MMU.
+
+Note, don't use w->cpu_role.base.level directly as the paging64 template
+only provides two levels of page tables for PAE paging on 32-bit hosts, and
+handles the third level by manually emulating the PDPTR access.
+
+Cc: stable@vger.kernel.org
+Link: https://patch.msgid.link/20260902232028.2767071-4-seanjc@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit 115f9405a2ed6d78ee7ad8436bdd638743f6d1d4)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/paging_tmpl.h | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index 60ffc6ff0e95c0cad4c11d111541ca863fcd7d38..ec9641428b6962f706f825adf6670c4a4b3bb6b2 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -359,13 +359,14 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 	pte_access = ~0;
+ 
+ 	/*
+-	 * Queue a page fault for injection if this assertion fails, as callers
+-	 * assume that walker.fault contains sane info on a walk failure.  I.e.
+-	 * avoid making the situation worse by inducing even worse badness
+-	 * between when the assertion fails and when KVM kicks the vCPU out to
+-	 * userspace (because the VM is bugged).
++	 * Queue a page fault for injection if any of the below assertions fail,
++	 * as callers assume that walker.fault contains sane info on a walk
++	 * failure.  I.e. avoid making the situation worse by inducing even
++	 * worse badness between when the assertion fails and when KVM kicks
++	 * the vCPU out to userspace (because the VM is bugged).
+ 	 */
+-	if (KVM_BUG_ON(is_long_mode(vcpu) && !is_pae(vcpu), vcpu->kvm))
++	if (KVM_BUG_ON(is_long_mode(vcpu) && !is_pae(vcpu), vcpu->kvm) ||
++	    KVM_BUG_ON(walker->max_level > PT_MAX_FULL_LEVELS, vcpu->kvm))
+ 		goto error;
+ 
+ 	++walker->level;

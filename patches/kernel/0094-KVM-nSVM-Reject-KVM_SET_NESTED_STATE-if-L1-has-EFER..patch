@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 2 Sep 2026 16:20:24 -0700
+Subject: [PATCH] KVM: nSVM: Reject KVM_SET_NESTED_STATE if L1 has EFER.LMA=1
+ && EFER.LME=0
+
+Reject KVM_SET_NESTED_STATE if the incoming L1 host state has what is
+effectively an impossible EFER combination of LMA=1 but LME=0, i.e. if the
+state says long mode is active but not enabled.  Unlike VMX, SVM doesn't
+have an explicit consistent check for the illegal combination; presumably
+hardware simply ignores EFER.LMA if EFER.LME=0.
+
+Unfortunately, KVM doesn't ignore EFER.LMA in this case and consumes the
+illegal state when constructing the shadow MMU for L2.  E.g. if userspace
+also clears CR4.PAE, then kvm_calc_cpu_role() will compute a role with 4 or
+5 levels of paging, but shadow_mmu_init_context() will wire up the MMU to
+use the paging32 template, which maxes out its levels at 2.
+
+Note, the "real badness" is effectively the same as what happened with the
+nVMX bug fixed by commit 112e66017bff ("KVM: nVMX: add missing consistency
+checks for CR0 and CR4").  Unfortunately, the sanity check added by commit
+72e2fb24a0b0 ("KVM: x86/mmu: Bug the VM if a vCPU ends up in long mode
+without PAE enabled") doesn't work for this case, since L2 state is active
+at the time of the page fault, but it's L1 that has the bad state.
+
+Fixes: cc440cdad5b7 ("KVM: nSVM: implement KVM_GET_NESTED_STATE and KVM_SET_NESTED_STATE")
+Cc: stable@vger.kernel.org
+Cc: Yosry Ahmed <yosry@kernel.org>
+Reported-by: Stefan Teodorescu <fane@google.com>
+Link: https://patch.msgid.link/20260902232028.2767071-2-seanjc@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit 5dc500a354cc8e109df678076ae3488094649468)
+[TL: adapt context, the base calls __nested_vmcb_check_save() here]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/svm/nested.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index ebbdb84fe51ad2734c4b4c4d6d5265b35ecec54f..7ffe90ef49de5c1ae65300e201207385da2981ee 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -1930,6 +1930,7 @@ static int svm_set_nested_state(struct kvm_vcpu *vcpu,
+ 	if (!(save->cr0 & X86_CR0_PG) ||
+ 	    !(save->cr0 & X86_CR0_PE) ||
+ 	    (save->rflags & X86_EFLAGS_VM) ||
++	    ((save->efer & EFER_LMA) && !(save->efer & EFER_LME)) ||
+ 	    !__nested_vmcb_check_save(vcpu, &save_cached))
+ 		goto out_free;
+ 

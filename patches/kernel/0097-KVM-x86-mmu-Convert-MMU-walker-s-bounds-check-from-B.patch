@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 2 Sep 2026 16:20:28 -0700
+Subject: [PATCH] KVM: x86/mmu: Convert MMU walker's bounds check from BUG_ON()
+ to KVM_BUG_ON()
+
+Bug the VM, not the host, if KVM's sanity check that walking guest PTEs
+doesn't underflow the walker's level fires.  Bugging the host while holding
+mmu_lock is all but guaranteed to panic the host, KVM hasn't _yet_ consumed
+the out-of-bounds level (i.e. hasn't corrupted memory), and KVM is already
+committed to bugging the VM and synthesizing a guest page fault if a fatal
+MMU error occurs while walking guest PTEs.  I.e. there's no reason to keep
+the BUG_ON() at this point.
+
+Link: https://patch.msgid.link/20260902232028.2767071-6-seanjc@google.com
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+(cherry picked from commit 47b437b2d903137d547365391c7a5153b01dee6a)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/paging_tmpl.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index ec9641428b6962f706f825adf6670c4a4b3bb6b2..bac8f2d9f94b89efda3f7329ea7159cd58ab2de8 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -383,7 +383,9 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 		offset    = index * sizeof(pt_element_t);
+ 		pte_gpa   = gfn_to_gpa(table_gfn) + offset;
+ 
+-		BUG_ON(walker->level < 1);
++		if (KVM_BUG_ON(walker->level < 1, vcpu->kvm))
++			goto error;
++
+ 		walker->table_gfn[walker->level - 1] = table_gfn;
+ 		walker->pte_gpa[walker->level - 1] = pte_gpa;
+ 
