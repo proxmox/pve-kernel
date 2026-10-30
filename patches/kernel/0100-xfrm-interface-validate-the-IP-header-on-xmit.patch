@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Qihang <q.h.hack.winter@gmail.com>
+Date: Wed, 23 Sep 2026 16:41:23 +0800
+Subject: [PATCH] xfrm: interface: validate the IP header on xmit
+
+Packets injected into an xfrm interface (e.g. AF_PACKET on an xfrmi
+device) reach the xfrm output path without IP header validation, but
+xfrm4_transport_output() uses iph->ihl for __skb_pull() and memmove()
+and expects the header to be valid.
+
+vti_tunnel_xmit() already calls pskb_inet_may_pull() before handing
+packets to the xfrm output path.  Do the same in xfrmi_xmit() and
+perform the header checks ip_rcv_core()/ip6_rcv_core() do on entry
+to the IP stack: reject wrong IP versions and malformed IPv4 header
+lengths.
+
+Fixes: f203b76d7809 ("xfrm: Add virtual xfrm interfaces")
+Cc: stable@vger.kernel.org
+Assisted-by: LLM
+Signed-off-by: Qihang <q.h.hack.winter@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+(cherry picked from commit 86de3a1118a16dbbbe5fabe9aa20ffb93c072ed5)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_interface_core.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/xfrm/xfrm_interface_core.c b/net/xfrm/xfrm_interface_core.c
+index 688306bf62c5aeb49470824c0abfb6122826ce47..9835fbe63ccb83389d208e87f96bd187a1945309 100644
+--- a/net/xfrm/xfrm_interface_core.c
++++ b/net/xfrm/xfrm_interface_core.c
+@@ -531,8 +531,13 @@ static netdev_tx_t xfrmi_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	memset(&fl, 0, sizeof(fl));
+ 
++	if (!pskb_inet_may_pull(skb))
++		goto tx_err;
++
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IPV6):
++		if (ipv6_hdr(skb)->version != 6)
++			goto tx_err;
+ 		memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
+ 		xfrm_decode_session(dev_net(dev), skb, &fl, AF_INET6);
+ 		if (!dst) {
+@@ -548,6 +553,9 @@ static netdev_tx_t xfrmi_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 		break;
+ 	case htons(ETH_P_IP):
++		if (ip_hdr(skb)->version != 4 || ip_hdr(skb)->ihl < 5 ||
++		    !pskb_network_may_pull(skb, ip_hdr(skb)->ihl * 4))
++			goto tx_err;
+ 		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 		xfrm_decode_session(dev_net(dev), skb, &fl, AF_INET);
+ 		if (!dst) {

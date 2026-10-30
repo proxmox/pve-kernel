@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Tue, 6 Oct 2026 15:42:32 -0700
+Subject: [PATCH] netlink: reset skb headers before unicast and multicast
+ filtering
+
+Socket filters can use SKF_NET_OFF and SKF_LL_OFF to read relative to
+an skb's network and MAC headers. Netlink producers may reserve
+headroom without resetting those headers, allowing a receiving socket's
+filter to read data before the initialized message.
+
+For example, IWPM HELLO replies are allocated with dev_alloc_skb(),
+which reserves NET_SKB_PAD bytes. An unprivileged NETLINK_RDMA user can
+attach a classic socket filter and disclose this headroom through the
+length of the delivered reply. The resets in netlink_dump() do not help
+because IWPM sends a separately allocated skb through netlink_unicast().
+
+Reset both headers before running the receiver's filter in unicast and
+broadcast delivery, as is already done for dump skbs. This also covers
+other netlink producers that reserve headroom without changing their
+allocation or message-building code.
+
+Fixes: b1153f29ee07 ("netlink: make socket filters work on netlink")
+Assisted-by: LLM
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Link: https://patch.msgid.link/20261006224232.50724-1-kylebot@openai.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+(cherry picked from commit 8bf659bd54e1f00e34cf5244b1d289c506fa47c0)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/netlink/af_netlink.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 661d19a7735637bfbba01ff31c4a7fcd8765344e..1bb8df6ab9cbd2e106210d6e8fb2c95330568de1 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1362,6 +1362,8 @@ int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
+ 	if (netlink_is_kernel(sk))
+ 		return netlink_unicast_kernel(sk, skb, ssk);
+ 
++	skb_reset_network_header(skb);
++	skb_reset_mac_header(skb);
+ 	if (sk_filter(sk, skb)) {
+ 		err = skb->len;
+ 		kfree_skb(skb);
+@@ -1496,6 +1498,8 @@ static void do_one_broadcast(struct sock *sk,
+ 		goto out;
+ 	}
+ 
++	skb_reset_network_header(p->skb2);
++	skb_reset_mac_header(p->skb2);
+ 	if (sk_filter(sk, p->skb2)) {
+ 		kfree_skb(p->skb2);
+ 		p->skb2 = NULL;
