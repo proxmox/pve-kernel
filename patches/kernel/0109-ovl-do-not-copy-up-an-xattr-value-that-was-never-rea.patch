@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chris Mason <mason@kernel.org>
+Date: Wed, 7 Oct 2026 09:45:28 +0000
+Subject: [PATCH] ovl: do not copy up an xattr value that was never read
+
+Copy-up stores uninitialized kernel memory in an xattr of the upper
+file, where the user can read it.
+
+ovl_copy_xattr() may only pass bytes to ovl_do_setxattr() that
+ovl_do_getxattr() has read. When the read fails with -ERANGE the
+function asks for the size again, and if the new size fits the buffer
+it stores the buffer although nothing was read into it. The buffer
+comes from kvmalloc(), or it still holds the value of the previous
+xattr.
+
+A FUSE lower layer that answers every sized GETXATTR with -ERANGE made
+copy-up store 4096 bytes that the server never sent, with a kernel
+pointer in them, as an xattr of the upper file.
+
+Fix this by failing the copy-up with -EIO when the size that follows
+-ERANGE fits the buffer.
+
+Reported-by: Fahad Alharbi <fahad@codepure.com>
+Closes: https://lore.kernel.org/linux-fsdevel/CAOQ4uxjhfpNVvoVrTayj46H2CViTOc3oxzM6xdb8+E7ikE2CSA@mail.gmail.com/
+Fixes: e4ad29fa0d22 ("ovl: use a minimal buffer in ovl_copy_xattr")
+Cc: stable@vger.kernel.org
+Signed-off-by: Chris Mason <mason@kernel.org>
+Signed-off-by: Josef Bacik <josef@toxicpanda.com>
+Signed-off-by: Amir Goldstein <amir73il@gmail.com>
+(cherry picked from commit 755b5c5c9277be251a51623d6065abab948c61bc)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/overlayfs/copy_up.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/fs/overlayfs/copy_up.c b/fs/overlayfs/copy_up.c
+index e963701b4c87754dce8f951c35dae907e860640b..c220cb5d0b70ca8f6f861eb09ea549041b8270f9 100644
+--- a/fs/overlayfs/copy_up.c
++++ b/fs/overlayfs/copy_up.c
+@@ -131,8 +131,12 @@ int ovl_copy_xattr(struct super_block *sb, const struct path *oldpath, struct de
+ 
+ retry:
+ 		size = ovl_do_getxattr(oldpath, name, value, value_size);
+-		if (size == -ERANGE)
++		if (size == -ERANGE) {
+ 			size = ovl_do_getxattr(oldpath, name, NULL, 0);
++			/* Nothing was read into value, so it must not be used */
++			if (size >= 0 && size <= value_size)
++				size = -EIO;
++		}
+ 
+ 		if (size < 0) {
+ 			error = size;

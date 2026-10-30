@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dominik Maier <dmnk@google.com>
+Date: Fri, 23 Oct 2026 01:21:19 +0200
+Subject: [PATCH] xattr: always invoke cap_convert_nscap() for
+ security.capability writes
+
+Commit 8db6c34f1dbc ("Introduce v3 namespaced file capabilities") changed
+cap_inode_setxattr() to return 0 unconditionally for XATTR_NAME_CAPS
+("security.capability") and moved capability validation into
+cap_convert_nscap(), but placed the call inside the "if (size)" block in
+setxattr(). Commit 7c03e2cda4a5 ("vfs: move cap_convert_nscap() call into
+vfs_setxattr()") preserved that "size &&" condition in vfs_setxattr():
+
+	if (size && strcmp(name, XATTR_NAME_CAPS) == 0) {
+		error = cap_convert_nscap(idmap, dentry, &value, size);
+		...
+	}
+
+For security.* extended attributes, xattr_permission() skips
+inode_permission(MAY_WRITE) and leaves permission checks to the security
+module, while cap_inode_setxattr() returns 0 for XATTR_NAME_CAPS assuming
+cap_convert_nscap() has already validated the write. Because
+__vfs_setxattr() treats size == 0 as an empty attribute write (setting
+value = "") rather than a removal, calling setxattr(2) on
+"security.capability" with size == 0 bypasses cap_convert_nscap() and
+allows an unprivileged caller without CAP_SETFCAP or write permission on
+the target inode to write a 0-byte security.capability xattr (or
+overwrite an existing one).
+
+When that binary is subsequently executed, get_vfs_caps_from_disk() reads
+the 0-byte security.capability xattr and fails the
+size < sizeof(magic_etc) check with -EINVAL, causing execve(2) to fail
+with -EINVAL.
+
+Always invoke cap_convert_nscap() when strcmp(name, XATTR_NAME_CAPS) == 0
+regardless of size, so that 0-byte writes hit the existing !*ivalue /
+!validheader() checks in cap_convert_nscap() and are rejected with
+-EINVAL.
+
+Fixes: 8db6c34f1dbc ("Introduce v3 namespaced file capabilities")
+Signed-off-by: Dominik Maier <dmnk@google.com>
+Link: https://patch.msgid.link/20261022232119.2537209-1-dmnk@google.com
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+(cherry picked from commit 0f4a9e682f7fa5becc3af7204606d9bf4780e425)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/xattr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/xattr.c b/fs/xattr.c
+index 3e49e612e1badc0b3a7c5ab1bf92e0559625bc00..30c450401ad99a901d8c328fbefcddb227b31dd1 100644
+--- a/fs/xattr.c
++++ b/fs/xattr.c
+@@ -309,7 +309,7 @@ vfs_setxattr(struct mnt_idmap *idmap, struct dentry *dentry,
+ 	const void  *orig_value = value;
+ 	int error;
+ 
+-	if (size && strcmp(name, XATTR_NAME_CAPS) == 0) {
++	if (strcmp(name, XATTR_NAME_CAPS) == 0) {
+ 		error = cap_convert_nscap(idmap, dentry, &value, size);
+ 		if (error < 0)
+ 			return error;
