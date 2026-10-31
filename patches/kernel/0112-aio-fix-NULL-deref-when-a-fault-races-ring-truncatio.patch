@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chris Mason <mason@kernel.org>
+Date: Thu, 29 Oct 2026 15:00:20 +0100
+Subject: [PATCH] aio: fix NULL deref when a fault races ring truncation
+
+The aio ring lives in a file on the aio pseudo filesystem and the ring
+VMA uses filemap_fault(). aio_ctx_aops doesn't have a ->read_folio
+because aio_setup_ring() puts all folios of the ring into the page
+cache. So a fault on the ring only works as long as it finds its folio
+in the page cache. If it doesn't, filemap_fault() calls ->read_folio
+without checking and we jump to NULL.
+
+We already fixed this twice this year. A forked child could inherit the
+ring mapping, fixed by commit c03ce4173c7b ("fs: aio: set
+VMA_DONTCOPY_BIT in mmap to fix NULL-pointer-dereference error"). And a
+partial mremap() could leave part of the ring mapped, fixed by
+commit 3adf7ae18bf4 ("fs: aio: reject partial mremap to avoid
+Null-pointer-dereference error"). Both times a VMA outlived the ring and
+the ring file was truncated under it.
+
+There's a third way to get there. kill_ioctx() and the error path of
+ioctx_alloc() unmap the ring with vm_munmap() and ignore the return
+value. If vm_munmap() has to wait for mmap_lock and a fatal signal is
+pending it returns -EINTR and the VMA stays. free_ioctx() then calls
+put_aio_ring_file() which truncates the ring file to zero. A fault that
+passed the i_size check in filemap_fault() before that doesn't find its
+folio anymore, allocates a new one and calls ->read_folio:
+
+    fault on the ring                 io_destroy() with SIGKILL pending
+    =================                 =================================
+                                      vm_munmap() returns -EINTR
+    filemap_fault()
+      i_size check passes
+                                      free_ioctx()
+                                        put_aio_ring_file()
+                                          truncate_setsize(inode, 0)
+      no folio, allocate a new one
+      filemap_read_folio()
+        ->read_folio == NULL
+
+All that's needed is a second process that shares the mm. If a CLONE_VM
+child calls io_destroy() and gets SIGKILLed while it waits for mmap_lock
+the ring stays mapped for the threads of the parent. Any user can do
+that.
+
+Instead of plugging the routes one by one give the ring a ->read_folio
+that unlocks the folio and returns -EIO. All folios of a live ring are
+in the page cache so a fault can only end up there if the ring was
+truncated. The fault now gets SIGBUS. Nothing else reads the ring file
+and the aio filesystem uses noop_backing_dev_info so there's no
+readahead either.
+
+Making vm_munmap() unkillable in those two places would only close this
+one route and bring back what commit ae7987835643 ("mm: make vm_munmap
+killable") fixed.
+
+Fixes: 36bc08cc0170 ("fs/aio: Add support to aio ring pages migration")
+Cc: stable@vger.kernel.org
+Signed-off-by: Chris Mason <mason@kernel.org>
+Link: https://patch.msgid.link/20261029-work-fs-ai-fixes-v1-1-88f22792f6f7@kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+(cherry picked from commit d53b5aa5cfae27e4d236fc0ab9581085d27f7d33)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/aio.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/fs/aio.c b/fs/aio.c
+index 322813577551c207a7528a5c02c362e8894bab31..f25894da19adc3eb717f6358992426c258f82a23 100644
+--- a/fs/aio.c
++++ b/fs/aio.c
+@@ -474,7 +474,18 @@ static int aio_migrate_folio(struct address_space *mapping, struct folio *dst,
+ #define aio_migrate_folio NULL
+ #endif
+ 
++/*
++ * filemap_fault() reads a folio that it did not find in the page cache. All
++ * folios of a live ring are there, so the ring was truncated under the fault.
++ */
++static int aio_read_folio(struct file *file, struct folio *folio)
++{
++	folio_unlock(folio);
++	return -EIO;
++}
++
+ static const struct address_space_operations aio_ctx_aops = {
++	.read_folio	= aio_read_folio,
+ 	.dirty_folio	= noop_dirty_folio,
+ 	.migrate_folio	= aio_migrate_folio,
+ };

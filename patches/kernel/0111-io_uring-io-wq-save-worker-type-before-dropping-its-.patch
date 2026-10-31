@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Sun, 25 Oct 2026 02:27:52 +0000
+Subject: [PATCH] io_uring/io-wq: save worker type before dropping its
+ reference
+
+io_wq_cancel_tw_create() inspects cb->func after calling
+io_worker_cancel_cb(). For an existing worker, that call can drop the
+last worker reference and wake io_worker_exit(). If the canceling task
+is preempted, the worker can be unlinked and freed by kfree_rcu() before
+the callback function is inspected. KASAN reports a slab-use-after-free
+read in this path.
+
+Save whether the callback belongs to an unpublished continuation worker
+while its reference is still held, then use the saved result for the
+conditional free. This preserves the existing accounting and frees only
+the worker allocated for the canceled continuation.
+
+Fixes: e6db6f9398da ("io_uring/io-wq: only free worker if it was allocated for creation")
+Cc: stable@vger.kernel.org
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+(cherry picked from commit 37e425460b7c41687e51e3254b1eb1d799da9614)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ io_uring/io-wq.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/io_uring/io-wq.c b/io_uring/io-wq.c
+index fa403ed245962d9eeb789698a44a0532cbeb8742..66293b053a1721a6800ac3c05f7e3f1dfa963cdc 100644
+--- a/io_uring/io-wq.c
++++ b/io_uring/io-wq.c
+@@ -1327,14 +1327,16 @@ static void io_wq_cancel_tw_create(struct io_wq *wq)
+ 
+ 	while ((cb = task_work_cancel_match(wq->task, io_task_work_match, wq)) != NULL) {
+ 		struct io_worker *worker;
++		bool free_worker;
+ 
+ 		worker = container_of(cb, struct io_worker, create_work);
+-		io_worker_cancel_cb(worker);
+ 		/*
+ 		 * Only the worker continuation helper has worker allocated and
+-		 * hence needs freeing.
++		 * hence needs freeing. Save this before dropping its reference.
+ 		 */
+-		if (cb->func == create_worker_cont)
++		free_worker = cb->func == create_worker_cont;
++		io_worker_cancel_cb(worker);
++		if (free_worker)
+ 			kfree(worker);
+ 	}
+ }

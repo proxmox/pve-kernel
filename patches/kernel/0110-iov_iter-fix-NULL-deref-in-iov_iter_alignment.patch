@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chris Mason <mason@kernel.org>
+Date: Thu, 29 Oct 2026 15:00:22 +0100
+Subject: [PATCH] iov_iter: fix NULL deref in iov_iter_alignment()
+
+Since commit 111a12b422a8 ("io_uring/rsrc: reject zero-length fixed
+buffer import") io_import_fixed() hands out an empty ITER_BVEC for a
+zero-length request. Its count is 0 and its bvec array is NULL.
+
+iov_iter_alignment() only checks the count for ITER_UBUF. For ITER_BVEC
+it calls iov_iter_alignment_bvec() and the do-while loop in there reads
+bvec->bv_len before it looks at the count. So it dereferences NULL.
+
+btrfs checks the alignment of a direct read with iov_iter_alignment()
+before it looks at the count and f2fs does the same. So any user that
+can open a file on btrfs can oops the kernel with a single zero-length
+IORING_OP_READ_FIXED on an O_DIRECT file descriptor. With IOSQE_ASYNC
+the oops happens in an io-wq worker. The dead worker stays on the worker
+list and when the task that submitted the request exits io-wq writes to
+the freed task_struct of the worker. That's just fallout from the oops
+though.
+
+Empty iterators with a NULL array aren't unusual. afs, tls and tipc
+create them as well. So leave io_uring alone and make
+iov_iter_alignment() return 0 for an empty iterator of any type.
+
+Fixes: 111a12b422a8 ("io_uring/rsrc: reject zero-length fixed buffer import")
+Cc: stable@vger.kernel.org
+Signed-off-by: Chris Mason <mason@kernel.org>
+Link: https://patch.msgid.link/20261029-work-fs-ai-fixes-v1-3-88f22792f6f7@kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+(cherry picked from commit a290a9e5cf5fbba05d6c59b94b36d00f4fc15ef2)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ lib/iov_iter.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/lib/iov_iter.c b/lib/iov_iter.c
+index 79394508390b0a5e4c3c23dcebadd6d98a5167ae..1fcaf65877061d24be1956f294444b02efbd89f0 100644
+--- a/lib/iov_iter.c
++++ b/lib/iov_iter.c
+@@ -848,6 +848,10 @@ unsigned long iov_iter_alignment(const struct iov_iter *i)
+ 		return 0;
+ 	}
+ 
++	/* An empty iterator may have no segment array at all. */
++	if (!i->count)
++		return 0;
++
+ 	/* iovec and kvec have identical layouts */
+ 	if (likely(iter_is_iovec(i) || iov_iter_is_kvec(i)))
+ 		return iov_iter_alignment_iovec(i);
