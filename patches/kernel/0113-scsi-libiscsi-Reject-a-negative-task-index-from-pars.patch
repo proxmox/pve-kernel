@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yehyeong Lee <yhlee@isslab.korea.ac.kr>
+Date: Wed, 7 Oct 2026 10:58:40 +0900
+Subject: [PATCH] scsi: libiscsi: Reject a negative task index from
+ parse_pdu_itt
+
+A transport that implements parse_pdu_itt hands libiscsi an index taken
+from the PDU, and both lookups bound it from above only:
+
+      if (i >= session->cmds_max)
+
+i and cmds_max are both int, so a negative index passes and
+session->cmds[i] is read from before the array.
+
+be2iscsi produces one. beiscsi_parse_pdu() assigns the raw tag,
+
+      *index = (int)itt;
+
+and beiscsi_complete_pdu() forwards an unsolicited NOP-In from the
+hardware async ring without replacing its ITT, so the value is the
+target's. It also reports the session's own age rather than the one in
+the tag, which leaves the age comparison in iscsi_verify_itt() with
+nothing to reject.
+
+Bound the index from below in both lookups.
+
+Fixes: bfead3b2cb46 ("[SCSI] be2iscsi: Adding msix and mcc_rings V3")
+Cc: stable@vger.kernel.org
+Reviewed-by: Mike Christie <michael.christie@oracle.com>
+Signed-off-by: Yehyeong Lee <yhlee@isslab.korea.ac.kr>
+Link: https://patch.msgid.link/20261007015842.634893-2-yhlee@isslab.korea.ac.kr
+Signed-off-by: Martin K. Petersen (Oracle) <mkp@kernel.org>
+(cherry picked from commit 8ee2a09a1dbb257c9e828ad2497f8e4832dfb142)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/scsi/libiscsi.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/scsi/libiscsi.c b/drivers/scsi/libiscsi.c
+index 1b4e6af37c927b6062aec509a2214995d1675d0d..a512dc1a9ad9774bd7cd55084d2a0cf7b0f0e573 100644
+--- a/drivers/scsi/libiscsi.c
++++ b/drivers/scsi/libiscsi.c
+@@ -1191,7 +1191,7 @@ struct iscsi_task *iscsi_itt_to_task(struct iscsi_conn *conn, itt_t itt)
+ 		session->tt->parse_pdu_itt(conn, itt, &i, NULL);
+ 	else
+ 		i = get_itt(itt);
+-	if (i >= session->cmds_max)
++	if (i < 0 || i >= session->cmds_max)
+ 		return NULL;
+ 
+ 	return session->cmds[i];
+@@ -1384,7 +1384,7 @@ int iscsi_verify_itt(struct iscsi_conn *conn, itt_t itt)
+ 		return ISCSI_ERR_BAD_ITT;
+ 	}
+ 
+-	if (i >= session->cmds_max) {
++	if (i < 0 || i >= session->cmds_max) {
+ 		iscsi_conn_printk(KERN_ERR, conn,
+ 				  "received invalid itt index %u (max cmds "
+ 				   "%u.\n", i, session->cmds_max);
