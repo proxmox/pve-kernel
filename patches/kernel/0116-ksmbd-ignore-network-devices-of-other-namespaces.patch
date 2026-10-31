@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jan Koester <j.koester@act-marketing.de>
+Date: Mon, 26 Oct 2026 10:25:37 +0100
+Subject: [PATCH] ksmbd: ignore network devices of other namespaces
+
+With no interface list configured, ksmbd binds every interface that
+comes up. ksmbd_netdev_event() does not look at the device's namespace,
+and create_socket() opens the listener in the namespace of the task
+raising NETDEV_UP. A container with its own address on a bridge brings
+up its interface and finds port 445 in its namespace already taken by
+ksmbd, so an SMB server running inside the container fails with
+"Address already in use".
+
+Interfaces are also matched by name only, so a container's eth0 going
+down would stop the listener on the host's eth0.
+
+Only handle netdev events for devices in init_net.
+
+Fixes: 0626e6641f6b ("cifsd: add server handler for central processing and tranport layers")
+Cc: stable@vger.kernel.org
+Signed-off-by: Jan Koester <j.koester@act-marketing.de>
+Signed-off-by: Namjae Jeon <linkinjeon@kernel.org>
+(cherry picked from commit 1f5ce2b8b9164b3fcb93a18fe1e7b451c2fc6eea)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/server/transport_tcp.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/fs/smb/server/transport_tcp.c b/fs/smb/server/transport_tcp.c
+index 668fc333c5be3ebb8a575cd3baa45433793532c9..81fda66b881f9d9c57e7d41058653564defd561e 100644
+--- a/fs/smb/server/transport_tcp.c
++++ b/fs/smb/server/transport_tcp.c
+@@ -564,6 +564,15 @@ static int ksmbd_netdev_event(struct notifier_block *nb, unsigned long event,
+ 	struct interface *iface;
+ 	int ret;
+ 
++	/*
++	 * ksmbd serves the initial namespace only. create_socket() listens in
++	 * the namespace of the task raising the event, so a container bringing
++	 * up its own interface would get a listener on its port 445, and the
++	 * name-only interface lookup would let its interfaces stop ours.
++	 */
++	if (!net_eq(dev_net(netdev), &init_net))
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_UP:
+ 		if (netif_is_bridge_port(netdev))
