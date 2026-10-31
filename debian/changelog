@@ -1,3 +1,70 @@
+proxmox-kernel-7.0 (7.0.14-27) trixie; urgency=medium
+
+  * fix #8217: netfilter: flowtable: fall back to regular forwarding when the
+    forward path of a flow cannot be fully resolved, for example because the
+    egress device is not part of the flowtable. Such flows got offloaded with
+    an incomplete path, and packets sent out over VLAN devices lacked their
+    VLAN tag.
+
+  * ZFS: revert the fix for memory-mapped files serving stale data after a
+    rollback or receive (#7653) from 7.0.14-26. It could deadlock a receive
+    or rollback into a mounted dataset while programs accessed its files
+    through memory mappings, hanging all access to the dataset and blocking
+    reboots.
+
+  * net: revert a change from 7.0.14-18 that made TCP advertise the MSS of the
+    configured MTU instead of a smaller, already learned path MTU. Connections
+    from peers behind firewalls that drop ICMP could stall right after the
+    handshake.
+
+  * ksmbd: fix Windows clients failing to connect to the in-kernel SMB server
+    since 7.0.14-25. A change from the 6.18 stable kernel, which only fits
+    that kernel, broke the handling of the initial SMB1 style protocol
+    negotiation that Windows clients use. Linux clients were not affected.
+    Also fix an out-of-bounds read that clients could trigger during the
+    protocol negotiation, before authenticating, and keep ksmbd from listening
+    in the network namespaces of containers when no interface list is
+    configured, which made the host's shares reachable from container
+    networks.
+
+  * KVM: fix nested virtualization on AMD hosts possibly letting vCPUs of
+    different guests share an address space identifier on the same CPU, which
+    breaks the TLB isolation between them. Also keep nested guests from setting
+    up a long mode state that the KVM MMU does not expect, reject that state
+    when restoring nested virtualization state, for example on live migration,
+    and stop only the affected VM instead of crashing the host should the MMU
+    still encounter paging state it cannot handle.
+
+  * net: fix a bug that let unprivileged users modify the in-memory contents
+    of files they can only read, like files owned by root, through IPsec. The
+    base already had a fix for this, which missed one path.
+
+  * net: fix out-of-bounds accesses, use-after-free bugs and crashes in packet
+    receive, netfilter reject rules, TCP, IPv4 multipath routing, raw IPv6
+    sockets on VRF devices, packet sockets, xfrm interfaces, IP-TFS and the tc
+    flower classifier, and a kernel memory leak to netlink sockets with packet
+    filters. Some of these could be triggered by guests or by root in
+    unprivileged containers.
+
+  * iSCSI: fix kernel crashes that a malicious or faulty iSCSI target could
+    trigger in the initiator, and a case where such a target could make a
+    pending read succeed without delivering any data.
+
+  * mm: fix use-after-free bugs in swap-in, in the reclaim of lazily freed
+    transparent huge pages, where the latter could also lose data, and in
+    collapsing file-backed memory into huge pages, which unprivileged users
+    could trigger.
+
+  * fix a CPU lockup in the UMIP instruction emulation, use-after-free bugs in
+    io_uring, in pipes and in the resource limit accounting of user
+    namespaces, kernel crashes in asynchronous I/O and, on btrfs and f2fs, in
+    io_uring, an out-of-bounds read in direct I/O, information leaks in the
+    crypto socket interface and in overlayfs, and a bug that let users make
+    any file fail to execute by storing an empty file capability on it, all
+    reachable by unprivileged users, also from within containers.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 31 Oct 2026 15:20:57 +0100
+
 proxmox-kernel-7.0 (7.0.14-26) trixie; urgency=medium
 
   * fix #8153: revert a CXL change that broke building the NVIDIA open GPU
