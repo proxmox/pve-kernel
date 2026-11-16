@@ -122,7 +122,7 @@ index 398eb566ea031530c4287f6e64e68208a21eba64..bbb645c97de07cc379ce6e8d617a2968
   * scaling applied to the result.  The caller does these things
   * if necessary.  This is a "raw" window selection.
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 65287f7d14f80fd46341ca0a89e67448ff3ba2ed..8ed1b0bfd425d1c8334706777825f702caddcb3f 100644
+index 0e5d163893e68c4c86a5cb518c77380c6a18e11d..25ad7cb34103e7115863ba0b25495634402a1fd0 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -3576,6 +3576,7 @@ static int tcp_repair_set_window(struct tcp_sock *tp, sockptr_t optbuf, int len)
@@ -133,7 +133,7 @@ index 65287f7d14f80fd46341ca0a89e67448ff3ba2ed..8ed1b0bfd425d1c8334706777825f702
  
  	return 0;
  }
-@@ -5247,6 +5248,7 @@ static void __init tcp_struct_check(void)
+@@ -5257,6 +5258,7 @@ static void __init tcp_struct_check(void)
  	CACHELINE_ASSERT_GROUP_MEMBER(struct tcp_sock, tcp_sock_write_txrx, received_ecn_bytes);
  	CACHELINE_ASSERT_GROUP_MEMBER(struct tcp_sock, tcp_sock_write_txrx, app_limited);
  	CACHELINE_ASSERT_GROUP_MEMBER(struct tcp_sock, tcp_sock_write_txrx, rcv_wnd);
@@ -198,7 +198,7 @@ index 53e0424b7337e0eb1134f93309fc532e110f18ed..3c004cacca56732f57b9b188ae165da4
  		/* RFC1323: The window in SYN & SYN/ACK segments is
  		 * never scaled.
 diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index ab41d908ca125db467d305908eeb701474dd1bd0..6f4217ef7f13de76a026f1121a583d708e07b5a1 100644
+index 4b6b7b1582e8b54a7d831f6053fc2a6de3cc5aaa..08d9b36fdb99cf1a84ffeddce09b6e9e38f95314 100644
 --- a/net/ipv4/tcp_minisocks.c
 +++ b/net/ipv4/tcp_minisocks.c
 @@ -604,6 +604,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
@@ -210,7 +210,7 @@ index ab41d908ca125db467d305908eeb701474dd1bd0..6f4217ef7f13de76a026f1121a583d70
  	if (newtp->rx_opt.wscale_ok) {
  		newtp->rx_opt.snd_wscale = ireq->snd_wscale;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 67ed2a0febbf2bb794eb3a8b4e8471a6509733ff..f65ad4aa789157a3511a2a75df59590983299078 100644
+index 1b685aeea623e21cf4c7962edb8d0302db9b5e90..1145d8e2a925d5fdce4cca312ecdfa55494d1659 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -293,6 +293,7 @@ static u16 tcp_select_window(struct sock *sk)

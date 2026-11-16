@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:13 -0400
+Subject: [PATCH] KVM: SVM: add GMET bit definitions
+
+GMET (Guest Mode Execute Trap) is an AMD virtualization feature,
+essentially the nested paging version of SMEP.  Hyper-V uses it;
+add it in preparation for making it available to hypervisors
+running under KVM.
+
+Acked-by: Borislav Petkov (AMD) <bp@alien8.de>
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 4d39a11ae331df40dc755c7bf6679e8a6500a5a7)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/include/asm/cpufeatures.h | 1 +
+ arch/x86/include/asm/svm.h         | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/x86/include/asm/cpufeatures.h b/arch/x86/include/asm/cpufeatures.h
+index b6aac9dd13e0aaa6be474a743cf9773c049df795..2149de96c3ddad5ab5d32f6e59433a7007411033 100644
+--- a/arch/x86/include/asm/cpufeatures.h
++++ b/arch/x86/include/asm/cpufeatures.h
+@@ -379,6 +379,7 @@
+ #define X86_FEATURE_AVIC		(15*32+13) /* "avic" Virtual Interrupt Controller */
+ #define X86_FEATURE_V_VMSAVE_VMLOAD	(15*32+15) /* "v_vmsave_vmload" Virtual VMSAVE VMLOAD */
+ #define X86_FEATURE_VGIF		(15*32+16) /* "vgif" Virtual GIF */
++#define X86_FEATURE_GMET		(15*32+17) /* Guest Mode Execution Trap */
+ #define X86_FEATURE_X2AVIC		(15*32+18) /* "x2avic" Virtual x2apic */
+ #define X86_FEATURE_V_SPEC_CTRL		(15*32+20) /* "v_spec_ctrl" Virtual SPEC_CTRL */
+ #define X86_FEATURE_VNMI		(15*32+25) /* "vnmi" Virtual NMI */
+diff --git a/arch/x86/include/asm/svm.h b/arch/x86/include/asm/svm.h
+index 983db6575141df31491aade7f8ba2870f214f6b4..d1dc1ad12630651e0d11599b7eb0d095728975dd 100644
+--- a/arch/x86/include/asm/svm.h
++++ b/arch/x86/include/asm/svm.h
+@@ -242,6 +242,7 @@ struct __attribute__ ((__packed__)) vmcb_control_area {
+ #define SVM_MISC_ENABLE_NP		BIT(0)
+ #define SVM_MISC_ENABLE_SEV		BIT(1)
+ #define SVM_MISC_ENABLE_SEV_ES	BIT(2)
++#define SVM_MISC_ENABLE_GMET	BIT(3)
+ 
+ 
+ #define SVM_TSC_RATIO_RSVD	0xffffff0000000000ULL

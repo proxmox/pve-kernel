@@ -23,10 +23,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 39 insertions(+), 16 deletions(-)
 
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index bb82fefe01c2ecc33294e6f735f5a21da9519607..57e227c11dca32ce566ab27725a7ac9109eeefa8 100644
+index 6a59c3f122645bf0f417cac5016aec75612c14b8..a718dcc9ce09aaaa961a791fd209bd1a5c2f422e 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
-@@ -5530,29 +5530,53 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+@@ -5532,29 +5532,53 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
  				    max_huge_page_level);
  }
  
@@ -92,7 +92,7 @@ index bb82fefe01c2ecc33294e6f735f5a21da9519607..57e227c11dca32ce566ab27725a7ac91
  	for (byte = 0; byte < ARRAY_SIZE(mmu->permissions); ++byte) {
  		unsigned pfec = byte << 1;
  
-@@ -5599,10 +5623,9 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5601,10 +5625,9 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  			 *   - The access is supervisor mode
  			 *   - If implicit supervisor access or X86_EFLAGS_AC is clear
  			 *

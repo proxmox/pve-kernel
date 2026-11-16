@@ -1,0 +1,240 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Thu, 23 Jul 2026 10:15:22 +0200
+Subject: [PATCH] KVM: SVM: make svm_flush_tlb_gva do a full asid flush if NPT
+ enabled
+
+Red Hat is seeing multiple reports of Windows memory corruptions
+(and consequent BSODs) with hv-tlbflush=on, on AMD processors only.
+The crashes, while extremely rare, happen even with a stock configuration,
+but with Driver Verifier enabled they can be detected after approximately
+200 VM hours.  In particular, Alexander Lougovski measured the following:
+
+- on AMD Turin, 15 crashes in 3300 VM hours
+
+- on AMD Milan, 2 crashes in 500 VM hours (there are fewer hours
+  here due to the host being smaller)
+
+- on Intel Sapphire Rapids, 0 crashes in 8000 VM hours
+
+- on AMD Turin with full TLB flush (not exactly this patch but
+  similar), no crashes in ~2 weeks of run time which should also
+  be ~7000 VM hours
+
+For Turin, the microcode version was 0x0b002162, which (assuming
+this is the same issue) should not be affected by the problem listed in
+https://knowledge.broadcom.com/external/article/419026/bsod-on-virtual-machines-running-on-amd.html;
+on the other hand that problem should not apply to earlier processors.
+AMD has not provided any information or analysis yet, and when we asked
+we didn't know yet that it reproduced on Milan as well.
+
+As to the workload, Alexander threw more or less everything at the same
+time at the VM:
+
+- a full Windows Defender scan every 30 minutes
+
+- a disk I/O job
+
+- a loop doing repeated mmap of system files (mostly to hope that
+  it triggers some consistency check in the Windows memory manager)
+
+- SQL Express 2022 + StressDB (1.6M rows), with the host doing queries
+  (75% write/25% read) via sqlcmd
+
+Driver Verifier is able to detect BSODs more or less at the same time as
+the pages are freed.  They mostly happen in the Windows Defender filter
+driver, but occasionally also in the networking stack (e.g., afd.sys)
+or elsewhere in the filesystem stack (e.g., fltmgr.sys).
+
+The flush is issued from kvm_hv_vcpu_flush_tlb(), which receives the
+cross-CPU requests from the Hyper-V TLB flush hypercalls via a kfifo
+and is invoked by the KVM_REQ_HV_TLB_FLUSH request.  The mechanism is
+the same for both Intel and AMD, and the handler for both vendors is
+a simple INVVPID(ADDR)/INVLPGA instruction.
+
+Because the request is handled on the destination CPU, there is a question
+of what happens if the VM is migrated across physical CPUs.  In that case,
+the INVLPGA instruction would use a stale svm->vmcb->control.asid; but
+if anything that might do an *unnecessary* flush (on an asid that's being
+used for another VM) and then pre_svm_run() would force a full TLB rebuild.
+
+So, for lack of better ideas, this patch forces a full ASID bump in
+svm_flush_tlb_gva().  To avoid paying the price on Intel and also to
+avoid unnecessary loops on AMD, the flush_tlb_gva op now returns whether
+it did a full flush or not; kvm_hv_vcpu_flush_tlb() takes note and exits
+its loops immediately.  While there is an obvious performance impact,
+about half of the benefit from Hyper-V tlbflush is preserved (10% vs. 20%
+on the SQL Server workload).
+
+kvm_mmu_invalidate_addr() is the only other caller of the flush_tlb_gva op.
+The change would have a performance impact on every intercepted INVLPG and,
+for nested SVM, on every L1 INVLPGA.  For INVLPGA specifically, this covers
+the same suspected issue but for nested hypervisors, so it is correct to
+apply the workaround; for INVLPG on shadow paging, instead, the impact
+would be stronger and, due to lack of data, for now the use of INVLPGA is
+left in place in svm_flush_tlb_gva().
+
+Analyzed-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Analyzed-by: Alexander Lougovski <alougovs@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 26505e1b5b546e2fa9a0296b951ca158460c72d8)
+[TL: Retain VCPU_EXREG_ERAPS in the existing guest-flush helper.]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/include/asm/kvm_host.h |  2 +-
+ arch/x86/kvm/hyperv.c           |  7 ++++---
+ arch/x86/kvm/mmu/mmu.c          |  2 +-
+ arch/x86/kvm/svm/svm.c          | 25 +++++++++++++++++++------
+ arch/x86/kvm/vmx/main.c         |  4 ++--
+ arch/x86/kvm/vmx/vmx.c          |  2 +-
+ arch/x86/kvm/vmx/x86_ops.h      |  2 +-
+ 7 files changed, 29 insertions(+), 15 deletions(-)
+
+diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
+index 6e64351e90725f43a65b0044451e37c3c6e33a23..f6bfe10cb23054cfeccdaa01edbc8ebf9ab24d44 100644
+--- a/arch/x86/include/asm/kvm_host.h
++++ b/arch/x86/include/asm/kvm_host.h
+@@ -1831,7 +1831,7 @@ struct kvm_x86_ops {
+ 	 * Can potentially get non-canonical addresses through INVLPGs, which
+ 	 * the implementation may choose to ignore if appropriate.
+ 	 */
+-	void (*flush_tlb_gva)(struct kvm_vcpu *vcpu, gva_t addr);
++	void (*flush_tlb_gva)(struct kvm_vcpu *vcpu, gva_t addr, bool *full);
+ 
+ 	/*
+ 	 * Flush any TLB entries created by the guest.  Like tlb_flush_gva(),
+diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
+index ff77359f648f27ff174877e819db565562095bdc..0f60bb6f958dd0b75135566c59103833ed0a81b8 100644
+--- a/arch/x86/kvm/hyperv.c
++++ b/arch/x86/kvm/hyperv.c
+@@ -1987,6 +1987,7 @@ int kvm_hv_vcpu_flush_tlb(struct kvm_vcpu *vcpu)
+ 	u64 entries[KVM_HV_TLB_FLUSH_FIFO_SIZE];
+ 	int i, j, count;
+ 	gva_t gva;
++	bool full = false;
+ 
+ 	if (!tdp_enabled || !hv_vcpu)
+ 		return -EINVAL;
+@@ -1995,7 +1996,7 @@ int kvm_hv_vcpu_flush_tlb(struct kvm_vcpu *vcpu)
+ 
+ 	count = kfifo_out(&tlb_flush_fifo->entries, entries, KVM_HV_TLB_FLUSH_FIFO_SIZE);
+ 
+-	for (i = 0; i < count; i++) {
++	for (i = 0; i < count && !full; i++) {
+ 		if (entries[i] == KVM_HV_TLB_FLUSHALL_ENTRY)
+ 			goto out_flush_all;
+ 
+@@ -2004,11 +2005,11 @@ int kvm_hv_vcpu_flush_tlb(struct kvm_vcpu *vcpu)
+ 		 * pages to flush.
+ 		 */
+ 		gva = entries[i] & PAGE_MASK;
+-		for (j = 0; j < (entries[i] & ~PAGE_MASK) + 1; j++) {
++		for (j = 0; j < (entries[i] & ~PAGE_MASK) + 1 && !full; j++) {
+ 			if (is_noncanonical_invlpg_address(gva + j * PAGE_SIZE, vcpu))
+ 				continue;
+ 
+-			kvm_x86_call(flush_tlb_gva)(vcpu, gva + j * PAGE_SIZE);
++			kvm_x86_call(flush_tlb_gva)(vcpu, gva + j * PAGE_SIZE, &full);
+ 		}
+ 
+ 		++vcpu->stat.tlb_flush;
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index ca1e8134cbf6ed11881aaa4c0abf71d01a15f367..cdddf929e2f9defd71ec6b96746081fba5e4ad6d 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -6620,7 +6620,7 @@ void kvm_mmu_invalidate_addr(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+ 		if (is_noncanonical_invlpg_address(addr, vcpu))
+ 			return;
+ 
+-		kvm_x86_call(flush_tlb_gva)(vcpu, addr);
++		kvm_x86_call(flush_tlb_gva)(vcpu, addr, NULL);
+ 	}
+ 
+ 	if (!mmu->sync_spte)
+diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
+index 64f395e1fab4ab392b232ec37f4c1cf37826473f..e0c49941c91cabd873f1082ba6e9eec708316c25 100644
+--- a/arch/x86/kvm/svm/svm.c
++++ b/arch/x86/kvm/svm/svm.c
+@@ -4163,18 +4163,31 @@ static void svm_flush_tlb_all(struct kvm_vcpu *vcpu)
+ 	svm_flush_tlb_asid(vcpu);
+ }
+ 
+-static void svm_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t gva)
++static void svm_flush_tlb_guest(struct kvm_vcpu *vcpu)
+ {
+-	struct vcpu_svm *svm = to_svm(vcpu);
++	kvm_register_mark_dirty(vcpu, VCPU_EXREG_ERAPS);
+ 
+-	invlpga(gva, svm->vmcb->control.asid);
++	svm_flush_tlb_asid(vcpu);
+ }
+ 
+-static void svm_flush_tlb_guest(struct kvm_vcpu *vcpu)
++static void svm_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t gva, bool *full)
+ {
+-	kvm_register_mark_dirty(vcpu, VCPU_EXREG_ERAPS);
++	struct vcpu_svm *svm = to_svm(vcpu);
+ 
+-	svm_flush_tlb_asid(vcpu);
++	/*
++	 * INVLPGA has had errata on Genoa and Turin, and even on older
++	 * generations there were reports of Windows BSODs if INVLPGA
++	 * was used for Hyper-V tlbflush.  Use it only for shadow paging
++	 * where it seems to be okay.
++	 */
++	if (!npt_enabled) {
++		invlpga(gva, svm->vmcb->control.asid);
++		return;
++	}
++
++	svm_flush_tlb_guest(vcpu);
++	if (full)
++		*full = true;
+ }
+ 
+ static inline void sync_cr8_to_lapic(struct kvm_vcpu *vcpu)
+diff --git a/arch/x86/kvm/vmx/main.c b/arch/x86/kvm/vmx/main.c
+index 2c4d755cf5b70bc7e52fd1e5b0a7288ec6e6d95a..de94a19935667a685bdca557ab96dfdcf786ba41 100644
+--- a/arch/x86/kvm/vmx/main.c
++++ b/arch/x86/kvm/vmx/main.c
+@@ -532,12 +532,12 @@ static void vt_flush_tlb_current(struct kvm_vcpu *vcpu)
+ 	vmx_flush_tlb_current(vcpu);
+ }
+ 
+-static void vt_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr)
++static void vt_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr, bool *full)
+ {
+ 	if (is_td_vcpu(vcpu))
+ 		return;
+ 
+-	vmx_flush_tlb_gva(vcpu, addr);
++	vmx_flush_tlb_gva(vcpu, addr, full);
+ }
+ 
+ static void vt_flush_tlb_guest(struct kvm_vcpu *vcpu)
+diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
+index 6569fbb1f44784d0e5b3da26b167e0a052f2873d..4edb4632723667582a399a4f406944668506bcb0 100644
+--- a/arch/x86/kvm/vmx/vmx.c
++++ b/arch/x86/kvm/vmx/vmx.c
+@@ -3467,7 +3467,7 @@ void vmx_flush_tlb_current(struct kvm_vcpu *vcpu)
+ 		vpid_sync_context(vmx_get_current_vpid(vcpu));
+ }
+ 
+-void vmx_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr)
++void vmx_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr, bool *full)
+ {
+ 	/*
+ 	 * vpid_sync_vcpu_addr() is a nop if vpid==0, see the comment in
+diff --git a/arch/x86/kvm/vmx/x86_ops.h b/arch/x86/kvm/vmx/x86_ops.h
+index e2c9c1c9cbcde43b1a591afffc586d7c0ccae736..b9f3bece407c102c29e6442532c58457e0e9e532 100644
+--- a/arch/x86/kvm/vmx/x86_ops.h
++++ b/arch/x86/kvm/vmx/x86_ops.h
+@@ -81,7 +81,7 @@ void vmx_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags);
+ bool vmx_get_if_flag(struct kvm_vcpu *vcpu);
+ void vmx_flush_tlb_all(struct kvm_vcpu *vcpu);
+ void vmx_flush_tlb_current(struct kvm_vcpu *vcpu);
+-void vmx_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr);
++void vmx_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr, bool *full);
+ void vmx_flush_tlb_guest(struct kvm_vcpu *vcpu);
+ void vmx_set_interrupt_shadow(struct kvm_vcpu *vcpu, int mask);
+ u32 vmx_get_interrupt_shadow(struct kvm_vcpu *vcpu);

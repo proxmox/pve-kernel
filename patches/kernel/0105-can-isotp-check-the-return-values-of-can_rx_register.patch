@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Tue, 27 Oct 2026 15:31:06 +0100
+Subject: [PATCH] can: isotp: check the return values of can_rx_register() in
+ isotp_bind()
+
+isotp_bind() ignores the return values of can_rx_register() for the RX
+and the echo receiver and binds the socket anyway. When a receiver can
+not be allocated, bind() succeeds without this receiver, so the socket
+does not receive frames or its transmissions time out. isotp_release()
+and isotp_notify() later try to remove the missing receiver, which
+triggers the "receive list entry not found" warning in
+can_rx_unregister().
+
+As the device has been checked before and RTNL prevents a namespace
+change during bind(), only -ENOMEM can be returned here.
+
+Check the return values and register the RX receiver as the last step.
+The echo receiver is registered first, as it only handles the socket's
+own echo frames and does nothing while no transmission is in progress.
+So a failed RX registration only needs to remove the echo receiver, and
+isotp_rcv() has never processed a frame for this socket.
+
+Set so->ifindex before the registrations, so that a First Frame received
+before so->bound is set can be answered with a Flow Control frame and
+the RX timeout is started as usual. As the RX receiver is registered
+last, this can only happen for a bind() that succeeds. Reset so->ifindex
+when bind() fails.
+
+Check IFF_UP only after the receivers have been registered, so that a
+bind() that fails on a down device does not report ENETDOWN. As bind()
+holds RTNL, the device state can not change in between.
+
+Fixes: e057dd3fc20f ("can: add ISO 15765-2:2016 transport protocol")
+Cc: stable@vger.kernel.org
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Link: https://patch.msgid.link/20261027-can-rx-lock-v12-2-eb5afc2d8b9b@hartkopp.net
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+(cherry picked from commit 874f5f14cf626f72477071eff381c8485554250d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/can/isotp.c | 42 +++++++++++++++++++++++++++---------------
+ 1 file changed, 27 insertions(+), 15 deletions(-)
+
+diff --git a/net/can/isotp.c b/net/can/isotp.c
+index e4957855829e6ef9cb9e3125a1f75b98b7b57d71..28e9d22772fa3130bd7936b0bc53fecd06dc3106 100644
+--- a/net/can/isotp.c
++++ b/net/can/isotp.c
+@@ -1550,7 +1550,6 @@ static int isotp_bind(struct socket *sock, struct sockaddr_unsized *uaddr, int l
+ 	struct sock *sk = sock->sk;
+ 	struct isotp_sock *so = isotp_sk(sk);
+ 	struct net *net = sock_net(sk);
+-	int ifindex;
+ 	struct net_device *dev;
+ 	canid_t tx_id = addr->can_addr.tp.tx_id;
+ 	canid_t rx_id = addr->can_addr.tp.rx_id;
+@@ -1627,26 +1626,36 @@ static int isotp_bind(struct socket *sock, struct sockaddr_unsized *uaddr, int l
+ 		err = -EINVAL;
+ 		goto out_put_dev;
+ 	}
+-	if (!(dev->flags & IFF_UP))
+-		notify_enetdown = 1;
+ 
+-	ifindex = dev->ifindex;
+-
+-	if (isotp_register_rxid(so))
+-		can_rx_register(net, dev, rx_id, SINGLE_MASK(rx_id),
+-				isotp_rcv, sk, "isotp", sk);
++	/* switch to new settings */
++	so->ifindex = dev->ifindex;
++	so->rxid = rx_id;
++	so->txid = tx_id;
+ 
+ 	/* no consecutive frame echo skb in flight */
+ 	WRITE_ONCE(so->cfecho, 0);
+ 
+-	/* register for echo skb's */
+-	can_rx_register(net, dev, tx_id, SINGLE_MASK(tx_id),
+-			isotp_rcv_echo, sk, "isotpe", sk);
++	/* register for echo skb's first (no echo traffic at this point) */
++	err = can_rx_register(net, dev, tx_id, SINGLE_MASK(tx_id),
++			      isotp_rcv_echo, sk, "isotpe", sk);
++	if (err)
++		goto out_put_dev;
++
++	if (isotp_register_rxid(so)) {
++		err = can_rx_register(net, dev, rx_id, SINGLE_MASK(rx_id),
++				      isotp_rcv, sk, "isotp", sk);
++		if (err) {
++			/* unregister echo skb subscription */
++			can_rx_unregister(net, dev, tx_id, SINGLE_MASK(tx_id),
++					  isotp_rcv_echo, sk);
++			goto out_put_dev;
++		}
++	}
++
++	/* report a down device only for a successful bind() */
++	if (!(dev->flags & IFF_UP))
++		notify_enetdown = 1;
+ 
+-	/* switch to new settings */
+-	so->ifindex = ifindex;
+-	so->rxid = rx_id;
+-	so->txid = tx_id;
+ 	so->bound = 1;
+ 
+ 	/* bind() ok -> hold a reference for so->dev so that isotp_release()
+@@ -1657,6 +1666,9 @@ static int isotp_bind(struct socket *sock, struct sockaddr_unsized *uaddr, int l
+ 	netdev_hold(so->dev, &so->dev_tracker, GFP_KERNEL);
+ 
+ out_put_dev:
++	if (err)
++		so->ifindex = 0; /* reset on failed bind() */
++
+ 	/* remove potential reference from dev_get_by_index() */
+ 	dev_put(dev);
+ out:

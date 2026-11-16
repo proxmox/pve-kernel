@@ -1,0 +1,164 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:01 -0400
+Subject: [PATCH] KVM: x86/mmu: pass pte_access for final nGPA->GPA walk
+
+The XS/XU bit for EPT are only applied to final accesses, and use the
+U bit from the page walk itself.  This is available in the page walker
+as pte_access & ACC_USER_MASK but not available to translate_nested_gpa,
+so pass it down.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit b235c63f9b626e7bdda79092e50bcdfb036c7147)
+[TL: apply the load_pdptrs() hunk to regs.c, where the base moved it]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/hyperv.c          |  2 +-
+ arch/x86/kvm/mmu.h             | 15 ++++++++++++---
+ arch/x86/kvm/mmu/mmu.c         |  8 +++++++-
+ arch/x86/kvm/mmu/paging_tmpl.h |  4 ++--
+ arch/x86/kvm/mmu/spte.h        |  6 ------
+ arch/x86/kvm/regs.c            |  2 +-
+ arch/x86/kvm/x86.c             |  3 ++-
+ 7 files changed, 25 insertions(+), 15 deletions(-)
+
+diff --git a/arch/x86/kvm/hyperv.c b/arch/x86/kvm/hyperv.c
+index 6e2dfb24aa929d680087c735fc5a604ed5ff5e91..27695e830685a0a655b1619dec963c5324d95880 100644
+--- a/arch/x86/kvm/hyperv.c
++++ b/arch/x86/kvm/hyperv.c
+@@ -2060,7 +2060,7 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
+ 	 */
+ 	if (!hc->fast && mmu_is_nested(vcpu)) {
+ 		hc->ingpa = translate_nested_gpa(vcpu, hc->ingpa,
+-					PFERR_GUEST_FINAL_MASK, NULL);
++					PFERR_GUEST_FINAL_MASK, NULL, 0);
+ 		if (unlikely(hc->ingpa == INVALID_GPA))
+ 			return HV_STATUS_INVALID_HYPERCALL_INPUT;
+ 	}
+diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
+index a882352f20e7e6fb39a72278d8371874f9dbde4f..5a722243bc15e7fa3c3afec8288a592ccd340477 100644
+--- a/arch/x86/kvm/mmu.h
++++ b/arch/x86/kvm/mmu.h
+@@ -37,6 +37,12 @@ extern bool __read_mostly enable_mmio_caching;
+ #define PT32_ROOT_LEVEL 2
+ #define PT32E_ROOT_LEVEL 3
+ 
++#define ACC_READ_MASK    PT_PRESENT_MASK
++#define ACC_WRITE_MASK   PT_WRITABLE_MASK
++#define ACC_USER_MASK    PT_USER_MASK
++#define ACC_EXEC_MASK    8
++#define ACC_ALL          (ACC_EXEC_MASK | ACC_WRITE_MASK | ACC_USER_MASK | ACC_READ_MASK)
++
+ #define KVM_MMU_CR4_ROLE_BITS (X86_CR4_PSE | X86_CR4_PAE | X86_CR4_LA57 | \
+ 			       X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_PKE)
+ 
+@@ -297,16 +303,19 @@ static inline void kvm_update_page_stats(struct kvm *kvm, int level, int count)
+ }
+ 
+ gpa_t translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa, u64 access,
+-			   struct x86_exception *exception);
++			   struct x86_exception *exception,
++			   u64 pte_access);
+ 
+ static inline gpa_t kvm_translate_gpa(struct kvm_vcpu *vcpu,
+ 				      struct kvm_mmu *mmu,
+ 				      gpa_t gpa, u64 access,
+-				      struct x86_exception *exception)
++				      struct x86_exception *exception,
++				      u64 pte_access)
+ {
+ 	if (mmu != &vcpu->arch.nested_mmu)
+ 		return gpa;
+-	return translate_nested_gpa(vcpu, gpa, access, exception);
++	return translate_nested_gpa(vcpu, gpa, access, exception,
++				    pte_access);
+ }
+ 
+ static inline bool kvm_has_mirrored_tdp(const struct kvm *kvm)
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index be357948845dcd5cd4262941be6fbb4bab561922..216cc2fe456d643d00929d03074615a568b8add4 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -4349,8 +4349,14 @@ static gpa_t nonpaging_gva_to_gpa(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
+ {
+ 	if (exception)
+ 		exception->error_code = 0;
++	/*
++	 * EPT MBEC uses the effective access bits from the PTE to distinguish
++	 * user and supervisor accesses, and treats every linear address as a
++	 * user-mode address if CR0.PG=0.  Therefore *include* ACC_USER_MASK in
++	 * the last argument to kvm_translate_gpa (which NPT does not use).
++	 */
+ 	return kvm_translate_gpa(vcpu, mmu, vaddr, access | PFERR_GUEST_FINAL_MASK,
+-				 exception);
++				 exception, ACC_ALL);
+ }
+ 
+ static bool mmio_info_in_cache(struct kvm_vcpu *vcpu, u64 addr, bool direct)
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index 09528a61451b15f6446cc6bea0c11f207d3ff07d..0832d7432b528c7d6d3819257c66c81054ef9ec1 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -378,7 +378,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 
+ 		real_gpa = kvm_translate_gpa(vcpu, mmu, gfn_to_gpa(table_gfn),
+ 					     nested_access | PFERR_GUEST_PAGE_MASK,
+-					     &walker->fault);
++					     &walker->fault, 0);
+ 
+ 		/*
+ 		 * FIXME: This can happen if emulation (for of an INS/OUTS
+@@ -448,7 +448,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 
+ 	real_gpa = kvm_translate_gpa(vcpu, mmu, gfn_to_gpa(gfn),
+ 				     access | PFERR_GUEST_FINAL_MASK,
+-				     &walker->fault);
++				     &walker->fault, walker->pte_access);
+ 	if (real_gpa == INVALID_GPA)
+ 		return 0;
+ 
+diff --git a/arch/x86/kvm/mmu/spte.h b/arch/x86/kvm/mmu/spte.h
+index 121bfb2217e83d5c2926e2155cb9ded5ff5d3b00..8a4c09c5cdbfb3000670b92fe94047387f0ad3c2 100644
+--- a/arch/x86/kvm/mmu/spte.h
++++ b/arch/x86/kvm/mmu/spte.h
+@@ -52,12 +52,6 @@ static_assert(SPTE_TDP_AD_ENABLED == 0);
+ #define SPTE_BASE_ADDR_MASK (((1ULL << 52) - 1) & ~(u64)(PAGE_SIZE-1))
+ #endif
+ 
+-#define ACC_READ_MASK    PT_PRESENT_MASK
+-#define ACC_WRITE_MASK   PT_WRITABLE_MASK
+-#define ACC_USER_MASK    PT_USER_MASK
+-#define ACC_EXEC_MASK    8
+-#define ACC_ALL          (ACC_EXEC_MASK | ACC_WRITE_MASK | ACC_USER_MASK | ACC_READ_MASK)
+-
+ #define SPTE_LEVEL_BITS			9
+ #define SPTE_LEVEL_SHIFT(level)		__PT_LEVEL_SHIFT(level, SPTE_LEVEL_BITS)
+ #define SPTE_INDEX(address, level)	__PT_INDEX(address, level, SPTE_LEVEL_BITS)
+diff --git a/arch/x86/kvm/regs.c b/arch/x86/kvm/regs.c
+index d19a9e7e41f375a784eac517d99d300fcf7efa7e..d355d1e6121e6ce5252e4605631e2546c48ba8cd 100644
+--- a/arch/x86/kvm/regs.c
++++ b/arch/x86/kvm/regs.c
+@@ -123,7 +123,7 @@ int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
+ 	 */
+ 	real_gpa = kvm_translate_gpa(vcpu, mmu, gfn_to_gpa(pdpt_gfn),
+ 				     PFERR_USER_MASK | PFERR_WRITE_MASK |
+-				     PFERR_GUEST_PAGE_MASK, NULL);
++				     PFERR_GUEST_PAGE_MASK, NULL, 0);
+ 	if (real_gpa == INVALID_GPA)
+ 		return 0;
+ 
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index 0dc6eea248a87b70f8bbbdca0c5f0f721ed9e638..231852e1d922b2694b881493a4932c009879345d 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -7462,7 +7462,8 @@ void kvm_get_segment(struct kvm_vcpu *vcpu,
+ }
+ 
+ gpa_t translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa, u64 access,
+-			   struct x86_exception *exception)
++			   struct x86_exception *exception,
++			   u64 pte_access)
+ {
+ 	struct kvm_mmu *mmu = vcpu->arch.mmu;
+ 	gpa_t t_gpa;

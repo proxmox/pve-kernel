@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:06 -0400
+Subject: [PATCH] KVM: nVMX: pass advanced EPT violation vmexit info to guest
+
+KVM will use advanced vmexit information for EPT violations to
+virtualize MBEC.  Pass it to the guest since it is easy and allows
+testing nested nested.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit f899ebca44351d96e7d9a4f28b63b9be150b004f)
+[TL: adapt to the backports of upstream fe0b872d7500 and 96b067b59ad9 in
+ the base, matching how upstream combined them with this change]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/include/asm/vmx.h     |  4 ++++
+ arch/x86/kvm/mmu/paging_tmpl.h |  1 +
+ arch/x86/kvm/vmx/nested.c      | 12 +++++++++---
+ 3 files changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/arch/x86/include/asm/vmx.h b/arch/x86/include/asm/vmx.h
+index ecc3b90554fb312a10d476eb64151fd50b919a71..df80091f3557a143891c124a1b241aee045577e4 100644
+--- a/arch/x86/include/asm/vmx.h
++++ b/arch/x86/include/asm/vmx.h
+@@ -543,6 +543,7 @@ enum vmcs_field {
+ #define VMX_EPT_1GB_PAGE_BIT			(1ull << 17)
+ #define VMX_EPT_INVEPT_BIT			(1ull << 20)
+ #define VMX_EPT_AD_BIT				    (1ull << 21)
++#define VMX_EPT_ADVANCED_VMEXIT_INFO_BIT	(1ull << 22)
+ #define VMX_EPT_EXTENT_CONTEXT_BIT		(1ull << 25)
+ #define VMX_EPT_EXTENT_GLOBAL_BIT		(1ull << 26)
+ 
+@@ -625,6 +626,9 @@ enum vm_entry_failure_code {
+ 					 EPT_VIOLATION_PROT_USER_EXEC)
+ #define EPT_VIOLATION_GVA_IS_VALID	BIT(7)
+ #define EPT_VIOLATION_GVA_TRANSLATED	BIT(8)
++#define EPT_VIOLATION_GVA_USER		BIT(9)
++#define EPT_VIOLATION_GVA_WRITABLE	BIT(10)
++#define EPT_VIOLATION_GVA_NX		BIT(11)
+ 
+ #define EPT_VIOLATION_RWX_TO_PROT(__epte) (((__epte) & VMX_EPT_RWX_MASK) << 3)
+ #define EPT_VIOLATION_USER_EXEC_TO_PROT(__epte) (((__epte) & VMX_EPT_USER_EXECUTABLE_MASK) >> 4)
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index 0832d7432b528c7d6d3819257c66c81054ef9ec1..bfc538b03e4c0dcaffcc7763e913e6c44dacd9e2 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -496,6 +496,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 	 *         out of date if it is serving an EPT misconfiguration.
+ 	 * [5:3] - Calculated by the page walk of the guest EPT page tables
+ 	 * [7:8] - Derived from "fault stage" access bits
++	 * [9:11] - Derived from [9:11] of real exit_qualification
+ 	 *
+ 	 * The other bits are set to 0.
+ 	 */
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index 0d555c39ca19a65b04d97c9c4a228ddcaaafbda2..29a37d386e85b0359d26ca080ccaac0a57e97511 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -452,8 +452,13 @@ static void nested_ept_inject_page_fault(struct kvm_vcpu *vcpu,
+ 			vm_exit_reason = EXIT_REASON_EPT_MISCONFIG;
+ 			exit_qualification = 0;
+ 		} else {
+-			const u64 mask = EPT_VIOLATION_GVA_IS_VALID |
+-					 EPT_VIOLATION_GVA_TRANSLATED;
++			u64 mask = EPT_VIOLATION_GVA_IS_VALID |
++				   EPT_VIOLATION_GVA_TRANSLATED;
++
++			if (vmx->nested.msrs.ept_caps & VMX_EPT_ADVANCED_VMEXIT_INFO_BIT)
++				mask |= EPT_VIOLATION_GVA_USER |
++					EPT_VIOLATION_GVA_WRITABLE |
++					EPT_VIOLATION_GVA_NX;
+ 
+ 			exit_qualification = fault->exit_qualification & ~mask;
+ 
+@@ -7270,7 +7275,8 @@ static void nested_vmx_setup_secondary_ctls(u32 ept_caps,
+ 			VMX_EPT_PAGE_WALK_5_BIT |
+ 			VMX_EPTP_WB_BIT |
+ 			VMX_EPT_INVEPT_BIT |
+-			VMX_EPT_EXECUTE_ONLY_BIT;
++			VMX_EPT_EXECUTE_ONLY_BIT |
++			VMX_EPT_ADVANCED_VMEXIT_INFO_BIT;
+ 
+ 		msrs->ept_caps &= ept_caps;
+ 		msrs->ept_caps |= VMX_EPT_EXTENT_GLOBAL_BIT |

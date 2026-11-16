@@ -25,10 +25,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  2 files changed, 13 insertions(+), 9 deletions(-)
 
 diff --git a/arch/x86/include/asm/vmx.h b/arch/x86/include/asm/vmx.h
-index 7fdc6b787d702b8cefef172f52e1d56a7a46a431..59e3b095a315973a9dfd4d3107ac52e462010858 100644
+index a7aac2883dedc868f426738ec9fab76bd7e96cfc..21909aa59b53bab061a0dbf8de7caf637cccc141 100644
 --- a/arch/x86/include/asm/vmx.h
 +++ b/arch/x86/include/asm/vmx.h
-@@ -549,10 +549,12 @@ enum vmcs_field {
+@@ -568,10 +568,12 @@ enum vmcs_field {
  #define VMX_EPT_ACCESS_BIT			(1ull << 8)
  #define VMX_EPT_DIRTY_BIT			(1ull << 9)
  #define VMX_EPT_SUPPRESS_VE_BIT			(1ull << 63)

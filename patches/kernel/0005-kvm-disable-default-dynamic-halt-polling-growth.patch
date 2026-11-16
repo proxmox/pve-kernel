@@ -13,10 +13,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index 4c8b60ec7135b18f0342233bf79c0209a366c963..7b75cd15b0a2933a36b7a681ed627459bc8d879f 100644
+index ecde86ba720cfd4480a90158dba24c2d39b26cd3..66a9f11f5d8fa5beb5f6e1bdcdaced2206f62c56 100644
 --- a/virt/kvm/kvm_main.c
 +++ b/virt/kvm/kvm_main.c
-@@ -81,7 +81,7 @@ module_param(halt_poll_ns, uint, 0644);
+@@ -82,7 +82,7 @@ module_param(halt_poll_ns, uint, 0644);
  EXPORT_SYMBOL_FOR_KVM_INTERNAL(halt_poll_ns);
  
  /* Default doubles per-vcpu halt_poll_ns. */

@@ -1,0 +1,132 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jon Kohler <jon@nutanix.com>
+Date: Wed, 8 Apr 2026 11:42:09 -0400
+Subject: [PATCH] KVM: nVMX: advertise MBEC to nested guests
+
+Advertise SECONDARY_EXEC_MODE_BASED_EPT_EXEC (MBEC) to userspace, which
+allows userspace to expose and advertise the feature to the guest.
+
+When MBEC is enabled by the guest, it is passed to the MMU via cr4_smep,
+and to the processor by the merging of vmcs12->secondary_vm_exec_control
+into the VMCS02's secondary VM execution controls.
+
+Signed-off-by: Jon Kohler <jon@nutanix.com>
+Message-ID: <20251223054806.1611168-9-jon@nutanix.com>
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 6ee40dc40a8470be2640962ba232015c0e665ff6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu.h        |  2 +-
+ arch/x86/kvm/mmu/mmu.c    |  7 ++++---
+ arch/x86/kvm/mmu/spte.c   | 10 ++++++----
+ arch/x86/kvm/vmx/nested.c | 11 +++++++++++
+ 4 files changed, 22 insertions(+), 8 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
+index 5392e25c1222fa180ce0e487cadd0d6f3448962c..bc88e06efd46c40c7e1eeb437647b540b4b9fb2f 100644
+--- a/arch/x86/kvm/mmu.h
++++ b/arch/x86/kvm/mmu.h
+@@ -100,7 +100,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
+ 			     unsigned long cr4, u64 efer, gpa_t nested_cr3);
+ void kvm_init_shadow_ept_mmu(struct kvm_vcpu *vcpu, bool execonly,
+ 			     int huge_page_level, bool accessed_dirty,
+-			     gpa_t new_eptp);
++			     bool mbec, gpa_t new_eptp);
+ bool kvm_can_do_async_pf(struct kvm_vcpu *vcpu);
+ int kvm_handle_page_fault(struct kvm_vcpu *vcpu, u64 error_code,
+ 				u64 fault_address, char *insn, int insn_len);
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index 84ee170768128bbf2f21e4d4760f6ec10d04dd40..738e556d7410a7e13d651f364f33d9d65c881f87 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -5964,7 +5964,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_init_shadow_npt_mmu);
+ 
+ static union kvm_cpu_role
+ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+-				   bool execonly, u8 level)
++				   bool execonly, u8 level, bool mbec)
+ {
+ 	union kvm_cpu_role role = {0};
+ 
+@@ -5974,6 +5974,7 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+ 	 */
+ 	WARN_ON_ONCE(is_smm(vcpu));
+ 	role.base.level = level;
++	role.base.cr4_smep = mbec;
+ 	role.base.has_4_byte_gpte = false;
+ 	role.base.direct = false;
+ 	role.base.ad_disabled = !accessed_dirty;
+@@ -5989,13 +5990,13 @@ kvm_calc_shadow_ept_root_page_role(struct kvm_vcpu *vcpu, bool accessed_dirty,
+ 
+ void kvm_init_shadow_ept_mmu(struct kvm_vcpu *vcpu, bool execonly,
+ 			     int huge_page_level, bool accessed_dirty,
+-			     gpa_t new_eptp)
++			     bool mbec, gpa_t new_eptp)
+ {
+ 	struct kvm_mmu *context = &vcpu->arch.guest_mmu;
+ 	u8 level = vmx_eptp_page_walk_level(new_eptp);
+ 	union kvm_cpu_role new_mode =
+ 		kvm_calc_shadow_ept_root_page_role(vcpu, accessed_dirty,
+-						   execonly, level);
++						   execonly, level, mbec);
+ 
+ 	if (new_mode.as_u64 != context->cpu_role.as_u64) {
+ 		/* EPT, and thus nested EPT, does not consume CR0, CR4, nor EFER. */
+diff --git a/arch/x86/kvm/mmu/spte.c b/arch/x86/kvm/mmu/spte.c
+index 15571bbeaf34d8bf42747997a1aeddf2b2865ce5..ec521f31176c4a56c5427dabac0c9385e6bbff4a 100644
+--- a/arch/x86/kvm/mmu/spte.c
++++ b/arch/x86/kvm/mmu/spte.c
+@@ -517,10 +517,12 @@ void kvm_mmu_set_ept_masks(bool has_ad_bits)
+ 	 * host's MBEC setting does not matter.  On hardware without MBEC
+ 	 * the XU bit is reserved-as-ignored, and setting it does no harm.
+ 	 *
+-	 * For nested EPT MBEC is not supported, but bit 10 of the gPTE has
+-	 * no effect because (a) is_present_gpte() does not treat it as a
+-	 * present bit, and (b) permission_fault() uses an mmu->permissions[]
+-	 * array that effectively ignores ACC_USER_EXEC_MASK.
++	 * For nested EPT, when MBEC is disabled by L1, correctness relies
++	 * on (a) ignoring bit 10 of the gPTE in is_present_gpte(), rather
++	 * than treating it as a present bit, and (b) permission_fault()
++	 * using an mmu->permissions[] array that effectively ignores
++	 * ACC_USER_EXEC_MASK.  Bit 10 of the gPTE does end up mirrored
++	 * in the sPTEs but is ignored because L2 runs with MBEC disabled.
+ 	 */
+ 	shadow_xu_mask		= VMX_EPT_USER_EXECUTABLE_MASK;
+ 	shadow_present_mask	= VMX_EPT_SUPPRESS_VE_BIT;
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index 2603ae03da3acc7ff648b3daff5068291d64adc4..1f69498c4a0bfff9d161b1fab177c50412f2751d 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -494,6 +494,13 @@ static void nested_ept_inject_page_fault(struct kvm_vcpu *vcpu,
+ 	vmcs12->guest_physical_address = fault->address;
+ }
+ 
++static inline bool nested_ept_mbec_enabled(struct kvm_vcpu *vcpu)
++{
++	struct vmcs12 *vmcs12 = get_vmcs12(vcpu);
++
++	return nested_cpu_has2(vmcs12, SECONDARY_EXEC_MODE_BASED_EPT_EXEC);
++}
++
+ static void nested_ept_new_eptp(struct kvm_vcpu *vcpu)
+ {
+ 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+@@ -502,6 +509,7 @@ static void nested_ept_new_eptp(struct kvm_vcpu *vcpu)
+ 
+ 	kvm_init_shadow_ept_mmu(vcpu, execonly, ept_lpage_level,
+ 				nested_ept_ad_enabled(vcpu),
++				nested_ept_mbec_enabled(vcpu),
+ 				nested_ept_get_eptp(vcpu));
+ }
+ 
+@@ -7288,6 +7296,9 @@ static void nested_vmx_setup_secondary_ctls(u32 ept_caps,
+ 			msrs->ept_caps |= VMX_EPT_AD_BIT;
+ 		}
+ 
++		if (enable_mbec)
++			msrs->secondary_ctls_high |=
++				SECONDARY_EXEC_MODE_BASED_EPT_EXEC;
+ 		/*
+ 		 * Advertise EPTP switching irrespective of hardware support,
+ 		 * KVM emulates it in software so long as VMFUNC is supported.

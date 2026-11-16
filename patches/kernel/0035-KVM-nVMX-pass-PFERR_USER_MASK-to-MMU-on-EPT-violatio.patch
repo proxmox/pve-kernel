@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:07 -0400
+Subject: [PATCH] KVM: nVMX: pass PFERR_USER_MASK to MMU on EPT violations
+
+For EPT, PFERR_USER_MASK refers not to the CPL of the guest,
+but to the AND of the U bits encountered while walking guest
+page tables; this is consistent with how MBEC differentiates
+between XS and XU.  This is available through the
+"advanced vmexit information for EPT violations" feature.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 9f4442eb155351a6e56c9dc4496d2e4696ab3cda)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/vmx/common.h |  6 +++++-
+ arch/x86/kvm/vmx/vmx.c    | 10 ++++++++++
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/vmx/common.h b/arch/x86/kvm/vmx/common.h
+index f60645fb851a9a6f0bbd7a602137c452cb45029e..0f991c9b8c0301d10f5656fd509002f1ebe030ee 100644
+--- a/arch/x86/kvm/vmx/common.h
++++ b/arch/x86/kvm/vmx/common.h
+@@ -101,9 +101,13 @@ static inline int __vmx_handle_ept_violation(struct kvm_vcpu *vcpu, gpa_t gpa,
+ 		error_code |= (exit_qualification & EPT_VIOLATION_PROT_USER_EXEC)
+ 			      ? PFERR_PRESENT_MASK : 0;
+ 
+-	if (exit_qualification & EPT_VIOLATION_GVA_IS_VALID)
++	if (exit_qualification & EPT_VIOLATION_GVA_IS_VALID) {
+ 		error_code |= (exit_qualification & EPT_VIOLATION_GVA_TRANSLATED) ?
+ 			      PFERR_GUEST_FINAL_MASK : PFERR_GUEST_PAGE_MASK;
++		if ((exit_qualification & (EPT_VIOLATION_GVA_TRANSLATED|EPT_VIOLATION_GVA_USER))
++		    == (EPT_VIOLATION_GVA_TRANSLATED|EPT_VIOLATION_GVA_USER))
++			error_code |= PFERR_USER_MASK;
++	}
+ 
+ 	if (vt_is_tdx_private_gpa(vcpu->kvm, gpa))
+ 		error_code |= PFERR_PRIVATE_ACCESS;
+diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
+index 0eedbe2a884cc548276187782d55e7b98b88f36b..716850bda189e817dd5e469f9aac0706f8d4169f 100644
+--- a/arch/x86/kvm/vmx/vmx.c
++++ b/arch/x86/kvm/vmx/vmx.c
+@@ -2845,6 +2845,16 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,
+ 		vmx_cap->vpid = 0;
+ 	}
+ 
++	/*
++	 * Virtualizing MBEC requires advanced vmexit information in order to
++	 * distinguish supervisor and user accesses.  For simplicity and clarity
++	 * disable MBEC entirely if advanced vmexit information is not available,
++	 * this way mbec=1 in the kvm_intel module parameters implies availability
++	 * to nested guests as well.
++	 */
++	if (!(vmx_cap->ept & VMX_EPT_ADVANCED_VMEXIT_INFO_BIT))
++		_cpu_based_2nd_exec_control &= ~SECONDARY_EXEC_MODE_BASED_EPT_EXEC;
++
+ 	if (!cpu_has_sgx())
+ 		_cpu_based_2nd_exec_control &= ~SECONDARY_EXEC_ENCLS_EXITING;
+ 

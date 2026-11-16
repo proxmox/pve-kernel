@@ -1,0 +1,172 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:08 -0400
+Subject: [PATCH] KVM: x86/mmu: add support for MBEC to EPT page table walks
+
+Extend the page walker to support moving bit 10 of the PTEs
+into ACC_USER_EXEC_MASK and bit 6 of the exit qualification of
+EPT violation VM exits.
+
+Note that while mmu_has_mbec()/cr4_smep affect the interpretation of
+ACC_USER_EXEC_MASK and add bit 10 as a "present bit" in guest EPT page
+table entries, they do not affect how KVM operates on SPTEs.  That's
+because the MMU uses explicit ACC_USER_EXEC_MASK/shadow_xu_mask even for
+the non-nested EPT; the only difference is that ACC_USER_EXEC_MASK and
+ACC_EXEC_MASK will always be set in tandem outside the nested scenario.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 0f90bd6a06ef2185ea1e05167138e6b07637bd8d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/mmu.c         | 13 +++++++++++--
+ arch/x86/kvm/mmu/paging_tmpl.h | 27 +++++++++++++++++++++------
+ arch/x86/kvm/mmu/spte.h        |  2 ++
+ arch/x86/kvm/vmx/nested.c      |  9 +++++++++
+ 4 files changed, 43 insertions(+), 8 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index eee1bf8ab988611cb5ae0f8fa0442b5dca0566d2..84ee170768128bbf2f21e4d4760f6ec10d04dd40 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -5572,7 +5572,6 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+ {
+ 	unsigned byte;
+ 
+-	const u16 x = ACC_BITS_MASK(ACC_EXEC_MASK);
+ 	const u16 w = ACC_BITS_MASK(ACC_WRITE_MASK);
+ 	const u16 r = ACC_BITS_MASK(ACC_READ_MASK);
+ 
+@@ -5613,8 +5612,18 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+ 		u16 smapf = 0;
+ 
+ 		if (ept) {
+-			ff = (pfec & PFERR_FETCH_MASK) ? (u16)~x : 0;
++			const u16 xs = ACC_BITS_MASK(ACC_EXEC_MASK);
++			const u16 xu = ACC_BITS_MASK(ACC_USER_EXEC_MASK);
++
++			if (pfec & PFERR_FETCH_MASK) {
++				/* Ignore XU unless MBEC is enabled.  */
++				if (cr4_smep)
++					ff = pfec & PFERR_USER_MASK ? (u16)~xu : (u16)~xs;
++				else
++					ff = (u16)~xs;
++			}
+ 		} else {
++			const u16 x = ACC_BITS_MASK(ACC_EXEC_MASK);
+ 			const u16 u = ACC_BITS_MASK(ACC_USER_MASK);
+ 
+ 			/* Faults from kernel mode accesses to user pages */
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index bfc538b03e4c0dcaffcc7763e913e6c44dacd9e2..9202b4110eb4961c007f4ed983fb51eb735fd17e 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -124,12 +124,17 @@ static inline void FNAME(protect_clean_gpte)(struct kvm_mmu *mmu, unsigned *acce
+ 	*access &= mask;
+ }
+ 
+-static inline int FNAME(is_present_gpte)(unsigned long pte)
++static inline int FNAME(is_present_gpte)(struct kvm_mmu *mmu,
++					 unsigned long pte)
+ {
+ #if PTTYPE != PTTYPE_EPT
+ 	return pte & PT_PRESENT_MASK;
+ #else
+-	return pte & 7;
++	/*
++	 * For EPT, an entry is present if any of bits 2:0 are set.
++	 * With mode-based execute control, bit 10 also indicates presence.
++	 */
++	return pte & (7 | (mmu_has_mbec(mmu) ? VMX_EPT_USER_EXECUTABLE_MASK : 0));
+ #endif
+ }
+ 
+@@ -152,7 +157,7 @@ static bool FNAME(prefetch_invalid_gpte)(struct kvm_vcpu *vcpu,
+ 				  struct kvm_mmu_page *sp, u64 *spte,
+ 				  u64 gpte)
+ {
+-	if (!FNAME(is_present_gpte)(gpte))
++	if (!FNAME(is_present_gpte)(vcpu->arch.mmu, gpte))
+ 		goto no_present;
+ 
+ 	/* Prefetch only accessed entries (unless A/D bits are disabled). */
+@@ -173,10 +178,17 @@ static bool FNAME(prefetch_invalid_gpte)(struct kvm_vcpu *vcpu,
+ static inline unsigned FNAME(gpte_access)(u64 gpte)
+ {
+ 	unsigned access;
++	/*
++	 * Set bits in ACC_*_MASK even if they might not be used in the
++	 * actual checks.  For example, if EFER.NX is clear permission_fault()
++	 * will ignore ACC_EXEC_MASK, and if MBEC is disabled it will
++	 * ignore ACC_USER_EXEC_MASK.
++	 */
+ #if PTTYPE == PTTYPE_EPT
+ 	access = ((gpte & VMX_EPT_WRITABLE_MASK) ? ACC_WRITE_MASK : 0) |
+ 		((gpte & VMX_EPT_EXECUTABLE_MASK) ? ACC_EXEC_MASK : 0) |
+-		((gpte & VMX_EPT_READABLE_MASK) ? ACC_READ_MASK : 0);
++		((gpte & VMX_EPT_READABLE_MASK) ? ACC_READ_MASK : 0) |
++		((gpte & VMX_EPT_USER_EXECUTABLE_MASK) ? ACC_USER_EXEC_MASK : 0);
+ #else
+ 	/*
+ 	 * P is set here, so the page is always readable and W/U/!NX represent
+@@ -331,7 +343,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 	if (walker->level == PT32E_ROOT_LEVEL) {
+ 		pte = mmu->get_pdptr(vcpu, (addr >> 30) & 3);
+ 		trace_kvm_mmu_paging_element(pte, walker->level);
+-		if (!FNAME(is_present_gpte)(pte))
++		if (!FNAME(is_present_gpte)(mmu, pte))
+ 			goto error;
+ 		--walker->level;
+ 	}
+@@ -415,7 +427,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 		 */
+ 		pte_access = pt_access & (pte ^ walk_nx_mask);
+ 
+-		if (unlikely(!FNAME(is_present_gpte)(pte)))
++		if (unlikely(!FNAME(is_present_gpte)(mmu, pte)))
+ 			goto error;
+ 
+ 		if (unlikely(FNAME(is_rsvd_bits_set)(mmu, pte, walker->level))) {
+@@ -538,6 +550,9 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 		 * ACC_*_MASK flags!
+ 		 */
+ 		walker->fault.exit_qualification |= EPT_VIOLATION_RWX_TO_PROT(pte_access);
++		if (mmu_has_mbec(mmu))
++			walker->fault.exit_qualification |=
++				EPT_VIOLATION_USER_EXEC_TO_PROT(pte_access);
+ 	}
+ #endif
+ 	walker->fault.address = addr;
+diff --git a/arch/x86/kvm/mmu/spte.h b/arch/x86/kvm/mmu/spte.h
+index f5261d993eac0316e5115f3cc63ae53d9989f625..fe9571837fee6d37b8dfbc7ac66609688111925e 100644
+--- a/arch/x86/kvm/mmu/spte.h
++++ b/arch/x86/kvm/mmu/spte.h
+@@ -395,6 +395,8 @@ static inline bool __is_rsvd_bits_set(struct rsvd_bits_validate *rsvd_check,
+ static inline bool __is_bad_mt_xwr(struct rsvd_bits_validate *rsvd_check,
+ 				   u64 pte)
+ {
++	if (pte & VMX_EPT_USER_EXECUTABLE_MASK)
++		pte |= VMX_EPT_EXECUTABLE_MASK;
+ 	return rsvd_check->bad_mt_xwr & BIT_ULL(pte & 0x3f);
+ }
+ 
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index 29a37d386e85b0359d26ca080ccaac0a57e97511..2603ae03da3acc7ff648b3daff5068291d64adc4 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -7483,6 +7483,15 @@ static gpa_t vmx_translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa,
+ 	struct kvm_mmu *mmu = vcpu->arch.mmu;
+ 
+ 	BUG_ON(!mmu_is_nested(vcpu));
++
++	/*
++	 * MBEC differentiates based on the effective U/S bit of
++	 * the guest page tables; not the processor CPL.
++	 */
++	access &= ~PFERR_USER_MASK;
++	if ((pte_access & ACC_USER_MASK) && (access & PFERR_GUEST_FINAL_MASK))
++		access |= PFERR_USER_MASK;
++
+ 	return mmu->gva_to_gpa(vcpu, mmu, gpa, access, exception);
+ }
+ 

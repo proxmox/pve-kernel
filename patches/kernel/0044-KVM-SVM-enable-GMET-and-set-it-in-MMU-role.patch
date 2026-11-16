@@ -1,0 +1,138 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:15 -0400
+Subject: [PATCH] KVM: SVM: enable GMET and set it in MMU role
+
+Set the GMET bit in the nested control field.  This has effectively
+no impact as long as NPT page tables are changed to have U=0.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 535a39e7c6c610f77530b4b8a9b3ca4802ee9336)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/mmu.c    |  6 +++++-
+ arch/x86/kvm/svm/nested.c |  9 ++++++---
+ arch/x86/kvm/svm/svm.c    | 16 ++++++++++++++++
+ arch/x86/kvm/svm/svm.h    |  1 +
+ 4 files changed, 28 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index d4d708bc34d4f3111edc18286c0576cd7addac11..ca1e8134cbf6ed11881aaa4c0abf71d01a15f367 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -5860,7 +5860,6 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+ {
+ 	union kvm_mmu_page_role role = {0};
+ 
+-	role.access = ACC_ALL;
+ 	role.cr0_wp = true;
+ 	role.cr4_smep = kvm_x86_call(tdp_has_smep)(vcpu->kvm);
+ 	role.efer_nx = true;
+@@ -5871,6 +5870,11 @@ kvm_calc_tdp_mmu_root_page_role(struct kvm_vcpu *vcpu,
+ 	role.direct = true;
+ 	role.has_4_byte_gpte = false;
+ 
++	/* All TDP pages are supervisor-executable */
++	role.access = ACC_ALL;
++	if (role.cr4_smep && shadow_user_mask)
++		role.access &= ~ACC_USER_MASK;
++
+ 	return role;
+ }
+ 
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index f36edc57d67124918ad50e641258c9ba778cddb2..3c29f04d3a9308bf2bbeea6c6d2afbf7fb3d9ef8 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -817,7 +817,7 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
+ 	 * the latter, L1 runs L2 with shadow page tables that translate L2 GVAs
+ 	 * to L1 GPAs, so the same NPTs can be used for L1 and L2.
+ 	 */
+-	vmcb02->control.misc_ctl = vmcb01->control.misc_ctl & SVM_MISC_ENABLE_NP;
++	vmcb02->control.misc_ctl = vmcb01->control.misc_ctl & (SVM_MISC_ENABLE_NP | SVM_MISC_ENABLE_GMET);
+ 	vmcb02->control.iopm_base_pa = vmcb01->control.iopm_base_pa;
+ 	vmcb02->control.msrpm_base_pa = vmcb01->control.msrpm_base_pa;
+ 	vmcb_mark_dirty(vmcb02, VMCB_PERM_MAP);
+@@ -854,9 +854,12 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
+ 	/* Also overwritten later if necessary.  */
+ 	vmcb02->control.tlb_ctl = TLB_CONTROL_DO_NOTHING;
+ 
+-	/* nested_cr3.  */
+-	if (nested_npt_enabled(svm))
++	/* Use vmcb01 MMU and format if guest does not use nNPT */
++	if (nested_npt_enabled(svm)) {
++		vmcb02->control.misc_ctl &= ~SVM_MISC_ENABLE_GMET;
++
+ 		nested_svm_init_mmu_context(vcpu);
++	}
+ 
+ 	vcpu->arch.tsc_offset = kvm_calc_nested_tsc_offset(
+ 			vcpu->arch.l1_tsc_offset,
+diff --git a/arch/x86/kvm/svm/svm.c b/arch/x86/kvm/svm/svm.c
+index a21f7091b6feab41cf82aa721ab345aa2a631184..dac6c89bc3cc96d50dffead11a10bf88991db1be 100644
+--- a/arch/x86/kvm/svm/svm.c
++++ b/arch/x86/kvm/svm/svm.c
+@@ -136,6 +136,9 @@ module_param(pause_filter_count_max, ushort, 0444);
+ bool npt_enabled = true;
+ module_param_named(npt, npt_enabled, bool, 0444);
+ 
++bool gmet_enabled = true;
++module_param_named(gmet, gmet_enabled, bool, 0444);
++
+ /* allow nested virtualization in KVM/SVM */
+ static int nested = true;
+ module_param(nested, int, 0444);
+@@ -1155,6 +1158,10 @@ static void init_vmcb(struct kvm_vcpu *vcpu, bool init_event)
+ 		save->g_pat = vcpu->arch.pat;
+ 		save->cr3 = 0;
+ 	}
++
++	if (gmet_enabled)
++		control->misc_ctl |= SVM_MISC_ENABLE_GMET;
++
+ 	svm->current_vmcb->asid_generation = 0;
+ 	svm->asid = 0;
+ 
+@@ -4592,6 +4599,11 @@ svm_patch_hypercall(struct kvm_vcpu *vcpu, unsigned char *hypercall)
+ 	hypercall[2] = 0xd9;
+ }
+ 
++static bool svm_tdp_has_smep(struct kvm *kvm)
++{
++	return gmet_enabled;
++}
++
+ /*
+  * The kvm parameter can be NULL (module initialization, or invocation before
+  * VM creation). Be sure to check the kvm parameter before using it.
+@@ -5338,6 +5350,7 @@ struct kvm_x86_ops svm_x86_ops __initdata = {
+ 	.write_tsc_multiplier = svm_write_tsc_multiplier,
+ 
+ 	.load_mmu_pgd = svm_load_mmu_pgd,
++	.tdp_has_smep = svm_tdp_has_smep,
+ 
+ 	.check_intercept = svm_check_intercept,
+ 	.handle_exit_irqoff = svm_handle_exit_irqoff,
+@@ -5570,6 +5583,9 @@ static __init int svm_hardware_setup(void)
+ 	if (!boot_cpu_has(X86_FEATURE_NPT))
+ 		npt_enabled = false;
+ 
++	if (!npt_enabled || !boot_cpu_has(X86_FEATURE_GMET))
++		gmet_enabled = false;
++
+ 	/* Force VM NPT level equal to the host's paging level */
+ 	kvm_configure_mmu(npt_enabled, get_npt_level(),
+ 			  get_npt_level(), PG_LEVEL_1G);
+diff --git a/arch/x86/kvm/svm/svm.h b/arch/x86/kvm/svm/svm.h
+index 83221718fabc360cc90ed792ce11856daca92fe1..2819bd6bad4346b7285f631fc22e020d509554e8 100644
+--- a/arch/x86/kvm/svm/svm.h
++++ b/arch/x86/kvm/svm/svm.h
+@@ -44,6 +44,7 @@ static inline struct page *__sme_pa_to_page(unsigned long pa)
+ #define	IOPM_SIZE PAGE_SIZE * 3
+ #define	MSRPM_SIZE PAGE_SIZE * 2
+ 
++extern bool gmet_enabled;
+ extern bool npt_enabled;
+ extern int nrips;
+ extern int vgif;

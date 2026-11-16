@@ -1,0 +1,88 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:12 -0400
+Subject: [PATCH] KVM: x86/mmu: introduce cpu_role bit for availability of
+ PFEC.I/D
+
+While GMET looks a lot like SMEP, it has several annoying differences.
+The main one is that the availability of the I/D bit in the page fault
+error code still depends on the host CR4.SMEP and EFER.NXE bits.  If the
+base.cr4_smep bit of the cpu_role is (ab)used to enable GMET, there needs
+to be another place where the host CR4.SMEP is read from; just merge it
+with EFER.NXE into a new cpu_role bit that tells paging_tmpl.h whether
+to set the I/D bit at all.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 9af3f1ff6a96a05a684e85631d1379b744bf99d3)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/include/asm/kvm_host.h | 7 +++++++
+ arch/x86/kvm/mmu/mmu.c          | 8 ++++++++
+ arch/x86/kvm/mmu/paging_tmpl.h  | 2 +-
+ 3 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
+index 64a35cb43f89679010a6baf60e6f15d34e9b453e..558771e82bd2036d31e425ee91aa10f82d88a977 100644
+--- a/arch/x86/include/asm/kvm_host.h
++++ b/arch/x86/include/asm/kvm_host.h
+@@ -415,6 +415,13 @@ union kvm_mmu_extended_role {
+ 		unsigned int cr4_smap:1;
+ 		unsigned int cr4_la57:1;
+ 		unsigned int efer_lma:1;
++
++		/*
++		 * True if either CR4.SMEP or EFER.NXE are set.  For AMD NPT
++		 * this is the "real" host CR4.SMEP whereas cr4_smep is
++		 * actually GMET.
++		 */
++		unsigned int has_pferr_fetch:1;
+ 	};
+ };
+ 
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index 92486e7add43d38b4ecfdd56b9c66c4c7f194662..68aca0bab20473f5c292b690799fe97e66f2e247 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -236,6 +236,11 @@ BUILD_MMU_ROLE_ACCESSOR(ext,  cr4, la57);
+ BUILD_MMU_ROLE_ACCESSOR(base, efer, nx);
+ BUILD_MMU_ROLE_ACCESSOR(ext,  efer, lma);
+ 
++static inline bool has_pferr_fetch(struct kvm_mmu *mmu)
++{
++	return mmu->cpu_role.ext.has_pferr_fetch;
++}
++
+ static inline bool is_cr0_pg(struct kvm_mmu *mmu)
+ {
+         return mmu->cpu_role.base.level > 0;
+@@ -5798,6 +5803,8 @@ static union kvm_cpu_role kvm_calc_cpu_role(struct kvm_vcpu *vcpu,
+ 	role.ext.cr4_pke = ____is_efer_lma(regs) && ____is_cr4_pke(regs);
+ 	role.ext.cr4_la57 = ____is_efer_lma(regs) && ____is_cr4_la57(regs);
+ 	role.ext.efer_lma = ____is_efer_lma(regs);
++
++	role.ext.has_pferr_fetch = role.base.efer_nx | role.base.cr4_smep;
+ 	return role;
+ }
+ 
+@@ -5951,6 +5958,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
+ 
+ 	/* NPT requires CR0.PG=1. */
+ 	WARN_ON_ONCE(cpu_role.base.direct || !cpu_role.base.guest_mode);
++	cpu_role.base.cr4_smep = false;
+ 
+ 	root_role = cpu_role.base;
+ 	root_role.level = kvm_mmu_get_tdp_level(vcpu);
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index 0b5fcffae6068163bfe79efc33e725d3ab6219a5..edd4afca56281282582994124c138b486d0f3a40 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -490,7 +490,7 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 
+ error:
+ 	errcode |= write_fault | user_fault | (access & PFERR_SS_MASK);
+-	if (fetch_fault && (is_efer_nx(mmu) || is_cr4_smep(mmu)))
++	if (fetch_fault && has_pferr_fetch(mmu))
+ 		errcode |= PFERR_FETCH_MASK;
+ 
+ 	walker->fault.vector = PF_VECTOR;

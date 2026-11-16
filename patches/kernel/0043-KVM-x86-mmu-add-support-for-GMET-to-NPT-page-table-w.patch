@@ -1,0 +1,149 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Mon, 27 Apr 2026 11:45:52 -0400
+Subject: [PATCH] KVM: x86/mmu: add support for GMET to NPT page table walks
+
+GMET allows page table entries to be created with U=0 in NPT.
+However, when GMET=1 U=0 only affects execution, not reads or
+writes.  Ignore user faults on non-fetch accesses for NPT GMET.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit d96d46b21c92a39146a908e96ae2090daf165c96)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/include/asm/kvm_host.h |  2 ++
+ arch/x86/kvm/mmu.h              |  2 +-
+ arch/x86/kvm/mmu/mmu.c          | 18 ++++++++++++------
+ arch/x86/kvm/svm/nested.c       | 10 +++++++---
+ 4 files changed, 22 insertions(+), 10 deletions(-)
+
+diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
+index 558771e82bd2036d31e425ee91aa10f82d88a977..6e64351e90725f43a65b0044451e37c3c6e33a23 100644
+--- a/arch/x86/include/asm/kvm_host.h
++++ b/arch/x86/include/asm/kvm_host.h
+@@ -371,6 +371,8 @@ union kvm_mmu_page_role {
+ 		 * cr4_smep is also set for EPT MBEC.  Because it affects
+ 		 * which pages are considered non-present (bit 10 additionally
+ 		 * must be zero if MBEC is on) it has to be in the base role.
++		 * It also has to be in the base role for AMD GMET because
++		 * kernel-executable pages need to have U=0 with GMET enabled.
+ 		 */
+ 		unsigned cr4_smep:1;
+ 
+diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
+index 643459864614063903eec1530eafd339b8831d3d..fcb402a7150c9c1aad91c2421e49300434cd05e6 100644
+--- a/arch/x86/kvm/mmu.h
++++ b/arch/x86/kvm/mmu.h
+@@ -97,7 +97,7 @@ void kvm_mmu_set_ept_masks(bool has_ad_bits);
+ 
+ void kvm_init_mmu(struct kvm_vcpu *vcpu);
+ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr4,
+-			     u64 efer, gpa_t nested_cr3);
++			     u64 efer, gpa_t nested_cr3, u64 misc_ctl);
+ void kvm_init_shadow_ept_mmu(struct kvm_vcpu *vcpu, bool execonly,
+ 			     int huge_page_level, bool accessed_dirty,
+ 			     bool mbec, gpa_t new_eptp);
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index 33d310f1ae00f25a983efc7b24de7e808fe598b4..d4d708bc34d4f3111edc18286c0576cd7addac11 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -55,6 +55,7 @@
+ #include <asm/io.h>
+ #include <asm/set_memory.h>
+ #include <asm/spec-ctrl.h>
++#include <asm/svm.h>
+ #include <asm/vmx.h>
+ 
+ #include "trace.h"
+@@ -5574,7 +5575,7 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+ 	 (14 & (access) ? 1 << 14 : 0) | \
+ 	 (15 & (access) ? 1 << 15 : 0))
+ 
+-static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
++static void update_permission_bitmask(struct kvm_mmu *mmu, bool tdp, bool ept)
+ {
+ 	unsigned byte;
+ 
+@@ -5635,7 +5636,12 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+ 			/* Faults from kernel mode accesses to user pages */
+ 			u16 kf = (pfec & PFERR_USER_MASK) ? 0 : u;
+ 
+-			uf = (pfec & PFERR_USER_MASK) ? (u16)~u : 0;
++			/*
++			 * For NPT GMET, U=0 does not affect reads and writes.  Fetches
++			 * are handled below via cr4_smep.
++			 */
++			if (!(tdp && cr4_smep))
++				uf = (pfec & PFERR_USER_MASK) ? (u16)~u : 0;
+ 
+ 			if (efer_nx)
+ 				ff = (pfec & PFERR_FETCH_MASK) ? (u16)~x : 0;
+@@ -5746,7 +5752,7 @@ static void reset_guest_paging_metadata(struct kvm_vcpu *vcpu,
+ 		return;
+ 
+ 	reset_guest_rsvds_bits_mask(vcpu, mmu);
+-	update_permission_bitmask(mmu, false);
++	update_permission_bitmask(mmu, mmu == &vcpu->arch.guest_mmu, false);
+ 	update_pkru_bitmask(mmu);
+ }
+ 
+@@ -5945,7 +5951,7 @@ static void kvm_init_shadow_mmu(struct kvm_vcpu *vcpu,
+ }
+ 
+ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr4,
+-			     u64 efer, gpa_t nested_cr3)
++			     u64 efer, gpa_t nested_cr3, u64 misc_ctl)
+ {
+ 	struct kvm_mmu *context = &vcpu->arch.guest_mmu;
+ 	struct kvm_mmu_role_regs regs = {
+@@ -5958,7 +5964,7 @@ void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr4,
+ 
+ 	/* NPT requires CR0.PG=1. */
+ 	WARN_ON_ONCE(cpu_role.base.direct || !cpu_role.base.guest_mode);
+-	cpu_role.base.cr4_smep = false;
++	cpu_role.base.cr4_smep = (misc_ctl & SVM_MISC_ENABLE_GMET) != 0;
+ 
+ 	root_role = cpu_role.base;
+ 	root_role.level = kvm_mmu_get_tdp_level(vcpu);
+@@ -6016,7 +6022,7 @@ void kvm_init_shadow_ept_mmu(struct kvm_vcpu *vcpu, bool execonly,
+ 		context->gva_to_gpa = ept_gva_to_gpa;
+ 		context->sync_spte = ept_sync_spte;
+ 
+-		update_permission_bitmask(context, true);
++		update_permission_bitmask(context, true, true);
+ 		context->pkru_mask = 0;
+ 		reset_rsvds_bits_mask_ept(vcpu, context, execonly, huge_page_level);
+ 		reset_ept_shadow_zero_bits_mask(context, execonly);
+diff --git a/arch/x86/kvm/svm/nested.c b/arch/x86/kvm/svm/nested.c
+index c4193cc3a6bee107cfb76d25d5be5d1b8dd6c403..f36edc57d67124918ad50e641258c9ba778cddb2 100644
+--- a/arch/x86/kvm/svm/nested.c
++++ b/arch/x86/kvm/svm/nested.c
+@@ -97,7 +97,8 @@ static void nested_svm_init_mmu_context(struct kvm_vcpu *vcpu)
+ 	 */
+ 	kvm_init_shadow_npt_mmu(vcpu, svm->vmcb01.ptr->save.cr4,
+ 				svm->vmcb01.ptr->save.efer,
+-				svm->nested.ctl.nested_cr3);
++				svm->nested.ctl.nested_cr3,
++				svm->nested.ctl.misc_ctl);
+ 	vcpu->arch.mmu->get_guest_pgd     = nested_svm_get_tdp_cr3;
+ 	vcpu->arch.mmu->get_pdptr         = nested_svm_get_tdp_pdptr;
+ 	vcpu->arch.mmu->inject_page_fault = nested_svm_inject_npf_exit;
+@@ -2013,12 +2014,15 @@ static gpa_t svm_translate_nested_gpa(struct kvm_vcpu *vcpu, gpa_t gpa,
+ 				      struct x86_exception *exception,
+ 				      u64 pte_access)
+ {
++	struct vcpu_svm *svm = to_svm(vcpu);
+ 	struct kvm_mmu *mmu = vcpu->arch.mmu;
+ 
+ 	BUG_ON(!mmu_is_nested(vcpu));
+ 
+-	/* NPT walks are always user-walks */
+-	access |= PFERR_USER_MASK;
++	/* Non-GMET walks are always user-walks */
++	if (!(svm->nested.ctl.misc_ctl & SVM_MISC_ENABLE_GMET))
++		access |= PFERR_USER_MASK;
++
+ 	return mmu->gva_to_gpa(vcpu, mmu, gpa, access, exception);
+ }
+ 

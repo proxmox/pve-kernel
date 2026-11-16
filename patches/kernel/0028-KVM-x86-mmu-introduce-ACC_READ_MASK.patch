@@ -37,7 +37,7 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  10 files changed, 68 insertions(+), 63 deletions(-)
 
 diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
-index f8fba0a141ea11e5d0ee8ced6a183741a47b4604..3e52a39ab9a183c44d57ebd09d18583cc762a64e 100644
+index ad22f6110ebd149bc2284594471692344c1d978b..143c38b3f8eae56e2809117b2771de15132c92a1 100644
 --- a/arch/x86/include/asm/kvm_host.h
 +++ b/arch/x86/include/asm/kvm_host.h
 @@ -329,11 +329,11 @@ struct kvm_kernel_irq_routing_entry;
@@ -81,7 +81,7 @@ index f8fba0a141ea11e5d0ee8ced6a183741a47b4604..3e52a39ab9a183c44d57ebd09d18583c
  
  		/*
  		 * This is left at the top of the word so that
-@@ -493,7 +493,7 @@ struct kvm_mmu {
+@@ -494,7 +494,7 @@ struct kvm_mmu {
  	 * Byte index: page fault error code [4:1]
  	 * Bit index: pte permissions in ACC_* format
  	 */
@@ -91,7 +91,7 @@ index f8fba0a141ea11e5d0ee8ced6a183741a47b4604..3e52a39ab9a183c44d57ebd09d18583c
  	u64 *pae_root;
  	u64 *pml4_root;
 diff --git a/arch/x86/kvm/mmu.h b/arch/x86/kvm/mmu.h
-index 830f46145692aec3e19a5e976b17b7bb04369809..23f37535c0ce1d1e8e855ef3f94cae97cbb9c33c 100644
+index a222d9b4e621bd5385b1eaf18323765434910c17..a882352f20e7e6fb39a72278d8371874f9dbde4f 100644
 --- a/arch/x86/kvm/mmu.h
 +++ b/arch/x86/kvm/mmu.h
 @@ -81,7 +81,7 @@ u8 kvm_mmu_get_max_tdp_level(void);
@@ -104,7 +104,7 @@ index 830f46145692aec3e19a5e976b17b7bb04369809..23f37535c0ce1d1e8e855ef3f94cae97
  void kvm_init_mmu(struct kvm_vcpu *vcpu);
  void kvm_init_shadow_npt_mmu(struct kvm_vcpu *vcpu, unsigned long cr0,
 diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
-index a4247b9a7ec3749ab0ebec8a3cb0d0bb2078d1ed..d1e920e27f899911cee9febeabd3d430908b113f 100644
+index 885d64c122ab63a7ea230a55fd6333b92bed608e..be357948845dcd5cd4262941be6fbb4bab561922 100644
 --- a/arch/x86/kvm/mmu/mmu.c
 +++ b/arch/x86/kvm/mmu/mmu.c
 @@ -2027,7 +2027,7 @@ static bool kvm_sync_page_check(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp)
@@ -116,7 +116,7 @@ index a4247b9a7ec3749ab0ebec8a3cb0d0bb2078d1ed..d1e920e27f899911cee9febeabd3d430
  		.quadrant = 0x3,
  		.passthrough = 0x1,
  	};
-@@ -5540,7 +5540,7 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+@@ -5542,7 +5542,7 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
   * update_permission_bitmask() builds what is effectively a
   * two-dimensional array of bools.  The second dimension is
   * provided by individual bits of permissions[pfec >> 1], and
@@ -125,7 +125,7 @@ index a4247b9a7ec3749ab0ebec8a3cb0d0bb2078d1ed..d1e920e27f899911cee9febeabd3d430
   * combinations of ACC_* bits.
   */
  #define ACC_BITS_MASK(access) \
-@@ -5550,15 +5550,23 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
+@@ -5552,15 +5552,23 @@ reset_ept_shadow_zero_bits_mask(struct kvm_mmu *context, bool execonly)
  	 (4 & (access) ? 1 << 4 : 0) | \
  	 (5 & (access) ? 1 << 5 : 0) | \
  	 (6 & (access) ? 1 << 6 : 0) | \
@@ -153,7 +153,7 @@ index a4247b9a7ec3749ab0ebec8a3cb0d0bb2078d1ed..d1e920e27f899911cee9febeabd3d430
  
  	bool cr4_smep = is_cr4_smep(mmu);
  	bool cr4_smap = is_cr4_smap(mmu);
-@@ -5581,32 +5589,33 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
+@@ -5583,32 +5591,33 @@ static void update_permission_bitmask(struct kvm_mmu *mmu, bool ept)
  		unsigned pfec = byte << 1;
  
  		/*
@@ -213,7 +213,7 @@ index 764e3015d021b41b7111de68a618cc53d7aa158a..dcfdfedfc4e9ef7a5feb7bf4dd20efb0
  	union kvm_mmu_page_role role;				        \
  								        \
 diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
-index aefc3f949e85e06a5ef072dbc2fd1bcf4dd28012..84bdd414c3fe9d6427dac662e39d9b316b60a42b 100644
+index 36160e3b05e40026e01eb047ea288529d55f4584..09528a61451b15f6446cc6bea0c11f207d3ff07d 100644
 --- a/arch/x86/kvm/mmu/paging_tmpl.h
 +++ b/arch/x86/kvm/mmu/paging_tmpl.h
 @@ -170,25 +170,24 @@ static bool FNAME(prefetch_invalid_gpte)(struct kvm_vcpu *vcpu,
@@ -252,7 +252,7 @@ index aefc3f949e85e06a5ef072dbc2fd1bcf4dd28012..84bdd414c3fe9d6427dac662e39d9b31
  #endif
  
  	return access;
-@@ -501,10 +500,18 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+@@ -505,10 +504,18 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
  
  		if (write_fault)
  			walker->fault.exit_qualification |= EPT_VIOLATION_ACC_WRITE;
@@ -273,7 +273,7 @@ index aefc3f949e85e06a5ef072dbc2fd1bcf4dd28012..84bdd414c3fe9d6427dac662e39d9b31
 +			walker->fault.exit_qualification |= EPT_VIOLATION_ACC_READ;
  
  		/*
- 		 * Note, pte_access holds the raw RWX bits from the EPTE, not
+ 		 * KVM doesn't emulate features that access GPAs directly, e.g.
 diff --git a/arch/x86/kvm/mmu/spte.c b/arch/x86/kvm/mmu/spte.c
 index e9dc0ae442742bd90bb6e5c03c4cfe5e0bebaff9..7b5f118ae21108d16e705e079e8c56292c40facc 100644
 --- a/arch/x86/kvm/mmu/spte.c
@@ -366,10 +366,10 @@ index 4e371c93ae168034b6e0ed073a535576bdd15534..609477f190e8efc24c0741f0e31fefe3
  {
  	return vmx_capability.ept & VMX_EPT_PAGE_WALK_4_BIT;
 diff --git a/arch/x86/kvm/vmx/common.h b/arch/x86/kvm/vmx/common.h
-index adf925500b9e02bce2f23d7882255ec7664a671f..1afbf272efae3a19afdc294b9096020263a1d504 100644
+index e0082f8ce8a7fb771f1ef68002c2c9f7b442a9a9..f3f44613045536abe1e2bf7510a1b768c5f46b1d 100644
 --- a/arch/x86/kvm/vmx/common.h
 +++ b/arch/x86/kvm/vmx/common.h
-@@ -85,11 +85,8 @@ static inline int __vmx_handle_ept_violation(struct kvm_vcpu *vcpu, gpa_t gpa,
+@@ -86,11 +86,8 @@ static inline int __vmx_handle_ept_violation(struct kvm_vcpu *vcpu, gpa_t gpa,
  {
  	u64 error_code;
  
@@ -383,10 +383,10 @@ index adf925500b9e02bce2f23d7882255ec7664a671f..1afbf272efae3a19afdc294b90960202
  	/* Is it a fetch fault? */
  	error_code |= (exit_qualification & EPT_VIOLATION_ACC_INSTR)
 diff --git a/arch/x86/kvm/vmx/vmx.c b/arch/x86/kvm/vmx/vmx.c
-index 95ce5df1885dfe05ee32d7fb93c62180a4809179..3f0522a5acf3ffaa57ec5789fbd2f898490776a7 100644
+index 175b00158c842cc70c972c7c4fef89e5b9464354..6e69db6f03bb26ae96b795dd627dfb7932101c6b 100644
 --- a/arch/x86/kvm/vmx/vmx.c
 +++ b/arch/x86/kvm/vmx/vmx.c
-@@ -8797,8 +8797,7 @@ __init int vmx_hardware_setup(void)
+@@ -8778,8 +8778,7 @@ __init int vmx_hardware_setup(void)
  	set_bit(0, vmx_vpid_bitmap); /* 0 is reserved for host */
  
  	if (enable_ept)

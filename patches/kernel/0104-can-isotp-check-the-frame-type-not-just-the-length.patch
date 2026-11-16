@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kaixuan Li <kaixuanli0131@gmail.com>
+Date: Sun, 20 Sep 2026 11:56:26 +0800
+Subject: [PATCH] can: isotp: check the frame type, not just the length
+
+isotp_rcv() separates Classic CAN from CAN FD by skb->len alone:
+
+	if (skb->len != so->ll.mtu)
+		return;
+
+	cf = (struct canfd_frame *)skb->data;
+
+A CAN XL frame with cxl->len 4 is CAN_MTU bytes, so it passes, and is then
+read as a canfd_frame whose len comes out of canxl_frame.flags: at least
+0x80.
+
+Of the paths that follow, only the flow control one uses that length
+without bounding it first, so check_pad() walks to 255 over a 16-byte
+frame and the caller reports EBADMSG on an unrelated socket.
+
+bcm_rx_handler(), j1939_can_recv(), can_can_gw_rcv() and raw_rcv() check
+the frame type here, and can_dropped_invalid_skb() switches on
+skb->protocol on the transmit side. isotp_rcv() is the gap.
+
+Fixes: fb08cba12b52 ("can: canxl: update CAN infrastructure for CAN XL frames")
+Signed-off-by: Kaixuan Li <kaixuanli0131@gmail.com>
+Reviewed-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Reviewed-by: Quchaosheng <quchaosheng000406@163.com>
+Link: https://patch.msgid.link/20260920035626.2581040-1-kaixuanli0131@gmail.com
+Cc: stable@vger.kernel.org
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+(cherry picked from commit 933bf0fcb325e67b19c86c9c4da7f029878d5170)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/can/isotp.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/can/isotp.c b/net/can/isotp.c
+index 6c28802c0605f0e771bb52408468e13f49456328..e4957855829e6ef9cb9e3125a1f75b98b7b57d71 100644
+--- a/net/can/isotp.c
++++ b/net/can/isotp.c
+@@ -756,6 +756,14 @@ static void isotp_rcv(struct sk_buff *skb, void *data)
+ 	if (skb->len != so->ll.mtu)
+ 		return;
+ 
++	/* check for correct CAN CC/FD frame content */
++	if (so->ll.mtu == CAN_MTU) {
++		if (!can_is_can_skb(skb))
++			return;
++	} else if (!can_is_canfd_skb(skb)) {
++		return;
++	}
++
+ 	cf = (struct canfd_frame *)skb->data;
+ 
+ 	/* if enabled: check reception of my configured extended address */

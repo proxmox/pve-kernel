@@ -38,10 +38,10 @@ Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
  3 files changed, 11 insertions(+), 5 deletions(-)
 
 diff --git a/arch/x86/include/asm/vmx.h b/arch/x86/include/asm/vmx.h
-index b92ff87e35605d62b252aa84ccbd34f8be78731a..7fdc6b787d702b8cefef172f52e1d56a7a46a431 100644
+index 3a42b414caa7bdc558ac8bdf2143f775460d15ce..a7aac2883dedc868f426738ec9fab76bd7e96cfc 100644
 --- a/arch/x86/include/asm/vmx.h
 +++ b/arch/x86/include/asm/vmx.h
-@@ -597,10 +597,11 @@ enum vm_entry_failure_code {
+@@ -616,10 +616,11 @@ enum vm_entry_failure_code {
  #define EPT_VIOLATION_PROT_READ		BIT(3)
  #define EPT_VIOLATION_PROT_WRITE	BIT(4)
  #define EPT_VIOLATION_PROT_EXEC		BIT(5)
@@ -56,10 +56,10 @@ index b92ff87e35605d62b252aa84ccbd34f8be78731a..7fdc6b787d702b8cefef172f52e1d56a
  #define EPT_VIOLATION_GVA_TRANSLATED	BIT(8)
  
 diff --git a/arch/x86/kvm/vmx/common.h b/arch/x86/kvm/vmx/common.h
-index 412d0829d7a21777c5969ba27293721e9aa3d1c5..adf925500b9e02bce2f23d7882255ec7664a671f 100644
+index 80c78b35d168c16f0ad48e2537b40388afc21f43..e0082f8ce8a7fb771f1ef68002c2c9f7b442a9a9 100644
 --- a/arch/x86/kvm/vmx/common.h
 +++ b/arch/x86/kvm/vmx/common.h
-@@ -94,8 +94,13 @@ static inline int __vmx_handle_ept_violation(struct kvm_vcpu *vcpu, gpa_t gpa,
+@@ -95,8 +95,13 @@ static inline int __vmx_handle_ept_violation(struct kvm_vcpu *vcpu, gpa_t gpa,
  	/* Is it a fetch fault? */
  	error_code |= (exit_qualification & EPT_VIOLATION_ACC_INSTR)
  		      ? PFERR_FETCH_MASK : 0;
@@ -76,10 +76,10 @@ index 412d0829d7a21777c5969ba27293721e9aa3d1c5..adf925500b9e02bce2f23d7882255ec7
  
  	if (exit_qualification & EPT_VIOLATION_GVA_IS_VALID)
 diff --git a/arch/x86/kvm/vmx/tdx.c b/arch/x86/kvm/vmx/tdx.c
-index a60c2bd02cf4480b8612b885dca17e33ca2610b0..0de1b39678e9115864362022253f70bf884257ba 100644
+index 9a6b3e78dd0975fbacc74589b501c4217e407d15..9611af1cf0dc398c37a703f358214eae5324396b 100644
 --- a/arch/x86/kvm/vmx/tdx.c
 +++ b/arch/x86/kvm/vmx/tdx.c
-@@ -1855,7 +1855,7 @@ static inline bool tdx_is_sept_violation_unexpected_pending(struct kvm_vcpu *vcp
+@@ -1877,7 +1877,7 @@ static inline bool tdx_is_sept_violation_unexpected_pending(struct kvm_vcpu *vcp
  	if (eeq_type != TDX_EXT_EXIT_QUAL_TYPE_PENDING_EPT_VIOLATION)
  		return false;
  

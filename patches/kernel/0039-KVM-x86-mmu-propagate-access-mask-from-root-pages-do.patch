@@ -1,0 +1,139 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 8 Apr 2026 11:42:11 -0400
+Subject: [PATCH] KVM: x86/mmu: propagate access mask from root pages down
+
+Until now, all SPTEs have had all kinds of access allowed; however,
+for GMET to be enabled all the pages have to have ACC_USER_MASK
+disabled.  By marking them as supervisor pages, the processor
+allows execution from either user or supervisor mode (unlike
+for normal paging, NPT ignores the U bit for reads and writes).
+That will mean that the root page's role has ACC_USER_MASK
+cleared and that has to be propagated down through the kvm_mmu_page
+tree.
+
+Do that, and pass the required access to the
+kvm_mmu_spte_requested tracepoint since it's not ACC_ALL
+anymore.
+
+Tested-by: David Riley <d.riley@proxmox.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 63fffe111f036d5566d4535ce56e714ec69c3829)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/mmu.c         |  9 +++++----
+ arch/x86/kvm/mmu/mmutrace.h    | 10 ++++++----
+ arch/x86/kvm/mmu/paging_tmpl.h |  2 +-
+ arch/x86/kvm/mmu/tdp_mmu.c     |  6 +++---
+ 4 files changed, 15 insertions(+), 12 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index 738e556d7410a7e13d651f364f33d9d65c881f87..92486e7add43d38b4ecfdd56b9c66c4c7f194662 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -3447,12 +3447,13 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+ {
+ 	struct kvm_shadow_walk_iterator it;
+ 	struct kvm_mmu_page *sp;
+-	int ret;
++	int ret, access;
+ 	gfn_t base_gfn = fault->gfn;
+ 
+ 	kvm_mmu_hugepage_adjust(vcpu, fault);
+ 
+-	trace_kvm_mmu_spte_requested(fault);
++	access = vcpu->arch.mmu->root_role.access;
++	trace_kvm_mmu_spte_requested(fault, access);
+ 	for_each_shadow_entry(vcpu, fault->addr, it) {
+ 		/*
+ 		 * We cannot overwrite existing page tables with an NX
+@@ -3465,7 +3466,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+ 		if (it.level == fault->goal_level)
+ 			break;
+ 
+-		sp = kvm_mmu_get_child_sp(vcpu, it.sptep, base_gfn, true, ACC_ALL);
++		sp = kvm_mmu_get_child_sp(vcpu, it.sptep, base_gfn, true, access);
+ 		if (sp == ERR_PTR(-EEXIST))
+ 			continue;
+ 
+@@ -3478,7 +3479,7 @@ static int direct_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+ 	if (WARN_ON_ONCE(it.level != fault->goal_level))
+ 		return -EFAULT;
+ 
+-	ret = mmu_set_spte(vcpu, fault->slot, it.sptep, ACC_ALL,
++	ret = mmu_set_spte(vcpu, fault->slot, it.sptep, access,
+ 			   base_gfn, fault->pfn, fault);
+ 	if (ret == RET_PF_SPURIOUS)
+ 		return ret;
+diff --git a/arch/x86/kvm/mmu/mmutrace.h b/arch/x86/kvm/mmu/mmutrace.h
+index 3429c1413f423b8ad709eaaa858a0fff7b37220e..fa01719baf8d4f046e90dc0676109145628afe15 100644
+--- a/arch/x86/kvm/mmu/mmutrace.h
++++ b/arch/x86/kvm/mmu/mmutrace.h
+@@ -373,23 +373,25 @@ TRACE_EVENT(
+ 
+ TRACE_EVENT(
+ 	kvm_mmu_spte_requested,
+-	TP_PROTO(struct kvm_page_fault *fault),
+-	TP_ARGS(fault),
++	TP_PROTO(struct kvm_page_fault *fault, u8 access),
++	TP_ARGS(fault, access),
+ 
+ 	TP_STRUCT__entry(
+ 		__field(u64, gfn)
+ 		__field(u64, pfn)
+ 		__field(u8, level)
++		__field(u8, access)
+ 	),
+ 
+ 	TP_fast_assign(
+ 		__entry->gfn = fault->gfn;
+ 		__entry->pfn = fault->pfn | (fault->gfn & (KVM_PAGES_PER_HPAGE(fault->goal_level) - 1));
+ 		__entry->level = fault->goal_level;
++		__entry->access = access;
+ 	),
+ 
+-	TP_printk("gfn %llx pfn %llx level %d",
+-		  __entry->gfn, __entry->pfn, __entry->level
++	TP_printk("gfn %llx pfn %llx level %d access %x",
++		  __entry->gfn, __entry->pfn, __entry->level, __entry->access
+ 	)
+ );
+ 
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index 9202b4110eb4961c007f4ed983fb51eb735fd17e..0b5fcffae6068163bfe79efc33e725d3ab6219a5 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -751,7 +751,7 @@ static int FNAME(fetch)(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault,
+ 	 */
+ 	kvm_mmu_hugepage_adjust(vcpu, fault);
+ 
+-	trace_kvm_mmu_spte_requested(fault);
++	trace_kvm_mmu_spte_requested(fault, gw->pte_access);
+ 
+ 	for (; shadow_walk_okay(&it); shadow_walk_next(&it)) {
+ 		/*
+diff --git a/arch/x86/kvm/mmu/tdp_mmu.c b/arch/x86/kvm/mmu/tdp_mmu.c
+index c87be010bf8a3b82a198181474b5383e268546c1..b70d043d7a5b89b5d1aad00dfb07150729c9974c 100644
+--- a/arch/x86/kvm/mmu/tdp_mmu.c
++++ b/arch/x86/kvm/mmu/tdp_mmu.c
+@@ -1185,9 +1185,9 @@ static int tdp_mmu_map_handle_target_level(struct kvm_vcpu *vcpu,
+ 	}
+ 
+ 	if (unlikely(!fault->slot))
+-		new_spte = make_mmio_spte(vcpu, iter->gfn, ACC_ALL);
++		new_spte = make_mmio_spte(vcpu, iter->gfn, sp->role.access);
+ 	else
+-		wrprot = make_spte(vcpu, sp, fault->slot, ACC_ALL, iter->gfn,
++		wrprot = make_spte(vcpu, sp, fault->slot, sp->role.access, iter->gfn,
+ 				   fault->pfn, iter->old_spte, fault->prefetch,
+ 				   false, fault->map_writable, &new_spte);
+ 
+@@ -1272,7 +1272,7 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+ 
+ 	kvm_mmu_hugepage_adjust(vcpu, fault);
+ 
+-	trace_kvm_mmu_spte_requested(fault);
++	trace_kvm_mmu_spte_requested(fault, root->role.access);
+ 
+ 	rcu_read_lock();
+ 
