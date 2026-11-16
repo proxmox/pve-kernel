@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jean-Paul Sergent <jpsergent@gmail.com>
+Date: Mon, 9 Nov 2026 00:24:10 -0800
+Subject: [PATCH] net: dst_metadata: fix memcmp overread in
+ skb_metadata_dst_cmp
+
+Commit 3fcece12bc1b6 ("net: store port/representator id in
+metadata_dst") dropped the options_len equality check when converting
+skb_metadata_dst_cmp() to a type switch, so the memcmp length is taken
+from skb a alone.  When skb b carries fewer options than a, the
+comparison reads past b's allocation.
+
+Hit in practice with Cilium geneve GRO aggregation, comparing an skb
+carrying 12 bytes of tunnel options against one carrying none:
+
+  memcmp: detected buffer overflow: 108 byte read of buffer size 96
+  WARNING: CPU: 0 PID: 15 at lib/string_helpers.c:1036 __fortify_report
+   __fortify_panic+0x9/0x10
+   skb_metadata_dst_cmp+0x11b/0x120
+   dev_gro_receive+0x303/0x620
+   gro_cell_poll+0x67/0xa0
+
+Restore the check: unequal options_len means different metadata and no
+aggregation; the memcmp only runs when both sides carry the same
+options length.
+
+Fixes: 3fcece12bc1b6 ("net: store port/representator id in metadata_dst")
+Cc: stable@vger.kernel.org
+Cc: Ilya Maximets <i.maximets@ovn.org>
+Cc: Sasha Levin <sashal@kernel.org>
+Cc: Jakub Kicinski <kuba@kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@kernel.org>
+Cc: Paolo Abeni <pabeni@redhat.com>
+Cc: Simon Horman <horms@kernel.org>
+Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Cc: Kees Cook <kees@kernel.org>
+Signed-off-by: Jean-Paul Sergent <jpsergent@gmail.com>
+Link: https://patch.msgid.link/20261109082410.206140-1-jpsergent@gmail.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+(cherry picked from commit 74a7db839308dd7d1c3f72dd1e3299784df3affb)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/dst_metadata.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+index f45d1e3163f0071d9f043a2bcf0aaf4a0bb06072..02fffbb8509987ce6f515169a3e029daaba0b451 100644
+--- a/include/net/dst_metadata.h
++++ b/include/net/dst_metadata.h
+@@ -116,6 +116,8 @@ static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
+ 		return memcmp(&a->u.port_info, &b->u.port_info,
+ 			      sizeof(a->u.port_info));
+ 	case METADATA_IP_TUNNEL:
++		if (a->u.tun_info.options_len != b->u.tun_info.options_len)
++			return 1;
+ 		return memcmp(&a->u.tun_info, &b->u.tun_info,
+ 			      sizeof(a->u.tun_info) +
+ 					 a->u.tun_info.options_len);

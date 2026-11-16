@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhiling Zou <zhilinz@nebusec.ai>
+Date: Tue, 20 Oct 2026 14:39:36 +0800
+Subject: [PATCH] ipmr: only copy pktinfo to cache reports
+
+[ Upstream commit 94a6736bb5abe6b2ef38490d0cab19c1c6a7c71f ]
+
+ipmr_cache_report() prepares IP_PKTINFO on the original skb. The
+ipv4_pktinfo_prepare() helper updates skb->cb and clears the pktinfo fields
+when packet info is disabled. Since the skb can continue through the data
+path, preserve and restore its original control block around the helper.
+
+The original implementation copies the entire control block to the report
+skb. For synthetic RTM_GETROUTE packets, NETLINK_CB data is interpreted as
+IPCB by the raw IPv4 receive path. With IP_RECVOPTS or IP_RETOPTS enabled,
+corrupted option offsets cause out-of-bounds reads or a stack buffer
+overflow. WHOLEPKT and WRVIFWHOLE reports also inherit stale IP option
+offsets when their header is prepended.
+
+Clear the report skb control block. Only prepare and copy pktinfo when the
+input skb has an IPv4 header. Synthetic route-query skbs use NETLINK_CB,
+not IPCB, so leave their report control block zeroed. Restore pkt->cb after
+preparing pktinfo for regular IPv4 packets.
+
+Fixes: bb7403655b3c ("ipmr: support IP_PKTINFO on cache report IGMP msg")
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Link: https://lore.kernel.org/netdev/20260903113055.GA90787@shredder/
+Suggested-by: Ido Schimmel <idosch@nvidia.com>
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Zhiling Zou <zhilinz@nebusec.ai>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/0545f0c83f5ee2f6696210f87268e811ef655715.1792476357.git.zhilinz@nebusec.ai
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 936d3aa096a9308603aec9a03a8d2e90bdf1509b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/ipmr.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 5e92706d6e7bf6545d7b0176e1683f362c58c1e9..26a2d7fbbf2007954ad14d0793349e8ca6ee1261 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1049,6 +1049,7 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
+ static int ipmr_cache_report(const struct mr_table *mrt,
+ 			     struct sk_buff *pkt, vifi_t vifi, int assert)
+ {
++	unsigned char pkt_cb[sizeof(pkt->cb)];
+ 	const int ihl = ip_hdrlen(pkt);
+ 	struct sock *mroute_sk;
+ 	struct igmphdr *igmp;
+@@ -1104,8 +1105,6 @@ static int ipmr_cache_report(const struct mr_table *mrt,
+ 		msg = (struct igmpmsg *)skb_network_header(skb);
+ 		msg->im_vif = vifi;
+ 		msg->im_vif_hi = vifi >> 8;
+-		ipv4_pktinfo_prepare(mroute_sk, pkt, false);
+-		memcpy(skb->cb, pkt->cb, sizeof(skb->cb));
+ 		/* Add our header.
+ 		 * Note that code, csum and group fields are cleared.
+ 		 */
+@@ -1116,6 +1115,15 @@ static int ipmr_cache_report(const struct mr_table *mrt,
+ 		skb->transport_header = skb->network_header;
+ 	}
+ 
++	memset(skb->cb, 0, sizeof(skb->cb));
++	/* Route queries from ipmr_get_route() carry NETLINK_CB, not IPCB. */
++	if (ip_hdr(pkt)->version) {
++		memcpy(pkt_cb, pkt->cb, sizeof(pkt_cb));
++		ipv4_pktinfo_prepare(mroute_sk, pkt, false);
++		*PKTINFO_SKB_CB(skb) = *PKTINFO_SKB_CB(pkt);
++		memcpy(pkt->cb, pkt_cb, sizeof(pkt_cb));
++	}
++
+ 	igmpmsg_netlink_event(mrt, skb);
+ 
+ 	/* Deliver to mrouted */

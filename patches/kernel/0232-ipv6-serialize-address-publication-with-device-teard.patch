@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daehyeon Ko <4ncienth@gmail.com>
+Date: Thu, 15 Oct 2026 14:06:49 +0900
+Subject: [PATCH] ipv6: serialize address publication with device teardown
+
+[ Upstream commit 06227034e2d93942119b922cf05f2de9da0ad848 ]
+
+ipv6_add_addr() checks idev state before allocating an ifaddr, but
+publishes the object later. addrconf_ifdown() can mark and detach the
+idev between the check and publication.
+
+This happens when a non-loopback device MTU falls below IPV6_MIN_MTU. A
+forced interleaving published an address on a dead idev, and
+ipv6_get_ifaddr() still returned it after teardown. Later device deletion
+remained blocked with:
+
+  unregister_netdevice: waiting for ac0 to become free. Usage count = 3
+
+Protect the dead indication with idev->lock and keep that lock across
+both hash and device-list publication. Recheck dead before publishing;
+if teardown wins the lock, reject the unpublished object.
+
+Non-unregister teardown does not set dead. The preceding change covers an
+add that misses the initial hash scan but reaches the per-device list
+snapshot. Both changes are required when backporting this fix.
+
+Fixes: 8814c4b53381 ("[IPV6] ADDRCONF: Convert addrconf_lock to RCU.")
+Cc: stable@vger.kernel.org
+Link: https://lore.kernel.org/r/179161099408.434549.14449036924552933828@kernel.org
+Link: https://lore.kernel.org/r/20261012145306.GB779501@shredder
+Suggested-by: Ido Schimmel <idosch@nvidia.com>
+Signed-off-by: Daehyeon Ko <4ncienth@gmail.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20261015050651.1841557-3-4ncienth@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 65dc6b153b65f094697123befb78554ecd33b54c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/addrconf.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index bb2c3129d216177cc3b0dd4a1f4f758c8796d394..85f952adb3dc8b8b6666c950a482874069e61367 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1176,14 +1176,18 @@ ipv6_add_addr(struct inet6_dev *idev, struct ifa6_config *cfg,
+ 
+ 	rcu_read_lock();
+ 
+-	err = ipv6_add_addr_hash(idev->dev, ifa);
++	write_lock_bh(&idev->lock);
++
++	if (idev->dead)
++		err = -ENODEV;
++	else
++		err = ipv6_add_addr_hash(idev->dev, ifa);
+ 	if (err < 0) {
++		write_unlock_bh(&idev->lock);
+ 		rcu_read_unlock();
+ 		goto out;
+ 	}
+ 
+-	write_lock_bh(&idev->lock);
+-
+ 	/* Add to inet6_dev unicast addr list. */
+ 	ipv6_link_dev_addr(idev, ifa);
+ 
+@@ -3898,7 +3902,9 @@ static int addrconf_ifdown(struct net_device *dev, bool unregister)
+ 	 *	   Do not dev_put!
+ 	 */
+ 	if (unregister) {
++		write_lock_bh(&idev->lock);
+ 		WRITE_ONCE(idev->dead, 1);
++		write_unlock_bh(&idev->lock);
+ 
+ 		/* protected by rtnl_lock */
+ 		RCU_INIT_POINTER(dev->ip6_ptr, NULL);

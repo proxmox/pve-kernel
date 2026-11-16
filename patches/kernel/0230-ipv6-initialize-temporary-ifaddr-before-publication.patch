@@ -1,0 +1,108 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daehyeon Ko <4ncienth@gmail.com>
+Date: Thu, 15 Oct 2026 14:06:50 +0900
+Subject: [PATCH] ipv6: initialize temporary ifaddr before publication
+
+[ Upstream commit ed7f278812e540db507f683e5bf9b6d0a1f5bc1e ]
+
+ipv6_create_tempaddr() holds a reference to the public ifaddr, publishes
+the new temporary address through ipv6_add_addr(), and only then stores
+the reference and final timestamps.
+
+addrconf_ifdown() can remove the temporary address before ifpub is
+stored, leaking the public ifaddr reference. Publishing ifpub alone is
+insufficient: manage_tempaddrs() can then find the object before cstamp
+and tstamp are final, update its lifetimes, and have the constructor
+overwrite its timestamp with an older value.
+
+This follow-on was found by source review and was not separately
+triggered at runtime.
+
+Pass the public ifaddr and both timestamps in ifa6_config. Initialize all
+three fields before adding the temporary address to either the hash or
+per-device lists. On success the existing public-ifaddr reference
+transfers to the temporary object. On error it remains owned and released
+by ipv6_create_tempaddr().
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Reported-by: Sashiko <netdev-bot+sashiko@kernel.org>
+Closes: https://lore.kernel.org/r/179122559913.434549.12720841717630168470@kernel.org
+Link: https://lore.kernel.org/r/179161099665.434549.5858601179492551889@kernel.org
+Link: https://lore.kernel.org/r/20261007164548.GA1153540@shredder
+Link: https://lore.kernel.org/r/20261012145240.GA779501@shredder
+Suggested-by: Ido Schimmel <idosch@nvidia.com>
+Signed-off-by: Daehyeon Ko <4ncienth@gmail.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20261015050651.1841557-4-4ncienth@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit d4e3ab19ddd232850ad6a28fa95a6501be2373a1)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/addrconf.h |  3 +++
+ net/ipv6/addrconf.c    | 20 +++++++++++++-------
+ 2 files changed, 16 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index e6764245995f25855fdbd2725d461fb2473b3dc8..6818057cf727501212f24d6071450d14ee315a5b 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -81,6 +81,9 @@ struct ifa6_config {
+ 	u8			ifa_proto;
+ 
+ 	const struct in6_addr	*peer_pfx;
++	struct inet6_ifaddr	*ifpub;
++	unsigned long		cstamp;
++	unsigned long		tstamp;
+ 
+ 	u32			rt_priority;
+ 	u32			ifa_flags;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 34d8667e4df582e0989f835c3b4c29aa445f3749..47d80c50cdc5a65e654f670edc51ecb08a5dd35a 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1154,10 +1154,19 @@ ipv6_add_addr(struct inet6_dev *idev, struct ifa6_config *cfg,
+ 		ifa->flags |= IFA_F_TENTATIVE;
+ 	ifa->valid_lft = cfg->valid_lft;
+ 	ifa->prefered_lft = cfg->preferred_lft;
+-	ifa->cstamp = ifa->tstamp = jiffies;
+ 	ifa->tokenized = false;
+ 
+ 	ifa->rt = f6i;
++	ifa->ifpub = cfg->ifpub;
++	if (cfg->ifpub) {
++		ifa->cstamp = cfg->cstamp;
++		ifa->tstamp = cfg->tstamp;
++	} else {
++		unsigned long now = jiffies;
++
++		ifa->cstamp = now;
++		ifa->tstamp = now;
++	}
+ 
+ 	ifa->idev = idev;
+ 	in6_dev_hold(idev);
+@@ -1486,6 +1495,9 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, bool block)
+ 
+ 	cfg.pfx = &addr;
+ 	cfg.scope = ipv6_addr_scope(cfg.pfx);
++	cfg.ifpub = ifp;
++	cfg.cstamp = now;
++	cfg.tstamp = tmp_tstamp;
+ 
+ 	ift = ipv6_add_addr(idev, &cfg, block, NULL);
+ 	if (IS_ERR(ift)) {
+@@ -1496,12 +1508,6 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, bool block)
+ 		goto retry;
+ 	}
+ 
+-	spin_lock_bh(&ift->lock);
+-	ift->ifpub = ifp;
+-	ift->cstamp = now;
+-	ift->tstamp = tmp_tstamp;
+-	spin_unlock_bh(&ift->lock);
+-
+ 	addrconf_dad_start(ift);
+ 	in6_ifa_put(ift);
+ 	in6_dev_put(idev);

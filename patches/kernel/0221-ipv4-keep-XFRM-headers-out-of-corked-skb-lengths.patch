@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Thu, 29 Oct 2026 21:22:29 -0700
+Subject: [PATCH] ipv4: keep XFRM headers out of corked skb lengths
+
+__ip_append_data() allocates space for dst.header_len in the first skb,
+but includes that space in skb->len until __ip_make_skb() pulls it.
+Fragment accounting uses an MTU that already excludes the XFRM headers.
+As a result, the next skb can have a fraggap larger than its capped
+datalen, and skb_copy_and_csum_bits() can overwrite its shared info.
+
+For example, five AH tunnel states can reserve 500 bytes while leaving
+an effective MTU of 348. With 40 bytes of IPv4 options, the second skb
+has room for 288 bytes of fragment data but receives a 500-byte gap
+copy. The overwritten shared info is subsequently consumed by the skb
+release paths.
+
+Reserve the XFRM headers together with the link-layer headroom instead.
+This keeps skb->len, the gap-copy offsets and the trim lengths relative
+to the IPv4 packet throughout corking. The network and transport header
+addresses and the headroom available to XFRM at output are unchanged.
+Both paged and linear allocations, including subsequent corked appends,
+use the corrected accounting.
+
+Fixes: 353e5c9abd90 ("ipv4: Fix IPsec slowpath fragmentation problem")
+Cc: stable@vger.kernel.org
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Link: https://patch.msgid.link/20261030042229.74068-1-kylebot@openai.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 0f47fce51a98d3d9f439c16861d519a7b833a176)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/ip_output.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index eb4309160338aef6e9bb046df3db8ea24341bfea..67ba9437f9530bfc3d5cd5ad176849f5cc9a0b2c 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1151,16 +1151,16 @@ static int __ip_append_data(struct sock *sk,
+ 			 */
+ 			skb->ip_summed = csummode;
+ 			skb->csum = 0;
+-			skb_reserve(skb, hh_len);
++			skb_reserve(skb, hh_len + exthdrlen);
+ 
+ 			/*
+ 			 *	Find where to start putting bytes.
+ 			 */
+-			data = skb_put(skb, fraglen + exthdrlen - pagedlen);
+-			skb_set_network_header(skb, exthdrlen);
++			data = skb_put(skb, fraglen - pagedlen);
++			skb_reset_network_header(skb);
+ 			skb->transport_header = (skb->network_header +
+ 						 fragheaderlen);
+-			data += fragheaderlen + exthdrlen;
++			data += fragheaderlen;
+ 
+ 			if (fraggap) {
+ 				skb->csum = skb_copy_and_csum_bits(

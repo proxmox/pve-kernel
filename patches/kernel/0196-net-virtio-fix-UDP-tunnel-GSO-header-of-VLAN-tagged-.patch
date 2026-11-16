@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@kernel.org>
+Date: Tue, 10 Nov 2026 22:36:26 +0100
+Subject: [PATCH] net: virtio: fix UDP tunnel GSO header of VLAN tagged packets
+
+virtio_net_hdr_tnl_from_skb() builds a wrong header for VLAN tagged UDP
+tunnel GSO packets.
+
+1) When the skb carries a hwaccel VLAN tag, tun_put_user() inserts the
+   802.1Q header in the frame it copies to user space or vhost-net, and
+   passes vlan_hlen = VLAN_HLEN. virtio_net_hdr_from_skb() adds
+   vlan_hlen to csum_start, but inner_nh_offset and outer_th_offset do
+   not account for it, and are 4 bytes short of the real inner L3 and
+   outer UDP headers in the emitted frame.
+
+   tun advertises NETIF_F_HW_VLAN_CTAG_TX and NETIF_F_HW_VLAN_STAG_TX
+   in hw_enc_features, and its vlan_features keep the UDP tunnel GSO
+   features, so this happens for example with a VLAN filtering bridge
+   with a tagged port, or with a vlan device on top of a tap.
+
+2) The outer family comes from skb->protocol, which is ETH_P_8021Q or
+   ETH_P_8021AD when the VLAN tag is in the packet data, so a packet
+   with an outer IPv6 header is reported as
+   VIRTIO_NET_HDR_GSO_UDP_TUNNEL_IPV4. This happens when
+   __vlan_hwaccel_push_inside() inserted the tag because the device does
+   not offload it: virtio_net never offloads VLAN insertion but keeps
+   UDP tunnel GSO in its vlan_features, and tun does the same with VLAN
+   TX offload disabled, or with QinQ (outer tag offloaded, inner tag in
+   the data).
+
+The receiver sets inner_network_header and transport_header from these
+offsets, and checks them with the wrong outer family. A forwarded
+packet that gets segmented again uses the wrong inner headers, and a
+receiver checking the outer headers against the virtio header drops
+the packet.
+
+Add vlan_hlen to both offsets like csum_start, and take the outer
+family from vlan_get_protocol(), which skips VLAN tags in the data.
+
+Fixes: a2fb4bc4e2a6 ("net: implement virtio helpers to handle UDP GSO tunneling.")
+Reported-by: Sashiko <sashiko-bot@kernel.org>
+Closes: https://lore.kernel.org/netdev/179421814766.994134.3669228181251158303@kernel.org/
+Closes: https://lore.kernel.org/netdev/179433950084.994134.15100186606737698605@kernel.org/
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/20261110213628.3476051-2-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 9e244f94128a4b89004f0564b66e039e58318a34)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/linux/virtio_net.h | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+index d6466f96cdd00cdf059d4fa8842ba1672780e556..83f801ff5700679ae6ec4761d0cd6173aa28dda3 100644
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -453,7 +453,10 @@ virtio_net_hdr_tnl_from_skb(const struct sk_buff *skb,
+ 	if (feature_hdrlen && hdr->hdr_len)
+ 		__virtio_net_set_tnl_hdrlen(skb, hdr);
+ 
+-	if (skb->protocol == htons(ETH_P_IPV6))
++	/* skb->protocol is the VLAN protocol when the tag is in the
++	 * packet data.
++	 */
++	if (vlan_get_protocol(skb) == htons(ETH_P_IPV6))
+ 		hdr->gso_type |= VIRTIO_NET_HDR_GSO_UDP_TUNNEL_IPV6;
+ 	else
+ 		hdr->gso_type |= VIRTIO_NET_HDR_GSO_UDP_TUNNEL_IPV4;
+@@ -461,8 +464,11 @@ virtio_net_hdr_tnl_from_skb(const struct sk_buff *skb,
+ 	if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)
+ 		hdr->flags |= VIRTIO_NET_HDR_F_UDP_TUNNEL_CSUM;
+ 
+-	inner_nh = skb->inner_network_header - skb_headroom(skb);
+-	outer_th = skb->transport_header - skb_headroom(skb);
++	/* Like csum_start, the offsets must account for a VLAN tag
++	 * the caller inserts in the frame.
++	 */
++	inner_nh = skb->inner_network_header - skb_headroom(skb) + vlan_hlen;
++	outer_th = skb->transport_header - skb_headroom(skb) + vlan_hlen;
+ 	vhdr->inner_nh_offset = cpu_to_le16(inner_nh);
+ 	vhdr->outer_th_offset = cpu_to_le16(outer_th);
+ 	return 0;

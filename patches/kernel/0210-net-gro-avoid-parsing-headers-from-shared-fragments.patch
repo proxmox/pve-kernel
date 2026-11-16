@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Fri, 30 Oct 2026 22:07:52 -0700
+Subject: [PATCH] net: gro: avoid parsing headers from shared fragments
+
+When an skb has an empty linear head, skb_gro_reset_offset() can expose
+the first page fragment directly to GRO header parsers. For an
+SKBFL_SHARED_FRAG skb, those bytes may still be writable through a file
+mapping. Headers validated during receive can therefore differ from the
+headers later copied into the linear head and used during completion.
+
+For example, changing an IPv6 destination-options length between the
+short and full header fetches in ipv6_gro_pull_exthdrs() can make
+ipv6_gro_complete() pass an out-of-bounds offset to udp6_gro_complete().
+A userspace reproducer triggered a KASAN slab-out-of-bounds read there
+on an unmodified kernel as UID 1000. The same completion path can write
+the UDP checksum and length through the invalid offset. The packet has
+trusted TCP GSO metadata and spliced file data, so it reaches completion
+without an skb zerocopy destructor or a second GRO packet.
+
+Disable the direct-fragment fast path for skbs with externally writable
+fragments. With an empty linear head, frag0_len remains zero, so
+skb_gro_header_slow() pulls each required header into the linear head
+before it is inspected. Subsequent pulls preserve the validated prefix.
+This covers both gro_receive_skb() and napi_gro_frags(), including other
+protocols using the same helpers. Linear headers and private fragments
+retain their existing fast paths.
+
+Codex assisted with review of the supplied report, reproducer and draft
+fix, related-path analysis, and this changelog. The patched
+net/core/gro.o builds with W=1 using the supplied x86-64 configuration,
+allyesconfig and allmodconfig. The fix was checked by code-path analysis;
+the reproducer and kernel selftests have not been run on a booted
+patched kernel.
+
+The issue was found by an LLM.
+
+Fixes: dff0b0161ad5 ("net: gro: parse ipv6 ext headers without frag0 invalidation")
+Cc: stable@kernel.org
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Link: https://patch.msgid.link/20261031050752.31869-1-kylebot@openai.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 44818c9a826d766dc0e21179dc76f229334f1dda)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/gro.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/gro.c b/net/core/gro.c
+index 580744e04c3b60a600a50b74164bc002b8f73005..d41b07d97cb4de94935fc3ba3ad4b868b40d26d8 100644
+--- a/net/core/gro.c
++++ b/net/core/gro.c
+@@ -422,7 +422,8 @@ static inline void skb_gro_reset_offset(struct sk_buff *skb, u32 nhoff)
+ 	headlen = skb_headlen(skb);
+ 	NAPI_GRO_CB(skb)->frag0 = skb->data;
+ 	NAPI_GRO_CB(skb)->frag0_len = headlen;
+-	if (headlen)
++	/* Shared fragments must be pulled into the linear head before parsing. */
++	if (headlen || skb_has_shared_frag(skb))
+ 		return;
+ 
+ 	pinfo = skb_shinfo(skb);

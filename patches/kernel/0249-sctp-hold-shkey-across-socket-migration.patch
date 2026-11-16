@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Lee <david.lee@trailofbits.com>
+Date: Tue, 10 Nov 2026 10:52:24 -0500
+Subject: [PATCH] sctp: hold shkey across socket migration
+
+[ Upstream commit ad1320865b1826ffa2e81e37c49535751e81335c ]
+
+sctp_sock_migrate() transfers queued DATA skbs from the old socket to the
+new one. skb_orphan() invokes sctp_wfree() during that transfer and drops
+the skb-owned shared-key reference.
+
+If userspace has removed that key from the association, this can be the
+final reference. The following sctp_set_owner_w() then dereferences the
+freed chunk->shkey while trying to take the new owner reference.
+
+Take a temporary shared-key reference before orphaning the skb and release
+it after the new owner has taken its reference. This preserves the selected
+authentication key throughout the ownership transfer.
+
+Bug found and triaged by OpenAI Security Research and
+validated by Trail of Bits.
+
+Fixes: 1b1e0bc99474 ("sctp: add refcnt support for sh_key")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: David Lee <david.lee@trailofbits.com>
+Acked-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/20261009074244.3718-2-juny24602@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Stable-dep-of: 52ffeaa358d1 ("sctp: re-point retained control chunks on association migration")
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a94dd9e384934000128de41ee65115094899c22a)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sctp/socket.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index c616f1609d0cfe44c48bd026a3ee922ab2a474f2..b5e205eca307716c4836c41f1535f2e3f9a25df4 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -148,9 +148,19 @@ static inline void sctp_set_owner_w(struct sctp_chunk *chunk)
+ 
+ static void sctp_clear_owner_w(struct sctp_chunk *chunk)
+ {
++	/* Keep the shkey alive until the new owner takes its reference. */
++	if (chunk->shkey)
++		sctp_auth_shkey_hold(chunk->shkey);
+ 	skb_orphan(chunk->skb);
+ }
+ 
++static void sctp_set_owner_w_migrate(struct sctp_chunk *chunk)
++{
++	sctp_set_owner_w(chunk);
++	if (chunk->shkey)
++		sctp_auth_shkey_release(chunk->shkey);
++}
++
+ #define traverse_and_process()	\
+ do {				\
+ 	msg = chunk->msg;	\
+@@ -9649,7 +9659,7 @@ static int sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 	lock_sock_nested(newsk, SINGLE_DEPTH_NESTING);
+ 	sctp_for_each_tx_datachunk(assoc, true, sctp_clear_owner_w);
+ 	sctp_assoc_migrate(assoc, newsk);
+-	sctp_for_each_tx_datachunk(assoc, false, sctp_set_owner_w);
++	sctp_for_each_tx_datachunk(assoc, false, sctp_set_owner_w_migrate);
+ 
+ 	/* If the association on the newsk is already closed before accept()
+ 	 * is called, set RCV_SHUTDOWN flag.

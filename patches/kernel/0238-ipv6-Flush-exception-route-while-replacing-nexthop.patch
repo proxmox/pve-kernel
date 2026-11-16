@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kuniyuki Iwashima <kuniyu@google.com>
+Date: Sun, 1 Nov 2026 06:35:22 +0000
+Subject: [PATCH] ipv6: Flush exception route while replacing nexthop.
+
+The following creates a cyclic reference between IPv6 route
+and nexthop:
+
+  1. create a nexthop A
+  2. create a nexthop group w/ A
+  3. create an IPv6 route with the nexthop group
+  4. create an exception route w/ A
+  5. replace A with a new nexthop B in the nexthop group
+  6. remove the IPv6 route
+  7. replace B with A in the nexthop group
+  8. remove the nexthop group
+
+Then, removing a device tied to the route gets stuck and
+triggers the splat below. [0]
+
+At 5., fib6_nh_release_dsts() is called, but it does not
+flush exception routes, so the nexthop A continues to grab
+the IPv6 route reference.
+
+  nh_A->rt6i_exception_bucket[] -> rt6_ex->rt6i->from
+
+At 6., fib6_purge_rt() calls rt6_flush_exceptions(), but it
+only purges exceptions tied to nexthop B.  Also, the route is
+unlinked from the nexthop group by list_del_init(&rt->nh_list).
+
+  -> f6i->nh -> nhg->nh_entries[]
+
+At 8., __remove_nexthop_fib() cannot find the IPv6 route, and
+remove_nexthop_group() calls list_del_init(&nhge->nh_list) to
+unlink the group from the nexthop A's nhe->grp_list.
+
+  nhg->nh_entries[] -> nh_A -> ... -> f6i
+
+Here, the nexthop A is reachable from net->nexthop.devhash[],
+but remove_nexthop_from_groups() cannot find the nexthop group,
+leaking the whole chain.
+
+Let's call fib6_nh_flush_exceptions() in fib6_nh_release_dsts().
+
+[0]:
+unregister_netdevice: waiting for gre6 to become free. Usage count = 4
+ref_tracker: netdev@000000009652f190 has 1/3 users at
+     dst_alloc+0x14b/0x490
+     ip6_rt_cache_alloc+0x27b/0x670
+     __ip6_rt_update_pmtu+0x572/0x850
+     ip6_tnl_xmit+0x8c5/0x1b70
+     __gre6_xmit+0x7af/0xaa0
+     ip6gre_tunnel_xmit+0x685/0xdc0
+     dev_hard_start_xmit+0x204/0x5a0
+     __dev_queue_xmit+0xe8a/0x2550
+     ip6_finish_output+0x232/0x570
+     ip6_output+0x226/0x3b0
+     ip6_send_skb+0x133/0x250
+     rawv6_push_pending_frames+0x503/0x6f0
+     rawv6_sendmsg+0xdf0/0x1310
+     sock_sendmsg_nosec+0xde/0x130
+     __sys_sendto+0x27f/0x320
+     __x64_sys_sendto+0xd9/0xf0
+
+Fixes: 7bf4796dd099 ("nexthops: add support for replace")
+Reported-by: Jason Zhang <jdz@google.com>
+Signed-off-by: Kuniyuki Iwashima <kuniyu@google.com>
+Link: https://patch.msgid.link/20261101064418.2055158-2-kuniyu@google.com
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+(cherry picked from commit 9401b428b5d4dfe1fd5752973fd02b4e9cd05536)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/route.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4d54e7fa21da852cd01300f15f73be4113a29590..a00387d8ff2d0d5398a50267574081a5237baf2d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3727,9 +3727,10 @@ void fib6_nh_release(struct fib6_nh *fib6_nh)
+ {
+ 	struct rt6_exception_bucket *bucket;
+ 
++	fib6_nh_release_dsts(fib6_nh);
++
+ 	rcu_read_lock();
+ 
+-	fib6_nh_flush_exceptions(fib6_nh, NULL);
+ 	bucket = fib6_nh_get_excptn_bucket(fib6_nh, NULL);
+ 	if (bucket) {
+ 		rcu_assign_pointer(fib6_nh->rt6i_exception_bucket, NULL);
+@@ -3738,7 +3739,6 @@ void fib6_nh_release(struct fib6_nh *fib6_nh)
+ 
+ 	rcu_read_unlock();
+ 
+-	fib6_nh_release_dsts(fib6_nh);
+ 	free_percpu(fib6_nh->rt6i_pcpu);
+ 
+ 	fib_nh_common_release(&fib6_nh->nh_common);
+@@ -3748,6 +3748,8 @@ void fib6_nh_release_dsts(struct fib6_nh *fib6_nh)
+ {
+ 	int cpu;
+ 
++	fib6_nh_flush_exceptions(fib6_nh, NULL);
++
+ 	if (!fib6_nh->rt6i_pcpu)
+ 		return;
+ 

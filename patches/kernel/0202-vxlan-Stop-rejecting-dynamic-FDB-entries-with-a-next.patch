@@ -1,0 +1,216 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@nvidia.com>
+Date: Tue, 10 Nov 2026 18:33:34 +0200
+Subject: [PATCH] vxlan: Stop rejecting dynamic FDB entries with a nexthop ID
+
+[ Upstream commit 7308ef8b4a6779a39f68d053c19b53a5c584a663 ]
+
+Commit 98fc57d16744 ("vxlan: reject dynamic fdb entries that reference a
+nexthop id") started rejecting FDB entries that point to FDB nexthops
+unless they are configured as "permanent" or "static". The intent was to
+prevent such entries from being aged out by vxlan_cleanup(), which runs
+without RTNL and can therefore race with other VXLAN devices that modify
+the same per-nexthop FDB list.
+
+However, FRR installs remote MACs that are behind a multihomed Ethernet
+Segment (EVPN-MH) as dynamic FDB entries that point to an FDB nexthop
+group. Since the above commit, these entries are rejected and traffic
+towards the corresponding MACs is flooded to all the remote VTEPs.
+
+These entries are also marked as externally learned ("extern_learn")
+and are therefore skipped by vxlan_cleanup(), but exempting externally
+learned entries from the checks is not enough: vxlan_cleanup() reads
+the state and flags of an entry without the hash lock, so an entry that
+is concurrently changed from dynamic and externally learned to static
+can still be aged out.
+
+Instead, remove the checks added by the above commit and make
+vxlan_cleanup() skip FDB entries that point to FDB nexthops. Such
+entries can only be configured from user space, cannot be learned and
+cannot roam, so there is no reason to age them out. The nexthop pointer
+of an FDB entry is set before the entry is linked and is only cleared
+after it was unlinked and an RCU grace period has passed, so it can be
+checked without the hash lock.
+
+Adjust the test cases added by the above commit and add a test case
+that checks that dynamic FDB entries that point to FDB nexthops are not
+aged out. Without the fix:
+
+ # ./fib_nexthops.sh -t "ipv4_fdb_grp_fcnal ipv6_fdb_grp_fcnal"
+
+ IPv4 fdb groups functional
+ --------------------------
+ [...]
+ TEST: Fdb mac add with nexthop group and dynamic state              [FAIL]
+ TEST: Fdb mac add with nexthop group and extern_learn               [FAIL]
+ TEST: Fdb mac without nexthop group aged out                        [ OK ]
+ TEST: Fdb mac with nexthop group not aged out                       [FAIL]
+ [...]
+
+ IPv6 fdb groups functional
+ --------------------------
+ [...]
+ TEST: Fdb mac add with nexthop group and dynamic state              [FAIL]
+ TEST: Fdb mac add with nexthop group and extern_learn               [FAIL]
+ TEST: Fdb mac without nexthop group aged out                        [ OK ]
+ TEST: Fdb mac with nexthop group not aged out                       [FAIL]
+ [...]
+
+ Tests passed:  44
+ Tests failed:   6
+ Tests skipped:  0
+
+With the fix:
+
+ # ./fib_nexthops.sh -t "ipv4_fdb_grp_fcnal ipv6_fdb_grp_fcnal"
+
+ IPv4 fdb groups functional
+ --------------------------
+ [...]
+ TEST: Fdb mac add with nexthop group and dynamic state              [ OK ]
+ TEST: Fdb mac add with nexthop group and extern_learn               [ OK ]
+ TEST: Fdb mac without nexthop group aged out                        [ OK ]
+ TEST: Fdb mac with nexthop group not aged out                       [ OK ]
+ [...]
+
+ IPv6 fdb groups functional
+ --------------------------
+ [...]
+ TEST: Fdb mac add with nexthop group and dynamic state              [ OK ]
+ TEST: Fdb mac add with nexthop group and extern_learn               [ OK ]
+ TEST: Fdb mac without nexthop group aged out                        [ OK ]
+ TEST: Fdb mac with nexthop group not aged out                       [ OK ]
+ [...]
+
+ Tests passed:  50
+ Tests failed:   0
+ Tests skipped:  0
+
+Fixes: 1274e1cc4226 ("vxlan: ecmp support for mac fdb entries")
+Fixes: 98fc57d16744 ("vxlan: reject dynamic fdb entries that reference a nexthop id")
+Cc: stable@vger.kernel.org
+Reported-by: Sascha Frey <sf@techfak.net>
+Closes: https://lore.kernel.org/netdev/20261028142928.GA8406@techfak.de/
+Tested-by: Sascha Frey <sf@techfak.net>
+Signed-off-by: Ido Schimmel <idosch@nvidia.com>
+Reviewed-by: Nikolay Aleksandrov <razor@blackwall.org>
+Link: https://patch.msgid.link/20261030133750.28668-1-idosch@nvidia.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+[ idosch: fixed a small conflict in vxlan_fdb_add() and vxlan_cleanup() ]
+Signed-off-by: Ido Schimmel <idosch@nvidia.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit c0a61995868e4933aaecec1dd2978efb680770dd)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/vxlan/vxlan_core.c              | 14 ++------
+ tools/testing/selftests/net/fib_nexthops.sh | 40 ++++++++++++++-------
+ 2 files changed, 31 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/vxlan/vxlan_core.c b/drivers/net/vxlan/vxlan_core.c
+index 83c554d4f3aec1abd10adeb811a614ac2e5b6037..c493cd2cddd132cbbac3a1e48ab626965cfed631 100644
+--- a/drivers/net/vxlan/vxlan_core.c
++++ b/drivers/net/vxlan/vxlan_core.c
+@@ -1162,12 +1162,6 @@ static int vxlan_fdb_update_existing(struct vxlan_dev *vxlan,
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	if (rcu_access_pointer(f->nh) &&
+-	    !(state & (NUD_PERMANENT | NUD_NOARP))) {
+-		NL_SET_ERR_MSG(extack, "Cannot make a nexthop fdb dynamic");
+-		return -EOPNOTSUPP;
+-	}
+-
+ 	/* Do not allow an externally learned entry to take over an entry added
+ 	 * by the user.
+ 	 */
+@@ -1429,11 +1423,6 @@ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	if (err)
+ 		return err;
+ 
+-	if (nhid && !(ndm->ndm_state & (NUD_PERMANENT | NUD_NOARP))) {
+-		NL_SET_ERR_MSG(extack, "A nexthop fdb cannot be dynamic");
+-		return -EINVAL;
+-	}
+-
+ 	if (vxlan->default_dst.remote_ip.sa.sa_family != ip.sa.sa_family)
+ 		return -EAFNOSUPPORT;
+ 
+@@ -3078,6 +3067,9 @@ static void vxlan_cleanup(struct timer_list *t)
+ 		if (f->flags & NTF_EXT_LEARNED)
+ 			continue;
+ 
++		if (rcu_access_pointer(f->nh))
++			continue;
++
+ 		timeout = READ_ONCE(f->updated) + vxlan->cfg.age_interval * HZ;
+ 		if (time_before_eq(timeout, jiffies)) {
+ 			spin_lock(&vxlan->hash_lock);
+diff --git a/tools/testing/selftests/net/fib_nexthops.sh b/tools/testing/selftests/net/fib_nexthops.sh
+index d0afb9c308eba517d31197bf1593c227d74929fd..f9213c715f715cefdb7511a7501e41bffac214d5 100755
+--- a/tools/testing/selftests/net/fib_nexthops.sh
++++ b/tools/testing/selftests/net/fib_nexthops.sh
+@@ -423,6 +423,14 @@ stop_ip_monitor()
+ 	return $rc
+ }
+ 
++fdb_entry_aged()
++{
++	local mac=$1
++	local dev=$2
++
++	! $BRIDGE fdb get to $mac dev $dev self &> /dev/null
++}
++
+ check_nexthop_fdb_support()
+ {
+ 	$IP nexthop help 2>&1 | grep -q fdb
+@@ -527,14 +535,18 @@ ipv6_fdb_grp_fcnal()
+ 	log_test $? 0 "Fdb mac add with nexthop group and static state"
+ 
+ 	run_cmd "$BRIDGE fdb add 02:02:00:00:00:16 dev vx10 nhid 102 self dynamic"
+-	log_test $? 255 "Fdb mac add with nexthop group and dynamic state"
++	log_test $? 0 "Fdb mac add with nexthop group and dynamic state"
++
++	run_cmd "$BRIDGE fdb add 02:02:00:00:00:17 dev vx10 nhid 102 self dynamic extern_learn"
++	log_test $? 0 "Fdb mac add with nexthop group and extern_learn"
+ 
+-	run_cmd "$BRIDGE fdb add 02:02:00:00:00:17 dev vx10 nhid 102 self"
+-	run_cmd "$BRIDGE fdb replace 02:02:00:00:00:17 dev vx10 dst 2001:db8:91::11 self dynamic"
+-	log_test $? 255 "Fdb mac replace with nexthop group and dynamic state"
++	run_cmd "$IP link set dev vx10 up type vxlan ageing 1"
++	run_cmd "$BRIDGE fdb add 02:02:00:00:00:18 dev vx10 dst 2001:db8:91::11 self dynamic"
++	slowwait 20 fdb_entry_aged 02:02:00:00:00:18 vx10
++	log_test $? 0 "Fdb mac without nexthop group aged out"
+ 
+-	run_cmd "$BRIDGE fdb append 02:02:00:00:00:17 dev vx10 dst 2001:db8:91::11 self dynamic"
+-	log_test $? 255 "Fdb mac append with nexthop group and dynamic state"
++	run_cmd "$BRIDGE fdb get to 02:02:00:00:00:16 dev vx10 self"
++	log_test $? 0 "Fdb mac with nexthop group not aged out"
+ 
+ 	run_cmd "$IP -6 ro add 2001:db8:101::1/128 nhid 66"
+ 	log_test $? 2 "Route add with fdb nexthop"
+@@ -641,14 +653,18 @@ ipv4_fdb_grp_fcnal()
+ 	log_test $? 0 "Fdb mac add with nexthop group and static state"
+ 
+ 	run_cmd "$BRIDGE fdb add 02:02:00:00:00:16 dev vx10 nhid 102 self dynamic"
+-	log_test $? 255 "Fdb mac add with nexthop group and dynamic state"
++	log_test $? 0 "Fdb mac add with nexthop group and dynamic state"
++
++	run_cmd "$BRIDGE fdb add 02:02:00:00:00:17 dev vx10 nhid 102 self dynamic extern_learn"
++	log_test $? 0 "Fdb mac add with nexthop group and extern_learn"
+ 
+-	run_cmd "$BRIDGE fdb add 02:02:00:00:00:17 dev vx10 nhid 102 self"
+-	run_cmd "$BRIDGE fdb replace 02:02:00:00:00:17 dev vx10 dst 10.0.0.3 self dynamic"
+-	log_test $? 255 "Fdb mac replace with nexthop group and dynamic state"
++	run_cmd "$IP link set dev vx10 up type vxlan ageing 1"
++	run_cmd "$BRIDGE fdb add 02:02:00:00:00:18 dev vx10 dst 10.0.0.3 self dynamic"
++	slowwait 20 fdb_entry_aged 02:02:00:00:00:18 vx10
++	log_test $? 0 "Fdb mac without nexthop group aged out"
+ 
+-	run_cmd "$BRIDGE fdb append 02:02:00:00:00:17 dev vx10 dst 10.0.0.3 self dynamic"
+-	log_test $? 255 "Fdb mac append with nexthop group and dynamic state"
++	run_cmd "$BRIDGE fdb get to 02:02:00:00:00:16 dev vx10 self"
++	log_test $? 0 "Fdb mac with nexthop group not aged out"
+ 
+ 	run_cmd "$IP ro add 172.16.0.0/22 nhid 16"
+ 	log_test $? 2 "Route add with fdb nexthop"

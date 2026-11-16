@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shay Drory <shayd@nvidia.com>
+Date: Tue, 30 Jun 2026 14:29:17 +0300
+Subject: [PATCH] net/mlx5e: TC, skip peer flow cleanup when LAG seq is
+ unavailable
+
+mlx5_lag_get_dev_seq() will return error when the peer isn't in the LAG
+or when no device is marked as master. Result bad memory access and kernel
+crash[1].
+
+Hence, skip the peer when lookup fails.
+
+Note: In case there are peer flows, they are cleaned before LAG cleared
+the master mark.
+
+[1]
+RIP: 0010:mlx5e_tc_del_fdb_peers_flow+0x3d/0x350 [mlx5_core]
+Call Trace:
+ <TASK>
+ mlx5e_tc_clean_fdb_peer_flows+0xc1/0x130 [mlx5_core]
+ mlx5_esw_offloads_unpair+0x3a/0x400 [mlx5_core]
+ mlx5_esw_offloads_devcom_event+0xee/0x360 [mlx5_core]
+ mlx5_devcom_send_event+0x7a/0x140 [mlx5_core]
+ mlx5_esw_offloads_devcom_cleanup+0x2f/0x90 [mlx5_core]
+ mlx5e_tc_esw_cleanup+0x28/0xf0 [mlx5_core]
+ mlx5e_rep_tc_cleanup+0x19/0x30 [mlx5_core]
+ mlx5e_cleanup_uplink_rep_tx+0x36/0x40 [mlx5_core]
+ mlx5e_cleanup_rep_tx+0x55/0x60 [mlx5_core]
+ mlx5e_detach_netdev+0x96/0xf0 [mlx5_core]
+ mlx5e_netdev_change_profile+0x5b/0x120 [mlx5_core]
+ mlx5e_netdev_attach_nic_profile+0x1b/0x30 [mlx5_core]
+ mlx5e_vport_rep_unload+0xdd/0x110 [mlx5_core]
+ __esw_offloads_unload_rep+0x81/0xb0 [mlx5_core]
+ mlx5_eswitch_unregister_vport_reps+0x1d7/0x220 [mlx5_core]
+ mlx5e_rep_remove+0x22/0x30 [mlx5_core]
+ device_release_driver_internal+0x194/0x1f0
+ bus_remove_device+0xe8/0x1b0
+ device_del+0x159/0x3c0
+ mlx5_rescan_drivers_locked+0xbc/0x2d0 [mlx5_core]
+ mlx5_unregister_device+0x54/0x80 [mlx5_core]
+ mlx5_uninit_one+0x73/0x130 [mlx5_core]
+ remove_one+0x78/0xe0 [mlx5_core]
+ pci_device_remove+0x39/0xa0
+
+Fixes: 971b28accc09 ("net/mlx5: LAG, replace mlx5_get_dev_index with LAG sequence number")
+Signed-off-by: Shay Drory <shayd@nvidia.com>
+Reviewed-by: Mark Bloch <mbloch@nvidia.com>
+Signed-off-by: Tariq Toukan <tariqt@nvidia.com>
+Link: https://patch.msgid.link/20260630112917.698313-4-tariqt@nvidia.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+(cherry picked from commit 7bed4af0ced82948d660205efecd551ef8bc3912)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index bde2c4dc440461984d8514afa2550ede8f5ce469..1b648a2afa2f0c1b80eb2f43d90aaf884bff4cfe 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -5529,6 +5529,9 @@ void mlx5e_tc_clean_fdb_peer_flows(struct mlx5_eswitch *esw)
+ 
+ 	mlx5_devcom_for_each_peer_entry(devcom, peer_esw, pos) {
+ 		i = mlx5_lag_get_dev_seq(peer_esw->dev);
++		if (i < 0)
++			continue;
++
+ 		list_for_each_entry_safe(flow, tmp, &esw->offloads.peer_flows[i], peer[i])
+ 			mlx5e_tc_del_fdb_peers_flow(flow);
+ 	}

@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xingyuan Mo <hdthky0@gmail.com>
+Date: Tue, 20 Oct 2026 11:37:40 +0800
+Subject: [PATCH] netfilter: nft_set_rbtree: check catchall_sync return before
+ queue_done
+
+nft_rbtree_gc_queue() passes the result of nft_trans_gc_catchall_sync()
+straight to nft_trans_gc_queue_sync_done(). When the catchall path flushes
+a full GC batch and nft_trans_gc_alloc() fails, catchall_sync returns
+NULL and queue_sync_done dereferences trans->net (NULL+0x10). Guard the
+call like the pipapo GC path already does.
+
+Fixes: 7d259f021aaa ("netfilter: nft_set_rbtree: prefer sync gc to async worker")
+Assisted-by: opencode:deepseek-v4
+Signed-off-by: Xingyuan Mo <hdthky0@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+(cherry picked from commit 1cec19d70bc282a8e7f7c42697d44046f60dc506)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/netfilter/nft_set_rbtree.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
+index 1490b1ce4d627f5bc49ad904b79fe061ed49aa5f..9f75cba285be2ec5dbc8c67d2515ce2196b9c50f 100644
+--- a/net/netfilter/nft_set_rbtree.c
++++ b/net/netfilter/nft_set_rbtree.c
+@@ -958,7 +958,8 @@ static void nft_rbtree_gc_queue(struct nft_set *set)
+ 	}
+ 
+ 	gc = nft_trans_gc_catchall_sync(gc);
+-	nft_trans_gc_queue_sync_done(gc);
++	if (gc)
++		nft_trans_gc_queue_sync_done(gc);
+ }
+ 
+ static u64 nft_rbtree_privsize(const struct nlattr * const nla[],

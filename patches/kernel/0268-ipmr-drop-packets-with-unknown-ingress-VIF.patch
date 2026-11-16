@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhiling Zou <zhilinz@nebusec.ai>
+Date: Thu, 22 Oct 2026 03:01:16 +0800
+Subject: [PATCH] ipmr: drop packets with unknown ingress VIF
+
+[ Upstream commit 09280680f2ea060514be2a39ea84209fb6d721d4 ]
+
+A packet can race with VIF publication and make ipmr_find_vif() return
+-1 even though the VIF device pointer is already visible. The parent VIF
+device check can then pass with an invalid ingress VIF. For (*,G)
+entries, this can also let the packet be forwarded back out its ingress
+VIF.
+
+Drop packets whose ingress VIF lookup fails in both IPv4 and IPv6
+forwarding, before checking the MFC parent device. This prevents
+forwarding with an unknown ingress VIF and avoids the (*,G) hairpin.
+
+Without the early check, the negative index can reach the IPv4 offload
+lookup only for an skb marked for L3 forwarding offload, currently done
+by mlxsw. The race is rare; the supplied PoC reports only the UBSAN
+negative-index diagnostic.
+
+Fixes: 4eadb88244d1 ("ipmr: do not acquire mrt_lock while calling ip_mr_forward()")
+Fixes: 9b1c21d898fd ("ip6mr: do not acquire mrt_lock while calling ip6_mr_forward()")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Link: https://lore.kernel.org/netdev/b966eb102e98f299e45be59ada033a8766e4c6df.1791899747.git.zhilinz@nebusec.ai/
+Suggested-by: Ido Schimmel <idosch@nvidia.com>
+Suggested-by: Naman Gulati <namangulati@google.com>
+Signed-off-by: Zhiling Zou <zhilinz@nebusec.ai>
+Reviewed-by: Naman Gulati <namangulati@google.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/5271fcb94a4d9e697ed64a348e92ea9e74faab1c.1792608753.git.zhilinz@nebusec.ai
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit dd74203cbafaa693ac132d83b7cade4150bf2c8e)
+[TL: adapt IPv6 context, the base reads mroute_do_assert without READ_ONCE()]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/ipmr.c  | 3 ++-
+ net/ipv6/ip6mr.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 26a2d7fbbf2007954ad14d0793349e8ca6ee1261..4e44083af254a47f4cf136408689dabfb65341e9 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2055,7 +2055,8 @@ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 	}
+ 
+ 	/* Wrong interface: drop packet and (maybe) send PIM assert. */
+-	if (rcu_access_pointer(mrt->vif_table[vif].dev) != dev) {
++	if (true_vifi < 0 ||
++	    rcu_access_pointer(mrt->vif_table[vif].dev) != dev) {
+ 		if (rt_is_output_route(skb_rtable(skb))) {
+ 			/* It is our own packet, looped back.
+ 			 * Very complicated situation...
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index ec9534d6db6ce3ddeb4aa2dbf37e0d22daa0baea..f80b3f2e65502987ec7ff97bd541efc49ebeac4d 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -2187,7 +2187,8 @@ static void ip6_mr_forward(struct net *net, struct mr_table *mrt,
+ 	/*
+ 	 * Wrong interface: drop packet and (maybe) send PIM assert.
+ 	 */
+-	if (rcu_access_pointer(mrt->vif_table[vif].dev) != dev) {
++	if (true_vifi < 0 ||
++	    rcu_access_pointer(mrt->vif_table[vif].dev) != dev) {
+ 		atomic_long_inc(&c->_c.mfc_un.res.wrong_if);
+ 
+ 		if (true_vifi >= 0 && mrt->mroute_do_assert &&

@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=A9r=C3=A9my=20Jean?= <Jeremy.Jean@oss.cyber.gouv.fr>
+Date: Wed, 23 Sep 2026 08:07:21 +0000
+Subject: [PATCH] libceph: fix out-of-bounds reads from repeated CRUSH bucket
+ entries
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit 569a9bb1e5615c2b88b8d76f03a4ab82e65a673e ]
+
+decode_choose_arg() assumes that its destination is zero-initialized.
+Although decode_choose_args() zeroes the argument array, it does not reject
+a repeated bucket_index and can decode into an already populated entry.
+
+Repeating a bucket with weight_set_size=0 preserves its existing weight_set
+pointer but clears the count. Placement then reads weight_set[-1].weights
+and dereferences the resulting pointer.
+
+A malformed monitor OSDMap triggers this during RBD placement:
+
+  BUG: KASAN: slab-out-of-bounds in crush_bucket_choose+0xdd1/0xf90
+  Read of size 8 at addr ffff88800290df70 by task init/75
+
+Reject populated arguments before decoding another entry, so the error
+path can free their original allocations.
+
+Cc: stable@vger.kernel.org
+Fixes: c7ed1a4bf4b4 ("crush: assume weight_set != null imples weight_set_size > 0")
+Assisted-by: Codex:gpt-5
+Signed-off-by: Jérémy Jean <Jeremy.Jean@oss.cyber.gouv.fr>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 3ac5e7f512efbadfffd2d13888dc23c43754a5dd)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ceph/osdmap.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
+index ef10d7a131c52eb7197925fdd00a1c4b64251ee9..66574008b3e09d9c72f239ee5029e7fb38bb644b 100644
+--- a/net/ceph/osdmap.c
++++ b/net/ceph/osdmap.c
+@@ -384,6 +384,8 @@ static int decode_choose_args(void **p, void *end, struct crush_map *c)
+ 				goto e_inval;
+ 
+ 			arg = &arg_map->args[bucket_index];
++			if (arg->ids || arg->weight_set)
++				goto e_inval;
+ 			ret = decode_choose_arg(p, end, arg);
+ 			if (ret)
+ 				goto fail;

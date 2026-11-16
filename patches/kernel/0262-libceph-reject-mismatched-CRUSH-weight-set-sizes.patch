@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Felix Hoffmann <f3lix.dev@gmx.de>
+Date: Thu, 10 Sep 2026 13:39:36 +0200
+Subject: [PATCH] libceph: reject mismatched CRUSH weight-set sizes
+
+[ Upstream commit d8fc89b5bfe4cb3aebe4c8a818247d11291b841c ]
+
+A CEPH_MSG_OSD_MAP message can contain CRUSH choose args with replacement
+weight vectors for straw2 buckets.  decode_choose_args() validates the
+optional IDs vector against the referenced bucket, but does not validate
+the size of any replacement-weight vector.
+
+The CRUSH mapper assumes that each replacement vector has exactly as many
+entries as the bucket.  A zero-length vector for a nonempty bucket makes
+bucket_straw2_choose() dereference NULL, while a shorter nonzero vector
+causes an out-of-bounds read.  An authenticated monitor or OSD can deliver
+such a map and crash a kernel client when it performs placement for an
+ordinary request.
+
+Reject a nonempty collection of weight sets for an absent bucket and
+require every replacement-weight vector to match its bucket size.
+
+Cc: stable@vger.kernel.org
+Fixes: 5cf9c4a9959b ("libceph, crush: per-pool crush_choose_arg_map for crush_do_rule()")
+Assisted-by: Codex:gpt-5
+Signed-off-by: Felix Hoffmann <f3lix.dev@gmx.de>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit cab954c676687e2913b7042bc0cf294ce2e81336)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ceph/osdmap.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
+index 66574008b3e09d9c72f239ee5029e7fb38bb644b..da843c67af37f882a2d54f913769179c3231ece7 100644
+--- a/net/ceph/osdmap.c
++++ b/net/ceph/osdmap.c
+@@ -377,7 +377,9 @@ static int decode_choose_args(void **p, void *end, struct crush_map *c)
+ 		ceph_decode_32_safe(p, end, num_buckets, e_inval);
+ 		while (num_buckets--) {
+ 			struct crush_choose_arg *arg;
++			struct crush_bucket *bucket;
+ 			u32 bucket_index;
++			u32 i;
+ 
+ 			ceph_decode_32_safe(p, end, bucket_index, e_inval);
+ 			if (bucket_index >= arg_map->size)
+@@ -390,10 +392,18 @@ static int decode_choose_args(void **p, void *end, struct crush_map *c)
+ 			if (ret)
+ 				goto fail;
+ 
++			bucket = c->buckets[bucket_index];
+ 			if (arg->ids_size &&
+-			    (!c->buckets[bucket_index] ||
+-			     arg->ids_size != c->buckets[bucket_index]->size))
++			    (!bucket || arg->ids_size != bucket->size))
+ 				goto e_inval;
++
++			if (arg->weight_set_size && !bucket)
++				goto e_inval;
++
++			for (i = 0; i < arg->weight_set_size; i++) {
++				if (arg->weight_set[i].size != bucket->size)
++					goto e_inval;
++			}
+ 		}
+ 
+ 		if (!__insert_choose_arg_map(&c->choose_args, arg_map)) {

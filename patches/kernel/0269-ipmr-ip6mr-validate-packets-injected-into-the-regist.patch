@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@nvidia.com>
+Date: Sun, 25 Oct 2026 09:17:29 +0200
+Subject: [PATCH] ipmr, ip6mr: validate packets injected into the register vif
+ on xmit
+
+[ Upstream commit aa1799e93f5ebb973252aec649d84d12d9c7fd1c ]
+
+reg_vif_xmit() passes the packet to ipmr_cache_report() which copies its
+IP header into the IGMPMSG_WHOLEPKT report that is queued to the mroute
+socket. Nothing guarantees that the packet contains a full IP header, so
+when a short packet is injected on the register device (e.g., using
+AF_PACKET), the copy reads past the end of the packet and a recvmsg() on
+the mroute socket leaks the uninitialized bytes to user space [1].
+
+IPv6 has the same problem [2]. Its reg_vif_xmit() does call
+pskb_inet_may_pull(), but the helper keys off skb->protocol and does not
+pull anything when the protocol is neither IPv4 nor IPv6.
+
+Fix by dropping packets whose protocol does not match the address family
+of the register device or that do not contain a full network header.
+
+[1]
+BUG: KMSAN: kernel-infoleak in _copy_to_iter
+ raw_recvmsg
+
+Uninit was stored to memory at:
+ ipmr_cache_report
+ reg_vif_xmit
+ packet_sendmsg
+
+Uninit was created at:
+ __alloc_skb
+ sock_alloc_send_pskb
+ packet_sendmsg
+
+Bytes 1-3 of 21 are uninitialized
+
+[2]
+BUG: KMSAN: kernel-infoleak in _copy_to_iter
+ rawv6_recvmsg
+
+Uninit was stored to memory at:
+ ip6mr_cache_report
+ reg_vif_xmit
+ packet_sendmsg
+
+Uninit was created at:
+ __alloc_skb
+ sock_alloc_send_pskb
+ packet_sendmsg
+
+Bytes 8-23 of 41 are uninitialized
+
+Fixes: 14fb64e1f449 ("[IPV6] MROUTE: Support PIM-SM (SSM).")
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Reported-by: Sashiko <netdev-bot+sashiko@kernel.org>
+Closes: https://netdev-ai.bots.linux.dev/sashiko/#/patchset/0545f0c83f5ee2f6696210f87268e811ef655715.1792476357.git.zhilinz%40nebusec.ai
+Signed-off-by: Ido Schimmel <idosch@nvidia.com>
+Reviewed-by: Hangbin Liu <liuhangbin@kylinos.cn>
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/20261025071729.34967-3-idosch@nvidia.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 1f6cb0614d1783adb0187cf40a3c4f60499731e8)
+[TL: adapt IPv6 context, reg_vif_xmit() of the base does not take the RCU
+ read lock there]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/ipmr.c  | 6 ++++++
+ net/ipv6/ip6mr.c | 2 +-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 4e44083af254a47f4cf136408689dabfb65341e9..5133fd14029e23908191dc2300979259660339b7 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -530,6 +530,12 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	};
+ 	int err;
+ 
++	if (skb->protocol != htons(ETH_P_IP) || !pskb_inet_may_pull(skb)) {
++		DEV_STATS_INC(dev, tx_errors);
++		kfree_skb(skb);
++		return NETDEV_TX_OK;
++	}
++
+ 	rcu_read_lock();
+ 	err = ipmr_fib_lookup(net, &fl4, &mrt);
+ 	if (err < 0) {
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index f80b3f2e65502987ec7ff97bd541efc49ebeac4d..53837248498a6675c660e2bdb56308f3ee8fcd2f 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -620,7 +620,7 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
+ 		.flowi6_mark	= skb->mark,
+ 	};
+ 
+-	if (!pskb_inet_may_pull(skb))
++	if (skb->protocol != htons(ETH_P_IPV6) || !pskb_inet_may_pull(skb))
+ 		goto tx_err;
+ 
+ 	if (ip6mr_fib_lookup(net, &fl6, &mrt) < 0)

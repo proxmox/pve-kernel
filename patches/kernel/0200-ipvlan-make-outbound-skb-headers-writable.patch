@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Wed, 4 Nov 2026 12:35:30 +0100
+Subject: [PATCH] ipvlan: make outbound skb headers writable
+
+In L3 and L3S modes, ipvlan_process_v4_outbound() and
+ipvlan_process_v6_outbound() hand the skb to ip_local_out() and
+ip6_local_out(). The IP output path assumes it owns the network header:
+__ip_local_out() rewrites tot_len and the header checksum, and
+transport-mode XFRM can memmove the network header into the headroom
+when xfrm_skb_check_space() finds enough room, without copying.
+
+The skb reaching ipvlan can have its header shared with another skb,
+for example after an AF_PACKET tap on the ipvlan device or a tc mirred
+mirror action. pskb_network_may_pull() only makes the header linear;
+it does not unshare an already linear head. The writes above then
+modify the other skb. If that skb is on the receive path and its IPv4
+header was already validated, IPv4 option processing can use the
+modified header, write past the linear data, and corrupt
+skb_shared_info.
+
+Use skb_cow_head() before taking header pointers and entering the local
+IP output path, like ip_forward() does with skb_cow() before it touches
+the header. Only checking skb_header_cloned() is enough here: skbs that
+TCP transmits are clones of the write-queue skb, whose header area has
+been released with __skb_header_release(). Their headers are private,
+so they are not copied, which avoids a reallocation for every TCP
+segment sent through an ipvlan slave.
+
+If the allocation fails, the existing error accounting and drop paths
+are used. L2 mode is unaffected.
+
+[edumazet: use skb_cow_head() instead of skb_unclone() to avoid
+ copying every TCP segment, reword changelog]
+
+Fixes: 2ad7bf363841 ("ipvlan: Initial check-in of the IPVLAN driver.")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/20261104113530.986664-1-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit a45dbf182137275f44ad7c8bc8acd23f7af6b2cf)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ipvlan/ipvlan_core.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index 835e048351a92f0437b466317d0babba4e00fc50..3c4de74027c2a98aa066d7ade733de2aa7bd6ed3 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -438,7 +438,8 @@ static noinline_for_stack int ipvlan_process_v4_outbound(struct sk_buff *skb)
+ 		.flowi4_mark = skb->mark,
+ 	};
+ 
+-	if (!pskb_network_may_pull(skb, sizeof(struct iphdr)))
++	if (!pskb_network_may_pull(skb, sizeof(struct iphdr)) ||
++	    skb_cow_head(skb, 0))
+ 		goto err;
+ 
+ 	ip4h = ip_hdr(skb);
+@@ -504,7 +505,8 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
+ 	struct net_device *dev = skb->dev;
+ 	int err, ret = NET_XMIT_DROP;
+ 
+-	if (!pskb_network_may_pull(skb, sizeof(struct ipv6hdr))) {
++	if (!pskb_network_may_pull(skb, sizeof(struct ipv6hdr)) ||
++	    skb_cow_head(skb, 0)) {
+ 		DEV_STATS_INC(dev, tx_errors);
+ 		kfree_skb(skb);
+ 		return ret;

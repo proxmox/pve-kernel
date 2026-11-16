@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shubham Antil <shubham@octane.security>
+Date: Wed, 7 Oct 2026 13:28:07 +0530
+Subject: [PATCH] xfrm: zero-initialise km_event in the replay-notify path
+
+xfrm_replay_notify(), xfrm_replay_notify_bmp() and
+xfrm_replay_notify_esn() declare a struct km_event on the stack and
+initialise only its .event and .data.aevent fields, leaving .seq and
+.portid uninitialised. build_aevent() then builds the XFRM_MSG_NEWAE
+message with those fields:
+
+  nlmsg_put(skb, c->portid, c->seq, ...)
+
+so the netlink header of a replay event carries uninitialised stack
+values rather than defined ones. This was confirmed at runtime rather
+than by inspection alone: the .seq and .portid carried in that header
+hold values that nothing in the replay path assigns.
+
+The request-driven paths set these header fields from the requester
+(xfrm_get_ae() / xfrm_new_ae()); only the kernel-originated replay path
+leaves them unset. Zero-initialise the event so the header fields are 0,
+the correct value for a kernel-originated notification.
+
+Fixes: f8cd54884e67 ("[IPSEC]: Sync series - core changes")
+Reported-by: Giovanni Vignone <gio@octane.security>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Shubham Antil <shubham@octane.security>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+(cherry picked from commit e35a12dffd5da67b6ca12bd23eebdd0570592205)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_replay.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
+index dbdf8a39dffee7fe5fe478a21ca49b53aa5384ba..9394953247ab93c18abc5b1881a90291c38b0037 100644
+--- a/net/xfrm/xfrm_replay.c
++++ b/net/xfrm/xfrm_replay.c
+@@ -40,7 +40,7 @@ static void xfrm_replay_notify_esn(struct xfrm_state *x, int event);
+ 
+ void xfrm_replay_notify(struct xfrm_state *x, int event)
+ {
+-	struct km_event c;
++	struct km_event c = {};
+ 	/* we send notify messages in case
+ 	 *  1. we updated on of the sequence numbers, and the seqno difference
+ 	 *     is at least x->replay_maxdiff, in this case we also update the
+@@ -304,7 +304,7 @@ static void xfrm_replay_advance_bmp(struct xfrm_state *x, __be32 net_seq)
+ 
+ static void xfrm_replay_notify_bmp(struct xfrm_state *x, int event)
+ {
+-	struct km_event c;
++	struct km_event c = {};
+ 	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
+ 	struct xfrm_replay_state_esn *preplay_esn = x->preplay_esn;
+ 
+@@ -356,7 +356,7 @@ static void xfrm_replay_notify_bmp(struct xfrm_state *x, int event)
+ static void xfrm_replay_notify_esn(struct xfrm_state *x, int event)
+ {
+ 	u32 seq_diff, oseq_diff;
+-	struct km_event c;
++	struct km_event c = {};
+ 	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
+ 	struct xfrm_replay_state_esn *preplay_esn = x->preplay_esn;
+ 

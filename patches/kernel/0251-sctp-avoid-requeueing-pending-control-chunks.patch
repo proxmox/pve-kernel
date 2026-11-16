@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Fri, 6 Nov 2026 19:05:32 -0800
+Subject: [PATCH] sctp: avoid requeueing pending control chunks
+
+The T4 and RE-CONFIG timeout handlers take a reference to their cached
+control chunk and submit it through SCTP_CMD_REPLY. A previous
+transmission can still be on the control outqueue when output is corked
+or suppressed, or when sctp_packet_transmit_chunk() could not append the
+chunk.
+
+sctp_outq_tail() then adds the same list node a second time. Re-adding a
+non-tail entry can corrupt the list without being caught by the
+insertion-time list checks. A subsequent flush or association teardown
+can access an already freed chunk. The ASCONF path is reproducible by an
+unprivileged SCTP socket owner in a user/network namespace, with KASAN
+reporting a use-after-free in __sctp_outq_teardown().
+
+Check sctp_chunk_pending() in both timeout handlers before taking the
+extra reference and issuing SCTP_CMD_REPLY. If the chunk is already
+linked, leave the existing entry for normal output processing. Keep
+the remaining timer and error-handling commands unchanged. This also
+covers RE-CONFIG retransmission after sctp_assoc_rm_peer() moves the
+request to another transport and starts its timer.
+
+The issue was found by an LLM.
+
+Fixes: 2e3216cd54b1 ("sctp: Follow security requirement of responding with 1 packet")
+Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
+Cc: stable@kernel.org
+Suggested-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Acked-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/20261107030532.32310-1-kylebot@openai.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 665b4149e91b781a71bce8637c3a4d7d64dba05f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sctp/sm_statefuns.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 86f26b8b39934e1d5a03f6d77a3bd2f6cd69c6a5..187f0963165e3b7890c603081336cd77123c8b43 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -1122,9 +1122,11 @@ enum sctp_disposition sctp_sf_send_reconf(struct net *net,
+ 		return SCTP_DISPOSITION_DELETE_TCB;
+ 	}
+ 
+-	sctp_chunk_hold(asoc->strreset_chunk);
+-	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+-			SCTP_CHUNK(asoc->strreset_chunk));
++	if (!sctp_chunk_pending(asoc->strreset_chunk)) {
++		sctp_chunk_hold(asoc->strreset_chunk);
++		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
++				SCTP_CHUNK(asoc->strreset_chunk));
++	}
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_STRIKE, SCTP_TRANSPORT(transport));
+ 
+ 	return SCTP_DISPOSITION_CONSUME;
+@@ -6194,9 +6196,11 @@ enum sctp_disposition sctp_sf_t4_timer_expire(
+ 	 * chunk, it MUST be the same (including its serial number) as the last
+ 	 * ASCONF sent.
+ 	 */
+-	sctp_chunk_hold(asoc->addip_last_asconf);
+-	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+-			SCTP_CHUNK(asoc->addip_last_asconf));
++	if (!sctp_chunk_pending(asoc->addip_last_asconf)) {
++		sctp_chunk_hold(asoc->addip_last_asconf);
++		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
++				SCTP_CHUNK(asoc->addip_last_asconf));
++	}
+ 
+ 	/* ADDIP 4.1 B5) Restart the T-4 RTO timer. Note that if a different
+ 	 * destination is selected, then the RTO used will be that of the new

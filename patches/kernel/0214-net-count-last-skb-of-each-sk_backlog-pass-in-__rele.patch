@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ray Zhang <sgzhang@google.com>
+Date: Sun, 1 Nov 2026 00:51:45 -0700
+Subject: [PATCH] net: count last skb of each sk_backlog pass in
+ __release_sock()
+
+[ Upstream commit c4e4056b21355356f6a95bcdf03a850edd9f49e7 ]
+
+Running 500 concurrent TCPv6 streams (neper "tcp_stream -6 -T 1 -F 500")
+on a 2-core Cortex-A53 (CONFIG_PREEMPT_NONE=y, HZ=1000, LATENCY_WARN)
+triggers resched_latency_warn() in __release_sock():
+
+  [ 3655.311821] sched: CPU 0 need_resched set for > 100006892 ns (100 ticks) without schedule
+  [ 3655.311889] Call trace:
+  ...
+  [ 3655.311944]  resched_latency_warn+0x7c/0x88
+  [ 3655.311958]  sched_tick+0x1c0/0x418
+  ...
+  [ 3655.312578]  net_rx_action+0x238/0x438
+  ...
+  [ 3655.312641]  do_softirq+0x4c/0x90
+  [ 3655.312651]  __local_bh_enable_ip+0x84/0x90
+  [ 3655.312663]  local_bh_enable+0x1c/0x28
+  [ 3655.312674]  __dev_queue_xmit+0x4a8/0xb00
+  ...
+  [ 3655.312782]  tcp_v6_do_rcv+0x240/0x5f8
+  [ 3655.312793]  __release_sock+0x9c/0x188
+  [ 3655.312806]  release_sock+0x150/0x168
+  [ 3655.312817]  tcp_sendmsg+0x4c/0x70
+
+__release_sock() can loop past 100 ms without calling cond_resched():
+
+- Each outer-loop pass drains sk_backlog, but "if (!skb) break;" runs
+  before "++nb", so a pass of B skbs only adds B - 1 to nb (0 for 1 skb).
+- With 500 TCPv6 streams and NAPI sharing two Cortex-A53 cores, runnable
+  tasks keep TIF_NEED_RESCHED set on CPU 0.
+- During spin_unlock_bh() and TX softirqs (__dev_queue_xmit() ->
+  local_bh_enable()), tcp_add_backlog() coalesces arriving pure ACKs into
+  a single tail skb.
+- Repeated 1-skb passes never advance nb or call cond_resched(),
+  triggering resched_latency_warn() after 100 ticks.
+
+Restore the do-while loop and drop "if (!skb) break;" so every skb
+increments nb across passes and calls cond_resched() every 16 skbs.
+
+Reproduced the issue and verified the fix on two 2-core Cortex-A53 hosts
+(CONFIG_PREEMPT_NONE=y, HZ=1000, LATENCY_WARN, latency_warn_once=0) with
+a userspace reproducer over /dev/net/tun:
+
+- CPU 0 runs a TCPv6 sender and a second runnable task while CPU 1 writes
+  pure ACKs to /dev/net/tun (~30k TCPBacklogCoalesce/run), sustaining
+  1-skb sk_backlog refills in __release_sock() for ~400 ms (ftrace).
+- Before: CPU 0 stayed unscheduled in __release_sock(), hitting
+  resched_latency_warn() 293 and 275 times on the two hosts (> 100.9 ms).
+- After: cond_resched() yielded CPU 0 inside __release_sock(), with
+  0 resched_latency_warn() hits on both hosts.
+- Also observed no regression with the workload from
+  commit 16c610162d1f ("net: call cond_resched() less often in
+  __release_sock()"), "super_netperf 4 -H srv -T,10 -l 3000 &".
+
+Fixes: 16c610162d1f ("net: call cond_resched() less often in __release_sock()")
+Cc: stable@vger.kernel.org
+Signed-off-by: Ray Zhang <sgzhang@google.com>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/20261101075145.698399-1-sgzhang@google.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit f89d702cc0fcae7ad441fd63edea0c3d03b86ef9)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/sock.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 1b4deae8ea9adb3c245b6aa1e56a04ce87efc191..39b14965c183d9057c6cd399b0a27af3a2977226 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -3218,7 +3218,7 @@ void __release_sock(struct sock *sk)
+ 
+ 		spin_unlock_bh(&sk->sk_lock.slock);
+ 
+-		while (1) {
++		do {
+ 			next = skb->next;
+ 			prefetch(next);
+ 			DEBUG_NET_WARN_ON_ONCE(skb_dst_is_noref(skb));
+@@ -3226,12 +3226,10 @@ void __release_sock(struct sock *sk)
+ 			sk_backlog_rcv(sk, skb);
+ 
+ 			skb = next;
+-			if (!skb)
+-				break;
+ 
+ 			if (!(++nb & 15))
+ 				cond_resched();
+-		}
++		} while (skb);
+ 
+ 		spin_lock_bh(&sk->sk_lock.slock);
+ 	}

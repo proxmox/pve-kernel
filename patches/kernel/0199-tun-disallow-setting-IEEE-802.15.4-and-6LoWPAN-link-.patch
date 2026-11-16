@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kalpesh Solanki <skalpesh942@gmail.com>
+Date: Mon, 9 Nov 2026 14:00:37 +0530
+Subject: [PATCH] tun: disallow setting IEEE 802.15.4 and 6LoWPAN link types
+ via TUNSETLINK
+
+A userspace application can set the link type of a TUN/TAP interface
+to ARPHRD_IEEE802154, ARPHRD_IEEE802154_MONITOR, or ARPHRD_6LOWPAN
+via ioctl(fd, TUNSETLINK, arg) because tun_get_addr_len() explicitly
+recognized these types.
+
+However, TUN devices cannot function as genuine IEEE 802.15.4 or 6LoWPAN
+interfaces:
+
+1. They lack wpan_phy, channels, PAN IDs, and MLME operations, and tun
+   never initializes dev->ieee802154_ptr or dev->ml_priv. When an
+   unprivileged user creates a TUN interface in a user+net namespace,
+   changes its link type to ARPHRD_IEEE802154, and issues a netlink dump
+   request (such as IEEE802154_LLSEC_LIST_KEY),
+   ieee802154_llsec_dump_table() unconditionally dereferences
+   dev->ieee802154_ptr / ieee802154_mlme_ops(dev), triggering a supervisor
+   null-pointer dereference / general protection fault. Similar
+   dereferences occur across net/ieee802154/nl-phy.c (ieee802154_del_iface)
+   and net/ieee802154/socket.c.
+
+2. Similarly, the 6LoWPAN subsystem assumes via lowpan_dev(dev) that
+   netdev_priv(dev) is struct lowpan_dev. On a TUN device, netdev_priv(dev)
+   is struct tun_struct. On netdev events (such as NETDEV_DOWN in
+   net/6lowpan/core.c:lowpan_device_event), it clears bits in
+   lowpan_dev(dev)->ctx.table flags, which corrupts private memory inside
+   tun_struct.
+
+Rather than scattering checks across subsystems, fix the issue at the
+source: disallow setting ARPHRD_IEEE802154, ARPHRD_IEEE802154_MONITOR, and
+ARPHRD_6LOWPAN via TUNSETLINK by returning -EINVAL. Cast arg to unsigned
+short in the comparison to prevent upper-bit truncation bypasses (e.g.
+arg = ARPHRD_IEEE802154 | 0x10000).
+
+Fixes: ff4cc3ac93e1 ("[TUNTAP]: Allow setting the linktype of the tap device from userspace")
+Reported-by: syzbot+9ea34da5ca6100593c90@syzkaller.appspotmail.com
+Closes: https://syzkaller.appspot.com/bug?extid=9ea34da5ca6100593c90
+Signed-off-by: Kalpesh Solanki <skalpesh942@gmail.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Link: https://patch.msgid.link/20261109083037.22337-1-skalpesh942@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 968f2b94a5964b75d9c0da84523e42530c1891f0)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/tun.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 916e4f6a3ea205435d2b4df8fda0f719204b0ac4..04466a7ca35c5e38ee7f32c913b7e12314384910 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -3225,6 +3225,10 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 			netif_info(tun, drv, tun->dev,
+ 				   "Linktype set failed because interface is up\n");
+ 			ret = -EBUSY;
++		} else if ((unsigned short)arg == ARPHRD_IEEE802154 ||
++			   (unsigned short)arg == ARPHRD_IEEE802154_MONITOR ||
++			   (unsigned short)arg == ARPHRD_6LOWPAN) {
++			ret = -EINVAL;
+ 		} else {
+ 			ret = call_netdevice_notifiers(NETDEV_PRE_TYPE_CHANGE,
+ 						       tun->dev);

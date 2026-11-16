@@ -1,0 +1,199 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrea Mayer <andrea.mayer@uniroma2.it>
+Date: Wed, 28 Oct 2026 18:15:11 +0100
+Subject: [PATCH] seg6: fix transport header for inner IPv4 with IP options
+
+The End.DT4, End.DT46 (its IPv4 path only) and End.DX4 behaviors set the
+transport header of the decapsulated IPv4 packet at a fixed 20 bytes, the
+size of an IPv4 header without options. They do not validate the header
+length either. With options, the transport header points at the first
+option byte. The effects include:
+- ping -R sends an echo request with a 60-byte IPv4 header to a local
+  address through an End.DT4 or an End.DX4 SID. Since icmp_rcv()
+  computes the ICMP checksum from the first option byte, the request
+  fails the check and is counted in IcmpInCsumErrors.
+- A UDP datagram can reach a port that an iptables rule drops. The rule
+  checks the UDP header after the full IPv4 header, while the socket
+  lookup reads it at the fixed 20-byte offset.
+- With an inbound AH state, ah_input() reads the AH header at the fixed
+  20-byte offset, but copies the IPv4 header over it with the length in
+  the IHL field. A packet shorter than that length can make ah_input()
+  write past the end of the data, into skb_shared_info when the skb has
+  no tailroom.
+
+Validate the inner IPv4 header length with the new helper
+seg6_validate_iphdr_len() and set the transport header at that length. A
+packet that is not IPv4, whose header length field is below 5, or whose
+header is truncated, is dropped with a drop reason. The fix is limited to
+the header length, which the transport header relies on. Other checks done
+on IPv4 input, such as the header checksum, the total length and the IP
+options, are not addressed here.
+
+Found by code inspection while reviewing commit 44930446dde4 ("ipv6: seg6:
+clear IPv4 control block on IPIP decapsulation"), as a pre-existing issue
+that Sashiko also reported on v2 of that patch. Without this patch, a
+bpftrace probe on ah_input() shows the reporter's reproducer packet
+written into skb_shared_info. With it, that packet is dropped before
+ah_input(), ping -R no longer fails the ICMP checksum, the UDP datagram
+reaches its real port, and the SRv6 selftests still pass. These effects
+reproduce on an unmodified kernel, without error injection.
+
+Fixes: 891ef8dd2a8d ("ipv6: sr: implement additional seg6local actions")
+Fixes: 664d6f86868b ("seg6: add support for the SRv6 End.DT4 behavior")
+Reported-by: Hazley Samsudin <hazleycryilis@gmail.com>
+Closes: https://lore.kernel.org/netdev/20260809221915.2ffc1ecd0f445fcb70270e31@uniroma2.it/
+Reviewed-by: David Ahern <dsahern@kernel.org>
+Reviewed-by: Hangbin Liu <liuhangbin@kylinos.cn>
+Signed-off-by: Andrea Mayer <andrea.mayer@uniroma2.it>
+Link: https://patch.msgid.link/20261028171511.35-1-andrea.mayer@uniroma2.it
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 5838f10563d58afca6711edb5e4eda968ca181d9)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/seg6_local.c | 69 +++++++++++++++++++++++++++++++++----------
+ 1 file changed, 53 insertions(+), 16 deletions(-)
+
+diff --git a/net/ipv6/seg6_local.c b/net/ipv6/seg6_local.c
+index e791fb3dd61322a3e41de2a29e1d3f915aa317a6..a6434502d206a47838f2e14f4fc540569e64e604 100644
+--- a/net/ipv6/seg6_local.c
++++ b/net/ipv6/seg6_local.c
+@@ -150,9 +150,7 @@ struct seg6_end_dt_info {
+ 	int vrf_ifindex;
+ 	int vrf_table;
+ 
+-	/* tunneled packet family (IPv4 or IPv6).
+-	 * Protocol and header length are inferred from family.
+-	 */
++	/* tunneled packet family (IPv4 or IPv6) */
+ 	u16 family;
+ };
+ 
+@@ -1083,6 +1081,40 @@ static int input_action_end_dx6(struct sk_buff *skb,
+ 	return -EINVAL;
+ }
+ 
++/* Validate the length of the IPv4 header at skb->data (which must point to
++ * the network header) and report that length, options included.
++ * Only the version, the header length and the presence of the whole header
++ * are checked.
++ * The length is written only when SKB_NOT_DROPPED_YET is returned.
++ *
++ * skb pointers may change: after this call, the caller must evaluate again
++ * any pointer into the packet data.
++ */
++static enum skb_drop_reason
++seg6_validate_iphdr_len(struct sk_buff *skb, int *hdrlen)
++{
++	enum skb_drop_reason reason;
++	const struct iphdr *iph;
++	int len;
++
++	reason = pskb_may_pull_reason(skb, sizeof(struct iphdr));
++	if (reason)
++		return reason;
++
++	iph = ip_hdr(skb);
++	if (iph->version != 4 || iph->ihl < 5)
++		return SKB_DROP_REASON_IP_INHDR;
++
++	len = ip_hdrlen(skb);
++
++	reason = pskb_may_pull_reason(skb, len);
++	if (reason)
++		return reason;
++
++	*hdrlen = len;
++	return SKB_NOT_DROPPED_YET;
++}
++
+ static int input_action_end_dx4_finish(struct net *net, struct sock *sk,
+ 				       struct sk_buff *skb)
+ {
+@@ -1123,14 +1155,18 @@ static int input_action_end_dx4_finish_nf(struct net *net, struct sock *sk,
+ static int input_action_end_dx4(struct sk_buff *skb,
+ 				struct seg6_local_lwt *slwt)
+ {
++	SKB_DR(reason);
++	int hdrlen;
++
+ 	if (!decap_and_validate(skb, IPPROTO_IPIP))
+ 		goto drop;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
++	reason = seg6_validate_iphdr_len(skb, &hdrlen);
++	if (reason)
+ 		goto drop;
+ 
+ 	skb->protocol = htons(ETH_P_IP);
+-	skb_set_transport_header(skb, sizeof(struct iphdr));
++	skb_set_transport_header(skb, hdrlen);
+ 	nf_reset_ct(skb);
+ 
+ 	if (static_branch_unlikely(&nf_hooks_lwtunnel_enabled))
+@@ -1140,7 +1176,7 @@ static int input_action_end_dx4(struct sk_buff *skb,
+ 
+ 	return input_action_end_dx4_finish(dev_net(skb->dev), NULL, skb);
+ drop:
+-	kfree_skb(skb);
++	kfree_skb_reason(skb, reason);
+ 	return -EINVAL;
+ }
+ 
+@@ -1275,16 +1311,24 @@ static struct sk_buff *end_dt_vrf_core(struct sk_buff *skb,
+ 	struct seg6_end_dt_info *info = &slwt->dt_info;
+ 	struct net_device *vrf;
+ 	__be16 protocol;
++	SKB_DR(reason);
+ 	int hdrlen;
+ 
+ 	vrf = end_dt_get_vrf_rcu(skb, info);
+ 	if (unlikely(!vrf))
+ 		goto drop;
+ 
++	if (unlikely(info->family != AF_UNSPEC && info->family != family)) {
++		pr_warn_once("seg6local: SRv6 End.DT* family mismatch");
++		goto drop;
++	}
++
+ 	switch (family) {
+ 	case AF_INET:
+ 		protocol = htons(ETH_P_IP);
+-		hdrlen = sizeof(struct iphdr);
++		reason = seg6_validate_iphdr_len(skb, &hdrlen);
++		if (unlikely(reason))
++			goto drop;
+ 		break;
+ 	case AF_INET6:
+ 		protocol = htons(ETH_P_IPV6);
+@@ -1296,11 +1340,6 @@ static struct sk_buff *end_dt_vrf_core(struct sk_buff *skb,
+ 		goto drop;
+ 	}
+ 
+-	if (unlikely(info->family != AF_UNSPEC && info->family != family)) {
+-		pr_warn_once("seg6local: SRv6 End.DT* family mismatch");
+-		goto drop;
+-	}
+-
+ 	skb->protocol = protocol;
+ 
+ 	skb_dst_drop(skb);
+@@ -1311,7 +1350,7 @@ static struct sk_buff *end_dt_vrf_core(struct sk_buff *skb,
+ 	return end_dt_vrf_rcv(skb, family, vrf);
+ 
+ drop:
+-	kfree_skb(skb);
++	kfree_skb_reason(skb, reason);
+ 	return ERR_PTR(-EINVAL);
+ }
+ 
+@@ -1324,9 +1363,7 @@ static int input_action_end_dt4(struct sk_buff *skb,
+ 	if (!decap_and_validate(skb, IPPROTO_IPIP))
+ 		goto drop;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+-		goto drop;
+-
++	/* end_dt_vrf_core() validates the inner IPv4 header length */
+ 	skb = end_dt_vrf_core(skb, slwt, AF_INET);
+ 	if (!skb)
+ 		/* packet has been processed and consumed by the VRF */

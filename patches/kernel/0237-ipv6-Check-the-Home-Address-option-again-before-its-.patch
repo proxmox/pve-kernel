@@ -1,0 +1,121 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alexei Starovoitov <ast@kernel.org>
+Date: Mon, 2 Nov 2026 06:49:22 +0000
+Subject: [PATCH] ipv6: Check the Home Address option again before its address
+ is used
+
+ipv6_dest_hao() checks the Home Address option and sets IP6CB(skb)->dsthao
+to the offset of the destination options header. Later mip6_addr_swap() and
+mip6_destopt_reject() call ipv6_find_tlv() with that offset and use the 16
+address bytes. They assume that the same header is still there.
+
+But the seg6 and ioam6 lwtunnels, the End.B6 actions, ipv6_rpl_srh_rcv()
+and BPF lwt progs move or rewrite the IPv6 headers and keep IP6CB(skb).
+Then ipv6_find_tlv() parses other bytes. It returns when the type matches,
+before it checks that the option is inside the header. Nobody checks the
+length of the option again. Thus mip6_addr_swap() can write after the data
+of the skb. mip6_destopt_reject() can copy that memory to an xfrm report.
+
+In ipv6_find_tlv(), check the length of an option before its type. The
+returned option is then inside the header, and the header is inside the
+linear data. In both callers, ignore an option with a length other than 16,
+as if ipv6_find_tlv() found none. Then the ICMPv6 error goes to the source
+address of the IPv6 header, and the xfrm report has no XFRMA_COADDR
+attribute. Nothing changes for a header that ip6_parse_tlv() accepted and
+that is still in its place. For the other callers an incomplete option is
+now absent:
+
+ - ip6_find_1stfragopt() and mip6_rthdr_offset() can return another offset
+   for the fragment header or the xfrm header, also in a forwarded packet.
+ - calipso_skbuff_optptr() returns NULL. netlbl_skbuff_getattr() and
+   netlbl_cache_add() then see no option. calipso_skbuff_delattr() returns
+   0 and the packet continues unchanged. Today it returns -EINVAL and
+   SELinux drops the packet. It already returns 0 when an earlier option is
+   incomplete. The receiver drops such a header in ip6_parse_tlv().
+
+The code that moves the headers still does not reset the offset or the
+other fields of IP6CB(skb). If the bytes there look like a header with a
+Home Address option of length 16, both callers still use its address.
+
+The first tag also covers ipv6_find_tlv(), because its early return did no
+harm before mip6_addr_swap(). The second tag is for mip6_destopt_reject().
+
+Fixes: 793832361fe7 ("[IPV6] MIP6: Revert address to send ICMPv6 error.")
+Fixes: 70182ed23d25 ("[IPV6] MIP6: Report to user-space when home address option is rejected.")
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20261102064922.2636027-1-alexei.starovoitov@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 30c71476d842b094651bd7712f6c8ee8716147d0)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/exthdrs_core.c | 7 ++++---
+ net/ipv6/icmp.c         | 7 ++++++-
+ net/ipv6/mip6.c         | 9 ++++++++-
+ 3 files changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
+index 4a9748338cf400a10e4867cc986fd9d7d1a49c40..764c694fb417a279d48acaf9767c9640acd7b48c 100644
+--- a/net/ipv6/exthdrs_core.c
++++ b/net/ipv6/exthdrs_core.c
+@@ -138,9 +138,6 @@ int ipv6_find_tlv(const struct sk_buff *skb, int offset, int type)
+ 		int opttype = nh[offset];
+ 		int optlen;
+ 
+-		if (opttype == type)
+-			return offset;
+-
+ 		switch (opttype) {
+ 		case IPV6_TLV_PAD1:
+ 			optlen = 1;
+@@ -153,6 +150,10 @@ int ipv6_find_tlv(const struct sk_buff *skb, int offset, int type)
+ 				goto bad;
+ 			break;
+ 		}
++		/* Some callers read the option, so it must be in the header. */
++		if (opttype == type)
++			return offset;
++
+ 		offset += optlen;
+ 		len -= optlen;
+ 	}
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 88356cbfb68b1919013c961e89d5a0eb9f215060..190dbe88b493927957e5b5a9237fe96e89d79fab 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -343,7 +343,12 @@ static void mip6_addr_swap(struct sk_buff *skb, const struct inet6_skb_parm *opt
+ 		if (likely(off >= 0)) {
+ 			hao = (struct ipv6_destopt_hao *)
+ 					(skb_network_header(skb) + off);
+-			swap(iph->saddr, hao->addr);
++			/*
++			 * The header can have moved or changed after
++			 * ipv6_dest_hao() checked the length.
++			 */
++			if (hao->length == 16)
++				swap(iph->saddr, hao->addr);
+ 		}
+ 	}
+ }
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index 6a16a5bd0d910bca55a87c55580cbd1cae71bede..96156797241147bbe3eb415af8982239b3821ff2 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -211,9 +211,16 @@ static int mip6_destopt_reject(struct xfrm_state *x, struct sk_buff *skb,
+ 
+ 	if (likely(opt->dsthao)) {
+ 		offset = ipv6_find_tlv(skb, opt->dsthao, IPV6_TLV_HAO);
+-		if (likely(offset >= 0))
++		if (likely(offset >= 0)) {
+ 			hao = (struct ipv6_destopt_hao *)
+ 					(skb_network_header(skb) + offset);
++			/*
++			 * The header can have moved or changed after
++			 * ipv6_dest_hao() checked the length.
++			 */
++			if (hao->length != 16)
++				hao = NULL;
++		}
+ 	}
+ 
+ 	stamp = skb_get_ktime(skb);

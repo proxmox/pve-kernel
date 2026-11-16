@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zhiling Zou <zhilinz@nebusec.ai>
+Date: Tue, 27 Oct 2026 12:46:49 +0800
+Subject: [PATCH] tcp: check congestion control restriction first
+
+[ Upstream commit dda51b73721684637ab8e9bd97c78228b99c4bd2 ]
+
+tcp_set_default_congestion_control() takes a reference to an algorithm
+before checking whether a non-init network namespace may select it. A
+rejected request returns -EPERM without dropping the reference.
+
+This affects module-backed algorithms too; BPF is not required. For
+example, after root loads tcp_bbr, a user with CAP_NET_ADMIN in a
+non-init network namespace can repeatedly request it as the default
+although it is not in tcp_allowed_congestion_control. Each rejected
+write leaks a module reference. Since module->refcnt is an atomic_t,
+2^31 such writes can make it negative; later module_put() calls warn,
+and rmmod can hit the BUG_ON() in try_release_module_ref().
+
+Check the namespace restriction before acquiring the reference, as
+tcp_set_congestion_control() already does.
+
+Fixes: 8d432592f30f ("net: Only allow init netns to set default tcp cong to a restricted algo")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Suggested-by: Eric Dumazet <edumazet@kernel.org>
+Signed-off-by: Zhiling Zou <zhilinz@nebusec.ai>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Jiayuan Chen <jiayuan.chen@linux.dev>
+Link: https://patch.msgid.link/71c142b2d45af6a2fe7fc6cd4a5ca52c53afbe23.1793075984.git.zhilinz@nebusec.ai
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 2dea9ba94bc286f7b4f754642eabd71b8b92e7ac)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/tcp_cong.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 8e83ef81fc187def52bf99ce7e8941f881542953..e3f462f161dd6c3f4e9eeae99b45a93391c87079 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -288,12 +288,12 @@ int tcp_set_default_congestion_control(struct net *net, const char *name)
+ 	ca = tcp_ca_find_autoload(name);
+ 	if (!ca) {
+ 		ret = -ENOENT;
+-	} else if (!bpf_try_module_get(ca, ca->owner)) {
+-		ret = -EBUSY;
+ 	} else if (!net_eq(net, &init_net) &&
+ 			!(ca->flags & TCP_CONG_NON_RESTRICTED)) {
+ 		/* Only init netns can set default to a restricted algorithm */
+ 		ret = -EPERM;
++	} else if (!bpf_try_module_get(ca, ca->owner)) {
++		ret = -EBUSY;
+ 	} else {
+ 		prev = xchg(&net->ipv4.tcp_congestion_control, ca);
+ 		if (prev)

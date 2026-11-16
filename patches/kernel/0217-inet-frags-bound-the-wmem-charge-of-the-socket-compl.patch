@@ -1,0 +1,262 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@kernel.org>
+Date: Wed, 4 Nov 2026 13:29:27 +0100
+Subject: [PATCH] inet: frags: bound the wmem charge of the socket completing a
+ reassembly
+
+[ Upstream commit b71c101bbb9814d163c00234d43c41f0a17907d4 ]
+
+When a socket owned fragment completes a reassembly queue,
+inet_frag_reasm_prepare() and inet_frag_reasm_finish() charge the
+truesize of all other fragments to its sk_wmem_alloc. These fragments
+were orphaned when queued, and might have been sent by someone else,
+for instance padded TUN packets.
+
+Commit 3ae20e4697eb ("inet: frags: limit the truesize of a reassembly
+queue") bounds this charge to INT_MAX / 2 per queue, but a socket can
+complete several queues while the reassembled skbs are still alive,
+for instance held in a qdisc. sk_wmem_alloc can then go past INT_MAX,
+refcount_add() saturates it with a WARN, and the socket is leaked.
+
+This is reachable from an unprivileged user/network namespace, by
+raising ipfrag_high_thresh.
+
+Refuse the reassembly if the charge would push sk_wmem_alloc above
+2 * sk_sndbuf, the bound ip_append_data() uses, plus 4MB of slack for
+fragments inflated by a refragmentation with a small MTU, and never
+above INT_MAX / 2. The cap matters for tun sockets, which use
+sk_sndbuf = INT_MAX, and whose skbs are still owned when act_ct or
+openvswitch reassemble them at ingress.
+
+Several queues can complete at the same time on different cpus for
+the same socket, so the charge is reserved with a cmpxchg() loop in
+inet_frag_reasm_prepare(), before it modifies the queue, and settled
+in inet_frag_reasm_finish(). Move the size checks of ip_frag_reasm(),
+ip6_frag_reasm() and nf_ct_frag6_reasm() before
+inet_frag_reasm_prepare(), using the first fragment which becomes the
+head, so that a successful inet_frag_reasm_prepare() is always followed
+by inet_frag_reasm_finish(). All callers already kill the queue when
+inet_frag_reasm_prepare() returns NULL.
+
+Found by code inspection (AI review), not reproduced.
+
+Fixes: 18685451fc4e ("inet: inet_defrag: prevent sk release while still in use")
+Reported-by: Paolo Abeni <pabeni@redhat.com>
+Closes: https://lore.kernel.org/netdev/24feda7d-ae49-45af-9596-2cc5f149f28e@redhat.com/
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20261104122927.1033747-1-edumazet@kernel.org
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit fe6bd9cbef0cbbd2b939ed22ac0ce64c9b967a85)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/inet_fragment.c                | 61 ++++++++++++++++++++++---
+ net/ipv4/ip_fragment.c                  | 13 ++++--
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 13 ++++--
+ net/ipv6/reassembly.c                   | 13 ++++--
+ 4 files changed, 78 insertions(+), 22 deletions(-)
+
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 577d751b73bafa141e8ebb22200369370fe4321d..57e85b66fe547c138e10ebe4b03525b7c3081728 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -17,6 +17,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/slab.h>
+ #include <linux/rhashtable.h>
++#include <linux/sizes.h>
+ 
+ #include <net/sock.h>
+ #include <net/inet_frag.h>
+@@ -521,6 +522,43 @@ int inet_frag_queue_insert(struct inet_frag_queue *q, struct sk_buff *skb,
+ }
+ EXPORT_SYMBOL(inet_frag_queue_insert);
+ 
++/* When a socket owned fragment completes a queue, the truesize of all
++ * other fragments is charged to its sk_wmem_alloc, although they were
++ * orphaned when queued and possibly sent by someone else.
++ * Bound this like ip_append_data() bounds the memory a socket can
++ * allocate (2 * sk_sndbuf), plus slack for fragments inflated by a
++ * refragmentation using a small MTU. Otherwise, several reassembled skbs
++ * alive at the same time can saturate sk_wmem_alloc, and leak the socket.
++ *
++ * Several queues can complete at the same time for the same socket,
++ * and some sockets (tun) use sk_sndbuf = INT_MAX. The charge is reserved
++ * with a cmpxchg() loop, a refcount_t has no helper for this.
++ */
++#define INET_FRAG_WMEM_SLACK	SZ_4M
++
++static bool inet_frag_wmem_reserve(struct sock *sk, unsigned int charge)
++{
++	u64 limit = 2ULL * READ_ONCE(sk->sk_sndbuf) + INET_FRAG_WMEM_SLACK;
++	int old = refcount_read(&sk->sk_wmem_alloc);
++
++	limit = min_t(u64, limit, INET_FRAG_MAX_TRUESIZE);
++	do {
++		if (old <= 0 || (u64)old + charge > limit)
++			return false;
++	} while (!atomic_try_cmpxchg(&sk->sk_wmem_alloc.refs, &old,
++				     old + charge));
++
++	return true;
++}
++
++static void inet_frag_wmem_adjust(struct sock *sk, int delta)
++{
++	if (delta >= 0)
++		refcount_add(delta, &sk->sk_wmem_alloc);
++	else
++		WARN_ON_ONCE(refcount_sub_and_test(-delta, &sk->sk_wmem_alloc));
++}
++
+ void *inet_frag_reasm_prepare(struct inet_frag_queue *q, struct sk_buff *skb,
+ 			      struct sk_buff *parent)
+ {
+@@ -532,6 +570,11 @@ void *inet_frag_reasm_prepare(struct inet_frag_queue *q, struct sk_buff *skb,
+ 	int delta;
+ 
+ 	if (sk && is_skb_wmem(skb)) {
++		/* skb->truesize is already charged to sk, and is part of
++		 * q->truesize. inet_frag_reasm_finish() settles the charge.
++		 */
++		if (!inet_frag_wmem_reserve(sk, q->truesize - skb->truesize))
++			return NULL;
+ 		/* TX: skb->sk might have been passed as argument to
+ 		 * dst->output and must remain valid until tx completes.
+ 		 *
+@@ -609,17 +652,18 @@ void *inet_frag_reasm_prepare(struct inet_frag_queue *q, struct sk_buff *skb,
+ 
+ out_restore_sk:
+ 	if (orig_truesize) {
+-		int ts_delta = head->truesize - orig_truesize;
+-
+ 		/* if this reassembled skb is fragmented later,
+ 		 * fraglist skbs will get skb->sk assigned from head->sk,
+ 		 * and each frag skb will be released via sock_wfree.
+-		 *
+-		 * Update sk_wmem_alloc.
+ 		 */
+ 		head->sk = sk;
+ 		head->destructor = destructor;
+-		refcount_add(ts_delta, &sk->sk_wmem_alloc);
++		/* On failure, head stays in the queue and will be freed
++		 * with the queue: only charge its truesize.
++		 */
++		if (!nextp)
++			inet_frag_wmem_adjust(sk, (int)head->truesize -
++						  (int)q->truesize);
+ 	}
+ 
+ 	return nextp;
+@@ -630,7 +674,6 @@ void inet_frag_reasm_finish(struct inet_frag_queue *q, struct sk_buff *head,
+ 			    void *reasm_data, bool try_coalesce)
+ {
+ 	struct sock *sk = is_skb_wmem(head) ? head->sk : NULL;
+-	const unsigned int head_truesize = head->truesize;
+ 	struct sk_buff **nextp = reasm_data;
+ 	struct rb_node *rbn;
+ 	struct sk_buff *fp;
+@@ -695,8 +738,12 @@ void inet_frag_reasm_finish(struct inet_frag_queue *q, struct sk_buff *head,
+ 	head->tstamp = q->stamp;
+ 	head->tstamp_type = q->tstamp_type;
+ 
++	/* After inet_frag_reasm_prepare(), q->truesize is charged to sk.
++	 * sum_truesize also includes what it added (skb_unclone() and
++	 * frag_list clone).
++	 */
+ 	if (sk)
+-		refcount_add(sum_truesize - head_truesize, &sk->sk_wmem_alloc);
++		inet_frag_wmem_adjust(sk, sum_truesize - (int)q->truesize);
+ }
+ EXPORT_SYMBOL(inet_frag_reasm_finish);
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 36105dd192823e745123971412b978f0573d10eb..ef7fd61284a3fa86ba5464abd8c277e3753da6ac 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -413,16 +413,19 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *skb,
+ 		goto out_fail;
+ 	}
+ 
++	/* Check the size on the first fragment, which will become the head:
++	 * inet_frag_reasm_finish() must follow inet_frag_reasm_prepare().
++	 */
++	len = ip_hdrlen(skb_rb_first(&qp->q.rb_fragments)) + qp->q.len;
++	err = -E2BIG;
++	if (len > 65535)
++		goto out_oversize;
++
+ 	/* Make the one we just received the head. */
+ 	reasm_data = inet_frag_reasm_prepare(&qp->q, skb, prev_tail);
+ 	if (!reasm_data)
+ 		goto out_nomem;
+ 
+-	len = ip_hdrlen(skb) + qp->q.len;
+-	err = -E2BIG;
+-	if (len > 65535)
+-		goto out_oversize;
+-
+ 	inet_frag_reasm_finish(&qp->q, skb, reasm_data,
+ 			       ip_frag_coalesce_ok(qp));
+ 
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index 599c49bf0a0afd5054e926a5f2b1f0677bcd8b4d..02341c64baaa6e4499a886dbcc6ecbbf5e0f5f3c 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -330,11 +330,10 @@ static int nf_ct_frag6_reasm(struct frag_queue *fq, struct sk_buff *skb,
+ 	if (unlikely(ecn == 0xff))
+ 		goto err;
+ 
+-	reasm_data = inet_frag_reasm_prepare(&fq->q, skb, prev_tail);
+-	if (!reasm_data)
+-		goto err;
+-
+-	payload_len = -skb_network_offset(skb) -
++	/* Check the size on the first fragment, which will become the head:
++	 * inet_frag_reasm_finish() must follow inet_frag_reasm_prepare().
++	 */
++	payload_len = -skb_network_offset(skb_rb_first(&fq->q.rb_fragments)) -
+ 		       sizeof(struct ipv6hdr) + fq->q.len -
+ 		       sizeof(struct frag_hdr);
+ 	if (payload_len > IPV6_MAXPLEN) {
+@@ -343,6 +342,10 @@ static int nf_ct_frag6_reasm(struct frag_queue *fq, struct sk_buff *skb,
+ 		goto err;
+ 	}
+ 
++	reasm_data = inet_frag_reasm_prepare(&fq->q, skb, prev_tail);
++	if (!reasm_data)
++		goto err;
++
+ 	/* We have to remove fragment header from datagram and to relocate
+ 	 * header in order to calculate ICV correctly. */
+ 	skb_network_header(skb)[fq->nhoffset] = skb_transport_header(skb)[0];
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 62229c5d120780cbf28a77b025fa0be527fc3630..02260905478a79fe1aaf1b095c451aefb8ad64e8 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -271,16 +271,19 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *skb,
+ 	if (unlikely(ecn == 0xff))
+ 		goto out_fail;
+ 
+-	reasm_data = inet_frag_reasm_prepare(&fq->q, skb, prev_tail);
+-	if (!reasm_data)
+-		goto out_oom;
+-
+-	payload_len = -skb_network_offset(skb) -
++	/* Check the size on the first fragment, which will become the head:
++	 * inet_frag_reasm_finish() must follow inet_frag_reasm_prepare().
++	 */
++	payload_len = -skb_network_offset(skb_rb_first(&fq->q.rb_fragments)) -
+ 		       sizeof(struct ipv6hdr) + fq->q.len -
+ 		       sizeof(struct frag_hdr);
+ 	if (payload_len > IPV6_MAXPLEN)
+ 		goto out_oversize;
+ 
++	reasm_data = inet_frag_reasm_prepare(&fq->q, skb, prev_tail);
++	if (!reasm_data)
++		goto out_oom;
++
+ 	/* We have to remove fragment header from datagram and to relocate
+ 	 * header in order to calculate ICV correctly. */
+ 	nhoff = fq->nhoffset;

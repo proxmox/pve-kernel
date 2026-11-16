@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@kernel.org>
+Date: Mon, 9 Nov 2026 17:45:40 +0100
+Subject: [PATCH] net: gro: compare skb->protocol in gro_list_prepare()
+
+gro_list_prepare() checks whether a held packet may belong to the same
+flow as the incoming one by comparing the device, VLAN tag, metadata
+and the link-layer header, using dev->hard_header_len as its length.
+
+On devices without a link-layer header (hard_header_len == 0), such as
+L3 GRE tunnels, no compared byte carries the outer protocol:
+skb->protocol comes from the tunnel header. Packets of different
+protocols can then stay eligible, and the GRO handler selected from the
+incoming skb->protocol parses the held packet with the wrong layout.
+
+For example, take an IPv4/UDP packet held by UDP GRO and a
+VLAN/IPv4/TCP packet received on the same ipgre device.
+vlan_gro_receive() reads the first four bytes of the held IPv4 header
+as a VLAN header. With crafted values, the held packet survives up to
+tcp_gro_receive(), which uses its UDP header as a TCP header. With a
+short linear part, the FIN/PSH update of the held packet's TCP flags
+can then write into skb_shared_info.
+
+The VLAN, GRE, IPv4 and IPv6 GRO handlers compare the next-protocol
+field of their own header, so once the outer protocol matches, the
+inner layers are checked too. Only the outermost protocol was not
+compared.
+
+Compare skb->protocol too. On Ethernet devices this is redundant with
+compare_ether_header(), but it is cheap.
+
+GUE direct IP encapsulation has a similar issue, but there both packets
+have the same outer protocol, so it is fixed separately in
+gue_gro_receive().
+
+Fixes: 60769a5dcd87 ("ipv4: gre: add GRO capability")
+Reported-by: Kyle Zeng <kylebot@openai.com>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/20261109164540.3104392-1-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 511582022bfd07475d0daa209e6e6aa5a940740d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/gro.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/core/gro.c b/net/core/gro.c
+index 5eb7a1b25fc9e6c6602070db6be7c545dc2fb4d6..580744e04c3b60a600a50b74164bc002b8f73005 100644
+--- a/net/core/gro.c
++++ b/net/core/gro.c
+@@ -382,6 +382,7 @@ static void gro_list_prepare(const struct list_head *head,
+ 		}
+ 
+ 		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
++		diffs |= p->protocol != skb->protocol;
+ 		diffs |= p->vlan_all ^ skb->vlan_all;
+ 		diffs |= skb_metadata_differs(p, skb);
+ 		if (maclen == ETH_HLEN)

@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jun Yang <junvyyang@tencent.com>
+Date: Tue, 3 Nov 2026 15:54:37 +0800
+Subject: [PATCH] net: bridge: use one headroom snapshot for ND replies
+
+br_nd_send() calls LL_RESERVED_SPACE(dev) once to size the reply skb and
+again to reserve its headroom. When a port requiring more headroom is
+added to the bridge, br_add_if() can increase dev->needed_headroom
+between the two calls. The reserved headroom can then exceed the space
+accounted for by alloc_skb().
+
+Take one headroom snapshot and use it for both the allocation size and
+skb_reserve().
+
+Fixes: ed842faeb2bd ("bridge: suppress nd pkts on BR_NEIGH_SUPPRESS ports")
+Cc: stable@kernel.org
+Reported-by: TencentOS Corvus AI <corvus@tencent.com>
+Signed-off-by: Jun Yang <junvyyang@tencent.com>
+Acked-by: Nikolay Aleksandrov <razor@blackwall.org>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20261103075439.43644-1-juny24602@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit e573df093ef849bb7c763aed591cb6556b110671)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/bridge/br_arp_nd_proxy.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_arp_nd_proxy.c b/net/bridge/br_arp_nd_proxy.c
+index 3203706d02b88099295b0bab86c2edbb9e0604e4..e5ee03f6faeebacdbcb924448b19ab3eab2ca2bd 100644
+--- a/net/bridge/br_arp_nd_proxy.c
++++ b/net/bridge/br_arp_nd_proxy.c
+@@ -262,6 +262,7 @@ static void br_nd_send(struct net_bridge *br, struct net_bridge_port *p,
+ 	struct sk_buff *reply;
+ 	struct ipv6hdr *pip6;
+ 	int na_olen = 8; /* opt hdr + ETH_ALEN for target */
++	int headroom;
+ 	int ns_olen;
+ 	int i, len;
+ 	u8 *daddr;
+@@ -271,7 +272,8 @@ static void br_nd_send(struct net_bridge *br, struct net_bridge_port *p,
+ 	if (!dev || skb_linearize(request))
+ 		return;
+ 
+-	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
++	headroom = LL_RESERVED_SPACE(dev);
++	len = headroom + sizeof(struct ipv6hdr) +
+ 		sizeof(*na) + na_olen + dev->needed_tailroom;
+ 
+ 	reply = alloc_skb(len, GFP_ATOMIC);
+@@ -280,7 +282,7 @@ static void br_nd_send(struct net_bridge *br, struct net_bridge_port *p,
+ 
+ 	reply->protocol = htons(ETH_P_IPV6);
+ 	reply->dev = dev;
+-	skb_reserve(reply, LL_RESERVED_SPACE(dev));
++	skb_reserve(reply, headroom);
+ 	skb_push(reply, sizeof(struct ethhdr));
+ 	skb_set_mac_header(reply, 0);
+ 

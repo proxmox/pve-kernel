@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@kernel.org>
+Date: Wed, 28 Oct 2026 19:08:20 +0000
+Subject: [PATCH] tcp: do not let tcp_collapse() drive sk_forward_alloc
+ negative
+
+tcp_collapse() charges each newly allocated skb with skb_set_owner_r()
+before the skbs it replaces are freed, without scheduling memory first.
+
+Since sk_mem_uncharge() reclaims eagerly, sk->sk_forward_alloc has no
+cushion and can become negative. This can be durable when the collapsed
+skbs had a high payload/truesize ratio or were partially read, because
+the new skbs can have a bigger total truesize than the old ones.
+
+A negative sk_forward_alloc then confuses tcp_wmem_schedule(), which
+can return a negative length to tcp_sendmsg_locked(), triggering
+a WARN_ON_ONCE(bytes > INT_MAX) in check_copy_size().
+
+Call sk_forced_mem_schedule() before charging nskb.
+
+Fixes: 4890b686f408 ("net: keep sk->sk_forward_alloc as small as possible")
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Signed-off-by: Octavian Purdila <tavip@google.com>
+Signed-off-by: Dave Miller <davem@davem-thinkpadp1gen8.ibmlond.csb>
+(cherry picked from commit 031c403d13e5046750e2abebd4e770631e7c4627)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/tcp_input.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 21c61b6a28afc8467f8a39b877cc9c90c0b270e9..734cab4d1907750b5b801cdbbc7436bf91d8acd1 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5904,6 +5904,10 @@ tcp_collapse(struct sock *sk, struct sk_buff_head *list, struct rb_root *root,
+ 			__skb_queue_before(list, skb, nskb);
+ 		else
+ 			__skb_queue_tail(&tmp, nskb); /* defer rbtree insertion */
++		/* nskb is charged before the skbs it replaces are freed.
++		 * Make sure sk->sk_forward_alloc can not become negative.
++		 */
++		sk_forced_mem_schedule(sk, nskb->truesize);
+ 		skb_set_owner_r(nskb, sk);
+ 		mptcp_skb_ext_move(nskb, skb);
+ 

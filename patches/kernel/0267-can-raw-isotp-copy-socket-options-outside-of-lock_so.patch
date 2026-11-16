@@ -1,0 +1,525 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Tue, 10 Nov 2026 18:58:27 +0100
+Subject: [PATCH] can: raw, isotp: copy socket options outside of lock_sock()
+
+commit 43c973a0887d3d7b2ee0a446603c97bf0f38c58e upstream.
+
+The CAN_RAW and CAN_ISOTP specific socket options are copied from and
+to user space while holding lock_sock(). A copy that faults or stalls,
+e.g. on a userfaultfd or FUSE backed mapping, holds lock_sock() for its
+whole duration.
+
+raw_notify() and isotp_notify() take lock_sock() of a socket that is
+bound to the vanishing device while holding RTNL. As the CAN_RAW
+options can also be changed on a bound socket, a stalled copy can block
+RTNL on an unregistration or namespace change of the bound device.
+Before "can: protect the receive lists with a per-device lock",
+raw_setsockopt() even held RTNL itself during the copy. CAN_ISOTP only
+copies its options for unbound sockets, which isotp_notify() skips
+without taking lock_sock().
+
+Keep the user space copies out of the locked sections: Check the option
+name and length and copy the option values, including the CAN_RAW_FILTER
+filters, to kernel memory before lock_sock(). raw_setsockopt_locked()
+and isotp_setsockopt_locked() get the copied values directly and drop
+their now redundant length checks and copies. As a side effect, a
+failing copy can not leave partially overwritten options behind
+anymore. In raw_getsockopt() duplicate the filters under lock_sock() and
+copy them to user space after release_sock().
+
+As the option name and length are now checked before lock_sock(), the
+order of the checks in isotp_setsockopt() and accordingly the order of
+the returned error values changes. This is in line with POSIX, which
+does not define an order in which multiple error conditions are
+detected and reported.
+
+The generic SOL_SOCKET options in sk_setsockopt() are not affected by
+this patch.
+
+Fixes: c18ce101f2e4 ("[CAN]: Add raw protocol")
+Fixes: 1e5185c09058 ("can: raw: add locking for raw flags bitfield")
+Cc: stable@vger.kernel.org # depends on "can: protect the receive lists with a per-device lock"
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Link: https://patch.msgid.link/20261027-can-rx-lock-v12-4-eb5afc2d8b9b@hartkopp.net
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+[ backport to 6.18: raw_getsockopt() uses copy_to_user() and put_user()
+  instead of the getsockopt_iter interface in this tree. Duplicate the
+  filters under lock_sock() and copy them with copy_to_user() after
+  release_sock(). Also move the put_user() of the needed filter space
+  for -ERANGE behind release_sock(), which upstream writes to the kernel
+  side opt->optlen. ]
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 1cbc125af2bee57f980c52c6e1b62ac83882e4ba)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/can/isotp.c | 100 ++++++++++++++-----------
+ net/can/raw.c   | 193 ++++++++++++++++++++++++++----------------------
+ 2 files changed, 160 insertions(+), 133 deletions(-)
+
+diff --git a/net/can/isotp.c b/net/can/isotp.c
+index 1e40825b58cb794e5a7c928bb10de7661e46ce9e..5e2de051fc5ecfb2459457d3056c6de0f0cda944 100644
+--- a/net/can/isotp.c
++++ b/net/can/isotp.c
+@@ -1709,8 +1709,8 @@ static int isotp_getname(struct socket *sock, struct sockaddr *uaddr, int peer)
+ 	return ISOTP_MIN_NAMELEN;
+ }
+ 
+-static int isotp_setsockopt_locked(struct socket *sock, int level, int optname,
+-			    sockptr_t optval, unsigned int optlen)
++static int isotp_setsockopt_locked(struct socket *sock, int optname,
++				   const void *val)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct isotp_sock *so = isotp_sk(sk);
+@@ -1721,11 +1721,7 @@ static int isotp_setsockopt_locked(struct socket *sock, int level, int optname,
+ 
+ 	switch (optname) {
+ 	case CAN_ISOTP_OPTS:
+-		if (optlen != sizeof(struct can_isotp_options))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&so->opt, optval, optlen))
+-			return -EFAULT;
++		memcpy(&so->opt, val, sizeof(so->opt));
+ 
+ 		/* no separate rx_ext_address is given => use ext_address */
+ 		if (!(so->opt.flags & CAN_ISOTP_RX_EXT_ADDR))
+@@ -1750,55 +1746,37 @@ static int isotp_setsockopt_locked(struct socket *sock, int level, int optname,
+ 		break;
+ 
+ 	case CAN_ISOTP_RECV_FC:
+-		if (optlen != sizeof(struct can_isotp_fc_options))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&so->rxfc, optval, optlen))
+-			return -EFAULT;
++		memcpy(&so->rxfc, val, sizeof(so->rxfc));
+ 		break;
+ 
+ 	case CAN_ISOTP_TX_STMIN:
+-		if (optlen != sizeof(u32))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&so->force_tx_stmin, optval, optlen))
+-			return -EFAULT;
++		so->force_tx_stmin = *(const u32 *)val;
+ 		break;
+ 
+ 	case CAN_ISOTP_RX_STMIN:
+-		if (optlen != sizeof(u32))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&so->force_rx_stmin, optval, optlen))
+-			return -EFAULT;
++		so->force_rx_stmin = *(const u32 *)val;
+ 		break;
+ 
+-	case CAN_ISOTP_LL_OPTS:
+-		if (optlen == sizeof(struct can_isotp_ll_options)) {
+-			struct can_isotp_ll_options ll;
+-
+-			if (copy_from_sockptr(&ll, optval, optlen))
+-				return -EFAULT;
++	case CAN_ISOTP_LL_OPTS: {
++		const struct can_isotp_ll_options *ll = val;
+ 
+-			/* check for correct ISO 11898-1 DLC data length */
+-			if (ll.tx_dl != padlen(ll.tx_dl))
+-				return -EINVAL;
++		/* check for correct ISO 11898-1 DLC data length */
++		if (ll->tx_dl != padlen(ll->tx_dl))
++			return -EINVAL;
+ 
+-			if (ll.mtu != CAN_MTU && ll.mtu != CANFD_MTU)
+-				return -EINVAL;
++		if (ll->mtu != CAN_MTU && ll->mtu != CANFD_MTU)
++			return -EINVAL;
+ 
+-			if (ll.mtu == CAN_MTU &&
+-			    (ll.tx_dl > CAN_MAX_DLEN || ll.tx_flags != 0))
+-				return -EINVAL;
++		if (ll->mtu == CAN_MTU &&
++		    (ll->tx_dl > CAN_MAX_DLEN || ll->tx_flags != 0))
++			return -EINVAL;
+ 
+-			memcpy(&so->ll, &ll, sizeof(ll));
++		memcpy(&so->ll, ll, sizeof(*ll));
+ 
+-			/* set ll_dl for tx path to similar place as for rx */
+-			so->tx.ll_dl = ll.tx_dl;
+-		} else {
+-			return -EINVAL;
+-		}
++		/* set ll_dl for tx path to similar place as for rx */
++		so->tx.ll_dl = ll->tx_dl;
+ 		break;
++	}
+ 
+ 	default:
+ 		ret = -ENOPROTOOPT;
+@@ -1812,13 +1790,49 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
+ 
+ {
+ 	struct sock *sk = sock->sk;
++	union {
++		struct can_isotp_options opt;
++		struct can_isotp_fc_options rxfc;
++		struct can_isotp_ll_options ll;
++		u32 stmin;
++	} val;
++	unsigned int size;
+ 	int ret;
+ 
+ 	if (level != SOL_CAN_ISOTP)
+ 		return -EINVAL;
+ 
++	/* copy the option values from user space before lock_sock() */
++	switch (optname) {
++	case CAN_ISOTP_OPTS:
++		size = sizeof(val.opt);
++		break;
++
++	case CAN_ISOTP_RECV_FC:
++		size = sizeof(val.rxfc);
++		break;
++
++	case CAN_ISOTP_TX_STMIN:
++	case CAN_ISOTP_RX_STMIN:
++		size = sizeof(val.stmin);
++		break;
++
++	case CAN_ISOTP_LL_OPTS:
++		size = sizeof(val.ll);
++		break;
++
++	default:
++		return -ENOPROTOOPT;
++	}
++
++	if (optlen != size)
++		return -EINVAL;
++
++	if (copy_from_sockptr(&val, optval, size))
++		return -EFAULT;
++
+ 	lock_sock(sk);
+-	ret = isotp_setsockopt_locked(sock, level, optname, optval, optlen);
++	ret = isotp_setsockopt_locked(sock, optname, &val);
+ 	release_sock(sk);
+ 	return ret;
+ }
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 3300738effdd8a22e7600176045edc61fb8cd0e8..1833899a1301b525187590bbbb62bedec555a439 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -604,63 +604,36 @@ static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
+ }
+ 
+ static int raw_setsockopt_locked(struct socket *sock, int optname,
+-				 sockptr_t optval, unsigned int optlen)
++				 const void *val, struct can_filter *filter,
++				 int count)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct raw_sock *ro = raw_sk(sk);
+-	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
+-	struct can_filter sfilter;         /* single filter */
+ 	struct net_device *dev = NULL;
+-	can_err_mask_t err_mask = 0;
+-	int count = 0;
++	can_err_mask_t err_mask;
+ 	int flag;
+ 	int err = 0;
+ 
+ 	switch (optname) {
+ 	case CAN_RAW_FILTER:
+-		if (optlen % sizeof(struct can_filter) != 0)
+-			return -EINVAL;
+-
+-		if (optlen > CAN_RAW_FILTER_MAX * sizeof(struct can_filter))
+-			return -EINVAL;
+-
+-		count = optlen / sizeof(struct can_filter);
+-
+-		if (count > 1) {
+-			/* filter does not fit into dfilter => alloc space */
+-			filter = memdup_sockptr(optval, optlen);
+-			if (IS_ERR(filter))
+-				return PTR_ERR(filter);
+-		} else if (count == 1) {
+-			if (copy_from_sockptr(&sfilter, optval, sizeof(sfilter)))
+-				return -EFAULT;
+-		}
+-
+-		/* The reg_state check is only a shortcut: On a concurrent
++		/* @filter has been copied by raw_setsockopt(). It is linked
++		 * to the socket on success and freed by the caller on error.
++		 *
++		 * The reg_state check is only a shortcut: On a concurrent
+ 		 * unregistration or namespace change raw_notify() waits for
+ 		 * lock_sock() and removes the filters set here.
+ 		 */
+ 		dev = ro->dev;
+ 		if (ro->bound && dev &&
+-		    READ_ONCE(dev->reg_state) != NETREG_REGISTERED) {
+-			if (count > 1)
+-				kfree(filter);
++		    READ_ONCE(dev->reg_state) != NETREG_REGISTERED)
+ 			return -ENODEV;
+-		}
+ 
+ 		if (ro->bound) {
+ 			/* (try to) register the new filters */
+-			if (count == 1)
+-				err = raw_enable_filters(sock_net(sk), dev, sk,
+-							 &sfilter, 1);
+-			else
+-				err = raw_enable_filters(sock_net(sk), dev, sk,
+-							 filter, count);
+-			if (err) {
+-				if (count > 1)
+-					kfree(filter);
++			err = raw_enable_filters(sock_net(sk), dev, sk, filter,
++						 count);
++			if (err)
+ 				return err;
+-			}
+ 
+ 			/* remove old filter registrations */
+ 			raw_disable_filters(sock_net(sk), dev, sk, ro->filter,
+@@ -674,7 +647,7 @@ static int raw_setsockopt_locked(struct socket *sock, int optname,
+ 		/* link new filters to the socket */
+ 		if (count == 1) {
+ 			/* copy filter data for single filter */
+-			ro->dfilter = sfilter;
++			ro->dfilter = *filter;
+ 			filter = &ro->dfilter;
+ 		}
+ 		ro->filter = filter;
+@@ -682,13 +655,7 @@ static int raw_setsockopt_locked(struct socket *sock, int optname,
+ 		break;
+ 
+ 	case CAN_RAW_ERR_FILTER:
+-		if (optlen != sizeof(err_mask))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&err_mask, optval, optlen))
+-			return -EFAULT;
+-
+-		err_mask &= CAN_ERR_MASK;
++		err_mask = *(const can_err_mask_t *)val & CAN_ERR_MASK;
+ 
+ 		/* lockless shortcut, see CAN_RAW_FILTER */
+ 		dev = ro->dev;
+@@ -715,31 +682,15 @@ static int raw_setsockopt_locked(struct socket *sock, int optname,
+ 		break;
+ 
+ 	case CAN_RAW_LOOPBACK:
+-		if (optlen != sizeof(flag))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&flag, optval, optlen))
+-			return -EFAULT;
+-
+-		ro->loopback = !!flag;
++		ro->loopback = !!*(const int *)val;
+ 		break;
+ 
+ 	case CAN_RAW_RECV_OWN_MSGS:
+-		if (optlen != sizeof(flag))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&flag, optval, optlen))
+-			return -EFAULT;
+-
+-		ro->recv_own_msgs = !!flag;
++		ro->recv_own_msgs = !!*(const int *)val;
+ 		break;
+ 
+ 	case CAN_RAW_FD_FRAMES:
+-		if (optlen != sizeof(flag))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&flag, optval, optlen))
+-			return -EFAULT;
++		flag = *(const int *)val;
+ 
+ 		/* Enabling CAN XL includes CAN FD */
+ 		if (ro->xl_frames && !flag)
+@@ -749,13 +700,7 @@ static int raw_setsockopt_locked(struct socket *sock, int optname,
+ 		break;
+ 
+ 	case CAN_RAW_XL_FRAMES:
+-		if (optlen != sizeof(flag))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&flag, optval, optlen))
+-			return -EFAULT;
+-
+-		ro->xl_frames = !!flag;
++		ro->xl_frames = !!*(const int *)val;
+ 
+ 		/* Enabling CAN XL includes CAN FD */
+ 		if (ro->xl_frames)
+@@ -763,11 +708,7 @@ static int raw_setsockopt_locked(struct socket *sock, int optname,
+ 		break;
+ 
+ 	case CAN_RAW_XL_VCID_OPTS:
+-		if (optlen != sizeof(ro->raw_vcid_opts))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&ro->raw_vcid_opts, optval, optlen))
+-			return -EFAULT;
++		memcpy(&ro->raw_vcid_opts, val, sizeof(ro->raw_vcid_opts));
+ 
+ 		/* prepare 32 bit values for handling in hot path */
+ 		ro->tx_vcid_shifted = ro->raw_vcid_opts.tx_vcid << CANXL_VCID_OFFSET;
+@@ -776,13 +717,7 @@ static int raw_setsockopt_locked(struct socket *sock, int optname,
+ 		break;
+ 
+ 	case CAN_RAW_JOIN_FILTERS:
+-		if (optlen != sizeof(flag))
+-			return -EINVAL;
+-
+-		if (copy_from_sockptr(&flag, optval, optlen))
+-			return -EFAULT;
+-
+-		ro->join_filters = !!flag;
++		ro->join_filters = !!*(const int *)val;
+ 		break;
+ 
+ 	default:
+@@ -795,17 +730,84 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+ 			  sockptr_t optval, unsigned int optlen)
+ {
+ 	struct sock *sk = sock->sk;
++	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
++	struct can_filter sfilter;         /* single filter */
++	union {
++		can_err_mask_t err_mask;
++		int flag;
++		struct can_raw_vcid_options vcid_opts;
++	} val;
++	unsigned int size = 0;
++	int count = 0;
+ 	int err;
+ 
+ 	if (level != SOL_CAN_RAW)
+ 		return -EINVAL;
+ 
++	/* Copy the option values from user space before lock_sock(), so a
++	 * stalled copy can not block raw_notify() waiting for lock_sock()
++	 * under RTNL.
++	 */
++	switch (optname) {
++	case CAN_RAW_FILTER:
++		if (optlen % sizeof(struct can_filter) != 0)
++			return -EINVAL;
++
++		if (optlen > CAN_RAW_FILTER_MAX * sizeof(struct can_filter))
++			return -EINVAL;
++
++		count = optlen / sizeof(struct can_filter);
++
++		if (count > 1) {
++			/* filter does not fit into dfilter => alloc space */
++			filter = memdup_sockptr(optval, optlen);
++			if (IS_ERR(filter))
++				return PTR_ERR(filter);
++		} else if (count == 1) {
++			if (copy_from_sockptr(&sfilter, optval, sizeof(sfilter)))
++				return -EFAULT;
++			filter = &sfilter;
++		}
++		break;
++
++	case CAN_RAW_ERR_FILTER:
++		size = sizeof(val.err_mask);
++		break;
++
++	case CAN_RAW_XL_VCID_OPTS:
++		size = sizeof(val.vcid_opts);
++		break;
++
++	case CAN_RAW_LOOPBACK:
++	case CAN_RAW_RECV_OWN_MSGS:
++	case CAN_RAW_FD_FRAMES:
++	case CAN_RAW_XL_FRAMES:
++	case CAN_RAW_JOIN_FILTERS:
++		size = sizeof(val.flag);
++		break;
++
++	default:
++		return -ENOPROTOOPT;
++	}
++
++	if (size) {
++		if (optlen != size)
++			return -EINVAL;
++
++		if (copy_from_sockptr(&val, optval, size))
++			return -EFAULT;
++	}
++
+ 	lock_sock(sk);
+ 
+-	err = raw_setsockopt_locked(sock, optname, optval, optlen);
++	err = raw_setsockopt_locked(sock, optname, &val, filter, count);
+ 
+ 	release_sock(sk);
+ 
++	/* on error free the filters allocated for CAN_RAW_FILTER above */
++	if (err && count > 1)
++		kfree(filter);
++
+ 	return err;
+ }
+ 
+@@ -827,29 +829,40 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 	switch (optname) {
+ 	case CAN_RAW_FILTER: {
++		struct can_filter *filter = NULL;
++		int fsize = 0;
+ 		int err = 0;
+ 
+ 		lock_sock(sk);
+ 		if (ro->count > 0) {
+-			int fsize = ro->count * sizeof(struct can_filter);
++			fsize = ro->count * sizeof(struct can_filter);
+ 
+ 			/* user space buffer to small for filter list? */
+ 			if (len < fsize) {
+ 				/* return -ERANGE and needed space in optlen */
+ 				err = -ERANGE;
+-				if (put_user(fsize, optlen))
+-					err = -EFAULT;
+ 			} else {
+ 				if (len > fsize)
+ 					len = fsize;
+-				if (copy_to_user(optval, ro->filter, len))
+-					err = -EFAULT;
++				/* copy to user space after release_sock() */
++				filter = kmemdup(ro->filter, len, GFP_KERNEL);
++				if (!filter)
++					err = -ENOMEM;
+ 			}
+ 		} else {
+ 			len = 0;
+ 		}
+ 		release_sock(sk);
+ 
++		if (err == -ERANGE) {
++			if (put_user(fsize, optlen))
++				err = -EFAULT;
++		} else if (filter) {
++			if (copy_to_user(optval, filter, len))
++				err = -EFAULT;
++			kfree(filter);
++		}
++
+ 		if (!err)
+ 			err = put_user(len, optlen);
+ 		return err;

@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 30 Apr 2026 07:06:11 +0000
+Subject: [PATCH] ipmr: prevent info-leak in pmr_cache_report()
+
+Yiming Qian reported:
+
+<quote>
+ ipmr_cache_report()` allocates a report skb with `alloc_skb(128,
+ GFP_ATOMIC)` and appends a `struct igmphdr` using `skb_put()`. In the
+ non-`IGMPMSG_WHOLEPKT` path it initializes only:
+
+ - `igmp->type`
+ - `igmp->code`
+
+ but does not initialize:
+
+ - `igmp->csum`
+ - `igmp->group`
+
+ Later, `igmpmsg_netlink_event()` copies the bytes after `sizeof(struct
+ igmpmsg)` into the `IPMRA_CREPORT_PKT` netlink attribute and emits
+ `RTM_NEWCACHEREPORT` on `RTNLGRP_IPV4_MROUTE_R`.
+
+ As a result, 6 bytes of stale heap data from the skb head are
+ disclosed to userspace.
+</quote>
+
+Let's use skb_put_zero() instead of skb_put() to fix this bug.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Reported-by: Yiming Qian <yimingqian591@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20260430070611.4004529-1-edumazet@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 4f34002e2e37639133693c13a2a9977fab86880d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/ipmr.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index b1282c01a77e01de6bbef7a64022b35b7b792c7d..33647d1faf0861ea983627a67ece32cc888dff55 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1106,11 +1106,12 @@ static int ipmr_cache_report(const struct mr_table *mrt,
+ 		msg->im_vif_hi = vifi >> 8;
+ 		ipv4_pktinfo_prepare(mroute_sk, pkt, false);
+ 		memcpy(skb->cb, pkt->cb, sizeof(skb->cb));
+-		/* Add our header */
+-		igmp = skb_put(skb, sizeof(struct igmphdr));
++		/* Add our header.
++		 * Note that code, csum and group fields are cleared.
++		 */
++		igmp = skb_put_zero(skb, sizeof(struct igmphdr));
+ 		igmp->type = assert;
+ 		msg->im_msgtype = assert;
+-		igmp->code = 0;
+ 		ip_hdr(skb)->tot_len = htons(skb->len);	/* Fix the length */
+ 		skb->transport_header = skb->network_header;
+ 	}

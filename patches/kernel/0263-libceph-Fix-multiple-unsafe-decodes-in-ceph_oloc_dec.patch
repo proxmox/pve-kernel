@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Date: Wed, 9 Sep 2026 17:03:53 +0200
+Subject: [PATCH] libceph: Fix multiple unsafe decodes in ceph_oloc_decode()
+
+[ Upstream commit 10655007b9b679e46a9e383202c7bb791e5d1d13 ]
+
+ceph_oloc_decode handles unchecked data received over the network from
+an OSD. Currently, there are multiple decode operations that aren't
+covered by any bounds check. Decoding these fields can therefore result
+in out-of-bounds reads if a corrupted message is received.
+
+This patch fixes the issue by adding bounds checks covering all
+previously uncovered decode operations.
+
+[ idryomov: use ceph_decode_64_safe() for hash ]
+
+Cc: stable@vger.kernel.org
+Fixes: 205ee1187a67 ("libceph: follow redirect replies from osds")
+Assisted-by: Cursor
+Signed-off-by: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit dd7efad37e5eacbf9082a8bf12ba56292a1725f7)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ceph/osd_client.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
+index f36ce5ae75680a1dde27441f87c4b37fa4e781cb..298a6d52eb8cea7f99f42639ecd665e8b4cba227 100644
+--- a/net/ceph/osd_client.c
++++ b/net/ceph/osd_client.c
+@@ -3565,6 +3565,7 @@ static int ceph_oloc_decode(void **p, void *end,
+ 	ceph_decode_need(p, end, len, e_inval);
+ 	struct_end = *p + len;
+ 
++	ceph_decode_need(p, end, 8 + 4 + 4, e_inval);
+ 	oloc->pool = ceph_decode_64(p);
+ 	*p += 4; /* skip preferred */
+ 
+@@ -3577,7 +3578,7 @@ static int ceph_oloc_decode(void **p, void *end,
+ 	if (struct_v >= 5) {
+ 		bool changed = false;
+ 
+-		len = ceph_decode_32(p);
++		ceph_decode_32_safe(p, end, len, e_inval);
+ 		if (len > 0) {
+ 			ceph_decode_need(p, end, len, e_inval);
+ 			if (!oloc->pool_ns ||
+@@ -3596,7 +3597,9 @@ static int ceph_oloc_decode(void **p, void *end,
+ 	}
+ 
+ 	if (struct_v >= 6) {
+-		s64 hash = ceph_decode_64(p);
++		s64 hash;
++
++		ceph_decode_64_safe(p, end, hash, e_inval);
+ 		if (hash != -1) {
+ 			pr_warn("ceph_object_locator::hash is set\n");
+ 			goto e_inval;

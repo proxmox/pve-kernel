@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Breno Leitao <leitao@debian.org>
+Date: Wed, 4 Nov 2026 09:04:11 -0800
+Subject: [PATCH] net/mlx5e: Fix queue stats access to queues without stats
+
+I am seeing the following mlx5e crash in the Meta fleet:
+
+  pc : mlx5e_get_queue_stats_rx+0x4c/0xc8
+  Call trace:
+   mlx5e_get_queue_stats_rx+0x4c/0xc8 (P)
+   netdev_stat_queue_sum+0x78/0x480
+   netdev_nl_qstats_get_dump_one+0xf0/0x268
+   netdev_nl_qstats_get_dumpit+0x7c/0x1f8
+
+When dumping device-wide qstats, the core calls the per-queue callbacks
+for every queue below real_num_{rx,tx}_queues, regardless of whether the
+netdev is up. Some of those queues have no stats behind them:
+
+ - RX stats live in priv->channel_stats[], which only has entries for
+   channels that have been opened (stats_nch). real_num_rx_queues can
+   be larger, for example after the channel count is raised while the
+   netdev is down, or after opening the channels failed part way.
+
+ - TX stats are looked up in priv->txq2sq_stats[], which is NULL for
+   SQs that were never activated and for HTB queues while the channels
+   are closed.
+
+In both cases the callback dereferences a NULL pointer. The dump needs
+no privileges, so any user can trigger it.
+
+Return early for RX queues at or above stats_nch and for TX queues
+without SQ stats.
+
+Fixes: 7b66ae536a78 ("net/mlx5e: Add per queue netdev-genl stats")
+Cc: stable@vger.kernel.org
+Signed-off-by: Breno Leitao <leitao@debian.org>
+Reviewed-by: Tariq Toukan <tariqt@nvidia.com>
+Link: https://patch.msgid.link/20261104-mlx5e-qstats-null-v1-1-a6a003245cec@debian.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 9a24799e219b1699bb1c144248c8c500b9504db5)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index a9a824373a9e22d7c8c1ae18b9cc325d7066fa9c..0d22f5f12dec9bbeb00724dc440899b914eb158b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -5428,7 +5428,7 @@ static void mlx5e_get_queue_stats_rx(struct net_device *dev, int i,
+ 	struct mlx5e_rq_stats *xskrq_stats;
+ 	struct mlx5e_rq_stats *rq_stats;
+ 
+-	if (mlx5e_is_uplink_rep(priv) || !mlx5e_stats_nch_read(priv))
++	if (mlx5e_is_uplink_rep(priv) || i >= mlx5e_stats_nch_read(priv))
+ 		return;
+ 
+ 	channel_stats = priv->channel_stats[i];
+@@ -5455,6 +5455,9 @@ static void mlx5e_get_queue_stats_tx(struct net_device *dev, int i,
+ 	 * inactive sqs.
+ 	 */
+ 	sq_stats = priv->txq2sq_stats[i];
++	if (!sq_stats)
++		return;
++
+ 	stats->packets = sq_stats->packets;
+ 	stats->bytes = sq_stats->bytes;
+ }

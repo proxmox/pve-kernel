@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Thu, 29 Oct 2026 21:23:29 -0700
+Subject: [PATCH] net: skbuff: preserve fclone lifetime when freeing stolen
+ heads
+
+skb_morph() can give an skb from skbuff_fclone_cache a page-fragment
+head without changing its fclone tag. IPv4 reassembly can produce such
+an skb, which can subsequently reach the GRO stolen-head path.
+
+napi_skb_free_stolen_head() puts the shell into the ordinary NAPI skb
+cache without dropping its fclone_ref. If the embedded companion is
+still live, KASAN poisons it along with the original, and later cache
+reuse or eviction can overwrite or free the allocation underneath it.
+A mirrored batman-adv DAT packet retained in a plug qdisc reproduces a
+KASAN use-after-free in plug_dequeue().
+
+Use kfree_skbmem() for fclones in napi_skb_free_stolen_head(), retaining
+NAPI caching for ordinary skb heads. Also use kfree_skbmem() in
+kfree_skb_partial(), whose stolen-head branch has the same assumption
+about the allocation cache. This releases the shell according to its
+allocation kind and preserves any live companion without freeing the
+data that has been transferred to the receiving skb.
+
+Fixes: f450d539c05a ("skbuff: introduce {,__}napi_build_skb() which reuses NAPI cache heads")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Link: https://patch.msgid.link/20261030042329.74461-1-kylebot@openai.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 86706ffa990ecd46a4326f8eecbccbbd60a6cb8d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/skbuff.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3e97173f69210e98a29f82d3455367726102811e..bb41ecc236c1b44e55f3f7ea65f4724882ac35cc 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1512,6 +1512,10 @@ void napi_skb_free_stolen_head(struct sk_buff *skb)
+ 		skb_orphan(skb);
+ 		skb->slow_gro = 0;
+ 	}
++	if (skb->fclone != SKB_FCLONE_UNAVAILABLE) {
++		kfree_skbmem(skb);
++		return;
++	}
+ 	napi_skb_cache_put(skb);
+ }
+ 
+@@ -6194,7 +6198,7 @@ void kfree_skb_partial(struct sk_buff *skb, bool head_stolen)
+ {
+ 	if (head_stolen) {
+ 		skb_release_head_state(skb);
+-		kmem_cache_free(net_hotdata.skbuff_cache, skb);
++		kfree_skbmem(skb);
+ 	} else {
+ 		__kfree_skb(skb);
+ 	}

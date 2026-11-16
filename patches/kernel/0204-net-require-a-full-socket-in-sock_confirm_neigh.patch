@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Wed, 4 Nov 2026 14:29:00 +0100
+Subject: [PATCH] net: require a full socket in sock_confirm_neigh()
+
+An skb can retain dst_pending_confirm after its original output and
+socket owner have changed. For example, a raw MSG_CONFIRM packet can
+cross veth, have a TCP request socket assigned by TPROXY, and be bridged
+into gretap. Neighbor output for the outer packet then calls
+sock_confirm_neigh() with the request socket in skb->sk.
+
+The helper unconditionally treats a non-NULL skb->sk as a full socket
+when accessing sk_dst_pending_confirm. TCP request and TIME_WAIT sockets
+do not contain that field. This produces an out-of-bounds four-byte read
+and, if the word is nonzero, an out-of-bounds four-byte zero write. A
+KASAN-enabled kernel reports:
+
+  BUG: KASAN: slab-out-of-bounds in ip_finish_output2+0xc9f/0xd60
+  Read of size 4 at addr ffff8880bdc3d880 by task tproxy_dst_conf/1771
+
+Require sk_fullsock() before accessing the socket field, moving the
+existing helper earlier in the header to make it available here. Keep
+neigh_confirm() independent of the socket type so the skb's neighbor
+confirmation still works, including for socketless packets. This also
+covers the IPv6, VRF, and BPF neighbor-output callers.
+
+Fixes: 4ff0620354f2 ("net: add dst_pending_confirm flag to skbuff")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Link: https://patch.msgid.link/20261104132900.1071940-1-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit c78b47704934e44442f4e48bfdcc99039e3b85a5)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/sock.h | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 4141a46b2439f81664189d7a44b0de525a586138..5358795d756e292894a0321010ca8a70c46e9234 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2254,6 +2254,14 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie);
+ 
+ struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie);
+ 
++/* This helper checks if a socket is a full socket,
++ * ie _not_ a timewait or request socket.
++ */
++static inline bool sk_fullsock(const struct sock *sk)
++{
++	return (1 << sk->sk_state) & ~(TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV);
++}
++
+ static inline void sk_dst_confirm(struct sock *sk)
+ {
+ 	if (!READ_ONCE(sk->sk_dst_pending_confirm))
+@@ -2265,7 +2273,8 @@ static inline void sock_confirm_neigh(struct sk_buff *skb, struct neighbour *n)
+ 	if (skb_get_dst_pending_confirm(skb)) {
+ 		struct sock *sk = skb->sk;
+ 
+-		if (sk && READ_ONCE(sk->sk_dst_pending_confirm))
++		if (sk && sk_fullsock(sk) &&
++		    READ_ONCE(sk->sk_dst_pending_confirm))
+ 			WRITE_ONCE(sk->sk_dst_pending_confirm, 0);
+ 		neigh_confirm(n);
+ 	}
+@@ -2998,14 +3007,6 @@ skb_sk_is_prefetched(struct sk_buff *skb)
+ #endif /* CONFIG_INET */
+ }
+ 
+-/* This helper checks if a socket is a full socket,
+- * ie _not_ a timewait or request socket.
+- */
+-static inline bool sk_fullsock(const struct sock *sk)
+-{
+-	return (1 << sk->sk_state) & ~(TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV);
+-}
+-
+ static inline bool
+ sk_is_refcounted(struct sock *sk)
+ {

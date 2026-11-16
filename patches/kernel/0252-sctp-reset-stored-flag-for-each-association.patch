@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Weiming Shi <bestswngs@gmail.com>
+Date: Sun, 8 Nov 2026 08:11:49 -0800
+Subject: [PATCH] sctp: reset stored flag for each association
+
+sctp_send_asconf_del_ip() walks every association on an endpoint. The
+stored flag records that the current association took the single-homed
+deferral path and therefore did not allocate an ASCONF chunk. It is
+currently scoped to the whole function. Once one association sets it,
+later eligible multihomed associations allocate chunks but skip
+sctp_send_asconf(), leaking each chunk and its skb.
+
+Reset stored for every association so only an association taking the
+deferral path skips transmission. In an A/B kmemleak test, the
+vulnerable kernel reported 210 leaked objects from this call path and the
+fixed kernel reported none.
+
+Cc: stable@vger.kernel.org
+Fixes: 8a07eb0a50ae ("sctp: Add ASCONF operation on the single-homed host")
+Reported-by: Xiang Mei <xmei5@asu.edu>
+Signed-off-by: Weiming Shi <bestswngs@gmail.com>
+Acked-by: Xin Long <lucien.xin@gmail.com>
+Link: https://patch.msgid.link/20261108161149.2774119-1-bestswngs@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 173712d868eb20628ad82deb07f6829a68a9e064)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sctp/socket.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index b5a57f61ee6d11c029b5a898d28e76bf32561d89..8e647737b2567db2849abe7eadd45de0ed959c16 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -809,7 +809,6 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
+ 	struct sctp_sockaddr_entry *saddr;
+ 	int 			i;
+ 	int 			retval = 0;
+-	int			stored = 0;
+ 
+ 	chunk = NULL;
+ 	sp = sctp_sk(sk);
+@@ -822,6 +821,7 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
+ 		 __func__, sk, addrs, addrcnt);
+ 
+ 	list_for_each_entry(asoc, &ep->asocs, asocs) {
++		int stored = 0;
+ 
+ 		if (!asoc->peer.asconf_capable)
+ 			continue;

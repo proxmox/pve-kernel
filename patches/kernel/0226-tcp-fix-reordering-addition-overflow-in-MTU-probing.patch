@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Wed, 28 Oct 2026 17:02:26 +0100
+Subject: [PATCH] tcp: fix reordering addition overflow in MTU probing
+
+[ Upstream commit c1df9c0c0536393de43310f84ca4f8b217271a00 ]
+
+Commit efb8763d7bbb ("net: ipv4: bound TCP reordering sysctl writes and
+MTU probe sizes") widened size_needed and the MSS multiplication, but
+tp->reordering + 1 is still evaluated as u32. RTAX_REORDERING accepts
+an unrestricted u32, and tcp_init_metrics() can install U32_MAX.
+
+In that case the extra-data requirement becomes zero. A write queue
+with probe_size - 1 data bytes and a FIN satisfies the sequence-space
+check. The coalescing walk can pass the queue head to
+tcp_skb_can_collapse(), and tcp_clone_payload() can produce an skb
+whose advertised payload exceeds the data in its fragments. Local
+delivery followed by TCP_ZEROCOPY_RECEIVE can then walk beyond the
+fragment array. KASAN reports a slab-out-of-bounds read in
+can_map_frag().
+
+Cast reordering before incrementing it so the arithmetic handles the
+entire u32 metric range. For U32_MAX, the required size exceeds the
+32-bit queue and window limits, so the existing checks skip the probe.
+The calculation is unchanged for all other reordering values.
+
+Fixes: efb8763d7bbb ("net: ipv4: bound TCP reordering sysctl writes and MTU probe sizes")
+Cc: stable@vger.kernel.org
+Cc: Wyatt Feng <bronzed_45_vested@icloud.com>
+Cc: Ren Wei <n05ec@lzu.edu.cn>
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Neal Cardwell <ncardwell@google.com>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Reviewed-by: Jiayuan Chen <jiayuan.chen@linux.dev>
+Link: https://patch.msgid.link/20261028160226.2170244-1-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 7653d28a1b7d93d886906c6c088de5d77a788031)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/tcp_output.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1145d8e2a925d5fdce4cca312ecdfa55494d1659..a1cad0549c8d40becf1b68288ad88b1df4dfbd98 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2695,7 +2695,7 @@ static int tcp_mtu_probe(struct sock *sk)
+ 	mss_now = tcp_current_mss(sk);
+ 	probe_size = tcp_mtu_to_mss(sk, (icsk->icsk_mtup.search_high +
+ 				    icsk->icsk_mtup.search_low) >> 1);
+-	size_needed = probe_size + (tp->reordering + 1) * (u64)tp->mss_cache;
++	size_needed = probe_size + ((u64)tp->reordering + 1) * tp->mss_cache;
+ 	interval = icsk->icsk_mtup.search_high - icsk->icsk_mtup.search_low;
+ 	/* When misfortune happens, we are reprobing actively,
+ 	 * and then reprobe timer has expired. We stick with current

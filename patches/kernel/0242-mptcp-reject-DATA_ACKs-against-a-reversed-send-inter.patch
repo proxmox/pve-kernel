@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Wed, 4 Nov 2026 14:07:47 +0100
+Subject: [PATCH] mptcp: reject DATA_ACKs against a reversed send interval
+
+ack_update_msk() samples snd_nxt before taking the data lock, but reads
+snd_una after taking it. Concurrent transmission and ACK processing can
+therefore leave the sampled upper bound behind snd_una. Active-open
+completion also exposes a reversed interval when it initializes snd_una
+to IDSN + 1 while the socket-owned state synchronization is deferred.
+
+A peer-supplied 64-bit Data ACK half a sequence space away can pass both
+wraparound comparisons against such an interval. The resulting snd_una
+can make __mptcp_retrans() inflate a fragment's already_sent field. Later
+ACKs can then underflow data_len and cause out-of-bounds page fragments
+to be passed to TCP.
+
+Read snd_nxt after acquiring the data lock and reject reversed intervals
+before checking the received Data ACK. This keeps the interval shorter
+than half the sequence space, so the existing upper-bound check cannot
+accept an advance beyond snd_nxt. Preserve the existing handling of old
+ACKs and keep the transmit fields under their existing socket locking.
+
+Cc: stable@vger.kernel.org
+Fixes: 7439d687b79c ("mptcp: avoid a few atomic ops in the rx path")
+Fixes: 3f83d8a77eee ("mptcp: fix more tx path fields initialization")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Matthieu Baerts (NGI0) <matttbe@kernel.org>
+Link: https://patch.msgid.link/20261104130747.1045741-1-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit d75e5cd72995ec2fa77ec77a593cea28e2490ff1)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/mptcp/options.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/mptcp/options.c b/net/mptcp/options.c
+index 19da99539e2b2a6a10265fd5da7636383b5b7854..8dda336531e7c1cbe8712d84f7487fdb5494e691 100644
+--- a/net/mptcp/options.c
++++ b/net/mptcp/options.c
+@@ -1135,9 +1135,9 @@ static void ack_update_msk(struct mptcp_sock *msk,
+ 			   struct sock *ssk,
+ 			   struct mptcp_options_received *mp_opt)
+ {
+-	u64 new_wnd_end, new_snd_una, snd_nxt = READ_ONCE(msk->snd_nxt);
++	u64 new_wnd_end, new_snd_una, old_snd_una;
+ 	struct sock *sk = (struct sock *)msk;
+-	u64 old_snd_una;
++	u64 snd_nxt;
+ 
+ 	mptcp_data_lock(sk);
+ 
+@@ -1146,10 +1146,14 @@ static void ack_update_msk(struct mptcp_sock *msk,
+ 	 * more dangerous than missing an ack
+ 	 */
+ 	old_snd_una = msk->snd_una;
++	snd_nxt = READ_ONCE(msk->snd_nxt);
+ 	new_snd_una = mptcp_expand_seq(old_snd_una, mp_opt->data_ack, mp_opt->ack64);
+ 
+-	/* ACK for data not even sent yet? Ignore.*/
+-	if (unlikely(after64(new_snd_una, snd_nxt)))
++	/* The active-open state sync can defer the snd_nxt update. Do not
++	 * accept an ACK against a reversed interval, or beyond snd_nxt.
++	 */
++	if (unlikely(before64(snd_nxt, old_snd_una) ||
++		     after64(new_snd_una, snd_nxt)))
+ 		new_snd_una = old_snd_una;
+ 
+ 	new_wnd_end = new_snd_una + tcp_sk(ssk)->snd_wnd;

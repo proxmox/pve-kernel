@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Tue, 13 Oct 2026 16:29:20 +0200
+Subject: [PATCH] mptcp: fix subflow bitfield misuse
+
+[ Upstream commit 7538fa33bb2f66b8b809ff39d58308be48e197a0 ]
+
+The subflow status bitfield is protected by the subflow socket lock,
+with one notable exception: the `close_event_done` bit is actually under
+the msk socket lock protection.
+
+As reported by Clashiko [1], flipping the latter bit may corrupt other
+entries in the same bitfield.
+
+Move the `close_event_done` outside the bitfield, in a 32bit hole.
+
+Link: https://lore.kernel.org/178959153492.22033.1944011998010756543@kernel.org
+Fixes: d82809b6c5f2 ("mptcp: avoid duplicated SUB_CLOSED events")
+Cc: stable@vger.kernel.org
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Reviewed-by: Matthieu Baerts (NGI0) <matttbe@kernel.org>
+Signed-off-by: Matthieu Baerts (NGI0) <matttbe@kernel.org>
+Link: https://patch.msgid.link/20261013-net-mptcp-misc-fixes-7-3-rc8-v1-2-932c9b182fc7@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 0bbd666d019bc2f32210ccdd90fc1795db9aa85c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/mptcp/protocol.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/mptcp/protocol.h b/net/mptcp/protocol.h
+index 5a4ee7e1095a5977a5e9e63518fbd8dbb97d2ba2..161593fc376d958b23c44f314094262e50f5f17b 100644
+--- a/net/mptcp/protocol.h
++++ b/net/mptcp/protocol.h
+@@ -582,14 +582,16 @@ struct mptcp_subflow_context {
+ 		closing : 1,	    /* must not pass rx data to msk anymore */
+ 		valid_csum_seen : 1,        /* at least one csum validated */
+ 		is_mptfo : 1,	    /* subflow is doing TFO */
+-		close_event_done : 1,       /* has done the post-closed part */
+ 		mpc_drop : 1,	    /* the MPC option has been dropped in a rtx */
+ 		resetting : 1,	    /* subflow is resetting */
+-		__unused : 8;
++		__unused : 9;
+ 	bool	data_avail;
+ 	bool	scheduled;
+ 	bool	pm_listener;	    /* a listener managed by the kernel PM? */
+ 	bool	fully_established;  /* path validated */
++	bool	close_event_done;   /* has done the post-closed part,
++				     * protected by msk socket lock
++				     */
+ 	u32	lent_mem_frag;
+ 	u32	remote_nonce;
+ 	u64	thmac;

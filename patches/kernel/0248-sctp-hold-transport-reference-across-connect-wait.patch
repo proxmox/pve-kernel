@@ -1,0 +1,128 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Seung Min Shin <guncraft2000@naver.com>
+Date: Sun, 11 Oct 2026 16:27:50 +0000
+Subject: [PATCH] sctp: hold transport reference across connect wait
+
+[ Upstream commit 5bef8649bb9ac4b2a014bcc227202ebd2df824be ]
+
+sctp_sendmsg_to_asoc() selects a transport before waiting for a new
+interleaved association to become established. sctp_wait_for_connect()
+drops the socket lock while sleeping.
+
+While the lock is dropped, backlog processing can handle a COOKIE ACK and
+an ASCONF DEL-IP that removes the selected transport. sctp_assoc_rm_peer()
+then marks the transport dead and drops its association-owned reference.
+The transport can be freed through RCU before the send path resumes.
+
+After the wait, the stale pointer is assigned to newly created DATA or
+I-DATA chunks and later dereferenced by sctp_outq_select_transport().
+
+Hold a reference to the selected transport across
+sctp_wait_for_connect(). After the socket lock is reacquired, abort the
+send if the transport was marked dead. Callers without a selected
+transport pass NULL and retain their existing behavior.
+
+Cc: stable@vger.kernel.org
+Fixes: 668c9beb9020 ("sctp: implement assign_number for sctp_stream_interleave")
+Acked-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Seung Min Shin <guncraft2000@naver.com>
+Link: https://patch.msgid.link/20261011162750.1529631-1-guncraft2000@naver.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 98cafb9310ee0e8ad2c72f34f2484dbcb6f5e423)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/sctp/socket.c | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 321898f22d80dc34dd6389f986ce1743d5e57cc7..c616f1609d0cfe44c48bd026a3ee922ab2a474f2 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -75,7 +75,8 @@ static int sctp_wait_for_sndbuf(struct sctp_association *asoc,
+ 				struct sctp_transport *transport,
+ 				long *timeo_p, size_t msg_len);
+ static int sctp_wait_for_packet(struct sock *sk, int *err, long *timeo_p);
+-static int sctp_wait_for_connect(struct sctp_association *, long *timeo_p);
++static int sctp_wait_for_connect(struct sctp_association *,
++				 struct sctp_transport *, long *timeo_p);
+ static int sctp_wait_for_accept(struct sock *sk, long timeo);
+ static void sctp_wait_for_close(struct sock *sk, long timeo);
+ static void sctp_destruct_sock(struct sock *sk);
+@@ -1245,7 +1246,7 @@ static int __sctp_connect(struct sock *sk, struct sockaddr *kaddrs,
+ 		*assoc_id = asoc->assoc_id;
+ 
+ 	timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
+-	return sctp_wait_for_connect(asoc, &timeo);
++	return sctp_wait_for_connect(asoc, NULL, &timeo);
+ 
+ out_free:
+ 	pr_debug("%s: took out_free path with asoc:%p kaddrs:%p err:%d\n",
+@@ -1847,7 +1848,7 @@ static int sctp_sendmsg_to_asoc(struct sctp_association *asoc,
+ 
+ 		if (asoc->ep->intl_enable) {
+ 			timeo = sock_sndtimeo(sk, 0);
+-			err = sctp_wait_for_connect(asoc, &timeo);
++			err = sctp_wait_for_connect(asoc, transport, &timeo);
+ 			if (err || sk->sk_shutdown & RCV_SHUTDOWN) {
+ 				err = -ESRCH;
+ 				goto err;
+@@ -1890,7 +1891,7 @@ static int sctp_sendmsg_to_asoc(struct sctp_association *asoc,
+ 
+ 	if (unlikely(wait_connect)) {
+ 		timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
+-		sctp_wait_for_connect(asoc, &timeo);
++		sctp_wait_for_connect(asoc, NULL, &timeo);
+ 	}
+ 
+ 	err = msg_len;
+@@ -9390,7 +9391,9 @@ static bool sctp_writeable(const struct sock *sk)
+ /* Wait for an association to go into ESTABLISHED state. If timeout is 0,
+  * returns immediately with EINPROGRESS.
+  */
+-static int sctp_wait_for_connect(struct sctp_association *asoc, long *timeo_p)
++static int sctp_wait_for_connect(struct sctp_association *asoc,
++				 struct sctp_transport *transport,
++				 long *timeo_p)
+ {
+ 	struct sock *sk = asoc->base.sk;
+ 	int err = 0;
+@@ -9399,12 +9402,16 @@ static int sctp_wait_for_connect(struct sctp_association *asoc, long *timeo_p)
+ 
+ 	pr_debug("%s: asoc:%p, timeo:%ld\n", __func__, asoc, *timeo_p);
+ 
+-	/* Increment the association's refcnt.  */
++	/* Hold references while the socket lock is dropped. */
++	if (transport)
++		sctp_transport_hold(transport);
+ 	sctp_association_hold(asoc);
+ 
+ 	for (;;) {
+ 		prepare_to_wait_exclusive(&asoc->wait, &wait,
+ 					  TASK_INTERRUPTIBLE);
++		if (transport && transport->dead)
++			goto do_transport_dead;
+ 		if (!*timeo_p)
+ 			goto do_nonblock;
+ 		if (sk->sk_shutdown & RCV_SHUTDOWN)
+@@ -9433,7 +9440,8 @@ static int sctp_wait_for_connect(struct sctp_association *asoc, long *timeo_p)
+ out:
+ 	finish_wait(&asoc->wait, &wait);
+ 
+-	/* Release the association's refcnt.  */
++	if (transport)
++		sctp_transport_put(transport);
+ 	sctp_association_put(asoc);
+ 
+ 	return err;
+@@ -9452,6 +9460,10 @@ static int sctp_wait_for_connect(struct sctp_association *asoc, long *timeo_p)
+ do_nonblock:
+ 	err = -EINPROGRESS;
+ 	goto out;
++
++do_transport_dead:
++	err = -EAGAIN;
++	goto out;
+ }
+ 
+ static int sctp_wait_for_accept(struct sock *sk, long timeo)

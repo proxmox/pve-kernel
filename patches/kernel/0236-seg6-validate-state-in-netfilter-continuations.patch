@@ -1,0 +1,256 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zixuan Chai <petalzu987@gmail.com>
+Date: Fri, 6 Nov 2026 11:30:19 +0800
+Subject: [PATCH] seg6: validate state in netfilter continuations
+
+When nf_hooks_lwtunnel is enabled, End.DX4 sends decapsulated packets
+through NF_INET_PRE_ROUTING. If DNAT changes the inner destination,
+nf_nat_ipv4_pre_routing() drops skb_dst(), and the continuation then
+dereferences the missing dst's lwtstate. This causes a KASAN NULL
+pointer dereference and fatal exception panic.
+
+End.DX6 has the same issue with IPv6 DNAT. In seg6_iptunnel,
+POST_ROUTING SNAT with an outbound XFRM policy can replace the dst before
+the continuation resumes.
+
+Validate the current dst and expected lwtstate type in each NF_HOOK()
+continuation before calling the existing handler. Drop packets with
+missing or incompatible state while preserving direct no-hook paths.
+The helpers return bool because callers only need a validity check.
+
+Testing shows that the End.DX4 DNAT reproducer triggers a KASAN NULL
+pointer dereference without this change and no longer does so with the
+fix. The SNAT+ESP/XFRM reproducer also completes without the reported
+fault. The in-tree End.DX4 netfilter forwarding selftest passes all four
+bidirectional checks with nf_hooks_lwtunnel disabled and enabled.
+
+Fixes: 7a3f5b0de364 ("netfilter: add netfilter hooks to SRv6 data plane")
+Cc: stable@vger.kernel.org
+Reported-by: Vega <vega@nebusec.ai>
+Reported-by: Sashiko <sashiko-bot@kernel.org>
+Closes: https://sashiko.dev/#/patchset/20260720204430.1886091-1-xmei5@asu.edu
+Signed-off-by: Zixuan Chai <petalzu987@gmail.com>
+Signed-off-by: Ren Wei <weir@nebusec.ai>
+Reviewed-by: Hangbin Liu <liuhangbin@kylinos.cn>
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Reviewed-by: Andrea Mayer <andrea.mayer@uniroma2.it>
+Link: https://patch.msgid.link/8574739acd6f5d9eb0a5640e893122619e9f79ef.1793726355.git.petalzu987@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 549484dd3e80a721d51bd695f22a800d2e05bea1)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/seg6_iptunnel.c | 46 ++++++++++++++++++++++++++++++---
+ net/ipv6/seg6_local.c    | 55 +++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 94 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
+index d18f73ccf3d4a0581c237325987a13877dc61b62..e4ff2410803f998777e9dc101679269f983097cd 100644
+--- a/net/ipv6/seg6_iptunnel.c
++++ b/net/ipv6/seg6_iptunnel.c
+@@ -18,6 +18,7 @@
+ #include <net/ip6_fib.h>
+ #include <net/route.h>
+ #include <net/seg6.h>
++#include <net/dst_metadata.h>
+ #include <linux/seg6.h>
+ #include <linux/seg6_iptunnel.h>
+ #include <net/addrconf.h>
+@@ -58,6 +59,21 @@ static inline struct seg6_lwt *seg6_lwt_lwtunnel(struct lwtunnel_state *lwt)
+ 	return (struct seg6_lwt *)lwt->data;
+ }
+ 
++static bool seg6_skb_has_lwtstate(struct sk_buff *skb)
++{
++	struct dst_entry *dst;
++
++	if (unlikely(!skb_valid_dst(skb)))
++		return false;
++
++	dst = skb_dst(skb);
++	if (unlikely(!dst->lwtstate ||
++		     dst->lwtstate->type != LWTUNNEL_ENCAP_SEG6))
++		return false;
++
++	return true;
++}
++
+ static inline struct seg6_iptunnel_encap *
+ seg6_encap_lwtunnel(struct lwtunnel_state *lwt)
+ {
+@@ -538,6 +554,17 @@ static int seg6_input_core(struct net *net, struct sock *sk,
+ 	return err;
+ }
+ 
++static int seg6_input_core_nf(struct net *net, struct sock *sk,
++			      struct sk_buff *skb)
++{
++	if (unlikely(!seg6_skb_has_lwtstate(skb))) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return seg6_input_core(net, sk, skb);
++}
++
+ static int seg6_input_nf(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb_dst_dev(skb);
+@@ -546,10 +573,10 @@ static int seg6_input_nf(struct sk_buff *skb)
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+ 		return NF_HOOK(NFPROTO_IPV4, NF_INET_POST_ROUTING, net, NULL,
+-			       skb, NULL, dev, seg6_input_core);
++			       skb, NULL, dev, seg6_input_core_nf);
+ 	case htons(ETH_P_IPV6):
+ 		return NF_HOOK(NFPROTO_IPV6, NF_INET_POST_ROUTING, net, NULL,
+-			       skb, NULL, dev, seg6_input_core);
++			       skb, NULL, dev, seg6_input_core_nf);
+ 	}
+ 
+ 	return -EINVAL;
+@@ -624,6 +651,17 @@ static int seg6_output_core(struct net *net, struct sock *sk,
+ 	return err;
+ }
+ 
++static int seg6_output_core_nf(struct net *net, struct sock *sk,
++			       struct sk_buff *skb)
++{
++	if (unlikely(!seg6_skb_has_lwtstate(skb))) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return seg6_output_core(net, sk, skb);
++}
++
+ static int seg6_output_nf(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb_dst_dev(skb);
+@@ -631,10 +669,10 @@ static int seg6_output_nf(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+ 		return NF_HOOK(NFPROTO_IPV4, NF_INET_POST_ROUTING, net, sk, skb,
+-			       NULL, dev, seg6_output_core);
++			       NULL, dev, seg6_output_core_nf);
+ 	case htons(ETH_P_IPV6):
+ 		return NF_HOOK(NFPROTO_IPV6, NF_INET_POST_ROUTING, net, sk, skb,
+-			       NULL, dev, seg6_output_core);
++			       NULL, dev, seg6_output_core_nf);
+ 	}
+ 
+ 	return -EINVAL;
+diff --git a/net/ipv6/seg6_local.c b/net/ipv6/seg6_local.c
+index 53f7b2452575980b32c44c2c7498999d99b0c139..e791fb3dd61322a3e41de2a29e1d3f915aa317a6 100644
+--- a/net/ipv6/seg6_local.c
++++ b/net/ipv6/seg6_local.c
+@@ -24,6 +24,7 @@
+ #include <net/addrconf.h>
+ #include <net/ip6_route.h>
+ #include <net/dst_cache.h>
++#include <net/dst_metadata.h>
+ #include <net/ip_tunnels.h>
+ #ifdef CONFIG_IPV6_SEG6_HMAC
+ #include <net/seg6_hmac.h>
+@@ -213,6 +214,21 @@ static struct seg6_local_lwt *seg6_local_lwtunnel(struct lwtunnel_state *lwt)
+ 	return (struct seg6_local_lwt *)lwt->data;
+ }
+ 
++static bool seg6_local_skb_has_lwtstate(struct sk_buff *skb)
++{
++	struct dst_entry *dst;
++
++	if (unlikely(!skb_valid_dst(skb)))
++		return false;
++
++	dst = skb_dst(skb);
++	if (unlikely(!dst->lwtstate ||
++		     dst->lwtstate->type != LWTUNNEL_ENCAP_SEG6_LOCAL))
++		return false;
++
++	return true;
++}
++
+ static struct ipv6_sr_hdr *get_and_validate_srh(struct sk_buff *skb)
+ {
+ 	struct ipv6_sr_hdr *srh;
+@@ -1028,6 +1044,17 @@ static int input_action_end_dx6_finish(struct net *net, struct sock *sk,
+ 	return dst_input(skb);
+ }
+ 
++static int input_action_end_dx6_finish_nf(struct net *net, struct sock *sk,
++					  struct sk_buff *skb)
++{
++	if (unlikely(!seg6_local_skb_has_lwtstate(skb))) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return input_action_end_dx6_finish(net, sk, skb);
++}
++
+ /* decapsulate and forward to specified nexthop */
+ static int input_action_end_dx6(struct sk_buff *skb,
+ 				struct seg6_local_lwt *slwt)
+@@ -1048,7 +1075,7 @@ static int input_action_end_dx6(struct sk_buff *skb,
+ 	if (static_branch_unlikely(&nf_hooks_lwtunnel_enabled))
+ 		return NF_HOOK(NFPROTO_IPV6, NF_INET_PRE_ROUTING,
+ 			       dev_net(skb->dev), NULL, skb, skb->dev,
+-			       NULL, input_action_end_dx6_finish);
++			       NULL, input_action_end_dx6_finish_nf);
+ 
+ 	return input_action_end_dx6_finish(dev_net(skb->dev), NULL, skb);
+ drop:
+@@ -1082,6 +1109,17 @@ static int input_action_end_dx4_finish(struct net *net, struct sock *sk,
+ 	return dst_input(skb);
+ }
+ 
++static int input_action_end_dx4_finish_nf(struct net *net, struct sock *sk,
++					  struct sk_buff *skb)
++{
++	if (unlikely(!seg6_local_skb_has_lwtstate(skb))) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return input_action_end_dx4_finish(net, sk, skb);
++}
++
+ static int input_action_end_dx4(struct sk_buff *skb,
+ 				struct seg6_local_lwt *slwt)
+ {
+@@ -1098,7 +1136,7 @@ static int input_action_end_dx4(struct sk_buff *skb,
+ 	if (static_branch_unlikely(&nf_hooks_lwtunnel_enabled))
+ 		return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING,
+ 			       dev_net(skb->dev), NULL, skb, skb->dev,
+-			       NULL, input_action_end_dx4_finish);
++			       NULL, input_action_end_dx4_finish_nf);
+ 
+ 	return input_action_end_dx4_finish(dev_net(skb->dev), NULL, skb);
+ drop:
+@@ -1741,6 +1779,17 @@ static int seg6_local_input_core(struct net *net, struct sock *sk,
+ 	return rc;
+ }
+ 
++static int seg6_local_input_core_nf(struct net *net, struct sock *sk,
++				    struct sk_buff *skb)
++{
++	if (unlikely(!seg6_local_skb_has_lwtstate(skb))) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return seg6_local_input_core(net, sk, skb);
++}
++
+ static int seg6_local_input(struct sk_buff *skb)
+ {
+ 	if (skb->protocol != htons(ETH_P_IPV6)) {
+@@ -1751,7 +1800,7 @@ static int seg6_local_input(struct sk_buff *skb)
+ 	if (static_branch_unlikely(&nf_hooks_lwtunnel_enabled))
+ 		return NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_IN,
+ 			       dev_net(skb->dev), NULL, skb, skb->dev, NULL,
+-			       seg6_local_input_core);
++			       seg6_local_input_core_nf);
+ 
+ 	return seg6_local_input_core(dev_net(skb->dev), NULL, skb);
+ }

@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kuniyuki Iwashima <kuniyu@google.com>
+Date: Sun, 1 Nov 2026 06:35:24 +0000
+Subject: [PATCH] ipv4: Call rt_add_uncached_list() if !do_cache in
+ ip_route_input_slow().
+
+Since the cited commit, ip_route_input_slow() could call
+rt_dst_alloc() with vrf in the local_input: path.
+
+If res->fi != NULL and one of the following is true,
+
+  - a non-zero itag from fib_validate_source_reason()
+    (realms/classid)
+  - RTN_BROADCAST with BC_FORWARDING enabled
+
+do_cache is set to false.
+
+Then, the route is not added to rt_uncached_list, so the
+route cannot be removed from rt_flush_dev().
+
+If the route is cached in sk->sk_rx_dst, removing the
+vrf device gets stuck. [0]
+
+Let's call rt_add_uncached_list() if !do_cache in
+ip_route_input_slow().
+
+[0]:
+unregister_netdevice: waiting for vrf0 to become free. Usage count = 2
+ref_tracker: netdev@000000008b304ac4 has 1/1 users at
+     dst_alloc+0x14b/0x490
+     ip_route_input_rcu+0x1540/0x2530
+     ip_route_input_noref+0x5a/0x90
+     ip_rcv_finish_core+0x4b0/0x1140
+     ip_rcv_finish+0xe6/0x190
+     ip_rcv+0x6c/0x130
+     __netif_receive_skb+0x121/0x300
+     process_backlog+0x2df/0x5e0
+     __napi_poll+0x8c/0x380
+     net_rx_action+0x43c/0xab0
+     handle_softirqs+0x19f/0x520
+     do_softirq+0x46/0x60
+     __local_bh_enable_ip+0x79/0x80
+     __dev_queue_xmit+0x1b0e/0x24c0
+     ip_finish_output2+0x8b2/0xcd0
+     ip_output+0xf2/0x1e0
+
+Fixes: f5a0aab84b74 ("net: ipv4: dst for local input routes should use l3mdev if relevant")
+Reported-by: Jason Zhang <jdz@google.com>
+Signed-off-by: Kuniyuki Iwashima <kuniyu@google.com>
+Link: https://patch.msgid.link/20261101064418.2055158-4-kuniyu@google.com
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+(cherry picked from commit 4019af3afd72864ec6abbfde2d76e416a64456c2)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/route.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 27138e0e437977f33b7b2ced0d988490d6694b1d..3a44997bdf66f754d1854522eccd8b3e2098e440 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2485,6 +2485,8 @@ ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 
+ 		if (unlikely(!rt_cache_route(nhc, rth)))
+ 			rt_add_uncached_list(rth);
++	} else {
++		rt_add_uncached_list(rth);
+ 	}
+ 	skb_dst_set(skb, &rth->dst);
+ 	reason = SKB_NOT_DROPPED_YET;

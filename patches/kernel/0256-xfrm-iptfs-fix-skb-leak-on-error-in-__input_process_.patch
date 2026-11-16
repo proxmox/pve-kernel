@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@kernel.org>
+Date: Fri, 30 Oct 2026 09:33:58 +0100
+Subject: [PATCH] xfrm: iptfs: fix skb leak on error in
+ __input_process_payload()
+
+syzbot reported a memory leak of the received skb (and its sec_path
+extension) in the IP-TFS receive path.
+
+__input_process_payload() parses the inner packets of an IP-TFS payload
+and queues them on @sublist, which is only sent after the parsing loop.
+Three error paths inside the loop (skb_copy_seq_read() failure, invalid
+inner IPv4 header length, unknown IP version) jump to the "done" label,
+which is placed after the code sending @sublist.
+
+Any skb already queued on @sublist is then neither delivered nor freed.
+This includes skbs added by iptfs_reassem_cont() before the call, newly
+allocated inner packets, and, since the received skb can be reused for
+the first inner packet, the received skb itself.
+
+Move the "done" label before the trim/send code, so that inner packets
+parsed before the error are delivered as on the normal exit path. The
+received skb is then still freed (or consumed) as before when it was
+not reused.
+
+Fixes: 6c82d2433671 ("xfrm: iptfs: add basic receive packet (tunnel egress) handling")
+Reported-by: syzbot+a3f21220cbbb6e14ee2e@syzkaller.appspotmail.com
+Closes: https://lore.kernel.org/netdev/6ae4102e.9c6421ad.36baac.0005.GAE@google.com/
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+Link: https://patch.msgid.link/20261030083358.2653599-1-edumazet@kernel.org
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+(cherry picked from commit 64e45ed926cdd017c9816c8006d9117a7194c7e9)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_iptfs.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/xfrm/xfrm_iptfs.c b/net/xfrm/xfrm_iptfs.c
+index 6920940a35b49d2e95e3468c35f199549bf5b121..71bdc8d61015dd7ecb6ff33b460ccb0405060f38 100644
+--- a/net/xfrm/xfrm_iptfs.c
++++ b/net/xfrm/xfrm_iptfs.c
+@@ -1183,6 +1183,7 @@ static bool __input_process_payload(struct xfrm_state *x, u32 data,
+ 		/* this should not happen from the above code */
+ 		XFRM_INC_STATS(net, LINUX_MIB_XFRMINIPTFSERROR);
+ 
++done:
+ 	if (first_skb && first_iplen && !defer && !first_skb_partial) {
+ 		/* first_skb is queued b/c !defer and not partial */
+ 		if (pskb_trim(first_skb, first_iplen)) {
+@@ -1199,7 +1200,7 @@ static bool __input_process_payload(struct xfrm_state *x, u32 data,
+ 		if (xfrm_input(skb, 0, 0, -2))
+ 			kfree_skb(skb);
+ 	}
+-done:
++
+ 	skb = skbseq->root_skb;
+ 	skb_abort_seq_read(skbseq);
+ 

@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yu Zhang <yuz08559@gmail.com>
+Date: Mon, 26 Oct 2026 20:05:35 +1000
+Subject: [PATCH] ptp: fix use-after-free in extts_fifo_show() reading tsevqs
+ unlocked
+
+[ Upstream commit 603a0c40d414ea12509fc45f2b930449a8d4aad2 ]
+
+extts_fifo_show() walks ptp->tsevqs with list_count_nodes() and then
+list_first_entry() without holding ptp->tsevqs_lock, the spinlock that
+"protects tsevqs from concurrent access". Every other accessor of the
+list honours it: ptp_open() (list_add_tail), ptp_release() (list_del
+followed by kfree of the per-fd queue), ptp_clock_release() and
+ptp_clock_event() all take tsevqs_lock. extts_fifo_show() is the only
+one that does not.
+
+A per-fd timestamp queue is appended to tsevqs on open("/dev/ptpN") and
+removed and freed on close(), both under tsevqs_lock:
+
+	scoped_guard(spinlock_irq, &ptp->tsevqs_lock)
+		list_del(&queue->qlist);
+	bitmap_free(queue->mask);
+	kfree(queue);
+
+So a read of /sys/class/ptp/ptpN/fifo running concurrently with a
+close() of a /dev/ptpN fd can have list_count_nodes() walk into the
+queue that close() is removing and freeing, dereferencing freed memory
+(use-after-free) or a poisoned list pointer.
+
+Take tsevqs_lock around the list walk. The fifo only ever draws from the
+first queue, which is the registration-time queue created in
+ptp_clock_register() and freed only in ptp_clock_release(); that cannot
+run while the sysfs attribute is being read, so the dequeue from
+queue->buf under queue->lock may stay outside tsevqs_lock and the lock
+order is unchanged.
+
+Fixes: d26ab5a35ad9 ("ptp: Replace timestamp event queue with linked list")
+Cc: stable@vger.kernel.org
+Signed-off-by: Yu Zhang <yuz08559@gmail.com>
+Link: https://patch.msgid.link/20261026100535.68114-1-yuz08559@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit ddf7e731532910a3560506cdca9a0cd2c72e10c1)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/ptp/ptp_sysfs.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ptp/ptp_sysfs.c b/drivers/ptp/ptp_sysfs.c
+index dc398c6b75284bf58ee37522249f2e1942db3443..7d09256aca7242ee8364e926baf8e18da6a1c1b2 100644
+--- a/drivers/ptp/ptp_sysfs.c
++++ b/drivers/ptp/ptp_sysfs.c
+@@ -80,13 +80,17 @@ static ssize_t extts_fifo_show(struct device *dev,
+ 	size_t qcnt;
+ 	int cnt = 0;
+ 
++	spin_lock_irqsave(&ptp->tsevqs_lock, flags);
+ 	cnt = list_count_nodes(&ptp->tsevqs);
+-	if (cnt <= 0)
++	if (cnt <= 0) {
++		spin_unlock_irqrestore(&ptp->tsevqs_lock, flags);
+ 		goto out;
++	}
+ 
+ 	/* The sysfs fifo will always draw from the fist queue */
+ 	queue = list_first_entry(&ptp->tsevqs, struct timestamp_event_queue,
+ 				 qlist);
++	spin_unlock_irqrestore(&ptp->tsevqs_lock, flags);
+ 
+ 	memset(&event, 0, sizeof(event));
+ 	spin_lock_irqsave(&queue->lock, flags);

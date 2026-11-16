@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jiabin Deng <dengjiabin2023@gmail.com>
+Date: Tue, 10 Nov 2026 11:57:23 +0800
+Subject: [PATCH] net/mlx5e: SHAMPO, Disable end padding when relaxed ordering
+ is supported
+
+When SHAMPO and relaxed ordering writes are enabled, aligned RQ end
+padding can corrupt received TCP data. Due to reordering, alignment
+padding written at the end of one packet can overwrite data from the
+next packet.
+
+The current RQ end padding selection avoids alignment padding for LRO,
+but not for SHAMPO. Extend the condition to SHAMPO to prevent this
+corruption.
+
+The issue was observed in a two-host test using a BlueField-3 NIC and
+an NVIDIA H20 GPU. In the original test with MTU 1500, 354 of 400
+transfers contained corrupted data before the fix. After applying this
+change, all 400 transfers across eight message sizes from 32 KiB to
+4 MiB, with 50 transfers per size, completed successfully, with no
+incorrect bytes or corrupted intervals.
+
+Fixes: e5ca8fb08ab2 ("net/mlx5e: Add control path for SHAMPO feature")
+Closes: https://lore.kernel.org/r/CAFxp=AY2cVRQrZvB9WNnigbsobuw11NMG-cagHx0_V+ur2ToFw@mail.gmail.com
+Link: https://lore.kernel.org/r/atZKOtjrb9HKSNHF@dtatulea-c5.nvidia.com
+Suggested-by: Dragos Tatulea <dtatulea@nvidia.com>
+Reviewed-by: Dragos Tatulea <dtatulea@nvidia.com>
+Reviewed-by: Tariq Toukan <tariqt@nvidia.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Jiabin Deng <dengjiabin2023@gmail.com>
+Link: https://patch.msgid.link/20261110035723.26587-1-dengjiabin2023@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 68c183619f24982a635930697bf8e148f2d78f71)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/params.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/params.c b/drivers/net/ethernet/mellanox/mlx5/core/en/params.c
+index 8e99d07586fa5cdb72d954ed80d7f1e91db3d689..f7a6b78777c0a5118f3f72e8dd3f87ffd7e8454c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/params.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/params.c
+@@ -873,10 +873,11 @@ static void mlx5e_build_rx_cq_param(struct mlx5_core_dev *mdev,
+ 
+ static u8 rq_end_pad_mode(struct mlx5_core_dev *mdev, struct mlx5e_params *params)
+ {
+-	bool lro_en = params->packet_merge.type == MLX5E_PACKET_MERGE_LRO;
++	bool no_pad = params->packet_merge.type == MLX5E_PACKET_MERGE_LRO ||
++		      params->packet_merge.type == MLX5E_PACKET_MERGE_SHAMPO;
+ 	bool ro = MLX5_CAP_GEN(mdev, relaxed_ordering_write);
+ 
+-	return ro && lro_en ?
++	return ro && no_pad ?
+ 		MLX5_WQ_END_PAD_MODE_NONE : MLX5_WQ_END_PAD_MODE_ALIGN;
+ }
+ 

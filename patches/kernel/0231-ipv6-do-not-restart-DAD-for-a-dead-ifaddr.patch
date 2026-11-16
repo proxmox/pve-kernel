@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daehyeon Ko <4ncienth@gmail.com>
+Date: Thu, 15 Oct 2026 14:06:51 +0900
+Subject: [PATCH] ipv6: do not restart DAD for a dead ifaddr
+
+[ Upstream commit ffb668669ce4144347973d8b2fad449e9be0563d ]
+
+addrconf_dad_failure() can create a stable-privacy replacement without
+RTNL. After ipv6_add_addr() publishes it, addrconf_ifdown() can mark the
+new ifaddr DEAD, clear its route, and unlink it before the recovery path
+takes ifp2->lock.
+
+The recovery path then unconditionally changes the state back to PREDAD
+and queues delayed DAD work. The MTU teardown path can leave IF_READY
+set. For an optimistic address, addrconf_dad_begin() can consequently
+pass the cleared NULL route to ip6_ins_rt().
+
+This follow-on was found by source review and was not separately
+triggered at runtime.
+
+The new ifaddr is already initialized in PREDAD. Under ifp2->lock, record
+the retry and queue DAD only if teardown has not changed the state to
+DEAD. If teardown wins after this check, the work observes DEAD and exits
+without reviving the address.
+
+This complements the existing lock_errdad check that preserves the original
+ifaddr's DEAD state after the same function reacquires its lock.
+
+Fixes: 5f40ef77adb2 ("ipv6: do retries on stable privacy addresses")
+Cc: stable@vger.kernel.org
+Reported-by: Sashiko <netdev-bot+sashiko@kernel.org>
+Closes: https://lore.kernel.org/r/179161099408.434549.14449036924552933828@kernel.org
+Link: https://lore.kernel.org/r/20260513025509.3776405-1-lilinmao@kylinos.cn
+Signed-off-by: Daehyeon Ko <4ncienth@gmail.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20261015050651.1841557-5-4ncienth@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 6c90b7568b4178250ee3c4a853ffb4f0831ddc04)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/addrconf.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 47d80c50cdc5a65e654f670edc51ecb08a5dd35a..bb2c3129d216177cc3b0dd4a1f4f758c8796d394 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2193,6 +2193,7 @@ void addrconf_dad_failure(struct sk_buff *skb, struct inet6_ifaddr *ifp)
+ 			     ifp->idev->dev->name, &ifp->addr, eth_hdr(skb)->h_source);
+ 
+ 	if (ifp->flags & IFA_F_STABLE_PRIVACY) {
++		bool start_dad = false;
+ 		struct in6_addr new_addr;
+ 		struct inet6_ifaddr *ifp2;
+ 		int retries = ifp->stable_privacy_retry + 1;
+@@ -2231,11 +2232,14 @@ void addrconf_dad_failure(struct sk_buff *skb, struct inet6_ifaddr *ifp)
+ 			goto lock_errdad;
+ 
+ 		spin_lock_bh(&ifp2->lock);
+-		ifp2->stable_privacy_retry = retries;
+-		ifp2->state = INET6_IFADDR_STATE_PREDAD;
++		if (ifp2->state != INET6_IFADDR_STATE_DEAD) {
++			ifp2->stable_privacy_retry = retries;
++			start_dad = true;
++		}
+ 		spin_unlock_bh(&ifp2->lock);
+ 
+-		addrconf_mod_dad_work(ifp2, net->ipv6.sysctl.idgen_delay);
++		if (start_dad)
++			addrconf_mod_dad_work(ifp2, net->ipv6.sysctl.idgen_delay);
+ 		in6_ifa_put(ifp2);
+ lock_errdad:
+ 		spin_lock_bh(&ifp->lock);

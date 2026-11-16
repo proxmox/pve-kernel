@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kuniyuki Iwashima <kuniyu@google.com>
+Date: Thu, 5 Nov 2026 21:29:00 +0000
+Subject: [PATCH] net: Fix memory_allocated leak in __sk_mem_raise_allocated().
+
+__sk_mem_raise_allocated() calls sk_memory_allocated_add() and
+reuses the return value to check if it was called.
+
+However, sk_memory_allocated_{add,sub}() cache a value in per-cpu
+counter, sk->sk_prot->per_cpu_fw_alloc, up to sysctl_mem_pcpu_rsv
+before reflecting it to sk->sk_prot->memory_allocated.
+
+Thus, sk->sk_prot->memory_allocated could have a negative value,
+and proto_memory_allocated() returns 0 in such a case.
+
+Then, if mem_cgroup_sk_charge() succeeds, sk_prot_mem_limits()
+checks are bypassed, and if mem_cgroup_sk_charge() fails,
+sk_memory_allocated_sub() is not called, leaking counters.
+
+Let's use sk->sk_bypass_prot_mem instead of allocated.
+
+Fixes: 7c268eaeec63 ("net: Allow opt-out from global protocol memory accounting.")
+Signed-off-by: Kuniyuki Iwashima <kuniyu@google.com>
+Link: https://patch.msgid.link/20261105212905.3122712-1-kuniyu@google.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 8012eec76b7e6c0d9fb338fe8e3db6ca1b419da4)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/sock.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 924dde095174834a841a0ae9cdcbbeb1e8a0ff34..1b4deae8ea9adb3c245b6aa1e56a04ce87efc191 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -3314,7 +3314,7 @@ int __sk_mem_raise_allocated(struct sock *sk, int size, int amt, int kind)
+ 			goto suppress_allocation;
+ 	}
+ 
+-	if (!allocated)
++	if (sk->sk_bypass_prot_mem)
+ 		return 1;
+ 
+ 	/* Under limit. */
+@@ -3395,7 +3395,7 @@ int __sk_mem_raise_allocated(struct sock *sk, int size, int amt, int kind)
+ 
+ 	trace_sock_exceed_buf_limit(sk, prot, allocated, kind);
+ 
+-	if (allocated)
++	if (!sk->sk_bypass_prot_mem)
+ 		sk_memory_allocated_sub(sk, amt);
+ 
+ 	if (charged)

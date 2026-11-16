@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yingjie Wang <1075151112@qq.com>
+Date: Fri, 30 Oct 2026 15:30:56 +0800
+Subject: [PATCH] ipv6: reject wrapped temporary address preferred lifetimes
+
+[ Upstream commit c3e67bd82b9b9b1a5118f09a429ccefe2aab0741 ]
+
+ipv6_create_tempaddr() raises a temporary address's preferred lifetime to
+regen_advance + age + 1 when the configured lifetime is too short. The
+result is stored in a u32, while regen_advance and age are unsigned long.
+If the sum wraps or is truncated, the stored lifetime can still be less
+than or equal to regen_advance + age.
+
+addrconf_verify_rtnl() then sees the new address as due for regeneration
+and creates another one. Temporary addresses are not limited by
+max_addresses since commit 4b08a8f1bd8c ("ipv6: remove max_addresses
+check from ipv6_create_tempaddr"), so this can cause unbounded address
+growth. With dad_transmits set to -1, a baseline kernel reached 2859
+loopback addresses in two seconds.
+
+After storing the adjusted lifetime, verify that it is still greater than
+regen_advance + age. Reject the new address if the check fails.
+
+On an x86-64 KASAN kernel, the normal configuration created three IPv6
+addresses. The negative dad_transmits, positive multiplication overflow,
+and large retransmission-time cases each left only the loopback and public
+addresses. An i386 defconfig and an x86-64 allmodconfig both built
+addrconf.o with W=1.
+
+Fixes: f4bcbf360ac8 ("net: ipv6/addrconf: clamp preferred_lft to the minimum required")
+Cc: stable@vger.kernel.org
+Suggested-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://lore.kernel.org/netdev/20261029175827.GA1411453@shredder/
+Signed-off-by: Yingjie Wang <1075151112@qq.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Reviewed-by: Alex Henrie <alexhenrie24@gmail.com>
+Link: https://patch.msgid.link/tencent_7A270291DDE5CD89DAFFE8A745D094D5BD06@qq.com
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 5fa0039a88977f39f0afa2564a2df8699bfa3ddc)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv6/addrconf.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 4dcedbfab44ab89cd3fc934ed4395daf7bd44d7d..d14e8f054c0806cb7cde85efc73d83d8b25a1f93 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1483,7 +1483,8 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, bool block)
+ 	age = (now - tmp_tstamp + ADDRCONF_TIMER_FUZZ_MINUS) / HZ;
+ 	if (cfg.preferred_lft <= regen_advance + age) {
+ 		cfg.preferred_lft = regen_advance + age + 1;
+-		if (cfg.preferred_lft > cfg.valid_lft ||
++		if (cfg.preferred_lft <= regen_advance + age ||
++		    cfg.preferred_lft > cfg.valid_lft ||
+ 		    cfg.preferred_lft > if_public_preferred_lft) {
+ 			in6_ifa_put(ifp);
+ 			in6_dev_put(idev);

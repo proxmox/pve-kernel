@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anil Kaushik <anilkaushikwireless@gmail.com>
+Date: Mon, 2 Nov 2026 12:09:29 +0000
+Subject: [PATCH] netlink: Do not call the unbind callback with the table
+ locked
+
+When netlink_bind() fails to insert the socket, it calls
+netlink_undo_bind() with the table locked. genl_unbind() then takes
+cb_lock, while genl_unregister_family() and genl_register_family() take
+cb_lock for writing and then wait in netlink_table_grab() for the table
+users to go away:
+
+  netlink_bind()                 genl_unregister_family()
+    netlink_lock_table()           down_write(&cb_lock)
+    netlink_insert() fails
+    netlink_undo_bind()            netlink_table_grab()
+      genl_unbind()                  waits for nl_table_users == 0
+        down_read(&cb_lock)
+
+An unprivileged user can get here by binding to a port ID that is in
+use, with nl_groups set. Lockdep does not see it, as nl_table_users is a
+plain counter.
+
+Unlock the table first, as the comment in netlink_release() asks for.
+
+Link: https://netdev-ai.bots.linux.dev/sashiko/#/patchset/20261101101347.3910654-1-anilkaushikwireless@gmail.com
+Fixes: 3de21a8990d3 ("genetlink: Add per family bind/unbind callbacks")
+Signed-off-by: Anil Kaushik <anilkaushikwireless@gmail.com>
+Reviewed-by: Simon Horman <horms@kernel.org>
+Link: https://patch.msgid.link/20261102120929.4077030-1-anilkaushikwireless@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit a36b9e205cb3c452ab96cc783e63465d466fe615)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/netlink/af_netlink.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index a01044d3ee5792551fd5342294d6e889091521be..4b29b1205ce406b557eda8a450a75ce831685aeb 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1049,8 +1049,9 @@ static int netlink_bind(struct socket *sock, struct sockaddr_unsized *addr,
+ 			netlink_insert(sk, nladdr->nl_pid) :
+ 			netlink_autobind(sock);
+ 		if (err) {
++			netlink_unlock_table();
+ 			netlink_undo_bind(BITS_PER_TYPE(u32), groups, sk);
+-			goto unlock;
++			return err;
+ 		}
+ 	}
+ 

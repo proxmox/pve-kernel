@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yun Zhou <yun.zhou@windriver.com>
+Date: Thu, 8 Oct 2026 17:38:24 +0800
+Subject: [PATCH] net: erspan: set lltx to avoid sch_direct_xmit deadlock
+
+[ Upstream commit 2d36ec73836e83175deb467fd494c61006107e5d ]
+
+The ERSPAN xmit path re-enters the network stack, causing nested
+acquisition of _xmit_lock on the underlay device while already holding
+the ERSPAN device's _xmit_lock, creating an ABBA deadlock. This happens
+for both IPv4 ERSPAN (erspan_xmit() -> ip_tunnel_xmit()) and IPv6 ERSPAN
+(ip6erspan_tunnel_xmit() -> ip6_tnl_xmit()):
+
+  sch_direct_xmit [lock erspan] -> erspan_xmit -> ip_tunnel_xmit ->
+  ip_output -> __dev_queue_xmit -> sch_direct_xmit [lock underlay]
+
+  sch_direct_xmit [lock erspan] -> ip6erspan_tunnel_xmit -> ip6_tnl_xmit ->
+  ip6_output -> __dev_queue_xmit -> sch_direct_xmit [lock underlay]
+
+Set dev->lltx = true so HARD_TX_LOCK() skips the spinlock for ERSPAN.
+This is safe as the ERSPAN xmit path has no shared mutable state: o_seqno
+is atomic, TX stats are per-CPU u64_stats, dst_cache is per-CPU, and
+o_flags is no longer modified in the xmit path since commit 9958e69b9893
+("gre: fix ERSPAN o_flags race/corruption in xmit and fill_info").
+GRETAP, the sibling device with identical xmit structure, already sets
+lltx.
+
+Reported-by: syzbot+9bda1b9fbb7fbdf9b62b@syzkaller.appspotmail.com
+Closes: https://syzkaller.appspot.com/bug?extid=9bda1b9fbb7fbdf9b62b
+Fixes: 84e54fe0a5ea ("gre: introduce native tunnel support for ERSPAN")
+Fixes: 5a963eb61b7c ("ip6_gre: Add ERSPAN native tunnel support")
+Cc: stable@vger.kernel.org # 9958e69b9893 ("gre: fix ERSPAN o_flags race/corruption in xmit and fill_info")
+Cc: stable@vger.kernel.org
+Signed-off-by: Yun Zhou <yun.zhou@windriver.com>
+Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+Link: https://patch.msgid.link/20261008093824.119453-1-yun.zhou@windriver.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 60a8dd118843c329d6142fb72a836f6b3dd25ebf)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/ip_gre.c  | 1 +
+ net/ipv6/ip6_gre.c | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index b1ec4f92d34628847cbebdc3abaff275186fb4d7..7df1ada13c2a107b6a806e85a1342941d4bc5224 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1366,6 +1366,7 @@ static int erspan_tunnel_init(struct net_device *dev)
+ 	dev->features		|= GRE_FEATURES;
+ 	dev->hw_features	|= GRE_FEATURES;
+ 	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE;
++	dev->lltx = true;
+ 	netif_keep_dst(dev);
+ 
+ 	return ip_tunnel_init(dev);
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index c14c76b78b9846e6fa41790e138f8a6d5be528ae..17c5e9440bfa33a8ab2dbfce942cdc2d0612fcd5 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1863,6 +1863,7 @@ static int ip6erspan_tap_init(struct net_device *dev)
+ 		dev->mtu -= 8;
+ 
+ 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
++	dev->lltx = true;
+ 	ip6erspan_tnl_link_config(tunnel, 1);
+ 
+ 	netdev_hold(dev, &tunnel->dev_tracker, GFP_KERNEL);

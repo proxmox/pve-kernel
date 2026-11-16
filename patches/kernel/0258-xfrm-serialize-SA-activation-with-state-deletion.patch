@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Thu, 29 Oct 2026 21:23:53 -0700
+Subject: [PATCH] xfrm: serialize SA activation with state deletion
+
+xfrm_add_sa() publishes a newly constructed state and arms its lifetime
+timer before marking it VALID. The final VOID-to-VALID test and store
+are not serialized with state deletion. If hard expiry deletes the state
+between the test and the store, the store resurrects the unlinked state.
+
+An input lookup which found the state before it was removed can then add
+it to the per-CPU cache after deletion has removed the cache entries.
+Once the remaining references are dropped, the cache points to freed
+memory.
+
+Take x->lock around the conditional transition, with bottom halves
+disabled as in xfrm_state_delete(). This preserves DEAD if expiry won
+the race. The same protection covers UPDSA when it installs a replacement
+for an ACQ state.
+
+Fixes: cc01572e2fb0 ("xfrm: Add SA to hardware at the end of xfrm_state_construct()")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+(cherry picked from commit d393ddcdd7e9ee247718bce0e8530759a3b89c54)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_user.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 2560f3653bd38fc9a0f68f610263ea1114a081da..5926f2aa196a620d8457dc993faa681d4fbdb614 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1047,8 +1047,10 @@ static int xfrm_add_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		goto out;
+ 	}
+ 
++	spin_lock_bh(&x->lock);
+ 	if (x->km.state == XFRM_STATE_VOID)
+ 		x->km.state = XFRM_STATE_VALID;
++	spin_unlock_bh(&x->lock);
+ 
+ 	c.seq = nlh->nlmsg_seq;
+ 	c.portid = nlh->nlmsg_pid;

@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Date: Wed, 9 Sep 2026 16:59:13 +0200
+Subject: [PATCH] libceph: Fix unsafe decode in ceph_redirect_decode()
+
+[ Upstream commit 0405670e50f213594366ab7eddc07002bd7f84c0 ]
+
+ceph_redirect_decode handles unchecked data received over the network
+from an OSD. Currently, there is only a bounds check covering the first
+three decode operations. After decoding the first len field from the
+message, the only remaining check ensures there is enough buffer space
+to hold len bytes. However, there is no guarantee that this value is
+large enough to hold the subsequently decoded fields. The decoding of
+the second len field is missing an explicit bounds check. Consequently,
+a corrupted message can trigger an out-of-bounds read.
+
+This patch fixes the issue by switching the decoding from
+ceph_decode_32() to the bounds-checked version ceph_decode_32_safe().
+
+Cc: stable@vger.kernel.org
+Fixes: 205ee1187a67 ("libceph: follow redirect replies from osds")
+Assisted-by: Cursor
+Signed-off-by: Raphael Zimmer <raphael.zimmer@tu-ilmenau.de>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 762860805a1414060f232fd74060fc09ec429fbf)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ceph/osd_client.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
+index 298a6d52eb8cea7f99f42639ecd665e8b4cba227..3bbc1964e67f5d15cbc2d3d043088c1d40400d1b 100644
+--- a/net/ceph/osd_client.c
++++ b/net/ceph/osd_client.c
+@@ -3640,7 +3640,7 @@ static int ceph_redirect_decode(void **p, void *end,
+ 	if (ret)
+ 		goto out;
+ 
+-	len = ceph_decode_32(p);
++	ceph_decode_32_safe(p, end, len, e_inval);
+ 	if (len > 0) {
+ 		pr_warn("ceph_request_redirect::object_name is set\n");
+ 		goto e_inval;

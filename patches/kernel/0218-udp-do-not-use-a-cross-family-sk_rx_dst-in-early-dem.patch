@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@kernel.org>
+Date: Fri, 6 Nov 2026 12:01:35 +0100
+Subject: [PATCH] udp: do not use a cross-family sk_rx_dst in early demux
+
+A dual-stack UDP socket connected to a v4-mapped address can receive
+both IPv4 packets and IPv6 packets using v4-mapped addresses:
+ip6_rcv_core() no longer rejects a v4-mapped source since commit
+dcc32f4f183a ("ipv6: weaken the v4mapped source check"), which kept
+that check only in tcp_v6_conn_request(). ipv6_portaddr_hash() hashes
+v4-mapped addresses like IPv4 ones, so both early demux handlers find
+the socket, and both __udp4_lib_rcv() and __udp6_lib_rcv() store their
+input dst in the same sk->sk_rx_dst.
+
+udp_v6_early_demux() validates the cached dst with dst_check(), but
+ipv4_dst_check() ignores the cookie, so an IPv4 dst gets attached to
+an IPv6 skb. ip6_rcv_finish_core() then skips the route lookup and
+ip_local_deliver() parses the IPv6 header as an IPv4 one: the IPv6
+next header and hop limit are read as a fragment offset, and the IPv4
+protocol is taken from a source address byte.
+
+The reverse direction looks possible too: per-cpu dsts of IPv6 routes
+using nexthop objects have rt->sernum set, and ip6_dst_check() then
+ignores the cookie, so udp_v4_early_demux() can attach an IPv6 dst to
+an IPv4 skb.
+
+Kyle Zeng reported that such a packet can reach XFRM input still
+holding the prefetched, non refcounted, socket set by early demux,
+which can then outlive its RCU grace period.
+
+Only use the cached dst if its family matches the packet. Otherwise
+fall back to a regular route lookup.
+
+TCP does not have the same problem: sk_ehashfn() hashes a v4-mapped
+socket with inet_ehashfn(), while IPv6 lookups use inet6_ehashfn(),
+so IPv6 packets do not normally find a v4-mapped TCP socket.
+
+Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
+Fixes: c9f2c1ae123a ("udp6: fix socket leak on early demux")
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Kuniyuki Iwashima <kuniyu@google.com>
+Link: https://patch.msgid.link/20261106110135.2161204-1-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 5636e67320563be743d47706ef4914078c27edb2)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/udp.c | 5 ++++-
+ net/ipv6/udp.c | 5 ++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 757be373488c1e1f82377fdd08113c22b82d7859..8473675633dea71a4f7499320b20da10ed966ae9 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2966,8 +2966,11 @@ enum skb_drop_reason udp_v4_early_demux(struct sk_buff *skb)
+ 	skb->destructor = sock_pfree;
+ 	dst = rcu_dereference(sk->sk_rx_dst);
+ 
+-	if (dst)
++	/* A dual-stack socket can cache an IPv6 dst. */
++	if (dst && dst->ops->family == AF_INET)
+ 		dst = dst_check(dst, 0);
++	else
++		dst = NULL;
+ 	if (dst) {
+ 		u32 itag = 0;
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index a0b0764d382b68d181a0a7299ff0f3ef36dc2252..9d0cb7042c686af70c969a527969a29c11f67b14 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1265,8 +1265,11 @@ void udp_v6_early_demux(struct sk_buff *skb)
+ 	skb->destructor = sock_pfree;
+ 	dst = rcu_dereference(sk->sk_rx_dst);
+ 
+-	if (dst)
++	/* A dual-stack socket can cache an IPv4 dst. */
++	if (dst && dst->ops->family == AF_INET6)
+ 		dst = dst_check(dst, sk->sk_rx_dst_cookie);
++	else
++		dst = NULL;
+ 	if (dst) {
+ 		/* set noref for now.
+ 		 * any place which wants to hold dst has to call

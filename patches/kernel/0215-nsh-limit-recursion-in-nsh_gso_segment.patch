@@ -1,0 +1,102 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <edumazet@kernel.org>
+Date: Thu, 12 Nov 2026 11:20:00 +0100
+Subject: [PATCH] nsh: limit recursion in nsh_gso_segment()
+
+nsh_gso_segment() calls skb_mac_gso_segment() for the inner packet,
+which calls nsh_gso_segment() again when the next protocol is NSH,
+either directly or behind an inner Ethernet header (ETH_P_TEB).
+
+Nothing limits the depth: a GSO packet made of stacked 8-byte NSH
+headers recurses once per header, and a 64KB packet can hold about
+8000 of them, overflowing the kernel stack.
+
+Such a packet can be injected with a packet socket using
+PACKET_VNET_HDR, or with tun/tap or virtio_net, as nothing checks
+that a GSO packet with VIRTIO_NET_HDR_F_NEEDS_CSUM carries the
+protocol it claims. It is then segmented in software if the output
+device does not support the GSO type:
+
+BUG: TASK stack guard page was hit at ffffcad5c0ab3ff8 (stack is ffffcad5c0ab4000..ffffcad5c0ab8000)
+Oops: stack guard page: 0000 [#1] SMP NOPTI
+CPU: 3 UID: 0 PID: 337 Comm: nsh_gso Tainted: G            E       7.4.0-rc1+ #118 PREEMPT(lazy)
+RIP: 0010:lock_acquire (kernel/locking/lockdep.c:5902)
+Call Trace:
+ <TASK>
+ skb_mac_gso_segment (include/linux/rcupdate.h:309 include/linux/rcupdate.h:849 net/core/gso.c:50)
+ nsh_gso_segment (net/nsh/nsh.c:110) nsh
+ skb_mac_gso_segment (net/core/gso.c:53)
+ nsh_gso_segment (net/nsh/nsh.c:110) nsh
+ [...]
+ skb_mac_gso_segment (net/core/gso.c:53)
+ __skb_gso_segment (net/core/gso.c:129)
+ validate_xmit_skb (net/core/dev.c:4238)
+ __dev_queue_xmit (net/core/dev.c:5087)
+ packet_sendmsg (net/packet/af_packet.c:3157 net/packet/af_packet.c:3189)
+ __sys_sendto (net/socket.c:800 net/socket.c:818 net/socket.c:2283)
+ __x64_sys_sendto (net/socket.c:2290 net/socket.c:2286 net/socket.c:2286)
+ do_syscall_64 (arch/x86/entry/syscall_64.c:61 arch/x86/entry/syscall_64.c:84)
+ entry_SYSCALL_64_after_hwframe (arch/x86/entry/entry_64.S:121)
+
+Use gso_recursion_inc_test(), added in commit 006c8b834aed ("net: gso:
+limit recursive IP-in-IP segmentation"), with the same limit as IPv4
+and IPv6. The counter is shared with them: a packet with four NSH
+headers in front of an IPv4 header is still segmented, one more NSH
+header and it is dropped.
+
+The NSH -> ETH_P_TEB -> NSH route is covered as well, as each round
+goes through nsh_gso_segment().
+
+Fixes: c411ed854584 ("nsh: add GSO support")
+Reported-by: Sashiko <sashiko-bot@kernel.org>
+Closes: https://lore.kernel.org/netdev/179443691180.2199510.148246238688217560@kernel.org/
+Cc: Jiri Benc <jbenc@redhat.com>
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Jiri Benc <jbenc@redhat.com>
+Link: https://patch.msgid.link/20261112102001.3744643-2-edumazet@kernel.org
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 3921fb102d78a6d7aa61b8d273e097a1a8026b90)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ include/net/gso.h | 2 +-
+ net/nsh/nsh.c     | 7 +++++++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/gso.h b/include/net/gso.h
+index 0749230d414ecbccbee31699791e67a8f04e4277..e311a8f5b5a72f9288b12f99a1a9ef206ed53571 100644
+--- a/include/net/gso.h
++++ b/include/net/gso.h
+@@ -19,7 +19,7 @@ struct skb_gso_cb {
+ 	int	encap_level;
+ 	__wsum	csum;
+ 	__u16	csum_start;
+-	/* Number of IPv4/IPv6 GSO handler entries for this packet. */
++	/* Number of IPv4/IPv6/NSH GSO handler entries for this packet. */
+ 	u8	recursion_counter;
+ };
+ #define SKB_GSO_CB_OFFSET	32
+diff --git a/net/nsh/nsh.c b/net/nsh/nsh.c
+index bfb7758063f315f4d13a6c17f8b01739933a6cf3..dd4de50fc38c39bec90151ea4438637dbc9ed65d 100644
+--- a/net/nsh/nsh.c
++++ b/net/nsh/nsh.c
+@@ -9,6 +9,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ #include <net/gso.h>
++#include <net/ip_tunnels.h>
+ #include <net/nsh.h>
+ #include <net/tun_proto.h>
+ 
+@@ -84,6 +85,12 @@ static struct sk_buff *nsh_gso_segment(struct sk_buff *skb,
+ 
+ 	skb_reset_network_header(skb);
+ 
++	/* NSH can carry NSH (directly, or in an inner Ethernet frame):
++	 * limit the recursion, as IPv4 and IPv6 do.
++	 */
++	if (unlikely(gso_recursion_inc_test(skb, IP_TUNNEL_RECURSION_LIMIT)))
++		goto out;
++
+ 	outer_proto = skb->protocol;
+ 	outer_hlen = skb_mac_header_len(skb);
+ 	mac_len = skb->mac_len;

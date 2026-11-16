@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ido Schimmel <idosch@nvidia.com>
+Date: Sun, 25 Oct 2026 09:17:28 +0200
+Subject: [PATCH] ipmr: fully initialize the synthetic IP header in
+ ipmr_get_route()
+
+[ Upstream commit 134351edc28e083c61012b6c69e8e54dd7fa5bcc ]
+
+For an unresolved multicast route query, ipmr_get_route() builds a
+synthetic IP header in the headroom obtained from
+skb_realloc_headroom(), which does not zero the memory it allocates.
+Only a few fields are initialized, leaving others as stale heap
+contents.
+
+ipmr_cache_report() copies this header into the IGMPMSG_NOCACHE report
+that is queued to the mroute socket, so a recvmsg() on that socket leaks
+the uninitialized bytes to user space: the 'tos' field [1] and the 'id'
+and 'frag_off' fields [2].
+
+Fix by zeroing the IP header before filling in the few fields that are
+used, so that the entire header is initialized, as in ip6mr_get_route().
+
+[1]
+BUG: KMSAN: kernel-infoleak in _copy_to_iter
+ raw_recvmsg
+
+Uninit was stored to memory at:
+ ipmr_cache_report
+ ipmr_cache_unresolved
+ ipmr_get_route
+
+Uninit was created at:
+ pskb_expand_head
+ skb_realloc_headroom
+ ipmr_get_route
+
+Byte 1 of 28 is uninitialized
+
+[2]
+BUG: KMSAN: kernel-infoleak in _copy_to_iter
+ raw_recvmsg
+
+Uninit was stored to memory at:
+ ipmr_cache_report
+ ipmr_cache_unresolved
+ ipmr_get_route
+
+Uninit was created at:
+ pskb_expand_head
+ skb_realloc_headroom
+ ipmr_get_route
+
+Bytes 4-7 of 28 are uninitialized
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Reported-by: Sashiko <netdev-bot+sashiko@kernel.org>
+Closes: https://netdev-ai.bots.linux.dev/sashiko/#/patchset/0545f0c83f5ee2f6696210f87268e811ef655715.1792476357.git.zhilinz%40nebusec.ai
+Signed-off-by: Ido Schimmel <idosch@nvidia.com>
+Reviewed-by: Hangbin Liu <liuhangbin@kylinos.cn>
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Link: https://patch.msgid.link/20261025071729.34967-2-idosch@nvidia.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 17463fef04b15bad67789573df58d1a9d7b96f90)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/ipmr.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 33647d1faf0861ea983627a67ece32cc888dff55..5e92706d6e7bf6545d7b0176e1683f362c58c1e9 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2475,6 +2475,7 @@ int ipmr_get_route(struct net *net, struct sk_buff *skb,
+ 		skb_push(skb2, sizeof(struct iphdr));
+ 		skb_reset_network_header(skb2);
+ 		iph = ip_hdr(skb2);
++		memset(iph, 0, sizeof(*iph));
+ 		iph->ihl = sizeof(struct iphdr) >> 2;
+ 		iph->saddr = saddr;
+ 		iph->daddr = daddr;

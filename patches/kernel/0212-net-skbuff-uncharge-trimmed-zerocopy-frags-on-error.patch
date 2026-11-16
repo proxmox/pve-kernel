@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chris Mason <mason@kernel.org>
+Date: Thu, 5 Nov 2026 17:35:06 -0500
+Subject: [PATCH] net: skbuff: uncharge trimmed zerocopy frags on error
+
+__zerocopy_sg_from_iter() accounts for the frags that it adds even when
+it returns an error: it adds the growth of skb->truesize to
+sk_wmem_queued and, unless the skb is pure zerocopy, charges it to the
+socket.
+
+On error, skb_zerocopy_iter_stream() cannot free the skb, as it may hold
+data from an earlier send. It trims the new frags, but leaves
+skb->truesize and their accounting in place.
+
+Repeated failed sends to the same skb accumulate this stale accounting.
+This can inflate TCP memory accounting past tcp_mem, and can wrap
+skb->truesize, leading to a use-after-free of the socket.
+
+Undo the accounting after the trim. If the trim fails, the frags and
+their accounting remain. The trim only fails if the skb is cloned,
+which is not expected for the unsent skb at the TCP write queue tail.
+
+The issue was found by an LLM.
+
+Fixes: 52267790ef52 ("sock: add MSG_ZEROCOPY")
+Reported-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Chris Mason <mason@kernel.org>
+[willemb: revised commit message]
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+Link: https://patch.msgid.link/20261105223512.3647504-1-willemdebruijn.kernel@gmail.com
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+(cherry picked from commit 8b67debdfbf6b370312ebec5c9e0a1c39b5c7733)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/skbuff.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ecd07dbb449e36c52713d68ea1cb9d0380bd0d8b..3e97173f69210e98a29f82d3455367726102811e 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1924,6 +1924,7 @@ int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
+ 			     struct ubuf_info *uarg,
+ 			     struct net_devmem_dmabuf_binding *binding)
+ {
++	unsigned int orig_truesize = skb->truesize;
+ 	int err, orig_len = skb->len;
+ 
+ 	if (uarg->ops->link_skb) {
+@@ -1944,12 +1945,18 @@ int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
+ 	err = __zerocopy_sg_from_iter(msg, sk, skb, &msg->msg_iter, len,
+ 				      binding);
+ 	if (err == -EFAULT || (err == -EMSGSIZE && skb->len == orig_len)) {
++		u32 delta_truesize = skb->truesize - orig_truesize;
+ 		struct sock *save_sk = skb->sk;
+ 
+ 		/* Streams do not free skb on error. Reset to prev state. */
+ 		iov_iter_revert(&msg->msg_iter, skb->len - orig_len);
+ 		skb->sk = sk;
+-		___pskb_trim(skb, orig_len);
++		if (!___pskb_trim(skb, orig_len)) {
++			skb->truesize -= delta_truesize;
++			sk_wmem_queued_add(sk, -delta_truesize);
++			if (!skb_zcopy_pure(skb))
++				sk_mem_uncharge(sk, delta_truesize);
++		}
+ 		skb->sk = save_sk;
+ 		return err;
+ 	}

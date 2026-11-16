@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chengfeng Ye <nicoyip.dev@gmail.com>
+Date: Thu, 3 Sep 2026 22:57:34 +0800
+Subject: [PATCH] xfrm: retry inexact policy lookup after node reinsertion
+
+[ Upstream commit 868f63c8bfafa9b827168c9126f85264c39c02ec ]
+
+An inexact policy lookup first records pointers to candidate hlist heads
+and then traverses the lists.  A concurrent policy insertion can merge
+inexact tree nodes between those operations:
+
+  lookup                         policy insertion
+  ------                         ----------------
+  find inexact candidates
+    save obsolete hlist head
+                                 write_seqcount_begin(&bin->count)
+                                 merge inexact tree nodes
+                                   hlist_del_rcu(&policy->bydst)
+                                   reinsert policy->bydst in survivor
+                                 write_seqcount_end(&bin->count)
+  evaluate saved candidate list
+    miss the moved policy
+
+The merge immediately reinserts the same hlist node into the surviving
+tree node.  RCU keeps the policy alive, but it does not provide a
+consistent view while its list node is moved.  A lookup that selected the
+obsolete list can observe it empty.  A lookup already traversing a moved
+policy can instead follow the next pointer rewritten by the reinsertion.
+Either case can return an incorrect IPsec policy result.
+
+The per-bin sequence counter already brackets calls to
+xfrm_policy_inexact_insert_node(), including node merges.  The read side,
+however, currently validates the counter only while searching an
+individual rb-tree.  A successful search returns without validation, and
+the later candidate-list traversal is outside that read-side section.
+
+Snapshot the per-bin sequence before discovering candidate heads and
+validate it after evaluating all candidate lists.   Retry the lookup if
+the inexact policy tree changes while it is being searched.
+
+Fixes: 9cf545ebd591 ("xfrm: policy: store inexact policies in a tree ordered by destination address")
+Cc: stable@vger.kernel.org
+Signed-off-by: Chengfeng Ye <nicoyip.dev@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a56cae18847847ddcaa79e37fd888ad36b5ee918)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/xfrm/xfrm_policy.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 568bb6aaa2e5c9f1885aa4261ef9d05edbec1389..afca8fa17fa3917bfcb0d8b1a209f41acd558eca 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2157,6 +2157,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 	struct xfrm_pol_inexact_bin *bin;
+ 	struct xfrm_policy *pol, *ret;
+ 	struct hlist_head *chain;
++	unsigned int inexact_sequence;
+ 	unsigned int sequence;
+ 	int err;
+ 
+@@ -2191,12 +2192,18 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 		goto skip_inexact;
+ 
+ 	bin = xfrm_policy_inexact_lookup_rcu(net, type, family, dir, if_id);
+-	if (!bin || !xfrm_policy_find_inexact_candidates(&cand, bin, saddr,
+-							 daddr))
++	if (!bin)
++		goto skip_inexact;
++
++	inexact_sequence = read_seqcount_begin(&bin->count);
++	if (!xfrm_policy_find_inexact_candidates(&cand, bin, saddr, daddr))
+ 		goto skip_inexact;
+ 
+ 	pol = xfrm_policy_eval_candidates(&cand, ret, fl, type,
+ 					  family, if_id);
++	if (read_seqcount_retry(&bin->count, inexact_sequence))
++		goto retry;
++
+ 	if (pol) {
+ 		ret = pol;
+ 		if (IS_ERR(pol))

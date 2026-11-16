@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sorah Fukumori <her@sorah.jp>
+Date: Tue, 13 Oct 2026 22:02:48 +0900
+Subject: [PATCH] net: gro: don't chain linear parts larger than gso_size into
+ frag_list
+
+[ Upstream commit 679f6929a66db9f5a6611dad37545fbd705962d5 ]
+
+skb_gro_receive() chains an skb into the frag_list of the held packet
+when its payload cannot be attached as page frags: when its head is
+not a page fragment and still holds payload, or when its head and
+frags would overflow the frags[] array of the last packet. Since commit
+5eddb24901ee ("gro: add support of (hw)gro packets to gro stack"), that
+skb may itself be a GSO packet whose linear part holds several
+gso_size segments. skb_segment() cannot split the linear part of a
+frag_list member across segments, so segmenting the aggregate in
+software, e.g. when forwarding it to a device without NETIF_F_FRAGLIST,
+hits
+
+  BUG_ON(skb_headlen(list_skb) > len);
+
+Fully linear GSO packets come from generic XDP. When the program does
+not support frags, netif_skb_check_for_xdp() linearizes any nonlinear
+skb with pskb_expand_head() and skb_linearize() and keeps its GSO
+metadata. GRO on the device runs before generic XDP, so each aggregate
+passed by the program carries all of its payload in a kmalloc'ed head.
+A tunnel that decapsulates these packets and runs GRO again through
+gro_cells then builds the bad frag_list. This was first seen on a
+router that forwards TCP received over VXLAN, with a non-frags XDP
+program attached in SKB mode to the underlying bond because one slave
+lacks native XDP:
+
+  kernel BUG at net/core/skbuff.c:4917!
+  RIP: 0010:skb_segment+0xbb6/0xf40
+  Call Trace:
+   tcp_gso_segment
+   ipv6_gso_segment
+   skb_mac_gso_segment
+   __skb_gso_segment
+   validate_xmit_skb
+   __dev_queue_xmit
+   ip6_output
+   ip6_sublist_rcv_finish
+   ipv6_list_rcv
+   netif_receive_skb_list_internal
+   gro_complete
+   dev_gro_receive
+   gro_receive_skb
+   gro_cell_poll
+   __napi_poll
+   net_rx_action
+
+It reproduces with three network namespaces: TCP sent over VXLAN on an
+IPv6 veth link to a router namespace that has an XDP_PASS program
+without frags support attached to the underlay veth in generic mode
+and GRO enabled on its VXLAN device, and forwards to a veth with
+tx-scatter-gather-fraglist disabled.
+
+A program with frags support in generic mode gives similar packets.
+skb_pp_cow_data() rebuilds the skb with up to about a page of linear
+data in a page_pool head_frag and keeps the GSO metadata, so once
+frags[] is full the next such packet is chained through frag_list
+with more than gso_size bytes in its head as well.
+
+Refuse the merge when the linear part to be chained exceeds the held
+packet's gso_size. tcp_gro_receive() then flushes the held packet and
+the skb starts a new GRO packet as its head, whose linear length
+skb_segment() handles.
+
+Fixes: 5eddb24901ee ("gro: add support of (hw)gro packets to gro stack")
+Cc: stable@vger.kernel.org
+Assisted-by: claude-opus-5-5
+Signed-off-by: Sorah Fukumori <her@sorah.jp>
+Tested-by: Chase Hiltz <me@chasehil.tz>
+Reviewed-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Jason Xing <kerneljasonxing@gmail.com>
+Link: https://patch.msgid.link/20261013130250.3643916-1-her@sorah.jp
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 15257bdfbdc25cad12674aa3f56cf19e963ecf11)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/core/gro.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/core/gro.c b/net/core/gro.c
+index b5bf871e25b3be0ec77e5ec40d483dc6f1f5f57f..5eb7a1b25fc9e6c6602070db6be7c545dc2fb4d6 100644
+--- a/net/core/gro.c
++++ b/net/core/gro.c
+@@ -187,6 +187,10 @@ int skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
+ 	}
+ 
+ merge:
++	/* skb_segment() cannot split the linear part of a frag_list member. */
++	if (unlikely(headlen > offset + skb_shinfo(p)->gso_size))
++		return -E2BIG;
++
+ 	/* sk ownership - if any - completely transferred to the aggregated packet */
+ 	skb->destructor = NULL;
+ 	skb->sk = NULL;

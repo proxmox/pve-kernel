@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Fri, 6 Nov 2026 15:17:27 +0100
+Subject: [PATCH] udp: check frag_list IP family before using
+ skb_segment_list()
+
+UDP fraglist GRO uses SKB_GSO_UDP_L4 for both IPv4 and IPv6.
+
+__udp_gso_segment() reuses the frag_list skbs when the geometry of
+the head skb was not modified. skb_segment_list() keeps the network
+header of each frag_list skb as it was at GRO time and only adjusts
+the transport header offset.
+
+Nothing guarantees that the head skb still has the IP family of the
+frag_list skbs: helpers like skb_mpls_pop() let the caller choose
+the new protocol. In that case __udpv6_gso_segment_list_csum()
+handles the 20 byte IPv4 header of each frag_list skb as a struct
+ipv6hdr, and can write IPv6 addresses beyond its linear part.
+
+Check the IP version of the first frag_list skb. All skbs in the
+list belong to the same flow, so they share the same IP family.
+Use the skb_segment() fallback on a mismatch. Regular fraglist GRO
+traffic keeps the fast path.
+
+Fixes: b936a9b8d4a5 ("net: ipv6: fix UDPv6 GSO segmentation with NAT")
+Fixes: c3df39ac9b0e ("udp: ipv4: manipulate network header of NATed UDP GRO fraglist")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+[edumazet: simplified the fix, rewrote the comment and the changelog]
+Signed-off-by: Eric Dumazet <edumazet@kernel.org>
+Reviewed-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Dave Miller <davem@davem-thinkpadp1gen8.ibmlond.csb>
+(cherry picked from commit 22b7cb932c6a0f7566d41072be6956cb6c8af4e1)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ net/ipv4/udp_offload.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 89642e903866359f0a923ecd3bfe9b36e043c265..9a8dc68a15008edfe6156491ae394dd0015bbdff 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -515,9 +515,14 @@ struct sk_buff *__udp_gso_segment(struct sk_buff *gso_skb,
+ 	}
+ 
+ 	if (skb_shinfo(gso_skb)->gso_type & SKB_GSO_FRAGLIST) {
+-		 /* Detect modified geometry and pass those to skb_segment. */
++		/* Detect modified geometry and pass those to skb_segment.
++		 * SKB_GSO_UDP_L4 is used by both IPv4 and IPv6: also make sure
++		 * the frag_list skbs still have the IP family we segment for,
++		 * as their network headers are not rebuilt.
++		 */
+ 		if ((skb_pagelen(gso_skb) - sizeof(*uh) == skb_shinfo(gso_skb)->gso_size) &&
+-		    !(skb_shinfo(gso_skb)->gso_type & SKB_GSO_DODGY))
++		    !(skb_shinfo(gso_skb)->gso_type & SKB_GSO_DODGY) &&
++		    ip_hdr(skb_shinfo(gso_skb)->frag_list)->version == (is_ipv6 ? 6 : 4))
+ 			return __udp_gso_segment_list(gso_skb, features, is_ipv6);
+ 
+ 		ret = __skb_linearize(gso_skb);
