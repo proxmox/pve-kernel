@@ -1,0 +1,103 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Amir Goldstein <amir73il@gmail.com>
+Date: Wed, 2 Sep 2026 18:49:25 +0200
+Subject: [PATCH] fs: make sure to call fsnotify_inoderemove() only once when
+ inode is dead
+
+[ Upstream commit 669bb5af15d41a21359d00a441490f87a88eb52a ]
+
+Daehyeon reported a race wherein fsnotify_removeinode() can be called
+when inode still has a live alias.  This can lead to several undesired
+outcomes such as crashes in fsnotify code or avoidance of inode mark
+notifications.
+
+Check that inode is really "dead", meaning no nlink and no more aliases
+before calling fsnotify_inoderemove() for final cleanup of inode marks.
+Also do not allow open_by_handle() to add new aliases to a "dead" inode.
+
+Ideally, we'd call fsnotify_inoderemove() once last inode reference is
+dropped to make things simpler. Alas fsnotify inode marks currently hold
+inode references and thus this doesn't work. Once we teach fsnotify to
+avoid holding inode references, these games with dead inodes can go as
+well.
+
+Reported-and-tested-by: Daehyeon Ko <4ncienth@gmail.com>
+Closes: https://lore.kernel.org/linux-fsdevel/20260827045007.3831259-1-4ncienth@gmail.com/
+CC: stable@vger.kernel.org
+Signed-off-by: Amir Goldstein <amir73il@gmail.com>
+Signed-off-by: Jan Kara <jack@suse.cz>
+Link: https://patch.msgid.link/20260902164924.1333135-2-jack@suse.cz
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 18ba0295bd43fc086408f3cf515bc57491dbbe3c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/dcache.c | 27 ++++++++++++++++++++++++---
+ 1 file changed, 24 insertions(+), 3 deletions(-)
+
+diff --git a/fs/dcache.c b/fs/dcache.c
+index c4588a1754f1fb18f496273f1070bcf83ddaa367..fcd10e82c2443e691825e97169aa679c046d28ac 100644
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -466,6 +466,17 @@ static void dentry_free(struct dentry *dentry)
+ 		call_rcu(&dentry->d_u.d_rcu, __d_free);
+ }
+ 
++/*
++ * If inode is unlinked and doesn't have any aliases (i.e., all fds pointing to
++ * it are closed), it is pretty much dead. Except that file handle lookup could
++ * still revive it which causes issues to fsnotify. So once inode reaches this
++ * state we make sure to block creating any new aliases.
++ */
++static bool inode_notify_dead(struct inode *inode)
++{
++	return !inode->i_nlink && hlist_empty(&inode->i_dentry);
++}
++
+ /*
+  * Release the dentry's inode, using the filesystem
+  * d_iput() operation if defined.
+@@ -475,14 +486,16 @@ static void dentry_unlink_inode(struct dentry * dentry)
+ 	__releases(dentry->d_inode->i_lock)
+ {
+ 	struct inode *inode = dentry->d_inode;
++	bool notify_dead;
+ 
+ 	raw_write_seqcount_begin(&dentry->d_seq);
+ 	__d_clear_type_and_inode(dentry);
+ 	hlist_del_init(&dentry->d_u.d_alias);
+ 	raw_write_seqcount_end(&dentry->d_seq);
++	notify_dead = inode_notify_dead(inode);
+ 	spin_unlock(&dentry->d_lock);
+ 	spin_unlock(&inode->i_lock);
+-	if (!inode->i_nlink)
++	if (notify_dead)
+ 		fsnotify_inoderemove(inode);
+ 	if (dentry->d_op && dentry->d_op->d_iput)
+ 		dentry->d_op->d_iput(dentry, inode);
+@@ -2091,7 +2104,12 @@ static struct dentry *__d_obtain_alias(struct inode *inode, bool disconnected)
+ 
+ 	sb = inode->i_sb;
+ 
+-	res = d_find_any_alias(inode); /* existing alias? */
++	spin_lock(&inode->i_lock);
++	if (!inode_notify_dead(inode))
++		res = __d_find_any_alias(inode);	/* existing alias? */
++	else
++		res = ERR_PTR(-ESTALE);
++	spin_unlock(&inode->i_lock);
+ 	if (res)
+ 		goto out;
+ 
+@@ -2103,7 +2121,10 @@ static struct dentry *__d_obtain_alias(struct inode *inode, bool disconnected)
+ 
+ 	security_d_instantiate(new, inode);
+ 	spin_lock(&inode->i_lock);
+-	res = __d_find_any_alias(inode); /* recheck under lock */
++	if (!inode_notify_dead(inode))
++		res = __d_find_any_alias(inode);	/* recheck under lock */
++	else
++		res = ERR_PTR(-ESTALE);
+ 	if (likely(!res)) { /* still no alias, attach a disconnected dentry */
+ 		unsigned add_flags = d_flags_for_inode(inode);
+ 

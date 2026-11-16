@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daehyeon Ko <4ncienth@gmail.com>
+Date: Sun, 18 Oct 2026 14:17:08 +0900
+Subject: [PATCH] splice: avoid stale f_pos writeback on error
+
+[ Upstream commit 79b496ebe382866e3a05090b7dc9ae95e85e65b2 ]
+
+do_splice() snapshots an implicit file position before calling the splice
+helper. Since splice does not take f_pos_lock, another operation on the
+same open file description can update f_pos while the helper is blocked.
+If the helper then fails, the unconditional writeback restores the stale
+snapshot.
+
+For a directory without ->splice_read, a file-to-pipe splice fails with
+-EINVAL. A concurrent directory mutation and getdents() call can advance
+f_pos and refresh the filesystem's revalidation cookie before that failure
+restores only the old position. The next ext2 readdir can then trust an
+offset inside a directory entry and copy data from the adjacent page to
+userspace.
+
+Only update an implicit file position when splice returns a non-negative
+result, matching read and write. Keep explicit offset updates unchanged.
+
+Fixes: 7995bd287134 ("splice: don't pass the address of ->f_pos to methods")
+Cc: stable@vger.kernel.org
+Signed-off-by: Daehyeon Ko <4ncienth@gmail.com>
+Link: https://patch.msgid.link/20261018051708.2422394-1-4ncienth@gmail.com
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 9802608232a65e6054bad9def7d3df03c567bf58)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/splice.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/fs/splice.c b/fs/splice.c
+index 9d8f63e2fd1abeeb9e912e25d70bd3b4a196cb7a..96378d3e6558033e07c03b0d627c723b1254da3b 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -1349,10 +1349,10 @@ ssize_t do_splice(struct file *in, loff_t *off_in, struct file *out,
+ 		ret = do_splice_from(ipipe, out, &offset, len, flags);
+ 		file_end_write(out);
+ 
+-		if (!off_out)
+-			out->f_pos = offset;
+-		else
++		if (off_out)
+ 			*off_out = offset;
++		else if (ret >= 0)
++			out->f_pos = offset;
+ 	} else if (opipe) {
+ 		if (off_out)
+ 			return -ESPIPE;
+@@ -1373,10 +1373,10 @@ ssize_t do_splice(struct file *in, loff_t *off_in, struct file *out,
+ 
+ 		ret = splice_file_to_pipe(in, opipe, &offset, len, flags);
+ 
+-		if (!off_in)
+-			in->f_pos = offset;
+-		else
++		if (off_in)
+ 			*off_in = offset;
++		else if (ret >= 0)
++			in->f_pos = offset;
+ 	} else {
+ 		ret = -EINVAL;
+ 	}

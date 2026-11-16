@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Iv=C3=A1n=20Ezequiel=20Rodriguez?= <ivanrwcm25@gmail.com>
+Date: Wed, 28 Oct 2026 15:12:28 -0300
+Subject: [PATCH] netfs: preserve prepare_write errno on reissue
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+prepare_write() may call netfs_prepare_write_failed() (FAILED + errno)
+before write_retry calls netfs_reissue_write().  Clearing subreq->error
+to 0 for a clean I/O reissue (82e8885bd763) then makes
+netfs_do_issue_write() terminate with 0.  The collector copies
+front->error into stream->error and mapping_set_error(), which ignores
+0, so writeback failure is silent.
+
+Skip clearing error when NETFS_SREQ_FAILED is already set;
+do_issue_write() already terminates FAILED subrequests.
+
+Fixes: 82e8885bd763 ("netfs: when subreq is marked for retry, do not check if it faced an error")
+Signed-off-by: Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
+Reviewed-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+Cc: stable@vger.kernel.org
+(cherry picked from commit 62869ecb3aeca670b86058387e7533a33524b95b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/netfs/write_issue.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/fs/netfs/write_issue.c b/fs/netfs/write_issue.c
+index 3fd8908c251b8cda4fa93d9553a7ff8214246dce..3644eba452dbf834b7b3460386113507dac6ad33 100644
+--- a/fs/netfs/write_issue.c
++++ b/fs/netfs/write_issue.c
+@@ -252,7 +252,9 @@ void netfs_reissue_write(struct netfs_io_stream *stream,
+ 	iov_iter_truncate(&subreq->io_iter, size);
+ 
+ 	subreq->retry_count++;
+-	subreq->error = 0;
++	/* Keep prepare_write() errno; do_issue_write() terminates FAILED. */
++	if (!test_bit(NETFS_SREQ_FAILED, &subreq->flags))
++		subreq->error = 0;
+ 	__clear_bit(NETFS_SREQ_MADE_PROGRESS, &subreq->flags);
+ 	__set_bit(NETFS_SREQ_IN_PROGRESS, &subreq->flags);
+ 	netfs_stat(&netfs_n_wh_retry_write_subreq);

@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Amir Goldstein <amir73il@gmail.com>
+Date: Fri, 6 Nov 2026 13:01:26 +0100
+Subject: [PATCH] ovl: do not read the flags of a put upper dentry in lookup
+
+ovl_lookup_layers() passes ctx->upperdentry to ovl_get_inode(), which
+takes over the reference. If an overlay inode for the upper inode is
+already cached, as for a second hard link, ovl_get_inode() puts the
+dentry and returns the cached inode. ovl_lookup_layers() then passes
+the put dentry to ovl_dentry_init_reval(), which reads its d_flags.
+
+With a local upper fs the put dentry usually stays in the dcache, but
+with a FUSE upper whose entry has timed out, dput() kills it, so this
+is a use-after-free.
+
+Fix this by taking the revalidate flags from the upper dentry of the
+overlay inode, which is the one that ovl_dentry_revalidate_common()
+revalidates.
+
+Reported-by: Sashiko <sashiko-bot@kernel.org>
+Closes: https://sashiko.dev/#/bug/linux-986db859-840c-479d-944c-b9c43b93377e
+Fixes: bccece1ead36 ("ovl: allow remote upper")
+Cc: stable@vger.kernel.org
+Signed-off-by: Amir Goldstein <amir73il@gmail.com>
+(cherry picked from commit 7031366be218f291592a7ad38bc34a7cd1459737)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/overlayfs/namei.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/fs/overlayfs/namei.c b/fs/overlayfs/namei.c
+index 07962fb621e935b2dab39e479ae527192c63fd60..996b3507381919437bf194db64550e6107d9d8e0 100644
+--- a/fs/overlayfs/namei.c
++++ b/fs/overlayfs/namei.c
+@@ -1375,9 +1375,17 @@ static int ovl_lookup_layers(struct ovl_lookup_ctx *ctx, struct ovl_lookup_data
+ 
+ 		if (metacopy_size > OVL_METACOPY_MIN_SIZE)
+ 			ovl_set_flag(OVL_HAS_DIGEST, ctx->inode);
+-	}
+ 
+-	ovl_dentry_init_reval(dentry, ctx->upperdentry, OVL_I_E(ctx->inode));
++		/*
++		 * ovl_get_inode() puts ctx->upperdentry if it finds a cached
++		 * inode, e.g. for another hard link, so use the upper dentry
++		 * of the inode.
++		 */
++		ovl_dentry_init_reval(dentry, ovl_i_dentry_upper(inode),
++				      OVL_I_E(inode));
++	} else {
++		ovl_dentry_init_reval(dentry, NULL, NULL);
++	}
+ 
+ 	return 0;
+ }

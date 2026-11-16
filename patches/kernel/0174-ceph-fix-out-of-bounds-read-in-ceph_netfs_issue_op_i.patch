@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Guanglei Zhu <zhugl3@xiaopeng.com>
+Date: Thu, 10 Sep 2026 11:00:36 +0800
+Subject: [PATCH] ceph: fix out-of-bounds read in ceph_netfs_issue_op_inline()
+
+[ Upstream commit cdbb60f00f87297a9db2652847dfc0eaaf3c45aa ]
+
+The read offset is validated against i_size but never against
+inline_len, and the two fields come from the MDS independently.  When
+a read starts past the end of the inline data, the subtraction
+
+	len = min_t(size_t, iinfo->inline_len - subreq->start, subreq->len);
+
+underflows and min_t() ends up with subreq->len, so copy_to_iter()
+reads past the end of the inline buffer straight into the user
+buffer.  A malicious or buggy MDS reporting a short inline payload
+together with an inflated i_size can thus leak kernel heap memory to
+userspace.
+
+Bail out with -ENODATA when the offset is not within the inline
+data.
+
+Cc: stable@vger.kernel.org
+Fixes: 5b19f1eba459 ("ceph: make ceph_netfs_issue_op() handle inlined data")
+Signed-off-by: Guanglei Zhu <zhugl3@xiaopeng.com>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 0e1bc95bdda8dc382496de11455a627f5a35957c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/ceph/addr.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/fs/ceph/addr.c b/fs/ceph/addr.c
+index bc90a62e9dbae53ce6878eb0b3a3a7c81b6d460a..e1492fb60ddea561983470795086cbc8bbd2e012 100644
+--- a/fs/ceph/addr.c
++++ b/fs/ceph/addr.c
+@@ -314,6 +314,12 @@ static bool ceph_netfs_issue_op_inline(struct netfs_io_subrequest *subreq)
+ 		return false;
+ 	}
+ 
++	if (subreq->start >= iinfo->inline_len) {
++		ceph_mdsc_put_request(req);
++		err = -ENODATA;
++		goto out;
++	}
++
+ 	len = min_t(size_t, iinfo->inline_len - subreq->start, subreq->len);
+ 	err = copy_to_iter(iinfo->inline_data + subreq->start, len, &subreq->io_iter);
+ 	if (err == 0) {

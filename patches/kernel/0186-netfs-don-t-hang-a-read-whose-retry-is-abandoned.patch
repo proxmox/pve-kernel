@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paulo Alcantara <pc@manguebit.org>
+Date: Thu, 5 Nov 2026 21:01:54 -0300
+Subject: [PATCH] netfs: don't hang a read whose retry is abandoned
+
+When ->prepare_read() fails while retrying a read, or a subrequest can't
+be allocated, netfs_retry_read_subrequests() marks the remaining
+subrequests failed without reissuing them.  If none was reissued in that
+pass, nothing is in progress any more to wake the collector, which
+returned after the retry, so an offloaded read (readahead, async direct
+I/O) never completes and its folios stay locked.
+
+Wake the collector after abandoning, so it collects the failed
+subrequests and completes the request.
+
+Fixes: e2d46f2ec332 ("netfs: Change the read result collector to only use one work item")
+Reviewed-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+Cc: stable@vger.kernel.org
+(cherry picked from commit d1bb754ab9e775b0fbb2743d3df425c25a561114)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/netfs/read_retry.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/netfs/read_retry.c b/fs/netfs/read_retry.c
+index 4f6a36c6e214f7f18667cc3d46e0d0445a21f0ce..342d8bdc6aa318235308256794caa3c6a24aac2e 100644
+--- a/fs/netfs/read_retry.c
++++ b/fs/netfs/read_retry.c
+@@ -262,6 +262,7 @@ static void netfs_retry_read_subrequests(struct netfs_io_request *rreq)
+ 		__set_bit(NETFS_SREQ_FAILED, &subreq->flags);
+ 		__clear_bit(NETFS_SREQ_NEED_RETRY, &subreq->flags);
+ 	}
++	netfs_wake_collector(rreq);
+ }
+ 
+ /*

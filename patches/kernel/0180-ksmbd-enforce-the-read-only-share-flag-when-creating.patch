@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ian Bridges <icb@fastmail.org>
+Date: Wed, 11 Nov 2026 21:16:45 -0500
+Subject: [PATCH] ksmbd: enforce the read-only share flag when creating a
+ stream
+
+[ Upstream commit 09139429fab3a5114c18d7c15fb161511d4d66c9 ]
+
+When a share is read-only, smb2_open() rejects opens that would create
+or truncate a file. Creating a named stream on an existing file with
+streams_xattr sets neither O_CREAT nor O_TRUNC, so it passes this check,
+and smb2_set_stream_name_xattr() then creates the stream. On a Time
+Machine share, opening a missing AFP_AfpInfo stream also writes one. A
+user who can write a file at the filesystem level can therefore add
+streams to it through a read-only share.
+
+Do not create a stream or synthesize AFP_AfpInfo when the share is not
+writable. Existing streams still open normally, and a missing stream
+opened with FILE_OPEN still returns STATUS_OBJECT_NAME_NOT_FOUND.
+
+Fixes: e2f34481b24d ("cifsd: add server-side procedures for SMB3")
+Fixes: eaff8e924f60 ("ksmbd: synthesize empty AFP_AfpInfo xattr on first probe")
+Cc: stable@vger.kernel.org
+Signed-off-by: Ian Bridges <icb@fastmail.org>
+Signed-off-by: Namjae Jeon <linkinjeon@kernel.org>
+[ sashal: Omitted the AFP_AfpInfo creation guard because automatic creation on Time Machine shares is absent. ]
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 1cbd8d76d49f90cec027784139021f89e39ae93f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/server/smb2pdu.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index 8e59107904f3e748a01b8441c2357e616cbe687f..aa3414671a0c43386a086a68c010b68eda61816b 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2646,6 +2646,9 @@ static noinline int smb2_set_stream_name_xattr(const struct path *path,
+ 		return -EBADF;
+ 	}
+ 
++	if (!test_tree_conn_flag(fp->tcon, KSMBD_TREE_CONN_FLAG_WRITABLE))
++		return -EACCES;
++
+ 	rc = ksmbd_vfs_setxattr(idmap, path, xattr_stream_name, NULL, 0, 0, false);
+ 	if (rc < 0)
+ 		pr_err("Failed to store XATTR stream name :%d\n", rc);

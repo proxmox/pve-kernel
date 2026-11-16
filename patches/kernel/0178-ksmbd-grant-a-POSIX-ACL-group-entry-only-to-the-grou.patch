@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ian Bridges <icb@fastmail.org>
+Date: Sun, 1 Nov 2026 23:14:28 -0600
+Subject: [PATCH] ksmbd: grant a POSIX ACL group entry only to the group's
+ members
+
+[ Upstream commit c00ec7ad449b68c291a4986e481941302ed399c5 ]
+
+When no ACE of the DACL matches the caller, Everyone or Authenticated
+Users, smb_check_perm_dacl() falls back to the file's POSIX ACL. It
+takes the first ACL_USER or ACL_GROUP entry whose id equals the
+caller's uid. For ACL_GROUP, this compares a gid with the caller's uid.
+A numerical match grants the group's permissions even when the caller
+is not a member.
+
+Match a group entry only when the caller is also in the group.
+
+Fixes: e2f34481b24d ("cifsd: add server-side procedures for SMB3")
+Reported-by: Namjae Jeon <linkinjeon@kernel.org>
+Closes: https://lore.kernel.org/linux-cifs/CAKYAXd93czbFD=znZUq_pJLXzDR5N3zc_auvAGWT7pzKR1f9Ag@mail.gmail.com/
+Cc: stable@vger.kernel.org
+Signed-off-by: Ian Bridges <icb@fastmail.org>
+Signed-off-by: Namjae Jeon <linkinjeon@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit af4007872802ac0ddf936af2cc65e74f6567827c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/server/smbacl.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/fs/smb/server/smbacl.c b/fs/smb/server/smbacl.c
+index e036f8ac5e0afafd1c44e8b871b963efa83ca5d6..8731255e0c9faefbcb69fd44304621791c7349d1 100644
+--- a/fs/smb/server/smbacl.c
++++ b/fs/smb/server/smbacl.c
+@@ -1606,7 +1606,10 @@ int smb_check_perm_dacl(struct ksmbd_conn *conn, const struct path *path,
+ 				else
+ 					continue;
+ 
+-				if (id == uid) {
++				/* A group entry grants only to the group's members */
++				if (id == uid &&
++				    (pa_entry->e_tag == ACL_USER ||
++				     in_group_p(make_kgid(&init_user_ns, id)))) {
+ 					mode_to_access_flags(pa_entry->e_perm,
+ 							     0777,
+ 							     &access_bits);

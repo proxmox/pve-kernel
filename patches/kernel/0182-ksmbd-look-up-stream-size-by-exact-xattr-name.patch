@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gael Blivet <gael.blivet@gmail.com>
+Date: Fri, 6 Nov 2026 10:52:19 -0500
+Subject: [PATCH] ksmbd: look up stream size by exact xattr name
+
+[ Upstream commit 10ea20d6584ecdaf2f7505855412a856a88d8934 ]
+
+get_file_stream_info() walks the xattr list from a single
+ksmbd_vfs_listxattr() and sizes each stream it finds with
+ksmbd_vfs_casexattr_len(), which matches with strncasecmp(). Linux
+xattr names are case-sensitive, so two streams differing only in case
+report each other's size.
+
+The loop already holds the exact name, so query it directly with
+ksmbd_vfs_xattr_len(), which is what casexattr_len() calls once its
+search succeeds. Make it non-static and declare it in vfs.h, and drop
+the comment above it, which describes a different bug and no longer
+matches the code.
+
+This also drops a full listing per stream: casexattr_len() runs its own
+listxattr on every call, so enumerating a file with N xattrs cost N
+listings instead of one.
+
+Fixes: 689f1eb3719d ("ksmbd: report actual xattr value length in stream enumeration")
+Signed-off-by: Gael Blivet <gael.blivet@gmail.com>
+Assisted-by: Claude:claude-opus-5
+Signed-off-by: Namjae Jeon <linkinjeon@kernel.org>
+[ sashal: retained non-const struct mnt_idmap pointers to match the existing vfs_getxattr() API ]
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a90429f6b98a95031ec39bfcf388583b0b106c33)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/server/smb2pdu.c | 13 ++-----------
+ fs/smb/server/vfs.c     |  4 ++--
+ fs/smb/server/vfs.h     |  2 ++
+ 3 files changed, 6 insertions(+), 13 deletions(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index a15278bf9971c24fc13daf8446f27221f09c8821..4d8da237fc52a34e76aaf9050b5a152a0e232ec0 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -5370,17 +5370,8 @@ static int get_file_stream_info(struct ksmbd_work *work,
+ 		streamlen *= 2;
+ 		kfree(stream_buf);
+ 		file_info->StreamNameLength = cpu_to_le32(streamlen);
+-		/*
+-		 * stream_name_len is the byte length of the xattr's *name*,
+-		 * not its value -- same class of bug ksmbd_stream_eof()
+-		 * (smb2pdu.c) already fixes for EndOfFile/AllocationSize on
+-		 * a stream handle; this enumeration path needs the same
+-		 * real xattr value length, not the name length reused as a
+-		 * size.
+-		 */
+-		slen = ksmbd_vfs_casexattr_len(file_mnt_idmap(fp->filp),
+-						path->dentry, stream_name,
+-						strlen(stream_name) + 1, NULL);
++		slen = ksmbd_vfs_xattr_len(file_mnt_idmap(fp->filp),
++					   path->dentry, stream_name);
+ 		ssize = slen < 0 ? 0 : (loff_t)slen;
+ 		file_info->StreamSize = cpu_to_le64(ssize);
+ 		file_info->StreamAllocationSize = cpu_to_le64(ssize);
+diff --git a/fs/smb/server/vfs.c b/fs/smb/server/vfs.c
+index 1338a41ad7eccb0abdad7fb58e19f9336aaec482..6efb28049e28eef55a5a22710cab5d6e9dc73067 100644
+--- a/fs/smb/server/vfs.c
++++ b/fs/smb/server/vfs.c
+@@ -881,8 +881,8 @@ ssize_t ksmbd_vfs_listxattr(struct dentry *dentry, char **list)
+ 	return size;
+ }
+ 
+-static ssize_t ksmbd_vfs_xattr_len(struct mnt_idmap *idmap,
+-				   struct dentry *dentry, char *xattr_name)
++ssize_t ksmbd_vfs_xattr_len(struct mnt_idmap *idmap,
++			    struct dentry *dentry, char *xattr_name)
+ {
+ 	return vfs_getxattr(idmap, dentry, xattr_name, NULL, 0);
+ }
+diff --git a/fs/smb/server/vfs.h b/fs/smb/server/vfs.h
+index d28b096f497b20958e05c9a4c93d9cf0517b387e..b165085ca9a8d487880fbba31499d67268897cfa 100644
+--- a/fs/smb/server/vfs.h
++++ b/fs/smb/server/vfs.h
+@@ -106,6 +106,8 @@ ssize_t ksmbd_vfs_getxattr(struct mnt_idmap *idmap,
+ 			   struct dentry *dentry,
+ 			   char *xattr_name,
+ 			   char **xattr_buf);
++ssize_t ksmbd_vfs_xattr_len(struct mnt_idmap *idmap,
++			    struct dentry *dentry, char *xattr_name);
+ ssize_t ksmbd_vfs_casexattr_len(struct mnt_idmap *idmap,
+ 				struct dentry *dentry, char *attr_name,
+ 				int attr_name_len, char *actual_name);

@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chuck Lever <cel@kernel.org>
+Date: Thu, 8 Oct 2026 10:09:03 -0400
+Subject: [PATCH] exportfs: Release the get_name() directory file synchronously
+
+[ Upstream commit 49184daab01674ca400cbef58ee101dba6dbbb9d ]
+
+get_name() opens the parent directory with dentry_open() and
+releases it with fput(). From a kernel thread, fput() defers the
+final __fput() to the delayed_fput work item. NFSD threads are
+kernel threads, and NFSD reaches get_name() through
+exportfs_decode_fh() whenever a file handle's dentry is not
+connected to the root.
+
+On a filesystem with more directories than the dcache retains,
+nearly every READDIRPLUS needs a reconnect. The deferred releases
+arrive faster than the work item retires them, and each pending
+file pins the directory's readdir state. On ext4 that state is the
+htree fname cache for the last leaf block read. A 64-thread NFSv3
+server under a parallel tree walk showed unreclaimable slab growing
+by about 90 MB per second, and the same workload on a 5.15 kernel
+ended in a global OOM.
+
+Commit 5ff318f645eb ("nfsd: use __fput_sync() to avoid delayed
+closing of files.") stopped NFSD's own closes from feeding the
+delayed_fput queue but did not cover the exportfs reconnect path.
+
+Release the file with __fput_sync(). get_name() opened the file
+itself, read-only, on a directory, so __fput() involves nothing
+that could wait on the caller.
+
+Note for LTS backports: Kernels before v6.6 need the __fput_sync()
+call guarded by current->flags & PF_KTHREAD, with a plain fput()
+otherwise.
+
+Fixes: 4a9d4b024a31 ("switch fput to task_work_add")
+Cc: stable@vger.kernel.org # see above, needs adjustments for < v6.2
+Reported-by: Danny Pidutti <danny_pidutti@hotmail.com>
+Closes: https://lore.kernel.org/linux-fsdevel/DS4PR04MB9846BA3C16BC5ACED8B589228D952@DS4PR04MB9846.namprd04.prod.outlook.com/
+Tested-by: Danny Pidutti <danny@lightningiq.io>
+Reviewed-by: Benjamin Coddington <bcodding@hammerspace.com>
+Signed-off-by: Chuck Lever <cel@kernel.org>
+Link: https://patch.msgid.link/20261008140903.2784-1-cel@kernel.org
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 0242cf173e417d2aa89ade31f107b5d620c4db0d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/exportfs/expfs.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/fs/exportfs/expfs.c b/fs/exportfs/expfs.c
+index 6c9be60a3e48dc5e984a826029375550d1494835..1f6356ce486053fb7ab9ac1e5ede55e820142ef7 100644
+--- a/fs/exportfs/expfs.c
++++ b/fs/exportfs/expfs.c
+@@ -337,7 +337,11 @@ static int get_name(const struct path *path, char *name, struct dentry *child)
+ 	}
+ 
+ out_close:
+-	fput(file);
++	/*
++	 * @file is the read-only directory opened above, so __fput()
++	 * cannot block on anything the caller holds.
++	 */
++	__fput_sync(file);
+ out:
+ 	return error;
+ }

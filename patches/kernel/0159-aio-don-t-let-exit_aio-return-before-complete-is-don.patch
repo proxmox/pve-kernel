@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christian Brauner <brauner@kernel.org>
+Date: Fri, 30 Oct 2026 17:15:21 +0100
+Subject: [PATCH] aio: don't let exit_aio() return before complete() is done
+
+exit_aio() kills all contexts in one go and waits for them with a
+single on-stack struct ctx_rq_wait. The count starts at table->nr, each
+killed context drops one count in free_ioctx_reqs() and exit_aio()
+subtracts the empty slots afterwards. Whoever drops the last count
+either calls complete() or, if it is exit_aio(), skips the wait.
+
+With a full table skipped is zero and atomic_sub_and_test(0, ...) only
+tells us whether the count already hit zero. free_ioctx_reqs() runs from
+the percpu_ref RCU callback, so if exit_aio() is off the CPU long enough
+the last callback can have done its atomic_dec_and_test() but not yet
+called complete():
+
+    free_ioctx_reqs()                    exit_aio()
+    atomic_dec_and_test() // 1 -> 0
+                                         atomic_sub_and_test(0) // true
+                                         kfree(table)
+                                         return
+    complete(&wait.comp)
+
+complete() then locks and writes a completion on a stack frame that is
+gone. So hold an extra count for exit_aio() itself. Then the last count
+is always dropped by exit_aio() after it waited, or by a callback while
+exit_aio() waits for it. An unprivileged user gets there with four
+io_setup() calls and an exit without io_destroy().
+
+Reported-by: Kyle Zeng <kylebot@openai.com>
+Fixes: dc48e56d7616 ("aio: fix serial draining in exit_aio()")
+Cc: stable@vger.kernel.org
+Link: https://patch.msgid.link/20261030-work-aio-exit_aio-v1-1-83942022a4c4@kernel.org
+Reviewed-by: Jan Kara <jack@suse.cz>
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+(cherry picked from commit ac4b449b39e605123c12ea10042cafc9b6f39603)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/aio.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/aio.c b/fs/aio.c
+index f25894da19adc3eb717f6358992426c258f82a23..658c5b4d43f5b837ac216215e299bf356d1b4453 100644
+--- a/fs/aio.c
++++ b/fs/aio.c
+@@ -908,7 +908,7 @@ void exit_aio(struct mm_struct *mm)
+ 	if (!table)
+ 		return;
+ 
+-	atomic_set(&wait.count, table->nr);
++	atomic_set(&wait.count, table->nr + 1);
+ 	init_completion(&wait.comp);
+ 
+ 	skipped = 0;
+@@ -932,7 +932,7 @@ void exit_aio(struct mm_struct *mm)
+ 		kill_ioctx(mm, ctx, &wait);
+ 	}
+ 
+-	if (!atomic_sub_and_test(skipped, &wait.count)) {
++	if (!atomic_sub_and_test(skipped + 1, &wait.count)) {
+ 		/* Wait until all IO for the context are done. */
+ 		wait_for_completion(&wait.comp);
+ 	}

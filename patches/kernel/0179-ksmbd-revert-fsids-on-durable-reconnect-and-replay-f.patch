@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ian Bridges <icb@fastmail.org>
+Date: Wed, 11 Nov 2026 18:50:05 -0500
+Subject: [PATCH] ksmbd: revert fsids on durable reconnect and replay failure
+
+[ Upstream commit 539223f18026448f67d33d09719c355b91db7fd0 ]
+
+On a durable handle reconnect or a request replay, smb2_open() switches
+to the SMB user's fsids before calling ksmbd_vfs_getattr(). If that call
+fails, the code jumps to err_out2 and skips ksmbd_revert_fsids() at
+err_out1. The user's credentials then stay installed on the shared ksmbd
+worker. Later work on that worker, including other users' requests, runs
+with the first user's fsuid, fsgid and supplementary groups.
+ksmbd_free_work_struct() also warns, because work->saved_cred is still
+set.
+
+Jump to err_out1 instead. No path is held at this point, so skipping the
+path_put() at err_out is correct.
+
+Fixes: c8efcc786146 ("ksmbd: add support for durable handles v1/v2")
+Fixes: bb8bf7eb13b5 ("ksmbd: add SMB3 request replay support")
+Cc: stable@vger.kernel.org
+Signed-off-by: Ian Bridges <icb@fastmail.org>
+Signed-off-by: Namjae Jeon <linkinjeon@kernel.org>
+[ sashal: omitted the hunk for the absent dh_info.replay branch ]
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 2e6eed838cb93324701427464ec28a25a5a2e97c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/server/smb2pdu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index 37b40694009b52fea82109476a39fe3a33a7d95c..8e59107904f3e748a01b8441c2357e616cbe687f 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -3204,7 +3204,7 @@ int smb2_open(struct ksmbd_work *work)
+ 
+ 			rc = ksmbd_vfs_getattr(&fp->filp->f_path, &stat);
+ 			if (rc)
+-				goto err_out2;
++				goto err_out1;
+ 
+ 			goto reconnected_fp;
+ 		}

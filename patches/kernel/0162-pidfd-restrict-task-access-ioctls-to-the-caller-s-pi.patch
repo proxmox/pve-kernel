@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chen Linxuan <me@black-desk.cn>
+Date: Tue, 27 Oct 2026 16:22:15 +0800
+Subject: [PATCH] pidfd: restrict task access ioctls to the caller's pid
+ namespace
+
+pidfds can cross pid namespace boundaries: a task may obtain one for a
+process outside of its own pid namespace hierarchy through SO_PASSPIDFD
+or SO_PEERPIDFD, via SCM_RIGHTS, or through file descriptor inheritance.
+
+The namespace ioctls gate access with a ptrace check against the
+target's credentials only. That check does not account for the pid
+namespace relationship between the caller and the target, so a task
+inside a pid namespace can use a pidfd obtained across that boundary to
+acquire namespace file descriptors of a task outside of its hierarchy.
+
+procfs exposes the equivalent information only for tasks visible in the
+reader's pid namespace, and PIDFD_GET_INFO already answers with -EREMOTE
+for targets outside the caller's hierarchy. Extend that policy to the
+namespace ioctls: fail with -EREMOTE unless the target is visible in the
+caller's active pid namespace. Callers in ancestor pid namespaces are
+unaffected.
+
+Unlike PIDFD_GET_INFO, the visibility check is performed after the task
+lookup here, so reaped targets outside of the caller's pid namespace
+hierarchy answer -ESRCH instead of -EREMOTE.
+
+Link: https://lore.kernel.org/all/CAG48ez1T5-tUHVK_iHsgUtWa-inVdrZxA3E-ZCW0iENJvasKfg@mail.gmail.com
+Link: https://lore.kernel.org/all/20260925-gewischt-auftrag-tierzucht-c153cb3f9f74@brauner
+Suggested-by: Jann Horn <jannh@google.com>
+Suggested-by: Christian Brauner <brauner@kernel.org>
+Fixes: 5b08bd408534 ("pidfs: allow retrieval of namespace file descriptors")
+Cc: stable@vger.kernel.org
+Signed-off-by: Chen Linxuan <me@black-desk.cn>
+Link: https://patch.msgid.link/20261027-pidfd-task-access-v1-1-d46cf0fa4ca1@black-desk.cn
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+(cherry picked from commit ee8323fdc827c580425644db605a4be776cace57)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/pidfs.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/fs/pidfs.c b/fs/pidfs.c
+index 6f144abb5406b34f14b8ca42559124d7d4e63e71..51a77a856f9d151dd524999da415d4999906dc3a 100644
+--- a/fs/pidfs.c
++++ b/fs/pidfs.c
+@@ -531,6 +531,14 @@ static long pidfd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 	if (arg)
+ 		return -EINVAL;
+ 
++	/*
++	 * Require the target to be visible in the caller's pid namespace
++	 * for operations that grant access to its resources, mirroring
++	 * procfs and PIDFD_GET_INFO.
++	 */
++	if (!pid_in_current_pidns(pidfd_pid(file)))
++		return -EREMOTE;
++
+ 	/*
+ 	 * We're trying to open a file descriptor to the namespace so perform a
+ 	 * filesystem cred ptrace check. Hold @task's exec_update_lock for the

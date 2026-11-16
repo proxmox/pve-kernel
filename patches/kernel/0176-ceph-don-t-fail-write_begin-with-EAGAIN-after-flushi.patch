@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Venky Shankar <vshankar@redhat.com>
+Date: Wed, 7 Oct 2026 14:25:59 +0530
+Subject: [PATCH] ceph: don't fail write_begin with -EAGAIN after flushing old
+ snapc
+
+[ Upstream commit 6ff7920ca78f6edcabc26c63d20f681d938027c7 ]
+
+When ceph_netfs_check_write_begin() finds the folio dirty in an older
+snap context, it drops the folio, waits for that snap context to be
+flushed and then returns -EAGAIN so that the write is retried.
+
+However, since commit fac47b43c760 ("netfs: do not unlock and put the
+folio twice"), netfs_write_begin() retries only when ->check_write_begin()
+returns 0 with *foliop cleared -- every error, -EAGAIN included, is
+returned as is. The -EAGAIN thus propagates up to write(2), which fails
+with "Resource temporarily unavailable" once the dirty data has been
+flushed, rather than being retried.
+
+This is easily hit by buffered writers rewriting dirty pages while
+snapshots are being taken, e.g. a kernel build linking vmlinux into a
+directory under a snapshot schedule:
+
+  ld: final link failed: Resource temporarily unavailable
+
+Return the wait_event_killable() result as is so that netfs re-gets the
+folio and retries on success.
+
+Cc: stable@vger.kernel.org
+Fixes: fac47b43c760 ("netfs: do not unlock and put the folio twice")
+Link: https://tracker.ceph.com/issues/57656
+Signed-off-by: Venky Shankar <vshankar@redhat.com>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 9c0852f3cb02dc11d65900adf4f268375123736b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/ceph/addr.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/fs/ceph/addr.c b/fs/ceph/addr.c
+index 5e9504061b5194df36eee2f9f5f6f50774310e36..dfaa2bdbf89fe9fee3c0dce3db9ec0f368d1dfea 100644
+--- a/fs/ceph/addr.c
++++ b/fs/ceph/addr.c
+@@ -1878,7 +1878,12 @@ static int ceph_netfs_check_write_begin(struct file *file, loff_t pos, unsigned
+ 		r = wait_event_killable(ci->i_cap_wq,
+ 					context_is_writeable_or_written(inode, snapc));
+ 		ceph_put_snap_context(snapc);
+-		return r == 0 ? -EAGAIN : r;
++		/*
++		 * *foliop is cleared, so a return of 0 makes
++		 * netfs_write_begin() grab the folio again and call us again
++		 * to recheck it. Any error (fatal signal) fails the write.
++		 */
++		return r;
+ 	}
+ 	return 0;
+ }

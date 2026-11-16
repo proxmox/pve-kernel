@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joseph Qi <joseph.qi@linux.alibaba.com>
+Date: Tue, 10 Nov 2026 17:48:29 +0800
+Subject: [PATCH] smb: client: hold the inode across cifs_oplock_break()
+
+cifs_oplock_break() drops the handle reference in the middle of the
+handler and keeps using cinode afterwards, to send the break
+acknowledgment and again in cifs_done_oplock_break().  The reference
+cifs_queue_oplock_break() takes is the only pin: the handle holds the
+dentry and the dentry is what keeps the inode alive.
+
+When that put is the last reference, the dput() in
+cifsFileInfo_put_final() kills an unhashed dentry, drops the last
+i_count and evicts the inode, so the rest of the handler runs on an
+object whose free is only RCU-deferred.  An unhashed dentry that a
+handle still references is an ordinary state: unlinking an open file
+leaves the dentry that way, and so does the dcache teardown at unmount.
+
+Take a reference on the inode for the lifetime of the handler and drop
+it once the break has been reported.  This also covers the
+cifs_get_tlink() failure path, where the put is followed directly by
+the out label.
+
+Fixes: b98749cac4a6 ("CIFS: keep FileInfo handle live during oplock break")
+Fixes: 23b26f4408ac ("smb: client: avoid leaking refcount when cifs_sb_tlink() fails")
+Cc: stable@vger.kernel.org
+Signed-off-by: Joseph Qi <joseph.qi@linux.alibaba.com>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+(cherry picked from commit fce78321f1b59531cf6fc94860550db1db8dec55)
+[TL: adapt to the line offsets of the base]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/file.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/fs/smb/client/file.c b/fs/smb/client/file.c
+index 340d2380b0ebaa4929c55680b1eda07399bd8403..ffda97f94347f36a8a1e99f24148f46c3a2c54bf 100644
+--- a/fs/smb/client/file.c
++++ b/fs/smb/client/file.c
+@@ -3269,6 +3269,14 @@ void cifs_oplock_break(struct work_struct *work)
+ 	__u64 persistent_fid, volatile_fid;
+ 	__u16 net_fid;
+ 
++	/*
++	 * Dropping the handle reference below also drops the dentry
++	 * reference that pins this inode, and cinode is still needed to
++	 * acknowledge the break and to report it as complete.  Hold the inode
++	 * until that is done.
++	 */
++	ihold(inode);
++
+ 	wait_on_bit(&cinode->flags, CIFS_INODE_PENDING_WRITERS,
+ 			TASK_UNINTERRUPTIBLE);
+ 
+@@ -3356,6 +3364,7 @@ void cifs_oplock_break(struct work_struct *work)
+ 	cifs_put_tlink(tlink);
+ out:
+ 	cifs_done_oplock_break(cinode);
++	iput(inode);
+ }
+ 
+ static int cifs_swap_activate(struct swap_info_struct *sis,

@@ -1,0 +1,139 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jiwoo Kim <arpe1618@gmail.com>
+Date: Tue, 10 Nov 2026 16:24:05 +0900
+Subject: [PATCH] ksmbd: pin parent dentries in SMB2 CREATE ACL path
+
+smb2_open() and smb_inherit_dacl() read a child's d_parent without a
+dentry reference. A concurrent SMB request can move the child and
+remove the parent while CREATE uses its inode for permission, status,
+and ACL inheritance work. A remote SMB race with concurrent opener and
+mover connections on a writable KSMBD acl_xattr share triggered an
+8-byte slab-use-after-free read in get_cached_acl on tmpfs and ext4
+KASAN guests. With oops=panic, it also caused an Oops and kernel panic
+on an ext4 guest.
+
+Take a parent dentry reference around each parent inode or ACL access
+in these paths and release it when the operation completes. Treat a
+negative parent dentry as -ENOENT for the affected operation.
+
+On a tmpfs KASAN QEMU guest, two 3,000-round reproducer instances
+completed without a KASAN report or Oops; SMB remained reachable. On
+an ext4 non-KASAN QEMU guest with oops=panic, a 2,000-operation no-race
+control and two 5,000-round reproducer instances completed without an
+Oops or panic. An SMB health probe still succeeded.
+
+OpenAI Codex assisted with finding the bug, generating the SMB race
+reproducer, drafting this fix and changelog, and running the tests.
+
+Fixes: e2f34481b24d ("cifsd: add server-side procedures for SMB3")
+Cc: stable@kernel.org
+Signed-off-by: Jiwoo Kim <arpe1618@gmail.com>
+Signed-off-by: Namjae Jeon <linkinjeon@kernel.org>
+(cherry picked from commit 0383a66dabd7aa06237b9b24713c03656abeffe4)
+[TL: adapt context, the base declares the idmap without const and smbacl.c
+ does not include kunit/visibility.h]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/server/smb2pdu.c | 39 +++++++++++++++++++++++++++++++--------
+ fs/smb/server/smbacl.c  |  9 ++++++++-
+ 2 files changed, 39 insertions(+), 9 deletions(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index 4d8da237fc52a34e76aaf9050b5a152a0e232ec0..8dce697b0f8cc59bce8b98cc3f8afb45414d130e 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -3511,16 +3511,32 @@ int smb2_open(struct ksmbd_work *work)
+ 
+ 			if ((daccess & FILE_DELETE_LE) ||
+ 			    (req->CreateOptions & FILE_DELETE_ON_CLOSE_LE)) {
+-				rc = inode_permission(idmap,
+-						      d_inode(path.dentry->d_parent),
+-						      MAY_EXEC | MAY_WRITE);
++				struct dentry *parent = dget_parent(path.dentry);
++				struct inode *parent_inode = d_inode(parent);
++
++				if (parent_inode)
++					rc = inode_permission(idmap, parent_inode,
++							      MAY_EXEC | MAY_WRITE);
++				else
++					rc = -ENOENT;
++				dput(parent);
+ 				if (rc)
+ 					goto err_out;
+ 			}
+ 		}
+ 	}
+ 
+-	rc = ksmbd_query_inode_status(path.dentry->d_parent);
++	{
++		struct dentry *parent = dget_parent(path.dentry);
++
++		if (!d_inode(parent)) {
++			dput(parent);
++			rc = -ENOENT;
++			goto err_out;
++		}
++		rc = ksmbd_query_inode_status(parent);
++		dput(parent);
++	}
+ 	if (rc == KSMBD_INODE_STATUS_PENDING_DELETE) {
+ 		rc = -EBUSY;
+ 		goto err_out;
+@@ -3574,10 +3590,17 @@ int smb2_open(struct ksmbd_work *work)
+ 	if (created) {
+ 		int posix_acl_rc;
+ 		struct inode *inode = d_inode(path.dentry);
+-
+-		posix_acl_rc = ksmbd_vfs_inherit_posix_acl(idmap,
+-							   &path,
+-							   d_inode(path.dentry->d_parent));
++		struct inode *parent_inode;
++		struct dentry *parent;
++
++		parent = dget_parent(path.dentry);
++		parent_inode = d_inode(parent);
++		if (parent_inode)
++			posix_acl_rc = ksmbd_vfs_inherit_posix_acl(idmap, &path,
++								   parent_inode);
++		else
++			posix_acl_rc = -ENOENT;
++		dput(parent);
+ 		if (posix_acl_rc)
+ 			ksmbd_debug(SMB, "inherit posix acl failed : %d\n", posix_acl_rc);
+ 
+diff --git a/fs/smb/server/smbacl.c b/fs/smb/server/smbacl.c
+index 8731255e0c9faefbcb69fd44304621791c7349d1..960d80075dde7a3fc2b5e6545385898de048c648 100644
+--- a/fs/smb/server/smbacl.c
++++ b/fs/smb/server/smbacl.c
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include <linux/fs.h>
++#include <linux/dcache.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+ #include <linux/mnt_idmapping.h>
+@@ -1197,7 +1198,7 @@ int smb_inherit_dacl(struct ksmbd_conn *conn,
+ 	struct smb_acl *parent_pdacl;
+ 	struct smb_ntsd *parent_pntsd = NULL;
+ 	struct smb_sid owner_sid, group_sid;
+-	struct dentry *parent = path->dentry->d_parent;
++	struct dentry *parent;
+ 	struct mnt_idmap *idmap = mnt_idmap(path->mnt);
+ 	int inherited_flags = 0, flags = 0, i, nt_size = 0, pdacl_size;
+ 	int rc = 0, pntsd_type, ppntsd_size, acl_len, aces_size;
+@@ -1207,8 +1208,14 @@ int smb_inherit_dacl(struct ksmbd_conn *conn,
+ 	char *aces_base;
+ 	bool is_dir = S_ISDIR(d_inode(path->dentry)->i_mode);
+ 
++	parent = dget_parent(path->dentry);
++	if (!d_inode(parent)) {
++		dput(parent);
++		return -ENOENT;
++	}
+ 	ppntsd_size = ksmbd_vfs_get_sd_xattr(conn, idmap,
+ 					    parent, &parent_pntsd);
++	dput(parent);
+ 	if (ppntsd_size <= 0)
+ 		return -ENOENT;
+ 

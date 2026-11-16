@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Guanglei Zhu <zhugl3@xiaopeng.com>
+Date: Tue, 10 Nov 2026 09:56:38 +0800
+Subject: [PATCH] ceph: clamp the inline data length in ceph_fill_inline_data()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit 9c1d14d3b66b3e1dd96ee664c0dd2548f2b77a52 ]
+
+The MDS decides how much inline data to attach to a reply, and the
+client parses inline_len without any upper bound: ceph_decode_need()
+only verifies that the message actually carries that many bytes.
+ceph_fill_inline_data() then copies the data into a single page
+with no length check, so a malicious or buggy MDS returning more
+inline data than the page can hold writes past its end.
+
+Clamp the length to PAGE_SIZE so both callers, handle_cap_grant()
+and fill_inode(), are covered.
+
+Cc: stable@vger.kernel.org
+Fixes: 31c542a199d7 ("ceph: add inline data to pagecache")
+Signed-off-by: Guanglei Zhu <zhugl3@xiaopeng.com>
+Reviewed-by: Alex Markuze <amarkuze@redhat.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+[ Adapted for 7.3.y: folio_size()/memcpy_to_folio() → PAGE_SIZE and the page API; the trees with pr_warn_ratelimited_client() keep the warning (7.3, 6.18, 6.12, 6.6) and the trees without it (6.1, 5.15, 5.10) drop it. ]
+Signed-off-by: Guanglei Zhu <zhugl3@xiaopeng.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit d7f731005322418ee46d12d7f30cdee04f9650e6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/ceph/addr.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/fs/ceph/addr.c b/fs/ceph/addr.c
+index e1492fb60ddea561983470795086cbc8bbd2e012..5e9504061b5194df36eee2f9f5f6f50774310e36 100644
+--- a/fs/ceph/addr.c
++++ b/fs/ceph/addr.c
+@@ -2198,6 +2198,12 @@ void ceph_fill_inline_data(struct inode *inode, struct page *locked_page,
+ 	doutc(cl, "%p %llx.%llx len %zu locked_page %p\n", inode,
+ 	      ceph_vinop(inode), len, locked_page);
+ 
++	if (len > PAGE_SIZE) {
++		pr_warn_ratelimited_client(cl, "oversized inline data %zu\n",
++						   len);
++		len = PAGE_SIZE;
++	}
++
+ 	if (len > 0) {
+ 		void *kaddr = kmap_atomic(page);
+ 		memcpy(kaddr, data, len);

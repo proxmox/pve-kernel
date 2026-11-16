@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joanne Koong <joannelkoong@gmail.com>
+Date: Tue, 15 Sep 2026 16:53:41 -0700
+Subject: [PATCH] fuse: don't drop destination page cache on a zero byte copy
+ reply
+
+[ Upstream commit f7585e1ce3418ec282485854b3d8d31c6a961e37 ]
+
+__fuse_copy_file_range() clears the destination page cache after the
+server replies:
+
+	truncate_inode_pages_range(inode_out->i_mapping,
+				   ALIGN_DOWN(pos_out, PAGE_SIZE),
+				   ALIGN(pos_out + bytes_copied, PAGE_SIZE) - 1);
+
+A server may legitimately reply that it copied nothing, eg if the source
+file turns out to be shorter than the size the kernel has cached for it.
+
+If pos_out is 0 as well, the end of the range is ALIGN(0, PAGE_SIZE) - 1,
+which is -1. lend is a uoff_t and truncate_inode_pages_range() takes -1
+as its end of file sentinel, so rather than clearing nothing it drops
+every folio in the destination mapping.
+
+That is not only a cache drop. truncate_cleanup_folio() calls
+folio_cancel_dirty(), and fuse_writeback_range() only wrote back
+[pos_out, pos_out + len - 1], so dirty data elsewhere in the destination
+file is discarded without ever reaching the server.
+
+Skip the call when the server copied nothing, since there is nothing
+stale to clear in that case.
+
+Fixes: 9b46418c40fe ("fuse: copy_file_range should truncate cache")
+Cc: stable@vger.kernel.org
+Signed-off-by: Joanne Koong <joannelkoong@gmail.com>
+Signed-off-by: Miklos Szeredi <mszeredi@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit ac8661910ebee46daafa4be0b4da057fbe7d026b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/fuse/file.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/fs/fuse/file.c b/fs/fuse/file.c
+index d514b8109cd31df910b80c4b8ba39cefa9629f69..ee179e70181def354ce04add51d0c36d972c01a5 100644
+--- a/fs/fuse/file.c
++++ b/fs/fuse/file.c
+@@ -3138,9 +3138,11 @@ static ssize_t __fuse_copy_file_range(struct file *file_in, loff_t pos_in,
+ 		goto out;
+ 	}
+ 
+-	truncate_inode_pages_range(inode_out->i_mapping,
+-				   ALIGN_DOWN(pos_out, PAGE_SIZE),
+-				   ALIGN(pos_out + bytes_copied, PAGE_SIZE) - 1);
++	if (bytes_copied)
++		truncate_inode_pages_range(inode_out->i_mapping,
++					   ALIGN_DOWN(pos_out, PAGE_SIZE),
++					   ALIGN(pos_out + bytes_copied,
++						 PAGE_SIZE) - 1);
+ 
+ 	file_update_time(file_out);
+ 	fuse_write_update_attr(inode_out, pos_out + bytes_copied, bytes_copied);

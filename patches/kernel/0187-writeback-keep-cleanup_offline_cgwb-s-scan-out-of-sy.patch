@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Liz Fong-Jones <lizf@honeycomb.io>
+Date: Sun, 8 Nov 2026 12:29:49 +0000
+Subject: [PATCH] writeback: keep cleanup_offline_cgwb()'s scan out of syncs
+
+[ Upstream commit 90c96612460e6accddbda5a195e6ddaa391ecde0 ]
+
+On a filesystem mounted with lazytime, sync() and syncfs() can return
+without persisting timestamp updates of inodes attached to a dying
+cgroup wb, so a crash after the sync loses them. File data and sizes are
+not affected.
+
+Since commit f6988c90671e ("writeback: bound cleanup_offline_cgwb()
+rescans by rotating scanned inodes"), isw_prepare_wbs_switch() moves the
+inodes it walks to the newest end of the list. When a pass fills its isw
+before reaching an inode that got its lazytime update after a sync's
+cutoff, the walked inodes land past it on b_dirty_time, and the sync's
+queue_io(), which stops at the first inode dirtied after the cutoff,
+misses them. The late inode has to be one without a pending lazytime
+update; one already on b_dirty_time keeps its position.
+
+The window is narrow. cleanup_offline_cgwbs_workfn() skips wbs with
+anything on b_dirty, b_io or b_more_io, so the scan has to land between
+wb_writeback() fixing dirtied_before and taking list_lock for its first
+queue_io(), unless a multi-pass drain started before the wb got dirty
+IO.
+
+Take wb_switch_rwsem for read across the scan, as
+process_inode_switch_wbs() does for the switches.
+
+Fixes: f6988c90671e ("writeback: bound cleanup_offline_cgwb() rescans by rotating scanned inodes")
+Cc: stable@vger.kernel.org
+Suggested-by: Tejun Heo <tj@kernel.org>
+Link: https://lore.kernel.org/all/0bc5d58533f10b4841807be3025daa11@kernel.org/
+Acked-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Liz Fong-Jones <lizf@honeycomb.io>
+Link: https://patch.msgid.link/20261017040710.1174009-1-lizf@honeycomb.io
+Reviewed-by: Jan Kara <jack@suse.cz>
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+[ Take wb_switch_rwsem before this branch's rcu_read_lock(), as
+  down_read() can sleep. ]
+Assisted-by: Claude:claude-opus-5-5
+Signed-off-by: Liz Fong-Jones <lizf@honeycomb.io>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 20db192623742c4e4e4258c71fea5eae440fee44)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/fs-writeback.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
+index 7af5cf00a924a63c7f0204acea93747c044bdf50..014032c4a7e99d7979303e396b208984b9aa7e31 100644
+--- a/fs/fs-writeback.c
++++ b/fs/fs-writeback.c
+@@ -767,6 +767,13 @@ bool cleanup_offline_cgwb(struct bdi_writeback *wb)
+ 		new_wb = &wb->bdi->wb; /* wb_get() is noop for bdi's wb */
+ 
+ 	nr = 0;
++	/*
++	 * The scan moves walked inodes to the newest end of b_dirty_time,
++	 * past ones it didn't reach. If one of those was dirtied after a
++	 * sync's cutoff, the sync's queue_io() stops there and misses the
++	 * moved ones. Exclude syncs as process_inode_switch_wbs() does.
++	 */
++	down_read(&wb->bdi->wb_switch_rwsem);
+ 	/*
+ 	 * Paired with synchronize_rcu() in cgroup_writeback_umount().
+ 	 * Holding rcu_read_lock across the SB_ACTIVE check, the inode grab
+@@ -789,6 +796,7 @@ bool cleanup_offline_cgwb(struct bdi_writeback *wb)
+ 		restart = isw_prepare_wbs_switch(new_wb, isw, &wb->b_dirty_time,
+ 						 &nr);
+ 	spin_unlock(&wb->list_lock);
++	up_read(&wb->bdi->wb_switch_rwsem);
+ 
+ 	/* no attached inodes? bail out */
+ 	if (nr == 0) {

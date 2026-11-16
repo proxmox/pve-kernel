@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Max Kellermann <max.kellermann@ionos.com>
+Date: Fri, 4 Sep 2026 12:33:51 +0200
+Subject: [PATCH] ceph: avoid pending truncate during nonblocking cap acquire
+
+[ Upstream commit 979b7ed4457a04c5a41c36f86052ecc6b76c67d9 ]
+
+Readahead acquires caps while the folios are locked.  This can
+deadlock when processing a pending truncate; truncate_pagecache() can
+then attempt to a folio that is already locked.
+
+Return -EAGAIN instead when `NON_BLOCKING` is set, causing the
+readahead to be abandoned.
+
+Cc: stable@vger.kernel.org
+Fixes: 49870056005c ("ceph: convert ceph_readpages to ceph_readahead")
+Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+Reviewed-by: Xiubo Li <xiubo.li@clyso.com>
+Signed-off-by: Ilya Dryomov <idryomov@gmail.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 740fdcbc94f8bfd48121dac42a07c0b87a3fb261)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/ceph/caps.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/fs/ceph/caps.c b/fs/ceph/caps.c
+index 67d2aaad6ff755a5fa6da910453e976f6fe0e64e..3097e6fd84d4d4c1c2e77c8e287bd7f32df213aa 100644
+--- a/fs/ceph/caps.c
++++ b/fs/ceph/caps.c
+@@ -2879,6 +2879,10 @@ static int try_get_cap_refs(struct inode *inode, int need, int want,
+ 	}
+ 
+ 	/* finish pending truncate */
++	if (ci->i_truncate_pending && (flags & NON_BLOCKING)) {
++		ret = -EAGAIN;
++		goto out_unlock;
++	}
+ 	while (ci->i_truncate_pending) {
+ 		spin_unlock(&ci->i_ceph_lock);
+ 		if (snap_rwsem_locked) {

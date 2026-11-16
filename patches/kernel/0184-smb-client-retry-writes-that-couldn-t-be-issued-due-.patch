@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paulo Alcantara <pc@manguebit.org>
+Date: Wed, 28 Oct 2026 22:41:59 -0300
+Subject: [PATCH] smb: client: retry writes that couldn't be issued due to a
+ reconnect
+
+__cifs_issue_write() fails a subrequest with -EAGAIN when its handle got
+invalidated or its credits belong to a session from before a reconnect,
+both before sending anything.  netfs used to retry any -EAGAIN by itself,
+but now only retries subrequests marked for it, so these writes fail and
+their folios end writeback clean, losing the data.
+
+Mark them for retry instead.  The retry gets the handle reopened and
+fresh credits in cifs_prepare_write().
+
+Fixes: 82e8885bd763 ("netfs: when subreq is marked for retry, do not check if it faced an error")
+Reviewed-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Paulo Alcantara <pc@manguebit.org>
+Cc: stable@vger.kernel.org
+(cherry picked from commit 64db0dc1f3e689145e698bc1b20ee70b1724b945)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ fs/smb/client/file.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/fs/smb/client/file.c b/fs/smb/client/file.c
+index 2561034c4157dc68fd3355b3d2d6d9e513e4f23b..340d2380b0ebaa4929c55680b1eda07399bd8403 100644
+--- a/fs/smb/client/file.c
++++ b/fs/smb/client/file.c
+@@ -134,10 +134,12 @@ static void cifs_issue_write(struct netfs_io_subrequest *subreq)
+ 	return;
+ 
+ fail:
+-	if (rc == -EAGAIN)
++	if (rc == -EAGAIN) {
+ 		trace_netfs_sreq(subreq, netfs_sreq_trace_retry);
+-	else
++		__set_bit(NETFS_SREQ_NEED_RETRY, &subreq->flags);
++	} else {
+ 		trace_netfs_sreq(subreq, netfs_sreq_trace_fail);
++	}
+ 	add_credits_and_wake_if(wdata->server, &wdata->credits, 0);
+ 	cifs_write_subrequest_terminated(wdata, rc);
+ 	goto out;
