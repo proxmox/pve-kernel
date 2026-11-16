@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "David E. Box" <david.e.box@linux.intel.com>
+Date: Thu, 1 Oct 2026 15:03:47 -0700
+Subject: [PATCH] platform/x86/intel/vsec: Fix inverted walk_header() test in
+ get_features()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit 3678e39c6aaeb9aa380c7357b24f7d55955543f8 ]
+
+intel_vsec_walk_header() used to return a bool that was true when devices
+were found. It was converted to return 0 on success and a negative errno
+on failure, but the boolean test in intel_vsec_get_features() was left
+unchanged, so its meaning is now inverted.
+
+A successful walk returns 0 and leaves found set to false, while a failed
+walk returns an error that evaluates to true. When no other capabilities
+are present, intel_vsec_pci_init() then returns -ENODEV even though the
+auxiliary devices were created, and the driver core tears them back down.
+
+This affects platforms that have no DVSEC or VSEC capabilities and
+describe their features through device_data instead, which today means
+DG1. Test the return value for success explicitly.
+
+Fixes: a6ce8bf3c993 ("platform/x86/intel/vsec: Return real error codes from registration path")
+Cc: stable@vger.kernel.org
+Assisted-by: LLM
+Signed-off-by: David E. Box <david.e.box@linux.intel.com>
+Reviewed-by: Michael J. Ruhl <michael.j.ruhl@intel.com>
+Link: https://patch.msgid.link/20261001220351.1592138-3-david.e.box@linux.intel.com
+Reviewed-by: Ilpo Järvinen <ilpo.jarvinen@linux.intel.com>
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@linux.intel.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 1f48406c1d94daa45f06ab80056a83e46d705132)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/platform/x86/intel/vsec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/platform/x86/intel/vsec.c b/drivers/platform/x86/intel/vsec.c
+index f490fc95af4227d716c2f67d0bd0a9530abfd5e3..92bc5acd1a9e09e8011a0a0f0be51b4f4b8ab691 100644
+--- a/drivers/platform/x86/intel/vsec.c
++++ b/drivers/platform/x86/intel/vsec.c
+@@ -617,7 +617,7 @@ static bool intel_vsec_get_features(struct pci_dev *pdev,
+ 		found = true;
+ 
+ 	if (info && (info->quirks & VSEC_QUIRK_NO_DVSEC) &&
+-	    intel_vsec_walk_header(&pdev->dev, info))
++	    !intel_vsec_walk_header(&pdev->dev, info))
+ 		found = true;
+ 
+ 	return found;

@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Fri, 6 Nov 2026 19:41:56 +0100
+Subject: [PATCH] dm-thin: fix data corruption if discard races with regular
+ I/O
+
+In the function break_up_discard_bio, if a discard hits the same block as
+regular I/O, it was intended to skip the discard for the affected range.
+However, the skip code only advances "data_begin", it doesn't advance
+"virt_begin". So, the data_begin and virt_begin variables become
+unsynchronized.
+
+process_prepared_discard_passdown_pt1 calculates "data_end =
+m->data_block + (m->virt_end - m->virt_begin);" - if m->data_block is
+incremented and m->virt_begin isn't, it will overshoot the intended
+discard range.
+
+Cc: stable@vger.kernel.org
+Fixes: e2dd8aca2d76 ("dm bio prison v1: improve concurrent IO performance")
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+Assisted-by: Claude:claude-opus-5
+(cherry picked from commit 62ee9c09366cad69410330087d990e469dd92314)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/md/dm-thin.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/md/dm-thin.c b/drivers/md/dm-thin.c
+index 59392de7a4770575cf76984e7d9fb88980157423..cf07857a1d79ac23d9c7d75835c367bf114e971d 100644
+--- a/drivers/md/dm-thin.c
++++ b/drivers/md/dm-thin.c
+@@ -1703,6 +1703,7 @@ static void break_up_discard_bio(struct thin_c *tc, dm_block_t begin, dm_block_t
+ 			(void) build_key(tc->td, PHYSICAL, data_begin, data_begin + len, &data_key);
+ 			if (bio_detain(tc->pool, &data_key, NULL, &data_cell)) {
+ 				/* contention, we'll give up with this range */
++				virt_begin += len;
+ 				data_begin += len;
+ 				continue;
+ 			}

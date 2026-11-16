@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ratnaker Gautam <ratnaker.gautam@kuleuven.be>
+Date: Mon, 19 Oct 2026 21:30:33 +0000
+Subject: [PATCH] scsi: libiscsi_tcp: Prevent R2T range check overflow
+
+[ Upstream commit eb7aa7fd673fdc1582223cd133bcc5f54e7af19f ]
+
+An iSCSI target controls the R2T data offset and length as 32-bit
+values. Adding them before comparing the result with the SCSI data buffer
+length can wrap. An R2T with offset 1 and length U32_MAX then passes the
+check for a 4096-byte write.
+
+The transmit path treats the wrapped range as valid, exhausts the command
+scatterlist, and dereferences the NULL next entry in
+iscsi_tcp_segment_done().
+
+Check the offset first, then compare the length with the remaining bytes in
+the data buffer.
+
+Fixes: a081c13e39b5 ("[SCSI] iscsi_tcp: split module into lib and lld")
+Cc: stable@vger.kernel.org
+Signed-off-by: Ratnaker Gautam <ratnaker.gautam@kuleuven.be>
+Acked-by: Chris Leech <cleech@redhat.com>
+Link: https://patch.msgid.link/DB5PR08MB100629CD3750FBF71475B5224FD982@DB5PR08MB10062.eurprd08.prod.outlook.com
+Signed-off-by: Martin K. Petersen (Oracle) <mkp@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 9a6aa08dccb428d9f0ea40d9fce8debdac317c89)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/scsi/libiscsi_tcp.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/libiscsi_tcp.c b/drivers/scsi/libiscsi_tcp.c
+index d35f93451ee9bb6222950b4db66a57bbe31d0716..3c9e736d45e7ee15ea656789ee0cf14a4e6fc025 100644
+--- a/drivers/scsi/libiscsi_tcp.c
++++ b/drivers/scsi/libiscsi_tcp.c
+@@ -601,7 +601,8 @@ static int iscsi_tcp_r2t_rsp(struct iscsi_conn *conn, struct iscsi_hdr *hdr)
+ 			      data_length, session->max_burst);
+ 
+ 	data_offset = be32_to_cpu(rhdr->data_offset);
+-	if (data_offset + data_length > task->sc->sdb.length) {
++	if (data_offset > task->sc->sdb.length ||
++	    data_length > task->sc->sdb.length - data_offset) {
+ 		iscsi_conn_printk(KERN_ERR, conn,
+ 				  "invalid R2T with data len %u at offset %u "
+ 				  "and total length %d\n", data_length,

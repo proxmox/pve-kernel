@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yang Xiuwei <yangxiuwei@kylinos.cn>
+Date: Tue, 7 Jul 2026 11:03:31 +0800
+Subject: [PATCH] scsi: sd: Fix error handling in sd_probe() after large pool
+ creation failure
+
+After device_add(&sdkp->disk_dev) succeeds, sd_large_pool_create()
+failure must unregister disk_dev and let scsi_disk_release() free
+sdkp. Going through out_free_index kfree()s an already registered device
+and leaks the sysfs entry.
+
+Fixes: 7179e626b76e ("scsi: sd: Enable sector size > PAGE_SIZE in SCSI sd driver")
+Reviewed-by: Damien Le Moal <dlemoal@kernel.org>
+Signed-off-by: Yang Xiuwei <yangxiuwei@kylinos.cn>
+Reviewed-by: John Garry <john.g.garry@oracle.com>
+Link: https://patch.msgid.link/20260707030333.22245-2-yangxiuwei@kylinos.cn
+Signed-off-by: Martin K. Petersen (Oracle) <mkp@kernel.org>
+(cherry picked from commit e3cc6ea1a745e7f5d326f919a428b244fa119d8f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/scsi/sd.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
+index d796170850bc72396e8abb30472b76058094bcfb..a1b21ea14e54919ba9f8718d67c48e71618b1af9 100644
+--- a/drivers/scsi/sd.c
++++ b/drivers/scsi/sd.c
+@@ -4102,7 +4102,9 @@ static int sd_probe(struct scsi_device *sdp)
+ 	if (sdp->sector_size > PAGE_SIZE) {
+ 		if (sd_large_pool_create()) {
+ 			error = -ENOMEM;
+-			goto out_free_index;
++			device_unregister(&sdkp->disk_dev);
++			put_disk(gd);
++			goto out;
+ 		}
+ 	}
+ 

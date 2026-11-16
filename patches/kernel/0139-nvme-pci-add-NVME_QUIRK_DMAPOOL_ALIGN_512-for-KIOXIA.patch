@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sasha Levin <sashal@kernel.org>
+Date: Wed, 4 Nov 2026 07:18:16 -0500
+Subject: [PATCH] nvme-pci: add NVME_QUIRK_DMAPOOL_ALIGN_512 for KIOXIA XG10d
+
+[ Upstream commit c64d9b2c1f4fd1d8fa52dab37b48428a99c4d58d ]
+
+The KIOXIA XG10d reads past the end of a PRP list that completely fills
+a 256 byte small pool block. When that block is the last one in its
+dmapool page, the read lands on the next page, which usually isn't
+mapped. The IOMMU faults it and the controller craps itself:
+
+  arm-smmu-v3 arm-smmu-v3.0.auto: event: F_TRANSLATION client: 0001:09:00.0 sid: 0x20900 ssid: 0x0 iova: 0xff7fe000 ipa: 0x0
+  nvme nvme0: controller is down; will reset: CSTS=0xffffffff, PCI_STATUS=0xffff
+
+Filling the block requires a slightly larger write, and those became common
+with commit 2e8e30b3cf9f ("Revert "nvme-pci: clamp max_hw_sectors based on
+DMA optimized limitation"").
+
+Do what we do for other disks and use 512 byte aligned small pool blocks
+for this controller.
+
+Cc: stable@vger.kernel.org # 6.4.x
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Keith Busch <kbusch@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 894f7b87d76e82b0f8bc55c1c6796aa328044c8b)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/nvme/host/pci.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/nvme/host/pci.c b/drivers/nvme/host/pci.c
+index d655a29338c35e76544f080677c8feee111db6a2..ebfb2c790d150e25753a8c12bff05c1b9733c0e7 100644
+--- a/drivers/nvme/host/pci.c
++++ b/drivers/nvme/host/pci.c
+@@ -4180,6 +4180,8 @@ static const struct pci_device_id nvme_id_table[] = {
+ 		 .driver_data = NVME_QUIRK_BOGUS_NID, },
+ 	{ PCI_DEVICE(0x1344, 0x6004),	/* Micron 4100AT */
+ 		.driver_data = NVME_QUIRK_DMAPOOL_ALIGN_512, },
++	{ PCI_DEVICE(0x1e0f, 0x0032),	/* KIOXIA XG10d */
++		.driver_data = NVME_QUIRK_DMAPOOL_ALIGN_512, },
+ 	{ PCI_DEVICE(0x1c5c, 0x1504),   /* SK Hynix PC400 */
+ 		.driver_data = NVME_QUIRK_DISABLE_WRITE_ZEROES, },
+ 	{ PCI_DEVICE(0x1c5c, 0x174a),   /* SK Hynix P31 SSD */

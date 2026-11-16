@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Wed, 30 Sep 2026 21:35:31 +0200
+Subject: [PATCH] dm: fix a bug in dm_accept_partial_bio
+
+[ Upstream commit a279804752e6c767b7f9ecbb32a15bdfd2b80aea ]
+
+dm-writecache doesn't work in pmem mode - mkfs.ext4 and the following
+fsck.ext4 fail with data corruption reported.
+
+The commit 7dd76d1feec7 ("dm: improve bio splitting and associated IO
+accounting") introduced a latent bug in dm_accept_partial_bio - it set
+tio->io->sectors = n_sectors;. This is incorrect, according to the
+diagram in the source code at dm_accept_partial_bio, it should be the
+size of regions 1+2, not the region 2 alone.
+
+The latent bug become real bug with the commit 8b211aaccb91 ("dm: add two
+stage requeue mechanism").
+
+dm-writecache in pmem mode is the only target that actually advances bio
+with bio_advance and then calls dm_accept_partial_bio (so, the region 1
+is non-empty). All the other targets call dm_accept_partial_bio with
+region 1 empty, so bug went unnoticed for so long.
+
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+Assisted-by: Claude:claude-opus-5
+Cc: stable@vger.kernel.org
+Fixes: 8b211aaccb91 ("dm: add two stage requeue mechanism")
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 16802c8e3d7f63833f8bb96d159450544c529e50)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/md/dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/md/dm.c b/drivers/md/dm.c
+index 5965a84433c3b39825b1779122c3e23a803599ea..a23f480dc6ff5f5f3c46e8299b66e791f5a15947 100644
+--- a/drivers/md/dm.c
++++ b/drivers/md/dm.c
+@@ -1350,7 +1350,7 @@ void dm_accept_partial_bio(struct bio *bio, unsigned int n_sectors)
+ 	 * for accounting but it is being reduced so update accordingly.
+ 	 */
+ 	dm_io_set_flag(io, DM_IO_WAS_SPLIT);
+-	io->sectors = n_sectors;
++	io->sectors = *tio->len_ptr;
+ 	io->sector_offset = bio_sectors(io->orig_bio);
+ }
+ EXPORT_SYMBOL_GPL(dm_accept_partial_bio);

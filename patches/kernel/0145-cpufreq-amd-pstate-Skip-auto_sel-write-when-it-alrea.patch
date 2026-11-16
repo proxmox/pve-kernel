@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Wentao Guan <guanwentao@uniontech.com>
+Date: Fri, 18 Sep 2026 17:09:10 +0800
+Subject: [PATCH] cpufreq/amd-pstate: Skip auto_sel write when it already
+ matches the mode
+
+[ Upstream commit b400642c5e93863ec17ea15fcbd3efc81c299531 ]
+
+Since commit 9dfd13f80c85 ("cpufreq/amd-pstate: Toggle auto_sel in active
+mode on shared memory systems"), shmem_init_perf() programs
+AUTONOMOUS_SELECTION_ENABLE unconditionally, including in active mode.
+
+Platforms that exclusively support autonomous selection report this field
+as an Integer of 1, as required by the ACPI specification, instead of as a
+register descriptor.  cppc_get_reg_val() reads such a field back
+successfully, but cppc_set_reg_val() rejects the write with -EOPNOTSUPP
+because the entry is not an ACPI_TYPE_BUFFER.
+
+shmem_init_perf() propagates that error, so every amd_pstate_epp_cpu_init()
+fails, cpufreq_register_driver() ends up with an empty policy list and
+returns -ENODEV, and amd-pstate refuses to load at all:
+
+  amd_pstate: failed to set auto_sel, ret: -95
+  amd_pstate: Failed to initialize CPU 0: -95
+  ...
+  amd_pstate: failed to register with return -19
+
+Skip the write when the register already holds the value the requested mode
+needs.  Active and guided mode are fixed on these platforms, which report
+auto_sel as 1, while passive mode still fails to load on a platform that
+cannot disable autonomous selection, exactly as it did before the
+offending commit.
+
+Fixes: 9dfd13f80c85 ("cpufreq/amd-pstate: Toggle auto_sel in active mode on shared memory systems")
+Cc: stable@vger.kernel.org
+Reviewed-by: K Prateek Nayak <kprateek.nayak@amd.com>
+Tested-by: K Prateek Nayak <kprateek.nayak@amd.com>
+Tested-by: LFRon <ronforever@outlook.com>
+Signed-off-by: Wentao Guan <guanwentao@uniontech.com>
+Link: https://lore.kernel.org/r/20260918090909.86544-1-guanwentao@uniontech.com
+Signed-off-by: Mario Limonciello <superm1@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 1aa28cba80ce3008c1466eedc9a4ac9fa623236a)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/cpufreq/amd-pstate.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/cpufreq/amd-pstate.c b/drivers/cpufreq/amd-pstate.c
+index ca592f99e780da155f1687c3c7ee6a992920b963..eb50a589b732e484b37fa349c29adc0ceed013ca 100644
+--- a/drivers/cpufreq/amd-pstate.c
++++ b/drivers/cpufreq/amd-pstate.c
+@@ -469,8 +469,10 @@ static int shmem_init_perf(struct amd_cpudata *cpudata)
+ 		return 0;
+ 	}
+ 
+-	ret = cppc_set_auto_sel(cpudata->cpu,
+-			(cppc_state == AMD_PSTATE_PASSIVE) ? 0 : 1);
++	if ((cppc_state != AMD_PSTATE_PASSIVE) == auto_sel)
++		return 0;
++
++	ret = cppc_set_auto_sel(cpudata->cpu, !auto_sel);
+ 
+ 	if (ret)
+ 		pr_warn("failed to set auto_sel, ret: %d\n", ret);

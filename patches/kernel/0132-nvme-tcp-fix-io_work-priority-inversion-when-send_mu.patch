@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Seiji Nishikawa <snishika@redhat.com>
+Date: Wed, 14 Oct 2026 15:45:24 +0900
+Subject: [PATCH] nvme-tcp: fix io_work priority inversion when send_mutex is
+ held
+
+[ Upstream commit 5db358f3a7f9c33717622c1597d15c4c91997b19 ]
+
+Commit f42d4796ee10 ("nvme-tcp: fix I/O stalls on congested sockets")
+added a check in nvme_tcp_io_work() that sets pending to true when the
+queue has pending requests and the socket is writeable. The check is
+placed after the mutex_trylock() block, so it also runs when
+mutex_trylock(&queue->send_mutex) failed and io_work did not send
+anything.
+
+When .queue_rq sends a request directly from its own context, it holds
+send_mutex and can give up the CPU in lock_sock_nested() when another
+task needs the CPU, for example the io_work kworker of the same queue,
+which runs on the same CPU. Then io_work cannot take send_mutex, but
+the requests are still on req_list and the socket is writeable, so
+pending is set to true. io_work loops until the deadline and queues
+itself again on io_cpu, without sleeping.
+
+This is a priority inversion. io_work runs on the high priority
+nvme_tcp_wq and cannot make progress until send_mutex is released, but
+it keeps running. The task holding send_mutex runs at normal priority
+and needs the CPU to release it. The scheduler keeps giving the CPU to
+io_work, so the task holding send_mutex may not run again, and the
+requests on the queue are not sent and time out.
+
+This is the same problem that commit 70f437fb4395 ("nvme-tcp: fix
+io_work priority inversion") fixed. That commit removed
+"pending = !llist_empty(&queue->req_list)" from the path where
+mutex_trylock() fails, and let the task holding send_mutex queue
+io_work again in nvme_tcp_queue_request() after it releases the mutex.
+The new check brings back the same behavior in a different form.
+
+Two things make this easier to hit. nvme_tcp_queue_request() sends
+directly only when it runs on io_cpu, so the task that takes send_mutex
+is on the same CPU as the io_work kworker of that queue when it takes
+the mutex. Also, when the tasks are in a cgroup with the cpu controller
+enabled, the whole group competes with the nice -20 kworker as one
+entity, so each task in the group gets even less CPU time.
+
+We hit this on a 6 CPU VM running a database on nvme-tcp storage. In
+the vmcore, 2 tasks held send_mutex of 2 queues and were runnable in
+lock_sock_nested() for 103 seconds, while the kworkers for those queues
+kept running io_work on their CPUs. All database tasks were in one
+cgroup, which got only about 0.3% of the CPU against the nice -20
+kworker. Requests timed out, and blk_mq_timeout_work() waited in
+synchronize_srcu() for the tasks still in .queue_rq.
+
+Only do the pending check if io_work could take send_mutex. If it could
+not, the task holding send_mutex sends what it can in
+nvme_tcp_send_all(), and queues io_work again after it releases the
+mutex if requests are still pending, so no request is left behind.
+
+Fixes: f42d4796ee10 ("nvme-tcp: fix I/O stalls on congested sockets")
+Cc: stable@vger.kernel.org # v6.16+
+Signed-off-by: Seiji Nishikawa <snishika@redhat.com>
+Signed-off-by: Keith Busch <kbusch@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 6aba58adb5ff9d4b62b820518f409f1ee615021a)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/nvme/host/tcp.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/nvme/host/tcp.c b/drivers/nvme/host/tcp.c
+index 4c2849f39fab18f3995e797b3634270243efbff4..f7557b05ca155a284b2fd1fee88926cd40c98301 100644
+--- a/drivers/nvme/host/tcp.c
++++ b/drivers/nvme/host/tcp.c
+@@ -1450,9 +1450,11 @@ static void nvme_tcp_io_work(struct work_struct *w)
+ 
+ 	do {
+ 		bool pending = false;
++		bool got_send_mutex = false;
+ 		int result;
+ 
+ 		if (mutex_trylock(&queue->send_mutex)) {
++			got_send_mutex = true;
+ 			result = nvme_tcp_try_send(queue);
+ 			mutex_unlock(&queue->send_mutex);
+ 			if (result > 0)
+@@ -1467,8 +1469,13 @@ static void nvme_tcp_io_work(struct work_struct *w)
+ 		else if (unlikely(result < 0))
+ 			return;
+ 
+-		/* did we get some space after spending time in recv? */
+-		if (nvme_tcp_queue_has_pending(queue) &&
++		/*
++		 * did we get some space after spending time in recv?
++		 * Only check this if we could take send_mutex. Otherwise
++		 * the task holding it sends the requests and queues io_work
++		 * again after it releases the mutex.
++		 */
++		if (got_send_mutex && nvme_tcp_queue_has_pending(queue) &&
+ 		    sk_stream_is_writeable(queue->sock->sk))
+ 			pending = true;
+ 

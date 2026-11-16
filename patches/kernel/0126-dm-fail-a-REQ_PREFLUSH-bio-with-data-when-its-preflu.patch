@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daejun Park <daejun7.park@samsung.com>
+Date: Thu, 12 Nov 2026 10:35:29 +0900
+Subject: [PATCH] dm: fail a REQ_PREFLUSH bio with data when its preflush fails
+
+For a bio with REQ_PREFLUSH and data, dm core may send an empty flush
+first. If the flush fails, __dm_io_complete() still reissues the bio
+without REQ_PREFLUSH and drops the error. When that write succeeds,
+the XFS log keeps running and fsync() can return 0.
+
+End the bio with the flush error instead of writing the data, as
+blk-mq does.
+
+Fixes: 6a8736d10cb4 ("dm: relax ordering of bio-based flush implementation")
+Cc: stable@vger.kernel.org
+Signed-off-by: Daejun Park <daejun7.park@samsung.com>
+Acked-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+(cherry picked from commit e92cd41e8e5ee5616c6c7cd4378661d942f0a7c0)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/md/dm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/md/dm.c b/drivers/md/dm.c
+index f8c15e8354fca1a933f8f9df7aa6bb5e0eeae1d4..5965a84433c3b39825b1779122c3e23a803599ea 100644
+--- a/drivers/md/dm.c
++++ b/drivers/md/dm.c
+@@ -983,7 +983,7 @@ static void __dm_io_complete(struct dm_io *io, bool first_stage)
+ 	if (requeued)
+ 		return;
+ 
+-	if (unlikely(requeue_flush_with_data)) {
++	if (unlikely(requeue_flush_with_data) && !io_error) {
+ 		/*
+ 		 * Preflush done for flush with data, reissue
+ 		 * without REQ_PREFLUSH.
+@@ -991,7 +991,7 @@ static void __dm_io_complete(struct dm_io *io, bool first_stage)
+ 		bio->bi_opf &= ~REQ_PREFLUSH;
+ 		queue_io(md, bio);
+ 	} else {
+-		/* done with normal IO or empty flush */
++		/* done with normal IO, empty flush or failed preflush */
+ 		if (io_error)
+ 			bio->bi_status = io_error;
+ 		bio_endio(bio);

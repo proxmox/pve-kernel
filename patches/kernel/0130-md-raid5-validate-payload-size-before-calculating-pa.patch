@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Wilck <martin.wilck@suse.com>
+Date: Mon, 7 Sep 2026 17:51:03 +0200
+Subject: [PATCH] md/raid5: validate payload size before calculating
+ payload_len
+
+[ Upstream commit 38c795105992bbaa3418dd39cbff7348ad17537c ]
+
+Commit b0cc3ae97e89 ("md/raid5: validate payload size before accessing
+journal metadata") introduced a bounds check to verify that a given payload
+fits into the current metadata block. In order to calculate the payload
+size, it has to access the members payload->header.type and payload->size,
+the offset of which may already be past the end of the metadata block,
+because the loop condition only checks that the first byte of the payload
+is inside, and the payload entries have variable sizes. Later on,
+payload->checksum[0] and payload->checksum[1] are accessed without
+verifying that payload->size is large enough.
+
+Add another check to make sure that payload->size can be safely
+accessed, and make sure that the checksum fields are accessible.
+
+This issue has been found by AI (gemma4, Gemini) during a backport
+review.
+
+Cc: Junrui Luo <moonafterrain@outlook.com>
+Cc: stable@vger.kernel.org
+Fixes: b0cc3ae97e89 ("md/raid5: validate payload size before accessing journal metadata")
+Signed-off-by: Martin Wilck <mwilck@suse.com>
+Link: https://patch.msgid.link/20260907155103.2325511-1-mwilck@suse.com
+Signed-off-by: Yu Kuai <yukuai@fygo.io>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 708060d87b092e107504df4390aa83c4687c445f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/md/raid5-cache.c | 34 ++++++++++++++++++++++++++--------
+ 1 file changed, 26 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/md/raid5-cache.c b/drivers/md/raid5-cache.c
+index 7b7546bfa21fb0c4be62ac94ecf8c6da72b2edb3..62460e231f0256fa25f9d9e59e1df225e9f86e27 100644
+--- a/drivers/md/raid5-cache.c
++++ b/drivers/md/raid5-cache.c
+@@ -2001,27 +2001,36 @@ r5l_recovery_verify_data_checksum_for_mb(struct r5l_log *log,
+ 	if (!page)
+ 		return -ENOMEM;
+ 
+-	while (mb_offset < le32_to_cpu(mb->meta_size)) {
++	while (mb_offset + sizeof(struct r5l_payload_header) <= le32_to_cpu(mb->meta_size)) {
++		u32 payload_size;
+ 		sector_t payload_len;
+ 
+ 		payload = (void *)mb + mb_offset;
+ 		payload_flush = (void *)mb + mb_offset;
+ 
+ 		if (le16_to_cpu(payload->header.type) == R5LOG_PAYLOAD_DATA) {
++			if (mb_offset + sizeof(struct r5l_payload_data_parity)
++			    > le32_to_cpu(mb->meta_size))
++				goto mismatch;
++			payload_size = le32_to_cpu(payload->size) >> (PAGE_SHIFT - 9);
+ 			payload_len = sizeof(struct r5l_payload_data_parity) +
+-				(sector_t)sizeof(__le32) *
+-				(le32_to_cpu(payload->size) >> (PAGE_SHIFT - 9));
+-			if (mb_offset + payload_len > le32_to_cpu(mb->meta_size))
++					(sector_t)sizeof(__le32) * payload_size;
++			if (mb_offset + payload_len > le32_to_cpu(mb->meta_size) ||
++			    payload_size < 1)
+ 				goto mismatch;
+ 			if (r5l_recovery_verify_data_checksum(
+ 				    log, ctx, page, log_offset,
+ 				    payload->checksum[0]) < 0)
+ 				goto mismatch;
+ 		} else if (le16_to_cpu(payload->header.type) == R5LOG_PAYLOAD_PARITY) {
++			if (mb_offset + sizeof(struct r5l_payload_data_parity)
++			    > le32_to_cpu(mb->meta_size))
++				goto mismatch;
++			payload_size = le32_to_cpu(payload->size) >> (PAGE_SHIFT - 9);
+ 			payload_len = sizeof(struct r5l_payload_data_parity) +
+-				(sector_t)sizeof(__le32) *
+-				(le32_to_cpu(payload->size) >> (PAGE_SHIFT - 9));
+-			if (mb_offset + payload_len > le32_to_cpu(mb->meta_size))
++					(sector_t)sizeof(__le32) * payload_size;
++			if (mb_offset + payload_len > le32_to_cpu(mb->meta_size) ||
++			    payload_size < conf->max_degraded)
+ 				goto mismatch;
+ 			if (r5l_recovery_verify_data_checksum(
+ 				    log, ctx, page, log_offset,
+@@ -2035,6 +2044,9 @@ r5l_recovery_verify_data_checksum_for_mb(struct r5l_log *log,
+ 				    payload->checksum[1]) < 0)
+ 				goto mismatch;
+ 		} else if (le16_to_cpu(payload->header.type) == R5LOG_PAYLOAD_FLUSH) {
++			if (mb_offset + sizeof(struct r5l_payload_flush)
++			    > le32_to_cpu(mb->meta_size))
++				goto mismatch;
+ 			payload_len = sizeof(struct r5l_payload_flush) +
+ 				(sector_t)le32_to_cpu(payload_flush->size);
+ 			if (mb_offset + payload_len > le32_to_cpu(mb->meta_size))
+@@ -2096,7 +2108,7 @@ r5c_recovery_analyze_meta_block(struct r5l_log *log,
+ 	mb_offset = sizeof(struct r5l_meta_block);
+ 	log_offset = r5l_ring_add(log, ctx->pos, BLOCK_SECTORS);
+ 
+-	while (mb_offset < le32_to_cpu(mb->meta_size)) {
++	while (mb_offset + sizeof(struct r5l_payload_header) < le32_to_cpu(mb->meta_size)) {
+ 		sector_t payload_len;
+ 		int dd;
+ 
+@@ -2106,6 +2118,9 @@ r5c_recovery_analyze_meta_block(struct r5l_log *log,
+ 		if (le16_to_cpu(payload->header.type) == R5LOG_PAYLOAD_FLUSH) {
+ 			int i, count;
+ 
++			if (mb_offset + sizeof(struct r5l_payload_flush) >
++			    le32_to_cpu(mb->meta_size))
++				return -EINVAL;
+ 			payload_len = sizeof(struct r5l_payload_flush) +
+ 				(sector_t)le32_to_cpu(payload_flush->size);
+ 			if (mb_offset + payload_len >
+@@ -2130,6 +2145,9 @@ r5c_recovery_analyze_meta_block(struct r5l_log *log,
+ 		}
+ 
+ 		/* DATA or PARITY payload */
++		if (mb_offset + sizeof(struct r5l_payload_data_parity) >
++		    le32_to_cpu(mb->meta_size))
++			return -EINVAL;
+ 		payload_len = sizeof(struct r5l_payload_data_parity) +
+ 			(sector_t)sizeof(__le32) *
+ 			(le32_to_cpu(payload->size) >> (PAGE_SHIFT - 9));

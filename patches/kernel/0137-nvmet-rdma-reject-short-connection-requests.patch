@@ -1,0 +1,83 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Weiming Shi <bestswngs@gmail.com>
+Date: Fri, 16 Oct 2026 10:23:38 -0700
+Subject: [PATCH] nvmet-rdma: reject short connection requests
+
+[ Upstream commit 635e760169a87abf03874cd4636cd91b580cb427 ]
+
+nvmet_rdma_parse_cm_connect_req() treats RDMA-CM private data as a
+struct nvme_rdma_cm_req but accepts any nonzero private_data_len.  The
+iWARP path allocates exactly the peer-provided length, so a six-byte MPA
+request reaches the parser and the hsqsize load reads two bytes past the
+allocation.
+
+Require the complete request structure before reading any of its fields.
+The decoded KASAN report is:
+
+  BUG: KASAN: slab-out-of-bounds in nvmet_rdma_cm_handler
+    (drivers/nvme/target/rdma.c:1427 drivers/nvme/target/rdma.c:1475
+     drivers/nvme/target/rdma.c:1614 drivers/nvme/target/rdma.c:1814)
+  Read of size 2 at addr ff1100010459d366 by task kworker/u16:1/41
+  Workqueue: iw_cm_wq cm_work_handler
+  Call Trace:
+   <TASK>
+   dump_stack_lvl (lib/dump_stack.c:94 lib/dump_stack.c:120)
+   print_report (mm/kasan/report.c:378 mm/kasan/report.c:482)
+   kasan_report (mm/kasan/report.c:595)
+   nvmet_rdma_cm_handler
+    (drivers/nvme/target/rdma.c:1427 drivers/nvme/target/rdma.c:1475
+     drivers/nvme/target/rdma.c:1614 drivers/nvme/target/rdma.c:1814)
+   cma_cm_event_handler (drivers/infiniband/core/cma.c:2181)
+   iw_conn_req_handler (drivers/infiniband/core/cma.c:2640)
+   cm_work_handler
+    (drivers/infiniband/core/cm.c:2502
+     drivers/infiniband/core/cm.c:3858)
+   process_one_work (kernel/workqueue.c:3396)
+   worker_thread (kernel/workqueue.c:3479 kernel/workqueue.c:3560)
+   kthread (kernel/kthread.c:436)
+   ret_from_fork (arch/x86/kernel/process.c:158)
+   ret_from_fork_asm (arch/x86/entry/entry_64.S:245)
+   </TASK>
+
+  Allocated by task 12:
+   __kasan_kmalloc (mm/kasan/common.c:398 mm/kasan/common.c:415)
+   __kmalloc_node_track_caller_noprof
+    (mm/slub.c:5414 mm/slub.c:5545)
+   kmemdup_noprof (mm/util.c:138)
+   cm_event_handler
+    (drivers/infiniband/core/iwcm.c:194
+     drivers/infiniband/core/iwcm.c:1076)
+   siw_cm_upcall (drivers/infiniband/sw/siw/siw_cm.c:408)
+   siw_proc_mpareq (drivers/infiniband/sw/siw/siw_cm.c:750)
+   siw_cm_work_handler (drivers/infiniband/sw/siw/siw_cm.c:1086)
+
+  The buggy address is located 0 bytes to the right of
+  allocated 6-byte region [ff1100010459d360, ff1100010459d366)
+
+Cc: stable@vger.kernel.org
+Fixes: 8f000cac6e7a ("nvmet-rdma: add a NVMe over Fabrics RDMA target driver")
+Reported-by: <co+e015e82956da641b@bugs.sh>
+Assisted-by: LLM
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Weiming Shi <bestswngs@gmail.com>
+Signed-off-by: Keith Busch <kbusch@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit c17d443d1e984a0c0840692c6435cdc455936160)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/nvme/target/rdma.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/nvme/target/rdma.c b/drivers/nvme/target/rdma.c
+index 542138fd669f47a068b10e61eb4e3fbd13ee6d82..f7a43ad983530fe7587d4b8383a69b56bdf421f1 100644
+--- a/drivers/nvme/target/rdma.c
++++ b/drivers/nvme/target/rdma.c
+@@ -1409,7 +1409,7 @@ nvmet_rdma_parse_cm_connect_req(struct rdma_conn_param *conn,
+ 	struct nvme_rdma_cm_req *req;
+ 
+ 	req = (struct nvme_rdma_cm_req *)conn->private_data;
+-	if (!req || conn->private_data_len == 0)
++	if (!req || conn->private_data_len < sizeof(*req))
+ 		return NVME_RDMA_CM_INVALID_LEN;
+ 
+ 	if (le16_to_cpu(req->recfmt) != NVME_RDMA_CM_FMT_1_0)

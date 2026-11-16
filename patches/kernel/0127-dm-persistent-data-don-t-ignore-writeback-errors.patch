@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Fri, 6 Nov 2026 19:48:02 +0100
+Subject: [PATCH] dm persistent data: don't ignore writeback errors
+
+An error returned by ie_cache_writeback could be silently overwritten by
+another successful ie_cache_writeback. This commit fixes disk_ll_commit,
+so that it doesn't ignore the error and returns it immediatelly.
+
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+Assisted-by: Claude:claude-opus-5
+Cc: stable@vger.kernel.org
+Fixes: 6b06dd5a9722 ("dm space map disk: cache a small number of index entries")
+(cherry picked from commit fa887f2ebee7aff97eb87b3365939616ade09774)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/md/persistent-data/dm-space-map-common.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/md/persistent-data/dm-space-map-common.c b/drivers/md/persistent-data/dm-space-map-common.c
+index 22a551c407da4976586400adf035482308bb7c0c..833aefb0ab996b83ecd4e9461195460f8e5977c0 100644
+--- a/drivers/md/persistent-data/dm-space-map-common.c
++++ b/drivers/md/persistent-data/dm-space-map-common.c
+@@ -1190,17 +1190,20 @@ static dm_block_t disk_ll_max_entries(struct ll_disk *ll)
+ 
+ static int disk_ll_commit(struct ll_disk *ll)
+ {
+-	int r = 0;
++	int r;
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < IE_CACHE_SIZE; i++) {
+ 		struct ie_cache *iec = ll->ie_cache + i;
+ 
+-		if (iec->valid && iec->dirty)
++		if (iec->valid && iec->dirty) {
+ 			r = ie_cache_writeback(ll, iec);
++			if (unlikely(r))
++				return r;
++		}
+ 	}
+ 
+-	return r;
++	return 0;
+ }
+ 
+ int sm_ll_new_disk(struct ll_disk *ll, struct dm_transaction_manager *tm)

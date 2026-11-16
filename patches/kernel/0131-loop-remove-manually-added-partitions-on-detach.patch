@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daan De Meyer <daan@amutable.com>
+Date: Wed, 15 Jul 2026 21:39:57 +0200
+Subject: [PATCH] loop: remove manually added partitions on detach
+
+Commit 267ec4d7223a ("loop: fix partition scan race between udev and
+loop_reread_partitions()") stopped disk_force_media_change() from
+setting GD_NEED_PART_SCAN because loop devices with LO_FLAGS_PARTSCAN
+rescan partitions explicitly. However, partitions can also be added
+manually with BLKPG while LO_FLAGS_PARTSCAN is clear.
+
+When such a loop device is detached, __loop_clr_fd() skips
+bdev_disk_changed(). Without GD_NEED_PART_SCAN, reopening the unbound
+device no longer performs the previous lazy cleanup, leaving dead
+partition devices behind. A subsequent LOOP_CONFIGURE can then fail its
+partition scan with -EBUSY, as seen in blktests loop/009 after loop/008.
+
+Call bdev_disk_changed() unconditionally during __loop_clr_fd(). The
+disk capacity is already zero and the release path holds open_mutex, so
+this drops all partitions without rescanning the detached backing file.
+
+The new blktests loop/013 case covers this sequence by adding a partition
+with BLKPG without LO_FLAGS_PARTSCAN, detaching the loop device, and
+checking that the partition is gone when the device is reopened.
+
+Fixes: 267ec4d7223a ("loop: fix partition scan race between udev and loop_reread_partitions()")
+Reported-by: kernel test robot <oliver.sang@intel.com>
+Closes: https://lore.kernel.org/oe-lkp/202607150754.b660f5b9-lkp@intel.com
+Signed-off-by: Daan De Meyer <daan@amutable.com>
+Link: https://patch.msgid.link/20260715-b4-loop-partition-cleanup-v1-1-b9f59910cd1e@amutable.com
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+(cherry picked from commit c4f4c0fc551cbcdccbbbc2d874d7d6440c7b4983)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/block/loop.c | 32 ++++++++++++++------------------
+ 1 file changed, 14 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/block/loop.c b/drivers/block/loop.c
+index 0000913f7efcc1a9c77d2d1dd85851bfe502c617..39ac6aba45cfaf520bde6eac3dddb79fd75f321e 100644
+--- a/drivers/block/loop.c
++++ b/drivers/block/loop.c
+@@ -1117,6 +1117,7 @@ static void __loop_clr_fd(struct loop_device *lo)
+ 	struct queue_limits lim;
+ 	struct file *filp;
+ 	gfp_t gfp = lo->old_gfp_mask;
++	int err;
+ 
+ 	spin_lock_irq(&lo->lo_lock);
+ 	filp = lo->lo_backing_file;
+@@ -1150,26 +1151,21 @@ static void __loop_clr_fd(struct loop_device *lo)
+ 
+ 	disk_force_media_change(lo->lo_disk);
+ 
+-	if (lo->lo_flags & LO_FLAGS_PARTSCAN) {
+-		int err;
+-
+-		/*
+-		 * open_mutex has been held already in release path, so don't
+-		 * acquire it if this function is called in such case.
+-		 *
+-		 * If the reread partition isn't from release path, lo_refcnt
+-		 * must be at least one and it can only become zero when the
+-		 * current holder is released.
+-		 */
+-		err = bdev_disk_changed(lo->lo_disk, false);
+-		if (err)
+-			pr_warn("%s: partition scan of loop%d failed (rc=%d)\n",
+-				__func__, lo->lo_number, err);
+-		/* Device is gone, no point in returning error */
+-	}
++	/*
++	 * Remove all partitions, including partitions added manually with
++	 * BLKPG, which may exist even if LO_FLAGS_PARTSCAN is not set.
++	 *
++	 * open_mutex has been held already in release path, so don't acquire
++	 * it here.
++	 */
++	err = bdev_disk_changed(lo->lo_disk, false);
++	if (err)
++		pr_warn("%s: partition scan of loop%d failed (rc=%d)\n",
++			__func__, lo->lo_number, err);
++	/* Device is gone, no point in returning error */
+ 
+ 	/*
+-	 * lo->lo_state is set to Lo_unbound here after above partscan has
++	 * lo->lo_state is set to Lo_unbound here after removing partitions has
+ 	 * finished. There cannot be anybody else entering __loop_clr_fd() as
+ 	 * Lo_rundown state protects us from all the other places trying to
+ 	 * change the 'lo' device.

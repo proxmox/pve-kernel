@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Michal Pecio <michal.pecio@gmail.com>
+Date: Fri, 9 Oct 2026 18:16:23 +0300
+Subject: [PATCH] usb: xhci: Fix bounce buffer overflow
+
+[ Upstream commit 68c5cb7574c567e83ba95258cb146db95e069a87 ]
+
+High-speed devices with out of spec 1024 byte bulk endpoints exist and
+are allowed by USB core, but xhci-hcd always sets packet size to 512.
+The exact nature of these devices isn't documented, commit fb5ee84ea72c
+("USB: Accept bulk endpoints with 1024-byte maxpacket") only states
+that they "don't work with xHCI host controllers", whatever it means.
+
+But somebody (or a malicious device) can try, and then the driver will
+allocate a 512 byte bounce buffer for this endpoint and may write up to
+1024 bytes into it if particular scatter-gather URBs are used, because
+xhci_align_td() obtains packet size from the descriptor. Fix this.
+
+As a side effect, TRBs will be aligned to the packet size chosen by the
+driver on all endpoints of all speeds. Alignment serves the xHC, not
+device, so this is fine. Only out of spec devices are affected anyway.
+
+Reported-by: co+fd80bc5967eb22c3@bugs.sh
+Link: https://lore.kernel.org/linux-usb/D4tcSGerkYkIV1DmaUo1t8TaR5qQElDLkidn@bugs.sh/
+Fixes: f9c589e142d0 ("xhci: TD-fragment, align the unsplittable case with a bounce buffer")
+Cc: stable@vger.kernel.org
+Signed-off-by: Michal Pecio <michal.pecio@gmail.com>
+Signed-off-by: Mathias Nyman <mathias.nyman@linux.intel.com>
+Link: https://patch.msgid.link/20261009151624.618967-11-mathias.nyman@linux.intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit e95ace4abebd564b50b856513e24853d35be06cd)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/usb/host/xhci-ring.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/usb/host/xhci-ring.c b/drivers/usb/host/xhci-ring.c
+index a10445d3953b929fb1f733537b95e6e4cfdd5c13..97948d8de4518f537d69d45aa8ba3f2df37c53e0 100644
+--- a/drivers/usb/host/xhci-ring.c
++++ b/drivers/usb/host/xhci-ring.c
+@@ -3573,15 +3573,13 @@ static u32 xhci_td_remainder(struct xhci_hcd *xhci, int transferred,
+ 
+ 
+ static int xhci_align_td(struct xhci_hcd *xhci, struct urb *urb, u32 enqd_len,
+-			 u32 *trb_buff_len, struct xhci_segment *seg)
++			 u32 *trb_buff_len, struct xhci_segment *seg, u32 max_pkt)
+ {
+ 	struct device *dev = xhci_to_hcd(xhci)->self.sysdev;
+ 	unsigned int unalign;
+-	unsigned int max_pkt;
+ 	u32 new_buff_len;
+ 	size_t len;
+ 
+-	max_pkt = xhci_usb_endpoint_maxp(urb->dev, urb->ep);
+ 	unalign = (enqd_len + *trb_buff_len) % max_pkt;
+ 
+ 	/* we got lucky, last normal TRB data on segment is packet aligned */
+@@ -3726,9 +3724,8 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
+ 		if (enqd_len + trb_buff_len < full_len) {
+ 			field |= TRB_CHAIN;
+ 			if (trb_is_link(ring->enqueue + 1)) {
+-				if (xhci_align_td(xhci, urb, enqd_len,
+-						  &trb_buff_len,
+-						  ring->enq_seg)) {
++				if (xhci_align_td(xhci, urb, enqd_len, &trb_buff_len,
++						ring->enq_seg, ring->bounce_buf_len)) {
+ 					send_addr = ring->enq_seg->bounce_dma;
+ 					/* TD bounced at least, and last on this seg */
+ 					td->bounce_seg = ring->enq_seg;

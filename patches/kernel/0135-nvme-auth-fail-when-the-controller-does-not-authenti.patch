@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yehyeong Lee <yhlee@isslab.korea.ac.kr>
+Date: Tue, 6 Oct 2026 22:48:05 +0900
+Subject: [PATCH] nvme-auth: fail when the controller does not authenticate
+ itself
+
+[ Upstream commit f9e43d924bc74feeb56197de82b2845de2a4b85a ]
+
+nvme_auth_process_dhchap_success1() returns success as soon as the
+controller clears the rvalid flag in its DH-HMAC-CHAP success1 message,
+without looking at whether the host had asked the controller to
+authenticate.  A host configured with a controller secret sends a
+challenge in its reply, computes the expected controller response, and
+sets chap->bi_directional; if the controller then answers with
+rvalid = 0 the response is never compared, the host still sends
+success2, and the queue is marked as authenticated.
+
+A malicious or man-in-the-middle controller therefore only has to clear
+one flag to turn the configured bidirectional authentication into a
+one-way one, without holding any secret of its own.  The target side
+already treats the mirror image of this as fatal: when the host supplied
+a challenge but no controller key is configured, nvmet_auth_success1()
+fails the authentication rather than answering with rvalid = 0.
+
+Refuse the connection if the controller returns no response although
+bidirectional authentication was requested.  chap->bi_directional is the
+right condition rather than ctrl->ctrl_key, because secure concatenation
+sends a challenge only to derive the PSK and deliberately clears
+bi_directional; a one-way setup without a controller secret keeps
+returning success as before.
+
+Fixes: f50fff73d620 ("nvme: implement In-Band authentication")
+Cc: stable@vger.kernel.org
+Reviewed-by: Hannes Reinecke <hare@kernel.org>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Yehyeong Lee <yhlee@isslab.korea.ac.kr>
+Signed-off-by: Keith Busch <kbusch@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit fba302332547210e81c7d26778bad245de580e8f)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/nvme/host/auth.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/nvme/host/auth.c b/drivers/nvme/host/auth.c
+index 36b464e542fb3b3b3bbe225a77665698896b511c..39e33d9a428d9d2e63ddd01b69bfa30c4f66d585 100644
+--- a/drivers/nvme/host/auth.c
++++ b/drivers/nvme/host/auth.c
+@@ -378,8 +378,21 @@ static int nvme_auth_process_dhchap_success1(struct nvme_ctrl *ctrl,
+ 			 nvme_auth_hmac_name(chap->hash_id),
+ 			 nvme_auth_dhgroup_name(chap->dhgroup_id));
+ 
+-	if (!data->rvalid)
++	if (!data->rvalid) {
++		/*
++		 * The controller did not return a response.  If we asked it to
++		 * authenticate itself the session must not be used, otherwise
++		 * mutual authentication would silently degrade to one-way.
++		 */
++		if (chap->bi_directional) {
++			dev_warn(ctrl->device,
++				 "qid %d: controller did not authenticate\n",
++				 chap->qid);
++			chap->status = NVME_AUTH_DHCHAP_FAILURE_FAILED;
++			return -ECONNREFUSED;
++		}
+ 		return 0;
++	}
+ 
+ 	/* Validate controller response */
+ 	if (crypto_memneq(chap->response, data->rval, data->hl)) {

@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Fri, 6 Nov 2026 19:46:24 +0100
+Subject: [PATCH] dm persistent data: test return value of node_copy
+
+There were 3 places where the return value of node_copy was not tested.
+
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+Assisted-by: Claude:claude-opus-5
+Cc: stable@vger.kernel.org
+Fixes: c671ffa55d8b ("dm btree remove: change a bunch of BUG_ON() calls to proper errors")
+(cherry picked from commit 624d146d97c5fbe7200ef4b2dd5350ecf57d6b79)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/md/persistent-data/dm-btree-remove.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/md/persistent-data/dm-btree-remove.c b/drivers/md/persistent-data/dm-btree-remove.c
+index aeec5b9a1dd5c53952d8d2758e89a79c83929304..19ba265181c4d4d549a234769f3d3dea97c37495 100644
+--- a/drivers/md/persistent-data/dm-btree-remove.c
++++ b/drivers/md/persistent-data/dm-btree-remove.c
+@@ -253,7 +253,9 @@ static int __rebalance2(struct dm_btree_info *info, struct btree_node *parent,
+ 		/*
+ 		 * Merge
+ 		 */
+-		node_copy(left, right, -nr_right);
++		ret = node_copy(left, right, -nr_right);
++		if (unlikely(ret))
++			return ret;
+ 		left->header.nr_entries = cpu_to_le32(nr_left + nr_right);
+ 		delete_at(parent, r->index);
+ 
+@@ -315,13 +317,16 @@ static int delete_center_node(struct dm_btree_info *info, struct btree_node *par
+ {
+ 	uint32_t max_entries = le32_to_cpu(left->header.max_entries);
+ 	unsigned int shift = min(max_entries - nr_left, nr_center);
++	int ret;
+ 
+ 	if (nr_left + shift > max_entries) {
+ 		DMERR("node shift out of bounds");
+ 		return -EINVAL;
+ 	}
+ 
+-	node_copy(left, center, -shift);
++	ret = node_copy(left, center, -shift);
++	if (unlikely(ret))
++		return ret;
+ 	left->header.nr_entries = cpu_to_le32(nr_left + shift);
+ 
+ 	if (shift != nr_center) {
+@@ -333,7 +338,9 @@ static int delete_center_node(struct dm_btree_info *info, struct btree_node *par
+ 		}
+ 
+ 		node_shift(right, shift);
+-		node_copy(center, right, shift);
++		ret = node_copy(center, right, shift);
++		if (unlikely(ret))
++			return ret;
+ 		right->header.nr_entries = cpu_to_le32(nr_right + shift);
+ 	}
+ 	*key_ptr(parent, r->index) = right->keys[0];

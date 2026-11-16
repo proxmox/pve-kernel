@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Belanger <martin.belanger@dell.com>
+Date: Tue, 27 Oct 2026 06:38:52 -0400
+Subject: [PATCH] nvme-tcp: start error recovery when read_sock fails
+
+[ Upstream commit 288cfa187208cc9d0809eb8e1508658151a444dd ]
+
+nvme_tcp_recv_skb() disables the queue and starts error recovery for
+errors it detects itself. An error returned by the transport reaches
+nvme_tcp_try_recv() without either action.
+
+nvme_tcp_io_work() returns on a negative result and does not requeue
+itself, so the queue stops receiving and remains stalled until a command
+times out.
+
+Report the error and start error recovery when the queue is still
+enabled, which indicates that the error was not handled by the actor.
+Do this under the socket lock, as nvme_tcp_recv_skb() does.
+
+Fixes: be8e82caa685 ("nvme-tcp: enable TLS handshake upcall")
+Cc: stable@vger.kernel.org
+Assisted-by: LLM
+Reviewed-by: Hannes Reinecke <hare@kernel.org>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Martin Belanger <martin.belanger@dell.com>
+Signed-off-by: Keith Busch <kbusch@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 9998d585bd094bb652376ee7d91d1b8e31eef4e2)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/nvme/host/tcp.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/nvme/host/tcp.c b/drivers/nvme/host/tcp.c
+index f7557b05ca155a284b2fd1fee88926cd40c98301..80e5882a97f4649027234351f6884eed6be5afd3 100644
+--- a/drivers/nvme/host/tcp.c
++++ b/drivers/nvme/host/tcp.c
+@@ -1438,6 +1438,19 @@ static int nvme_tcp_try_recv(struct nvme_tcp_queue *queue)
+ 	lock_sock(sk);
+ 	queue->nr_cqe = 0;
+ 	consumed = sock->ops->read_sock(sk, &rd_desc, nvme_tcp_recv_skb);
++	/*
++	 * nvme_tcp_recv_skb() handles its own errors, so a queue that is
++	 * still enabled failed inside read_sock(). Handle it before
++	 * release_sock() processes the backlog.
++	 */
++	if (unlikely(consumed < 0 && consumed != -EAGAIN &&
++		     queue->rd_enabled)) {
++		dev_err(queue->ctrl->ctrl.device,
++			"queue %d: receive failed: %d\n",
++			nvme_tcp_queue_id(queue), consumed);
++		queue->rd_enabled = false;
++		nvme_tcp_error_recovery(&queue->ctrl->ctrl);
++	}
+ 	release_sock(sk);
+ 	return consumed == -EAGAIN ? 0 : consumed;
+ }
