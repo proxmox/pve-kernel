@@ -1,3 +1,121 @@
+proxmox-kernel-7.0 (7.0.14-30) trixie; urgency=medium
+
+  * update sources to Ubuntu-7.0.0-44.44 plus the upstream stable changes up
+    to v7.3.3 and v6.18.62 that Ubuntu prepared for its next update, bringing
+    fixes for about 130 published security issues. The r8169 conversion to
+    phylink, which comes back with them, stays reverted, as it broke the link
+    of some RTL8125B NICs (#8110).
+
+  * fix #8027: build the Hyper-V VMBus driver into the kernel again. All 7.0
+    kernels so far had it as a module, which kept the installer from finding
+    its ISO in Hyper-V Generation 2 VMs, as these attach storage via VMBus.
+
+  * dm-thin: fix data corruption in thin volumes, for example on LVM-thin,
+    when discards race with regular I/O. Also fix device mapper and the thin
+    pool metadata losing write and flush errors, and data corruption with
+    dm-writecache in persistent memory mode.
+
+  * net: fix a host crash that guests could cause through the UDP tunnel
+    segmentation offload of virtio-net, which QEMU offers on machine versions
+    10.2 and newer, and wrong offload headers getting VLAN tagged packets
+    dropped.
+
+  * x86: fix two processes possibly getting the same global TLB address space
+    ID on AMD CPUs with broadcast TLB invalidation, letting them read or
+    corrupt each other's memory.
+
+  * x86: mitigate Transient Scheduler Attacks (TSA) on AMD Zen 5. With
+    microcode that supports it, CPU buffers are now cleared when returning to
+    user space and when entering a guest, which costs some performance. The
+    tsa= kernel parameter can limit or disable this.
+
+  * memory cgroup: fix a leak in the kernel memory accounting that let the
+    memory usage of containers grow beyond their real usage, getting them
+    reclaimed, throttled or OOM-killed for memory they did not use. Also fix
+    a use-after-free in memory cgroup reclaim.
+
+  * CIFS: fix data loss after a reconnect, as writes that could not be sent
+    were dropped instead of retried. Also fix lost write errors, an
+    out-of-bounds write and a use-after-free.
+
+  * VXLAN: accept dynamic forwarding entries that point to a nexthop group
+    again, which FRR installs for EVPN multihoming. Since 7.0.14-25, traffic
+    to such MAC addresses was flooded to all remote VTEPs.
+
+  * KVM: fix nested virtualization issues, also with SMM, that guests could
+    use to bring KVM into an inconsistent state or to keep a host CPU busy,
+    and add a missing speculation barrier for Hyper-V guests on Intel hosts.
+
+  * VFIO: allow 8-byte ioeventfds for passed-through PCI devices again. Since
+    kernel 6.14 they were rejected, so QEMU handled such writes in its slower
+    path.
+
+  * amd-pstate: fix the driver failing to load since 7.0.14-25 on AMD
+    platforms that only support autonomous performance selection.
+
+  * tg3: power down Broadcom NICs on reboot again, except on Dell PowerEdge
+    R650 and R750 servers, which need to skip it. Skipping it everywhere
+    caused fatal PCIe errors and hangs on reboot on other servers, such as
+    the PowerEdge T440.
+
+  * pidfd: restrict namespace ioctls to tasks visible in the caller's pid
+    namespace, as procfs does. For other tasks they now fail with EREMOTE, so
+    a container can no longer get namespace file descriptors of processes
+    outside of it through a pidfd passed to it.
+
+  * NVMe: make the authentication secrets in sysfs readable by root only and
+    refuse connections where the controller skips the requested bidirectional
+    authentication. Also fix stalls with NVMe over TCP.
+
+  * libata: reject SCSI pass-through commands whose transfer direction does
+    not match the command, which could make the kernel write into read-only
+    memory.
+
+  * fix memory safety issues that a malicious NVMe-oF or iSCSI target or
+    initiator, or a USB device, could trigger.
+
+  * Ceph: fix out-of-bounds accesses on malformed messages from Ceph servers
+    in the CephFS client and libceph, and hangs in CephFS.
+
+  * ksmbd: fix access control bypasses, for example creating streams on
+    read-only shares, a credential leak and a use-after-free.
+
+  * fs: fix stale data becoming visible after short buffered writes on XFS,
+    ext4 reporting dirty data as a hole in files without extents, FUSE
+    dropping cached data on zero byte copies, lost lazytime timestamp updates,
+    hangs in the NFSv4 client and netfs, a lost epoll wakeup and memory growth
+    in the NFS server.
+
+  * net: fix use-after-free and out-of-bounds bugs that remote peers could
+    reach in GRO, TCP, UDP, MPTCP, the bridge and tunnel metadata, and bugs
+    that unprivileged users and containers could trigger in IPv6 address and
+    route handling, multicast routing, seg6, xfrm, ipvlan, tun, netfilter,
+    IPVS, L2TP, SCTP and CAN. Also fix a socket memory accounting leak that
+    could put the whole host under TCP memory pressure.
+
+  * net: fix SCTP address changes on single-homed hosts, broken since
+    7.0.14-17, a panic of atl1c NICs on large frames, and crashes and data
+    corruption with mlx5 NICs.
+
+  * GPU: fix use-after-free bugs, invalid memory accesses, leaks and hangs in
+    amdgpu, amdkfd, nouveau and xe, mostly reachable by processes with access
+    to the GPU, for example in a container it is passed through to.
+
+  * mm: fix memory corruption, data loss and hangs in hugetlb, shmem, THP
+    collapse, KSM, userfaultfd, mremap, madvise, VMA and page table handling
+    and the page cache, most of which local users and containers could
+    trigger.
+
+  * cgroup: make cgroup.kill also kill processes whose main thread already
+    exited, which could otherwise survive the killing of their container.
+
+  * fix memory safety issues that unprivileged users and containers could
+    trigger in aio, overlayfs and the dentry cache, leaks and hangs in POSIX
+    CPU timers, POSIX message queues, io_uring SQPOLL, AppArmor and shared
+    I/O resources, and fsync missing errors of earlier failed writeback.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Nov 2026 22:55:08 +0100
+
 proxmox-kernel-7.0 (7.0.14-29) trixie; urgency=medium
 
   * fix #8121: NFS server: fix server-side copies of larger files by NFS 4.2
