@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Li RongQing <lirongqing@baidu.com>
+Date: Tue, 10 Nov 2026 09:26:29 -0500
+Subject: [PATCH] vfio/pci: Restore 8-byte ioeventfd support
+
+[ Upstream commit b30b52c2fb82e6d38ee2845a4d85e8254b44f3d8 ]
+
+Commit b44a06bd28f2 ("vfio/pci: Remove #ifdef iowrite64 and #ifdef
+ioread64") inadvertently converted a conditional 8-byte rejection
+into an unconditional one.
+
+Originally, 'count == 8' was rejected only if iowrite64 was undefined
+(#ifndef iowrite64). When iowrite64 became globally available via generic
+fallbacks, this rejection became dead code, allowing 8-byte ioeventfds.
+However, b44a06bd28f2 removed the #ifndef wrappers but left the nested
+'if (count == 8) return -EINVAL;' intact, breaking all 8-byte
+registrations.
+
+Drop the unconditional check to restore 8-byte ioeventfd support,
+matching the original intent.
+
+Fixes: b44a06bd28f2 ("vfio/pci: Remove #ifdef iowrite64 and #ifdef ioread64")
+Cc: stable@vger.kernel.org
+Signed-off-by: Li RongQing <lirongqing@baidu.com>
+Link: https://lore.kernel.org/r/20260922040013.2188-1-lirongqing@baidu.com
+Signed-off-by: Alex Williamson <alex@shazbot.org>
+[ sashal: Adjusted context to retain vfio_pci_core_setup_barmap() instead of vfio_pci_core_get_iomap(). ]
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit dc374c824da01f7d5d23bc7b17bd448dfa370a4e)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/vfio/pci/vfio_pci_rdwr.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/vfio/pci/vfio_pci_rdwr.c b/drivers/vfio/pci/vfio_pci_rdwr.c
+index 4251ee03e1463bf175ca846f7f212d2b3c1398fd..0582fe61c85ded1d7916b3a6f8fb8eba7882e405 100644
+--- a/drivers/vfio/pci/vfio_pci_rdwr.c
++++ b/drivers/vfio/pci/vfio_pci_rdwr.c
+@@ -449,9 +449,6 @@ int vfio_pci_ioeventfd(struct vfio_pci_core_device *vdev, loff_t offset,
+ 	      pos >= vdev->msix_offset + vdev->msix_size))
+ 		return -EINVAL;
+ 
+-	if (count == 8)
+-		return -EINVAL;
+-
+ 	ret = vfio_pci_core_setup_barmap(vdev, bar);
+ 	if (ret)
+ 		return ret;

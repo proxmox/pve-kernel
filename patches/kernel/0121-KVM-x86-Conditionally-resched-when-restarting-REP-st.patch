@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 28 Oct 2026 10:36:38 -0700
+Subject: [PATCH] KVM: x86: Conditionally resched when restarting REP string
+ emulation
+
+[ Upstream commit ae85ac25eb671d174811cc3101549448671fd505 ]
+
+When restarting emulation, e.g. of a REP-prefixed string instruction,
+conditionally reschedule as emulating guest writes can be deceptively slow
+and expensive, e.g. when shadow paging is in use and each write can trigger
+write tracking.
+
+In a perfect world, restarting emulation (or not) would be less arbitrary,
+e.g. would honor not only host events (NEED_RESCHED, signals, etc.) but
+also guest events (e.g. by checking kvm_vcpu_has_events()).  Unfortunately,
+as pointed out by Sashiko, pio_in_emulated()'s read-ahead logic is baked
+into the restart logic, as KVM relies on restarting emulation to drain the
+cache and avoid duplicate reads from the I/O port.  I.e. re-entering the
+guest on kvm_vcpu_has_events() or __xfer_to_guest_mode_work_pending() would
+introduce architecturally-incorrect, guest-visible changes.
+
+Fixes: 5cd21917da24 ("KVM: x86 emulator: restart string instruction without going back to a guest.")
+Cc: stable@vger.kernel.org
+Cc: David Woodhouse <dwmw2@infradead.org>
+Reported-by: Stefan Teodorescu <fane@google.com>
+Suggested-by: Stefan Teodorescu <fane@google.com>
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Message-ID: <20261028173638.1765329-1-seanjc@google.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit d683f730275eb9ac1bb444533e3f293ee262b2ce)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/x86.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index a0b2843edd3275e23f417c07b3e74643a5bd370d..ca7e57c49a19f8b8ca6e3c00c2e3f8f66b20697f 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -9226,10 +9226,12 @@ int x86_emulate_instruction(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa,
+ 	} else if (vcpu->arch.complete_userspace_io) {
+ 		writeback = false;
+ 		r = 0;
+-	} else if (r == EMULATION_RESTART)
++	} else if (r == EMULATION_RESTART) {
++		cond_resched();
+ 		goto restart;
+-	else
++	} else {
+ 		r = 1;
++	}
+ 
+ writeback:
+ 	if (writeback) {

@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Tue, 27 Oct 2026 11:59:17 -0700
+Subject: [PATCH] KVM: nVMX: Process each host MSR entry at most once when
+ unwinding failed VM-Entry
+
+[ Upstream commit c33ef9d334059f7cb167569ed7b4779752fe4425 ]
+
+Add a missing "break" in the inner for-loop of the open coded mess that
+unwinds MSRs back to the pre-VM-Enter state when VMLAUNCH/VMRESUME VM-Fails
+due to a consistency check that is caught by hardware but missed by KVM.
+I.e. move on to the next MSR in the VM-Entry load list after performing a
+write using a value found in the VM-Exit load list.  Processing *every*
+matching entry in the VM-Exit load list makes the processing quadratic,
+which is problematic if the load lists are full of MSRs that are expensive
+to emulate.  E.g. writing APIC_BASE triggers kvm_recalculate_apic_map() and
+a whole pile of unnecessary work.
+
+Functionally, arbitrarily restoring the value of the first matching entry
+is "fine", because none of this is architecturally correct: the load lists
+are never supposed to have been used in the first place.  In practice, it's
+likely a moot point as no well-behaved VMM will have multiple, diverging
+entries in the load lists.
+
+Fixes: bd18bffca353 ("KVM: nVMX: restore host state in nested_vmx_vmexit for VMFail")
+Cc: stable@vger.kernel.org
+Cc: David Woodhouse <dwmw2@infradead.org>
+Reported-by: Stefan Teodorescu <fane@google.com>
+Suggested-by: Stefan Teodorescu <fane@google.com>
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Message-ID: <20261027185917.1478906-1-seanjc@google.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 12994adc23a23cf827c751cb05eb6c2a06d368fd)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/vmx/nested.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/kvm/vmx/nested.c b/arch/x86/kvm/vmx/nested.c
+index 1f69498c4a0bfff9d161b1fab177c50412f2751d..25b57a6134512cbe24581f50b6222f27ced79568 100644
+--- a/arch/x86/kvm/vmx/nested.c
++++ b/arch/x86/kvm/vmx/nested.c
+@@ -5077,6 +5077,7 @@ static void nested_vmx_restore_host_state(struct kvm_vcpu *vcpu)
+ 					__func__, j, h.index, h.value);
+ 				goto vmabort;
+ 			}
++			break;
+ 		}
+ 	}
+ 

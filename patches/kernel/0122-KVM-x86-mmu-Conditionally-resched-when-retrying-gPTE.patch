@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Wed, 21 Oct 2026 18:59:03 -0700
+Subject: [PATCH] KVM: x86/mmu: Conditionally resched when retrying gPTE walk
+ on A/D update failure
+
+[ Upstream commit b2691b3a6cd230209736c89684dab90d939aa56b ]
+
+Conditionally reschedule when retrying a guest PTE walk because the CMPXCHG
+to update A/D bits failed, e.g. because a different task/vCPU modified the
+relevant gPTEs.  On kernels without involuntary preemption of some kind, a
+misbehaving guest can "capture" a pCPU effectively indefinitely and trigger
+soft lockups by continuously modifying its gPTEs such that the result of
+the walk is remains valid.
+
+Fixes: b3e4e63fd9ee ("KVM: MMU: Use cmpxchg for pte updates on walk_addr()")
+Cc: stable@vger.kernel.org
+Reported-by: Stefan Teodorescu <fane@google.com>
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Message-ID: <20261022015903.282261-1-seanjc@google.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 9097fc85c96a9654da3dd982c6f132cd9e936280)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kvm/mmu/paging_tmpl.h | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/mmu/paging_tmpl.h b/arch/x86/kvm/mmu/paging_tmpl.h
+index e2a8663d89ea3f94ee2ab56b0f2b449262ce1994..2c9411342cef2ceac126aa611ea81a2bb6aa91b3 100644
+--- a/arch/x86/kvm/mmu/paging_tmpl.h
++++ b/arch/x86/kvm/mmu/paging_tmpl.h
+@@ -332,6 +332,13 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 	gpa_t real_gpa;
+ 	gfn_t gfn;
+ 
++	/*
++	 * KVM might sleep/resched when retrying the walk if the updating A/D
++	 * fails because the gPTE changed between reading the gPTE and trying
++	 * the CMPXHG to set A/D bits.
++	 */
++	might_sleep();
++
+ 	trace_kvm_mmu_pagetable_walk(addr, access);
+ retry_walk:
+ 	walker->level = mmu->cpu_role.base.level;
+@@ -484,8 +491,10 @@ static int FNAME(walk_addr_generic)(struct guest_walker *walker,
+ 							addr, write_fault);
+ 		if (unlikely(ret < 0))
+ 			goto error;
+-		else if (ret)
++		else if (ret) {
++			cond_resched();
+ 			goto retry_walk;
++		}
+ 	}
+ 
+ 	return 1;
