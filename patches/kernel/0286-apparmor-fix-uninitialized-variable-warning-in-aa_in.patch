@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Johansen <john.johansen@canonical.com>
+Date: Thu, 29 Oct 2026 16:53:12 -0700
+Subject: [PATCH] apparmor: fix uninitialized variable warning in
+ aa_inherit_files
+
+[ Upstream commit ed35bbe7d06e6505401eff3f3c7a36bd1f167a17 ]
+
+Fix the following warning
+
+All warnings (new ones prefixed by >>):
+
+>> security/apparmor/file.c:737:53: warning: variable 'file' is uninitialized when used here [-Wuninitialized]
+     737 |                 int error = aa_file_perm(OP_INHERIT, cred, label, file,
+         |                                                                   ^~~~
+   security/apparmor/file.c:724:36: note: initialize the variable 'file' to silence this warning
+     724 |         struct file *devnull = NULL, *file;
+         |                                           ^
+         |                                            = NULL
+   1 warning generated.
+
+vim +/file +737 security/apparmor/file.c
+
+   719
+   720	/* based on selinux's flush_unauthorized_files */
+   721	void aa_inherit_files(const struct cred *cred, struct files_struct *files)
+   722	{
+   723		struct aa_label *label = aa_get_newest_cred_label(cred);
+   724		struct file *devnull = NULL, *file;
+   725		bool devnull_tried = false;
+   726		unsigned int n = 0;
+   727
+   728		revalidate_tty(cred, label);
+   729
+   730		/*
+   731		 * Revalidate access to inherited open files. Each file is
+   732		 * revalidated holding only a reference to it, with no locks
+   733		 * held, as revalidation may sleep (e.g. unix socket mediation
+   734		 * dropping path refs, or allocating path buffers).
+   735		 */
+   736		while ((n = iterate_fd(files, n, get_next_file, &file)) != 0) {
+ > 737			int error = aa_file_perm(OP_INHERIT, cred, label, file,
+
+Reported-by: kernel test robot <lkp@intel.com>
+Closes: https://lore.kernel.org/oe-kbuild-all/202610292346.ehqNujiE-lkp@intel.com/
+Fixes: a913281f60015 ("apparmor: don't revalidate inherited files under files->file_lock")
+Signed-off-by: John Johansen <john.johansen@canonical.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 95aa24bcb760ca8c0f1c75b1aa6d29b5d9af7011)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ security/apparmor/file.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/security/apparmor/file.c b/security/apparmor/file.c
+index feae32acdebccb924e26eb65fd512ebb1a54d5b6..498dd0acb6630701bd47c6401b79bd3e21a66fac 100644
+--- a/security/apparmor/file.c
++++ b/security/apparmor/file.c
+@@ -915,7 +915,7 @@ static int get_next_file(const void *p, struct file *file, unsigned int fd)
+ void aa_inherit_files(const struct cred *cred, struct files_struct *files)
+ {
+ 	struct aa_label *label = aa_get_newest_cred_label(cred);
+-	struct file *devnull = NULL, *file;
++	struct file *devnull = NULL, *file = NULL;
+ 	bool devnull_tried = false;
+ 	unsigned int n = 0;
+ 

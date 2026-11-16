@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chris Mason <mason@kernel.org>
+Date: Fri, 6 Nov 2026 18:47:17 -0500
+Subject: [PATCH] x86/mm: Fix global ASID handed out to two processes
+
+[ Upstream commit 5cdc3746fa163fb4e8d05fa3cabf46bc6aa7df75 ]
+
+On AMD CPUs with INVLPGB, two live processes can get the same MAX_ASID_AVAILABLE
+global ASID value. The two then hit each other's TLB entries, so each can read
+or corrupt the other's memory.
+
+The global ASID space is managed lazily. When a global ASID is freed, its bit is
+set in the global_asid_freed bitmap. Once the free ASID search reaches the end
+of the global_asid_used bitmap, a global flush is done to really reclaim the
+lazily freed global ASIDs.
+
+However, the current code can assign the same global ASID to two different
+processes, if one process is assigned MAX_ASID_AVAILABLE - 1, another process
+MAX_ASID_AVAILABLE, and both stick around (keeping their global ASID numbers in
+use) until the search wraps around again.  At that point a third process could
+also get assigned MAX_ASID_AVAILABLE.
+
+    the highest ASID stays in use, so it is not handed out again
+      last_global_asid stays below it, so no reset
+        the clear bits run out
+          find_next_zero_bit() returns MAX_ASID_AVAILABLE
+            global_asid_available > 0, so the failure is not caught
+              MAX_ASID_AVAILABLE is handed out as an ASID
+
+A search only looks at the bits below MAX_ASID_AVAILABLE, so it cannot see that
+this value is in use. The next failed search hands it out again, even if the
+first process still holds it.
+
+The fix used here is to reset the global ASID space after a failed search, and
+to search again. If that search fails too, no global ASID is handed out.
+
+The test for !global_asid_available is removed, because use_global_asid() only
+calls allocate_global_asid() if global_asid_available > 0. The remaining test is
+for a condition that should be impossible.
+
+  [ riel: simplify code, massage changelog and comment ]
+
+Fixes: d504d1247e36 ("x86/mm: Add global ASID allocation helper functions")
+Signed-off-by: Chris Mason <mason@kernel.org>
+Signed-off-by: Rik van Riel <riel@surriel.com>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Reviewed-by: Thomas Gleixner <tglx@kernel.org>
+Reviewed-by: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: <stable@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 172fd84a1e754fc399741db8eb2512965b9cef86)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/mm/tlb.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 621e09d049cb93a7b85667a457842d54b115158b..b2df5b3835dcbd98a051ec5d45322ea2a697e9fe 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -320,13 +320,19 @@ static u16 allocate_global_asid(void)
+ 
+ 	lockdep_assert_held(&global_asid_lock);
+ 
+-	/* The previous allocation hit the edge of available address space */
+-	if (last_global_asid >= MAX_ASID_AVAILABLE - 1)
+-		reset_global_asid_space();
+-
+ 	asid = find_next_zero_bit(global_asid_used, MAX_ASID_AVAILABLE, last_global_asid);
+ 
+-	if (asid >= MAX_ASID_AVAILABLE && !global_asid_available) {
++	/*
++	 * Nothing is free between last_global_asid and MAX_ASID_AVAILABLE.
++	 * Flush lazy-freed ASIDs and reset the search space.
++	 */
++	if (asid >= MAX_ASID_AVAILABLE) {
++		reset_global_asid_space();
++		asid = find_next_zero_bit(global_asid_used, MAX_ASID_AVAILABLE,
++					  last_global_asid);
++	}
++
++	if (asid >= MAX_ASID_AVAILABLE) {
+ 		/* This should never happen. */
+ 		VM_WARN_ONCE(1, "Unable to allocate global ASID despite %d available\n",
+ 				global_asid_available);

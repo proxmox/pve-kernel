@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dave Hansen <dave.hansen@linux.intel.com>
+Date: Tue, 10 Nov 2026 09:27:39 -0800
+Subject: [PATCH] x86/mm: Ensure write visibility during LDT installation
+
+During LDT installation, the intent is to overwrite the old per-mm
+LDT value, then send an IPI to the mm user CPUs to have each load
+the new value.
+
+But there is an ordering problem: a new mm user CPU sets itself in
+mm_cpumask() and then reads mm->context.ldt. The LDT-installing CPU
+writes mm->context.ldt and then reads mm_cpumask(). But, there is
+nothing which orders the LDT installation side actions. The CPU
+can read mm_cpumask() before its write becomes visible.
+
+Ensure that new mm user CPUs see the new mm->context.ldt. Make
+mm->context.ldt visible before reading mm_cpumask().
+
+Also convert the smp_store_release() over to a WRITE_ONCE().
+smp_store_release() has an internal barrier which is weaker than
+the new smp_mb(). Avoid an extra barrier by converting it to
+WRITE_ONCE().
+
+Also refresh/correct misleading comments. READ/WRITE_ONCE() do not
+"synchronize" anything themselves.
+
+Reported-by: Jaeyoung Chung <jjy600901@snu.ac.kr>
+Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Tested-by: Jaeyoung Chung <jjy600901@snu.ac.kr>
+Acked-by: Linus Torvalds <torvalds@linuxfoundation.org>
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Cc: <stable@vger.kernel.org>
+(cherry picked from commit 0dc2a4dac3d04e9e4479aeb0b46172feab1cca0a)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/kernel/ldt.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/arch/x86/kernel/ldt.c b/arch/x86/kernel/ldt.c
+index 40c5bf97dd5cc416e0bde26b6b7b9bbb942b009e..6d721126642d295b309abd680051c78ce12c0bb0 100644
+--- a/arch/x86/kernel/ldt.c
++++ b/arch/x86/kernel/ldt.c
+@@ -43,7 +43,7 @@ void load_mm_ldt(struct mm_struct *mm)
+ {
+ 	struct ldt_struct *ldt;
+ 
+-	/* READ_ONCE synchronizes with smp_store_release */
++	/* Pairs with WRITE_ONCE() in install_ldt() */
+ 	ldt = READ_ONCE(mm->context.ldt);
+ 
+ 	/*
+@@ -422,8 +422,14 @@ static void install_ldt(struct mm_struct *mm, struct ldt_struct *ldt)
+ {
+ 	mutex_lock(&mm->context.lock);
+ 
+-	/* Synchronizes with READ_ONCE in load_mm_ldt. */
+-	smp_store_release(&mm->context.ldt, ldt);
++	/*
++	 * Ensure that new mm user CPUs either see the new LDT value
++	 * or get an IPI. Make the store visible before reading
++	 * mm_cpumask(). New mm users make their mm_cpumask() writes
++	 * visible before reading mm->context.ldt.
++	 */
++	WRITE_ONCE(mm->context.ldt, ldt);
++	smp_mb();
+ 
+ 	/* Activate the LDT for all CPUs using currents mm. */
+ 	on_each_cpu_mask(mm_cpumask(mm), flush_ldt, mm, true);

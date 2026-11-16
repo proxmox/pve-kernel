@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DAI RENJIE <drj19981414013@gmail.com>
+Date: Fri, 21 Aug 2026 14:08:17 +0000
+Subject: [PATCH] resource: fix lost wakeup when waiting for a muxed region
+
+[ Upstream commit 405c00e43a9c72a0b9b318cc2d2e298386ffb58e ]
+
+A task waiting for a muxed region can sleep forever in
+TASK_UNINTERRUPTIBLE even though the region it waits for is already free.
+__request_region_locked() queues itself on muxed_resource_wait and drops
+resource_lock before setting TASK_UNINTERRUPTIBLE, while
+__release_region() wakes the queue after dropping the same lock.  A wakeup
+landing in between finds TASK_RUNNING, does not match TASK_NORMAL and is
+discarded; callers hold a muxed region only across a bounded transaction,
+so no further release is coming.  The task is unkillable and its caller
+never returns.
+
+The window is one store wide, but an interrupt is enough to hold the
+waiter in it, and the machine this was seen on runs PREEMPT_DYNAMIC in its
+voluntary default.  Since v6.11 spd5118 exports the DDR5 sensors of AMD
+boards through i2c-piix4, which takes a muxed region per SMBus
+transaction; a third of the in-tree users of request_muxed_region() are
+hwmon drivers, so reading a world-readable attribute is all an
+unprivileged user needs to drive the contention.  The blocked task sleeps
+holding the i2c adapter bus lock, and 27 more piled up behind it.
+
+Reproduced by building a kernel with the two orderings selectable at
+runtime and a 2ms delay inside the window.  Switching only that knob, a
+two-thread barriered reproducer loses the wakeup 200 times out of 200
+before the fix and 0 out of 200 after it; without the delay it goes 20000
+times through the wait path and loses none.
+
+Fix it by setting the task state before dropping resource_lock, as
+prepare_to_wait() does: the releasing side needs resource_lock to unlink
+the resource, so it cannot reach the wakeup before the state is published.
+
+Link: https://lore.kernel.org/20260821-b4-resource-muxed-lost-wakeup-v1-1-37eb6473a76c@gmail.com
+Fixes: 8b6d043b7ee2 ("resource: shared I/O region support")
+Signed-off-by: DAI RENJIE <drj19981414013@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reviewed-by: Bradley Morgan <brads@mainlining.org>
+Reviewed-by: Andrew Morton <akpm@linux-foundation.org>
+Assisted-by: Claude:claude-opus-5
+Cc: Mark Brown <broonie@kernel.org>
+Cc: Kees Cook <kees@kernel.org>
+Cc: Bjorn Helgaas <bhelgaas@google.com>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 60ea6ea084c60bb31c4980bf34b398e5ab35d3d9)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ kernel/resource.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/resource.c b/kernel/resource.c
+index a42118e005187c0b28a53cc9b30cdeb9d3e2b270..5079f055c951064432b2f3738631272b36d1776b 100644
+--- a/kernel/resource.c
++++ b/kernel/resource.c
+@@ -1349,8 +1349,8 @@ static int __request_region_locked(struct resource *res, struct resource *parent
+ 		}
+ 		if (conflict->flags & flags & IORESOURCE_MUXED) {
+ 			add_wait_queue(&muxed_resource_wait, &wait);
+-			write_unlock(&resource_lock);
+ 			set_current_state(TASK_UNINTERRUPTIBLE);
++			write_unlock(&resource_lock);
+ 			schedule();
+ 			remove_wait_queue(&muxed_resource_wait, &wait);
+ 			write_lock(&resource_lock);

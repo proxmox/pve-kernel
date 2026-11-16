@@ -1,0 +1,133 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "David Hildenbrand (Arm)" <david@kernel.org>
+Date: Wed, 14 Oct 2026 20:34:28 +0200
+Subject: [PATCH] mm: fix address wraparound when scanning large folio PTEs
+
+[ Upstream commit f681d4580d5c3c749f623cda722a21aefd3147b3 ]
+
+numa_rebuild_large_mapping() and do_swap_page() can be tricked into
+generating an address wraparound, crashing the kernel. All that's required
+is to map a tail page of a large folio close enough to the start/end of
+the address space to e.g., make
+
+	unsigned long addr_start = addr - (nr << PAGE_SHIFT);
+
+to wrap around.
+
+Let's fix it by providing a better helper, folio_scan_range(), that
+takes care of staying within VMA and page table boundaries while
+handling possible wraparounds.
+
+There are some nasty details, like not being able to use pmd_addr_end()
+in this context. Add some helpful comments for these cases.
+
+Link: https://lore.kernel.org/20261014-folio_pte_scan_range-v2-1-00cf9bbaa364@kernel.org
+Fixes: d2136d749d76 ("mm: support multi-size THP numa balancing")
+Fixes: 508758960b8d ("mm: swap: entirely map large folios found in swapcache")
+Signed-off-by: David Hildenbrand (Arm) <david@kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reported-by: Kyle Zeng <kylebot@openai.com>
+Reviewed-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
+Reviewed-by: Kiryl Shutsemau (Meta) <kas@kernel.org>
+Reviewed-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Reviewed-by: Lance Yang <lance.yang@linux.dev>
+Reviewed-by: Barry Song <baohua@kernel.org>
+Cc: Liam R. Howlett <liam@infradead.org>
+Cc: Vlastimil Babka <vbabka@kernel.org>
+Cc: Mike Rapoport <rppt@kernel.org>
+Cc: Suren Baghdasaryan <surenb@google.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Ying Huang <huang.ying.caritas@gmail.com>
+Cc: Ryan Roberts <ryan.roberts@arm.com>
+Cc: Chuanhua Han <hanchuanhua@oppo.com>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit ec34f1640ef1c997a49a9407e958e89cd562b0d0)
+[TL: adapt context for the placement of folio_pte_range() before
+ do_swap_page()]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/memory.c | 50 ++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 36 insertions(+), 14 deletions(-)
+
+diff --git a/mm/memory.c b/mm/memory.c
+index e98786b24ef0d3804da246a3f4325b7c522bf00c..275b9595a42c144b002ee5ff8cd058daedb71ad4 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -4725,6 +4725,34 @@ static void check_swap_exclusive(struct folio *folio, swp_entry_t entry,
+ 	} while (--nr_pages);
+ }
+ 
++/*
++ * Get the address range in which a folio might be mapped, assuming its pages
++ * are mapped consecutively and the folio page at the given idx is mapped at
++ * the given address.
++ */
++static void folio_pte_range(const struct folio *folio,
++		const struct vm_area_struct *vma, unsigned long addr,
++		unsigned long idx, unsigned long *start, unsigned long *end)
++{
++	/* Stay within the page table and VMA boundaries. */
++	const unsigned long pmd_start = addr & PMD_MASK;
++	const unsigned long pmd_end = pmd_start + PMD_SIZE;
++	const unsigned long lower = max(pmd_start, vma->vm_start);
++	/*
++	 * We cannot use pmd_addr_end(), as it does not clamp reliably. To
++	 * avoid wraparounds, compute using the inclusive end.
++	 */
++	const unsigned long upper = min(pmd_end - 1, vma->vm_end - 1) + 1;
++	const unsigned long offset = idx << PAGE_SHIFT;
++
++	/*
++	 * Avoid start/end addresses wrapping by not adding/subtracting more
++	 * than the lower/upper limits would allow.
++	 */
++	*start = addr - min(addr - lower, offset);
++	*end = addr + min(upper - addr, folio_size(folio) - offset);
++}
++
+ /*
+  * We enter with non-exclusive mmap_lock (to exclude vma changes,
+  * but allow concurrent faults), and pte mapped but not yet locked.
+@@ -4923,16 +4951,15 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
+ 	address = vmf->address;
+ 	ptep = vmf->pte;
+ 	if (folio_test_large(folio) && folio_test_swapcache(folio)) {
+-		int nr = folio_nr_pages(folio);
+-		unsigned long idx = folio_page_idx(folio, page);
+-		unsigned long folio_start = address - idx * PAGE_SIZE;
+-		unsigned long folio_end = folio_start + nr * PAGE_SIZE;
++		const int nr = folio_nr_pages(folio);
++		const unsigned long idx = folio_page_idx(folio, page);
++		unsigned long folio_start, folio_end;
+ 		pte_t *folio_ptep;
+ 		pte_t folio_pte;
+ 
+-		if (unlikely(folio_start < max(address & PMD_MASK, vma->vm_start)))
+-			goto check_folio;
+-		if (unlikely(folio_end > pmd_addr_end(address, vma->vm_end)))
++		folio_pte_range(folio, vma, address, idx, &folio_start,
++				&folio_end);
++		if (unlikely((folio_end - folio_start) >> PAGE_SHIFT != nr))
+ 			goto check_folio;
+ 
+ 		folio_ptep = vmf->pte - idx;
+@@ -6040,16 +6067,11 @@ static void numa_rebuild_large_mapping(struct vm_fault *vmf, struct vm_area_stru
+ 				       struct folio *folio, pte_t fault_pte,
+ 				       bool ignore_writable, bool pte_write_upgrade)
+ {
+-	int nr = pte_pfn(fault_pte) - folio_pfn(folio);
++	const unsigned long idx = pte_pfn(fault_pte) - folio_pfn(folio);
+ 	unsigned long start, end, addr = vmf->address;
+-	unsigned long addr_start = addr - (nr << PAGE_SHIFT);
+-	unsigned long pt_start = ALIGN_DOWN(addr, PMD_SIZE);
+ 	pte_t *start_ptep;
+ 
+-	/* Stay within the VMA and within the page table. */
+-	start = max3(addr_start, pt_start, vma->vm_start);
+-	end = min3(addr_start + folio_size(folio), pt_start + PMD_SIZE,
+-		   vma->vm_end);
++	folio_pte_range(folio, vma, addr, idx, &start, &end);
+ 	start_ptep = vmf->pte - ((addr - start) >> PAGE_SHIFT);
+ 
+ 	/* Restore all PTEs' mapping of the large folio */

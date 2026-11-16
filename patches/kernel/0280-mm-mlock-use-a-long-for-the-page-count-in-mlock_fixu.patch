@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Nickolai Zeldovich <nickolai@csail.mit.edu>
+Date: Wed, 14 Oct 2026 09:13:58 -0400
+Subject: [PATCH] mm/mlock: use a long for the page count in mlock_fixup()
+
+[ Upstream commit 3ae91e3079b1504ef162b2884454d5f1421f4eb9 ]
+
+mlock_fixup() adjusts mm->locked_vm, an unsigned long, by the number of
+pages whose VM_LOCKED state it changes, but computes that number in an
+int:
+
+	int nr_pages;
+	...
+	nr_pages = (end - start) >> PAGE_SHIFT;
+	...
+	mm->locked_vm += nr_pages;
+
+When a single VMA range of 2^31 pages (8 TiB with 4 KiB pages) or more
+is locked or unlocked, the count is truncated to 32 bits and then
+sign-extended, so locked_vm is changed by the wrong amount, while
+munmap(), mremap() and the other paths that maintain locked_vm use the
+full unsigned long page count.
+
+Such a range is reachable on 64-bit architectures with a 47-bit or
+larger user address space (x86_64, arm64 with 48-bit VA, riscv64 Sv48)
+by a task with CAP_IPC_LOCK or a raised RLIMIT_MEMLOCK, which do_mlock()
+checks against the full untruncated length.  It costs nothing with
+MAP_NORESERVE and MLOCK_ONFAULT/MCL_ONFAULT, since then no page is
+populated.  On x86_64, after
+
+	p = mmap(NULL, 8UL << 40, PROT_READ | PROT_WRITE,
+		 MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+	mlock2(p, 8UL << 40, MLOCK_ONFAULT);
+
+VmLck in /proc/self/status reads 18446744065119617024 kB instead of
+8589934592 kB; munmap() of the region then subtracts the true size and
+leaves VmLck at 18446744056529682432 kB instead of 0.  With 16 TiB,
+locked_vm is not changed at all, VmLck stays 0 kB, and after the task
+drops CAP_IPC_LOCK or lowers RLIMIT_MEMLOCK, mlock(), mmap(MAP_LOCKED)
+and the other mlock_future_ok() and account_locked_vm() users enforce
+RLIMIT_MEMLOCK against that count, so they let the task lock memory
+beyond its limit (or, in the 8 TiB case, refuse every further lock).
+The error persists for the life of the mm; unlocking the range in pieces
+skews it further.  The wrong count is per-mm accounting only: it does
+not change which pages are locked.
+
+The int has been there since before git history (the variable was named
+"pages" until it was renamed in 2.6.28); every other updater of
+locked_vm uses an unsigned long or long count.  Make nr_pages a long,
+which holds the page count of any user range and its negation, so the
+existing sign handling is unchanged.
+
+Found by formal verification of mm/mlock.c against the kernel binary.
+
+Link: https://lore.kernel.org/20261014131358.780240-1-nickolai@csail.mit.edu
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Signed-off-by: Nickolai Zeldovich <nickolai@csail.mit.edu>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reviewed-by: Pedro Falcato <pfalcato@suse.de>
+Assisted-by: LLM
+Cc: Liam R. Howlett <liam@infradead.org>
+Cc: Lorenzo Stoakes <ljs@kernel.org>
+Cc: Vlastimil Babka <vbabka@kernel.org>
+Cc: Jann Horn <jannh@google.com>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit b0f3684537dde69781dcb1887443fe4256052bbb)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/mlock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mm/mlock.c b/mm/mlock.c
+index 31045f17766a7defed313c4869659c89806e70d7..20061dd2815020cb036bae2f1023749278f38b8b 100644
+--- a/mm/mlock.c
++++ b/mm/mlock.c
+@@ -468,7 +468,7 @@ static int mlock_fixup(struct vma_iterator *vmi, struct vm_area_struct *vma,
+ 	       unsigned long end, vm_flags_t newflags)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+-	int nr_pages;
++	long nr_pages;
+ 	int ret = 0;
+ 	vm_flags_t oldflags = vma->vm_flags;
+ 

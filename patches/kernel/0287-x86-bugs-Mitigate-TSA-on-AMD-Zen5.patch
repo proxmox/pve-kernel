@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Borislav Petkov (AMD)" <bp@alien8.de>
+Date: Wed, 5 Nov 2025 20:16:52 +0100
+Subject: [PATCH] x86/bugs: Mitigate TSA on AMD Zen5
+
+commit cf27412f19c9cc5909b9107cd1b3f4ab7608e362 upstream.
+
+Zen5 is affected by TSA too, along with a third variant called TSA_FILL.
+Detect the vuln there and mitigate it. For Zen5, a table of microcode
+revisions is not needed because appropriate microcode sets the VERW_CLEAR
+CPUID bit, which simplifies mitigation detection considerably.
+
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 5de6a41199e2e5c3e9e44aec8dcdeb325b666ea0)
+[TL: adapt the position in the cpuid_bits table, which the base orders
+ differently]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/include/asm/cpufeatures.h | 1 +
+ arch/x86/kernel/cpu/amd.c          | 9 +++++++--
+ arch/x86/kernel/cpu/common.c       | 5 +++--
+ arch/x86/kernel/cpu/scattered.c    | 1 +
+ arch/x86/kvm/cpuid.c               | 1 +
+ arch/x86/kvm/reverse_cpuid.h       | 2 ++
+ 6 files changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/include/asm/cpufeatures.h b/arch/x86/include/asm/cpufeatures.h
+index 2149de96c3ddad5ab5d32f6e59433a7007411033..9fe4b5168708272ad952eeac46bc88ad7e3dd142 100644
+--- a/arch/x86/include/asm/cpufeatures.h
++++ b/arch/x86/include/asm/cpufeatures.h
+@@ -419,6 +419,7 @@
+ 
+ #define X86_FEATURE_SMCA		(17*32+ 3) /* "smca" Scalable MCA */
+ #define X86_FEATURE_BTB_CTX_ISOLATION	(17*32+ 4) /* AMD: Branch predictions contexts isolated */
++#define X86_FEATURE_TSA_FILL_NO		(17*32+ 5) /* AMD CPU not vulnerable to TSA-FILL */
+ 
+ /* Intel-defined CPU features, CPUID level 0x00000007:0 (EDX), word 18 */
+ #define X86_FEATURE_AVX512_4VNNIW	(18*32+ 2) /* "avx512_4vnniw" AVX-512 Neural Network Instructions */
+diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
+index f82575774ec0677e5fd4ce79de17b1f5da9c57b5..3e9e05e92bc57aaa147163302b0a10819b6ef24c 100644
+--- a/arch/x86/kernel/cpu/amd.c
++++ b/arch/x86/kernel/cpu/amd.c
+@@ -413,9 +413,14 @@ static void tsa_init(struct cpuinfo_x86 *c)
+ 		else
+ 			pr_debug("%s: current revision: 0x%x\n", __func__, c->microcode);
+ 	} else {
+-		setup_force_cpu_cap(X86_FEATURE_TSA_SQ_NO);
+-		setup_force_cpu_cap(X86_FEATURE_TSA_L1_NO);
++		if (!cpu_has(c, X86_FEATURE_ZEN5)) {
++			setup_force_cpu_cap(X86_FEATURE_TSA_SQ_NO);
++			setup_force_cpu_cap(X86_FEATURE_TSA_L1_NO);
++		}
+ 	}
++
++	if (!cpu_has(c, X86_FEATURE_ZEN5))
++		setup_force_cpu_cap(X86_FEATURE_TSA_FILL_NO);
+ }
+ 
+ static void bsp_init_amd(struct cpuinfo_x86 *c)
+diff --git a/arch/x86/kernel/cpu/common.c b/arch/x86/kernel/cpu/common.c
+index 7f0240bd0ac3d2b2b7a15e57e6cfd609cba4b9d9..6882f2a4253104248508d008575dbc38bbfab5f1 100644
+--- a/arch/x86/kernel/cpu/common.c
++++ b/arch/x86/kernel/cpu/common.c
+@@ -1337,7 +1337,7 @@ static const struct x86_cpu_id cpu_vuln_blacklist[] __initconst = {
+ 	VULNBL_AMD(0x17, RETBLEED | SMT_RSB | SRSO | VMSCAPE),
+ 	VULNBL_HYGON(0x18, RETBLEED | SMT_RSB | SRSO | VMSCAPE),
+ 	VULNBL_AMD(0x19, SRSO | TSA | VMSCAPE),
+-	VULNBL_AMD(0x1a, SRSO | VMSCAPE),
++	VULNBL_AMD(0x1a, SRSO | TSA | VMSCAPE),
+ 	{}
+ };
+ 
+@@ -1602,7 +1602,8 @@ static void __init cpu_set_bug_bits(struct cpuinfo_x86 *c)
+ 
+ 	if (c->x86_vendor == X86_VENDOR_AMD) {
+ 		if (!cpu_has(c, X86_FEATURE_TSA_SQ_NO) ||
+-		    !cpu_has(c, X86_FEATURE_TSA_L1_NO)) {
++		    !cpu_has(c, X86_FEATURE_TSA_L1_NO) ||
++		    !cpu_has(c, X86_FEATURE_TSA_FILL_NO)) {
+ 			if (cpu_matches(cpu_vuln_blacklist, TSA) ||
+ 			    /* Enable bug on Zen guests to allow for live migration. */
+ 			    (cpu_has(c, X86_FEATURE_HYPERVISOR) && cpu_has(c, X86_FEATURE_ZEN)))
+diff --git a/arch/x86/kernel/cpu/scattered.c b/arch/x86/kernel/cpu/scattered.c
+index 7fb8ab7dde800de62330f926b44050a64865a7c6..f20d4e341e358d3b68bc5fd524847179a3fba441 100644
+--- a/arch/x86/kernel/cpu/scattered.c
++++ b/arch/x86/kernel/cpu/scattered.c
+@@ -61,6 +61,7 @@ static const struct cpuid_bit cpuid_bits[] = {
+ 	{ X86_FEATURE_SDCIAE,			CPUID_EBX,  6, 0x80000020, 0 },
+ 	{ X86_FEATURE_TSA_SQ_NO,		CPUID_ECX,  1, 0x80000021, 0 },
+ 	{ X86_FEATURE_TSA_L1_NO,		CPUID_ECX,  2, 0x80000021, 0 },
++	{ X86_FEATURE_TSA_FILL_NO,		CPUID_ECX,  7, 0x80000021, 0 },
+ 	{ X86_FEATURE_AMD_WORKLOAD_CLASS,	CPUID_EAX, 22, 0x80000021, 0 },
+ 	{ X86_FEATURE_BTB_CTX_ISOLATION,	CPUID_ECX,  8, 0x80000021, 0 },
+ 	{ X86_FEATURE_PERFMON_V2,		CPUID_EAX,  0, 0x80000022, 0 },
+diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
+index 681df381a54b8d5c855975075ed575947b189ecf..d7c5a6391c98142b15de152e96accbedc5dcec4c 100644
+--- a/arch/x86/kvm/cpuid.c
++++ b/arch/x86/kvm/cpuid.c
+@@ -1266,6 +1266,7 @@ void kvm_initialize_cpu_caps(void)
+ 	kvm_cpu_cap_init(CPUID_8000_0021_ECX,
+ 		SYNTHESIZED_F(TSA_SQ_NO),
+ 		SYNTHESIZED_F(TSA_L1_NO),
++		SYNTHESIZED_F(TSA_FILL_NO),
+ 	);
+ 
+ 	kvm_cpu_cap_init(CPUID_8000_0022_EAX,
+diff --git a/arch/x86/kvm/reverse_cpuid.h b/arch/x86/kvm/reverse_cpuid.h
+index 657f5f743ed97549ba6437cf5f2a8d9964e79029..720dbb99ac1861fc62a5a3af903a3162189cd150 100644
+--- a/arch/x86/kvm/reverse_cpuid.h
++++ b/arch/x86/kvm/reverse_cpuid.h
+@@ -75,6 +75,7 @@
+ /* CPUID level 0x80000021 (ECX) */
+ #define KVM_X86_FEATURE_TSA_SQ_NO	KVM_X86_FEATURE(CPUID_8000_0021_ECX, 1)
+ #define KVM_X86_FEATURE_TSA_L1_NO	KVM_X86_FEATURE(CPUID_8000_0021_ECX, 2)
++#define KVM_X86_FEATURE_TSA_FILL_NO	KVM_X86_FEATURE(CPUID_8000_0021_ECX, 7)
+ 
+ struct cpuid_reg {
+ 	u32 function;
+@@ -151,6 +152,7 @@ static __always_inline u32 __feature_translate(int x86_feature)
+ 	KVM_X86_TRANSLATE_FEATURE(TSA_SQ_NO);
+ 	KVM_X86_TRANSLATE_FEATURE(TSA_L1_NO);
+ 	KVM_X86_TRANSLATE_FEATURE(MSR_IMM);
++	KVM_X86_TRANSLATE_FEATURE(TSA_FILL_NO);
+ 	default:
+ 		return x86_feature;
+ 	}

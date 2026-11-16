@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hengyu Liang <hengyul@cs.unc.edu>
+Date: Mon, 2 Nov 2026 22:16:30 -0500
+Subject: [PATCH] x86/video: Preserve the default VGA fallback for legacy modes
+
+Commit
+
+  596b3678326d ("x86/video: Only fall back to vga_default_device() without screen info")
+
+made video_is_primary_device() rely exclusively on screen_info resources
+whenever any are available.
+
+However, screen_info_resources() also returns legacy I/O and memory ranges for
+VGA text modes. These ranges are not PCI BARs, so pci_find_resource() does not
+find them and the default VGA fallback is skipped. As a result, no device is
+primary in VGA text mode.
+
+On a SeaBIOS QEMU guest with bochs and VKMS, the boot VGA (bochs) loses its
+DRM boot_display attribute. VKMS registers fb0 and bochs registers fb1. VKMS
+is not a PCI device, so it is not primary either. With no primary device,
+fbcon keeps the console on fb0 and never remaps it to bochs. This can be
+checked with:
+
+  cat /sys/class/drm/card1/boot_display
+  stty -F /dev/tty1 size
+
+Without the fix, boot_display is missing and tty1 is 48 rows by 128 columns.
+With it, boot_display contains 1 and tty1 is 50 rows by 160 columns. VKMS only
+makes the console part visible. Without VKMS, tty1 has the same size with and
+without the fix, but boot_display is still missing without it.
+
+Use resource-based selection only for linear framebuffers. Fall back to
+vga_default_device() for legacy display modes, while keeping EFI and VESA
+framebuffer ownership authoritative.
+
+Fixes: 596b3678326d ("x86/video: Only fall back to vga_default_device() without screen info")
+Signed-off-by: Hengyu Liang <hengyul@cs.unc.edu>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Reviewed-by: Mario Limonciello (AMD) <superm1@kernel.org>
+Reviewed-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: stable@vger.kernel.org
+Link: https://patch.msgid.link/20261103031630.2085194-1-hengyul@cs.unc.edu
+(cherry picked from commit 3b4c98b47ba7c3c57bcf54fb85f54a854622041c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ arch/x86/video/video-common.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/x86/video/video-common.c b/arch/x86/video/video-common.c
+index 8ed82fff7638ed128ea5c2d3800f9c91e28f33fb..b8f83346dfe8a06760d5354536c1b76ecd94dae3 100644
+--- a/arch/x86/video/video-common.c
++++ b/arch/x86/video/video-common.c
+@@ -45,7 +45,7 @@ bool video_is_primary_device(struct device *dev)
+ 
+ #ifdef CONFIG_SCREEN_INFO
+ 	numres = screen_info_resources(si, res, ARRAY_SIZE(res));
+-	if (numres > 0) {
++	if (numres > 0 && __screen_info_has_lfb(screen_info_video_type(si))) {
+ 		for (i = 0; i < numres; ++i) {
+ 			if (!(res[i].flags & IORESOURCE_MEM))
+ 				continue;

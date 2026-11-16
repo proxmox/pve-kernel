@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "David Hildenbrand (Arm)" <david@kernel.org>
+Date: Thu, 29 Oct 2026 11:43:33 +0100
+Subject: [PATCH] mm/shmem: preserve allocation errors when swapping in large
+ entries
+
+[ Upstream commit f4ce23b1feef16d435aa1188b6c2a637a5373ed5 ]
+
+shmem_swapin_folio() adjusts swap to the requested slot within a large
+swap entry before allocating a folio. If allocation or charging fails,
+the error path compares this adjusted value with the original entry
+still stored in the XArray in shmem_confirm_swap().
+
+Unless the index is at the start of the entry, this turns -ENOMEM into
+-EEXIST even though nothing changed.
+
+The caller retries -EEXIST, so persistent allocation failures can leave
+the task spinning instead of returning the error.
+
+Restore swap to index_entry on allocation failure so the existing error
+path checks the original entry. This preserves the allocation error if
+the entry is unchanged and still retries if it changed concurrently.
+
+Fixes: 91ab656ece13 ("mm/shmem, swap: tidy up swap entry splitting")
+Cc: stable@vger.kernel.org
+Reported-by: Josef Bacik <josef@toxicpanda.com>
+Acked-by: Kiryl Shutsemau (Meta) <kas@kernel.org>
+Reviewed-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Tested-by: Gregory Price (Meta) <gourry@gourry.net>
+Link: https://patch.msgid.link/20261029-fixes_shmem-v4-12-392fc715d8f6@kernel.org
+Signed-off-by: David Hildenbrand (Arm) <david@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 80b68de662892185cae750360ca7129670032bc2)
+[TL: adapt to the base, which still has separate error exits for both
+ allocation paths, and restore the entry in both]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/shmem.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/mm/shmem.c b/mm/shmem.c
+index 9702f5e0b7cafecbc62798ef276a5baef02baf89..8cbaa2f5f6bfd0a10c065d777a34c713c99cf0fd 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -2362,6 +2362,8 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
+ 			if (IS_ERR(folio)) {
+ 				error = PTR_ERR(folio);
+ 				folio = NULL;
++				/* Make sure to validate the original value. */
++				swap = index_entry;
+ 				goto failed;
+ 			}
+ 		} else {
+@@ -2369,6 +2371,8 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
+ 			folio = shmem_swapin_cluster(swap, gfp, info, index);
+ 			if (!folio) {
+ 				error = -ENOMEM;
++				/* Make sure to validate the original value. */
++				swap = index_entry;
+ 				goto failed;
+ 			}
+ 		}

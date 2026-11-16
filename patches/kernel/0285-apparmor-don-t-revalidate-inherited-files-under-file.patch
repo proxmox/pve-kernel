@@ -1,0 +1,126 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Georgia Garcia <georgia.garcia@canonical.com>
+Date: Fri, 16 Oct 2026 19:08:51 -0300
+Subject: [PATCH] apparmor: don't revalidate inherited files under
+ files->file_lock
+
+[ Upstream commit a913281f600157aa036b7c02afbb18a0ac115187 ]
+
+aa_inherit_files() revalidates inherited files on exec using
+iterate_fd(), which calls the callback with files->file_lock held,
+so the revalidation is done with IN_ATOMIC. However the unix socket
+mediation path can sleep: aa_unix_file_perm() drops a ref on the
+peer's path with path_put(), and unix_fs_perm() -> aa_path_perm()
+allocates a buffer with aa_get_buffer(false), resulting in
+
+  BUG: sleeping function called from invalid context at fs/dcache.c:1039
+  ...
+   dput.part.0+0x24/0x180
+   path_put+0x2c/0x60
+   aa_unix_file_perm+0x42a/0x17b0
+   aa_file_perm+0xcd3/0x1060
+   match_file+0x10b/0x190
+   iterate_fd+0xe6/0x280
+   aa_inherit_files+0x250/0x4f0
+
+Only grab a ref on each file under iterate_fd(), and revalidate it
+after the lock is dropped, so revalidation is done with no locks held
+and does not need to be atomic. Denied fds are still replaced with
+/dev/null, or closed if it can not be opened.
+
+Fixes: b1aea2c19607 ("apparmor: fix race in unix socket mediation when peer_path is used")
+Cc: stable@vger.kernel.org
+Signed-off-by: Georgia Garcia <georgia.garcia@canonical.com>
+Signed-off-by: John Johansen <john.johansen@canonical.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 43aba2eeaa34e045bdd73abfe66c8bd3fed97852)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ security/apparmor/file.c | 61 ++++++++++++++++++++--------------------
+ 1 file changed, 31 insertions(+), 30 deletions(-)
+
+diff --git a/security/apparmor/file.c b/security/apparmor/file.c
+index 80cd3f95e7bb8f774ff59cf1132195f85461d2ed..feae32acdebccb924e26eb65fd512ebb1a54d5b6 100644
+--- a/security/apparmor/file.c
++++ b/security/apparmor/file.c
+@@ -900,49 +900,50 @@ static void revalidate_tty(const struct cred *subj_cred, struct aa_label *label)
+ 		no_tty();
+ }
+ 
+-struct cred_label {
+-	const struct cred *cred;
+-	struct aa_label *label;
+-};
+-
+-static int match_file(const void *p, struct file *file, unsigned int fd)
++/*
++ * iterate_fd() callback, called with files->file_lock held: grab a ref
++ * on the next file so it can be revalidated without the lock held.
++ */
++static int get_next_file(const void *p, struct file *file, unsigned int fd)
+ {
+-	struct cred_label *cl = (struct cred_label *)p;
++	*(struct file **)p = get_file(file);
+ 
+-	if (aa_file_perm(OP_INHERIT, cl->cred, cl->label, file,
+-			 aa_map_file_to_perms(file), IN_ATOMIC))
+-		return fd + 1;
+-	return 0;
++	return fd + 1;
+ }
+ 
+-
+ /* based on selinux's flush_unauthorized_files */
+ void aa_inherit_files(const struct cred *cred, struct files_struct *files)
+ {
+ 	struct aa_label *label = aa_get_newest_cred_label(cred);
+-	struct cred_label cl = {
+-		.cred = cred,
+-		.label = label,
+-	};
+-	struct file *devnull = NULL;
+-	unsigned int n;
++	struct file *devnull = NULL, *file;
++	bool devnull_tried = false;
++	unsigned int n = 0;
+ 
+ 	revalidate_tty(cred, label);
+ 
+-	/* Revalidate access to inherited open files. */
+-	n = iterate_fd(files, 0, match_file, &cl);
+-	if (!n) /* none found? */
+-		goto out;
+-
+-	devnull = dentry_open(&aa_null, O_RDWR, cred);
+-	if (IS_ERR(devnull))
+-		devnull = NULL;
+-	/* replace all the matching ones with this */
+-	do {
++	/*
++	 * Revalidate access to inherited open files. Each file is
++	 * revalidated holding only a reference to it, with no locks
++	 * held, as revalidation may sleep (e.g. unix socket mediation
++	 * dropping path refs, or allocating path buffers).
++	 */
++	while ((n = iterate_fd(files, n, get_next_file, &file)) != 0) {
++		int error = aa_file_perm(OP_INHERIT, cred, label, file,
++					 aa_map_file_to_perms(file), false);
++
++		fput(file);
++		if (!error)
++			continue;
++		if (!devnull_tried) {
++			devnull_tried = true;
++			devnull = dentry_open(&aa_null, O_RDWR, cred);
++			if (IS_ERR(devnull))
++				devnull = NULL;
++		}
++		/* replace the denied fd (n - 1) with devnull, or close it */
+ 		replace_fd(n - 1, devnull, 0);
+-	} while ((n = iterate_fd(files, n, match_file, &cl)) != 0);
++	}
+ 	if (devnull)
+ 		fput(devnull);
+-out:
+ 	aa_put_label(label);
+ }

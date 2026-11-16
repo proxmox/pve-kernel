@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sasha Levin <sashal@kernel.org>
+Date: Tue, 10 Nov 2026 15:22:23 -0500
+Subject: [PATCH] Revert "hugetlb: remove VMEMMAP_SYNCHRONIZE_RCU"
+
+This reverts commit dba93b8cceb0048071389352fc29dcb0a7fe666f.
+
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit d0c5e70dacd408528fa144675e2e01de5d787524)
+[TL: the base carries the same backport as 85fb24f77df5, while it still
+ has the fake heads whose removal upstream made the RCU synchronization
+ unnecessary]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/hugetlb_vmemmap.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/mm/hugetlb_vmemmap.c b/mm/hugetlb_vmemmap.c
+index bec9a82acb62f08071593b7b947950c18bcb5f30..ce3eda971ddc0912945353128a82db8b6c1c9b1a 100644
+--- a/mm/hugetlb_vmemmap.c
++++ b/mm/hugetlb_vmemmap.c
+@@ -46,6 +46,8 @@ struct vmemmap_remap_walk {
+ #define VMEMMAP_SPLIT_NO_TLB_FLUSH	BIT(0)
+ /* Skip the TLB flush when we remap the PTE */
+ #define VMEMMAP_REMAP_NO_TLB_FLUSH	BIT(1)
++/* synchronize_rcu() to avoid writes from page_ref_add_unless() */
++#define VMEMMAP_SYNCHRONIZE_RCU		BIT(2)
+ 	unsigned long		flags;
+ };
+ 
+@@ -406,6 +408,9 @@ static int __hugetlb_vmemmap_restore_folio(const struct hstate *h,
+ 	if (!folio_test_hugetlb_vmemmap_optimized(folio))
+ 		return 0;
+ 
++	if (flags & VMEMMAP_SYNCHRONIZE_RCU)
++		synchronize_rcu();
++
+ 	vmemmap_start	= (unsigned long)&folio->page;
+ 	vmemmap_end	= vmemmap_start + hugetlb_vmemmap_size(h);
+ 
+@@ -438,7 +443,7 @@ static int __hugetlb_vmemmap_restore_folio(const struct hstate *h,
+  */
+ int hugetlb_vmemmap_restore_folio(const struct hstate *h, struct folio *folio)
+ {
+-	return __hugetlb_vmemmap_restore_folio(h, folio, 0);
++	return __hugetlb_vmemmap_restore_folio(h, folio, VMEMMAP_SYNCHRONIZE_RCU);
+ }
+ 
+ /**
+@@ -461,11 +466,14 @@ long hugetlb_vmemmap_restore_folios(const struct hstate *h,
+ 	struct folio *folio, *t_folio;
+ 	long restored = 0;
+ 	long ret = 0;
+-	unsigned long flags = VMEMMAP_REMAP_NO_TLB_FLUSH;
++	unsigned long flags = VMEMMAP_REMAP_NO_TLB_FLUSH | VMEMMAP_SYNCHRONIZE_RCU;
+ 
+ 	list_for_each_entry_safe(folio, t_folio, folio_list, lru) {
+ 		if (folio_test_hugetlb_vmemmap_optimized(folio)) {
+ 			ret = __hugetlb_vmemmap_restore_folio(h, folio, flags);
++			/* only need to synchronize_rcu() once for each batch */
++			flags &= ~VMEMMAP_SYNCHRONIZE_RCU;
++
+ 			if (ret)
+ 				break;
+ 			restored++;
+@@ -514,6 +522,8 @@ static int __hugetlb_vmemmap_optimize_folio(const struct hstate *h,
+ 
+ 	static_branch_inc(&hugetlb_optimize_vmemmap_key);
+ 
++	if (flags & VMEMMAP_SYNCHRONIZE_RCU)
++		synchronize_rcu();
+ 	/*
+ 	 * Very Subtle
+ 	 * If VMEMMAP_REMAP_NO_TLB_FLUSH is set, TLB flushing is not performed
+@@ -573,7 +583,7 @@ void hugetlb_vmemmap_optimize_folio(const struct hstate *h, struct folio *folio)
+ {
+ 	LIST_HEAD(vmemmap_pages);
+ 
+-	__hugetlb_vmemmap_optimize_folio(h, folio, &vmemmap_pages, 0);
++	__hugetlb_vmemmap_optimize_folio(h, folio, &vmemmap_pages, VMEMMAP_SYNCHRONIZE_RCU);
+ 	free_vmemmap_page_list(&vmemmap_pages);
+ }
+ 
+@@ -601,7 +611,7 @@ static void __hugetlb_vmemmap_optimize_folios(struct hstate *h,
+ 	struct folio *folio;
+ 	int nr_to_optimize;
+ 	LIST_HEAD(vmemmap_pages);
+-	unsigned long flags = VMEMMAP_REMAP_NO_TLB_FLUSH;
++	unsigned long flags = VMEMMAP_REMAP_NO_TLB_FLUSH | VMEMMAP_SYNCHRONIZE_RCU;
+ 
+ 	nr_to_optimize = 0;
+ 	list_for_each_entry(folio, folio_list, lru) {
+@@ -655,6 +665,8 @@ static void __hugetlb_vmemmap_optimize_folios(struct hstate *h,
+ 		int ret;
+ 
+ 		ret = __hugetlb_vmemmap_optimize_folio(h, folio, &vmemmap_pages, flags);
++		/* only need to synchronize_rcu() once for each batch */
++		flags &= ~VMEMMAP_SYNCHRONIZE_RCU;
+ 
+ 		/*
+ 		 * Pages to be freed may have been accumulated.  If we

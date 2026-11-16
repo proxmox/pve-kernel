@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shuai Liu <847807867@qq.com>
+Date: Sat, 7 Nov 2026 09:16:50 -0700
+Subject: [PATCH] io_uring/sqpoll: don't set IO_SQ_THREAD_SHOULD_STOP on thread
+ exit
+
+Commit fca3ff9e2eee7d285585daf51942e0b5e2be354a upstream.
+
+io_sq_thread_stop() carries a WARN_ON_ONCE() asserting that
+IO_SQ_THREAD_SHOULD_STOP isn't set yet, i.e. that stopping the SQPOLL
+thread is never attempted twice. Since commit 22d9db9fd64a
+("io_uring/sqpoll: don't attach to a thread that is canceling"), the
+SQPOLL thread itself sets that bit on its way out, so that
+io_sq_offload_create() won't attach a new ring to a thread that is
+canceling.
+
+When the thread exits on a fatal signal, the bit is thus set before the
+ring teardown gets to io_sq_thread_stop(), which now triggers the
+warning on every such exit:
+
+  WARNING: io_uring/sqpoll.c:88 at io_sq_thread_stop
+  Workqueue: iou_exit io_ring_exit_work
+  Call Trace:
+   io_put_sq_data
+   io_sq_thread_finish
+   io_ring_ctx_free
+   io_ring_exit_work
+
+Introduce a separate IO_SQ_THREAD_EXITING bit for the thread marking
+itself as on its way out, and check it in io_sq_offload_create() along
+with IO_SQ_THREAD_SHOULD_STOP. IO_SQ_THREAD_SHOULD_STOP regains its
+original meaning, "a stop has been requested", and the WARN_ON_ONCE()
+holds again.
+
+Reproduced with an SQPOLL ring and an immediate fatal signal: the
+warning fires on v7.3.0+ (22d9db9fd64a present) and is gone with this
+change.
+
+Reported-by: syzbot+675af112519ca34f5502@syzkaller.appspotmail.com
+Closes: https://syzkaller.appspot.com/bug?extid=675af112519ca34f5502
+Fixes: 22d9db9fd64a ("io_uring/sqpoll: don't attach to a thread that is canceling")
+Signed-off-by: Shuai Liu <847807867@qq.com>
+Link: https://patch.msgid.link/tencent_BB08960D79E0261B5C1EB1E589787734E907@qq.com
+[axboe: trim excessive comment]
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 3ad44d8aec1fee7e2e71e2c299013ef5d2259fb6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ io_uring/sqpoll.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/io_uring/sqpoll.c b/io_uring/sqpoll.c
+index bfd4975876af6a4cc688facb00edd26c6d9ec1c2..3a031d1871708f142b840a4b6d4f493594a3f475 100644
+--- a/io_uring/sqpoll.c
++++ b/io_uring/sqpoll.c
+@@ -28,6 +28,7 @@
+ enum {
+ 	IO_SQ_THREAD_SHOULD_STOP = 0,
+ 	IO_SQ_THREAD_SHOULD_PARK,
++	IO_SQ_THREAD_EXITING,
+ };
+ 
+ void io_sq_thread_unpark(struct io_sq_data *sqd)
+@@ -441,9 +442,10 @@ static int io_sq_thread(void *data)
+ 	/*
+ 	 * Cancelation drops sqd->lock while it waits, and a ring could attach
+ 	 * to a thread that is on its way out. A fatal signal doesn't set the
+-	 * bit, so set it here for io_sq_offload_create() to see.
++	 * stop bit, so mark the thread as exiting here for
++	 * io_sq_offload_create() to see.
+ 	 */
+-	set_bit(IO_SQ_THREAD_SHOULD_STOP, &sqd->state);
++	set_bit(IO_SQ_THREAD_EXITING, &sqd->state);
+ 	io_uring_cancel_generic(true, sqd);
+ 	rcu_assign_pointer(sqd->thread, NULL);
+ 	put_task_struct(current);
+@@ -514,7 +516,8 @@ __cold int io_sq_offload_create(struct io_ring_ctx *ctx,
+ 		/* don't attach to a dying SQPOLL thread, would be racy */
+ 		ret = 0;
+ 		if (attached && (!sqd->thread ||
+-		    test_bit(IO_SQ_THREAD_SHOULD_STOP, &sqd->state)))
++		    test_bit(IO_SQ_THREAD_SHOULD_STOP, &sqd->state) ||
++		    test_bit(IO_SQ_THREAD_EXITING, &sqd->state)))
+ 			ret = -ENXIO;
+ 		io_sq_thread_unpark(sqd);
+ 

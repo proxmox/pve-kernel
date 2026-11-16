@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shakeel Butt <shakeel.butt@linux.dev>
+Date: Wed, 11 Nov 2026 17:32:20 -0800
+Subject: [PATCH] memcg: flush nr_charged_bytes when the obj stock trylock
+ fails
+
+When interrupt code, such as an RCU callback in softirq, runs on top of a
+task that holds the obj stock lock, its trylock fails and the bytes go to
+objcg->nr_charged_bytes.  Nothing empties that counter while every CPU
+using the objcg keeps it in its stock, so it can grow without limit.
+
+Users see memory.current and the "kernel" field of memory.stat keep
+growing while the cgroup's real usage does not.  With memory.high or
+memory.max set, the cgroup is reclaimed, throttled or even OOM-killed for
+memory it does not use.  The counter is 32-bit, so after 4 GiB it wraps,
+and those 4 GiB stay charged to the cgroup and its ancestors until reboot,
+even after the cgroup is removed.
+
+Fix it by uncharging the whole pages in nr_charged_bytes whenever the
+trylock fails.
+
+Link: https://lore.kernel.org/20261112013220.4064478-1-shakeel.butt@linux.dev
+Fixes: 200577f69f29 ("memcg: objcg stock trylock without irq disabling")
+Signed-off-by: Shakeel Butt <shakeel.butt@linux.dev>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reported-by: Chris Mason <mason@kernel.org>
+Acked-by: Muchun Song (ByteDance) <muchun.song@linux.dev>
+Cc: Johannes Weiner <hannes@cmpxchg.org>
+Cc: David Hildenbrand <david@kernel.org>
+Cc: Michal Hocko <mhocko@kernel.org>
+Cc: Roman Gushchin <roman.gushchin@linux.dev>
+Cc: Vlastimil Babka <vbabka@kernel.org>
+Cc: <stable@vger.kernel.org>
+(cherry picked from commit 2bdf0a59f006591bb776997d459028ae03a1d0c2)
+[TL: adapt to refill_obj_stock() of the base, which handles the trylock
+ failure itself instead of in __refill_obj_stock()]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/memcontrol.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index f5c04279d6feeec6189f80c592e0b416841136d8..f3cd571932485fae9130fa8541f57d8c7f514fb0 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -3106,6 +3106,8 @@ static void refill_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes,
+ 	if (!local_trylock(&obj_stock.lock)) {
+ 		if (pgdat)
+ 			mod_objcg_mlstate(objcg, pgdat, idx, nr_acct);
++		nr_bytes += atomic_read(&objcg->nr_charged_bytes)
++			? atomic_xchg(&objcg->nr_charged_bytes, 0) : 0;
+ 		nr_pages = nr_bytes >> PAGE_SHIFT;
+ 		nr_bytes = nr_bytes & (PAGE_SIZE - 1);
+ 		atomic_add(nr_bytes, &objcg->nr_charged_bytes);

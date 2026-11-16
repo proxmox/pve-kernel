@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "David Hildenbrand (Arm)" <david@kernel.org>
+Date: Thu, 5 Nov 2026 19:16:44 +0100
+Subject: [PATCH] mm/khugepaged: don't map folios that are not uptodate in
+ MADV_COLLAPSE
+
+madvise(MADV_COLLAPSE) can map PMD-sized pagecache folios that are not
+uptodate. For example, shmem fallocate() can put such folios into the
+page cache.
+
+collapse_file() already refuses to proceed with folios that are not
+uptodate. Let's just do the same in try_collapse_pte_mapped_thp() and skip
+such folios, leaving handling to the page faults.
+
+Note that collapse_file() effectively clears shmem folios through
+shmem_get_folio(); let's keep this fix simple and simply let the page
+fault path deal with that.
+
+Fixes: 34488399fa08 ("mm/madvise: add file and shmem support to MADV_COLLAPSE")
+Reported-by: Chris Mason <mason@kernel.org>
+Cc: stable@vger.kernel.org
+Reviewed-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
+Acked-by: Hugh Dickins <hughd@google.com>
+Acked-by: Zi Yan <ziy@nvidia.com>
+Reviewed-by: Zach O'Keefe <zokeefe@google.com>
+Reviewed-by: SJ Park <sj@kernel.org>
+Reviewed-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Reviewed-by: Lance Yang <lance.yang@linux.dev>
+Reviewed-by: Kiryl Shutsemau (Meta) <kas@kernel.org>
+Link: https://patch.msgid.link/20261105-set_huge_pmd_uptodate-v1-1-a78d8a1b7117@kernel.org
+Reviewed-by: Pedro Falcato <pfalcato@suse.de>
+Signed-off-by: David Hildenbrand (Arm) <david@kernel.org>
+(cherry picked from commit 043a2260b96ffc13121a1dd65282e67eb2e1d8a8)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/khugepaged.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/mm/khugepaged.c b/mm/khugepaged.c
+index 376bcce4ae88bc3bbf6731e484d06f1ea4751fc8..77ee6664cba522c95621199c9db8a60d74481997 100644
+--- a/mm/khugepaged.c
++++ b/mm/khugepaged.c
+@@ -1514,6 +1514,12 @@ static enum scan_result try_collapse_pte_mapped_thp(struct mm_struct *mm, unsign
+ 		goto drop_folio;
+ 	}
+ 
++	/* Leave any uninitialized folios to the page fault path. */
++	if (!folio_test_uptodate(folio)) {
++		result = SCAN_FAIL;
++		goto drop_folio;
++	}
++
+ 	result = find_pmd_or_thp_or_none(mm, haddr, &pmd);
+ 	switch (result) {
+ 	case SCAN_SUCCEED:

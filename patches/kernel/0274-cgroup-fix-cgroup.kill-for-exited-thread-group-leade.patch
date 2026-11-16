@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kir Kolyshkin <kolyshkin@gmail.com>
+Date: Sun, 18 Oct 2026 15:04:39 -0700
+Subject: [PATCH] cgroup: fix cgroup.kill for exited thread group leader
+
+[ Upstream commit da13e0e72a7329c95642c44b2d03d194ab071e04 ]
+
+cgroup.kill does not work in case a process' thread group leader is gone
+but other threads are still running. This is because __cgroup_kill()
+only walks the thread group leaders and sends SIGKILL to each of them
+with send_sig(), which uses PIDTYPE_PID:
+
+1. The exited leader is still listed by CSS_TASK_ITER_PROCS as long as
+   the process has live threads, but a signal directed at a single
+   exiting task never takes effect: complete_signal() does not look for
+   another thread to deliver it to, and __send_signal_locked() now drops
+   it altogether.  The process keeps running.
+
+2. The live threads of such a process can be migrated to another cgroup
+   by writing any of their IDs to cgroup.procs, while the exited leader
+   stays behind.  The destination cgroup has no thread group leader to
+   iterate, so writing to its cgroup.kill does nothing at all.
+
+In both cases the cgroup stays populated after cgroup.kill, and a
+process inside a container can use this to survive the container being
+killed.  This also works with a private PID namespace when the init of
+the container is the process, as the PID namespace is not torn down
+while init has live threads.
+
+Case 1 can be fixed by using do_send_sig_info(..., PIDTYPE_TGID) instead
+of send_sig(), so that the signal is taken by a live thread even if the
+task found by the iterator is exiting. Note it was pointed out by Eric
+in [1] while reviewing v2 of cgroup.kill patchset, and v3 was meant to
+switch to it, but the change was only made in cgroup_post_fork(),
+leaving __cgroup_kill() with send_sig().
+
+Case 2 can only be fixed by iterating over all threads, so this is what
+the fix also does. Once a thread group is being killed, its other
+threads are skipped since they already have a fatal signal pending.
+
+I ran some performance checks and the added cost is ~60 ns per every
+thread on my laptop (and less than a millisecond for 10K threads),
+which seems low. The time to "populated 0" seems unchanged.
+
+The issue was found in crun by Anthropic's OSS Scanner, and crun is
+getting a workaround for it [2] (which does what we needed to do
+before cgroup.kill was added).
+
+[1] https://lore.kernel.org/all/m1v97x6niq.fsf@fess.ebiederm.org/
+[2] https://github.com/containers/crun/pull/2351
+
+Fixes: 661ee6280931 ("cgroup: introduce cgroup.kill")
+Cc: stable@vger.kernel.org # v5.14+
+Signed-off-by: Kir Kolyshkin <kolyshkin@gmail.com>
+Acked-by: Oleg Nesterov <oleg@redhat.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit d148bc1f49ac73ca9ad75cd44bbf71f9806cf635)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ kernel/cgroup/cgroup.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
+index bd56abfd81668cb33f01903c6385ec7b83f60947..571ef6585c58c093367a9348ad34e6bf3d26cae5 100644
+--- a/kernel/cgroup/cgroup.c
++++ b/kernel/cgroup/cgroup.c
+@@ -4240,7 +4240,7 @@ static void __cgroup_kill(struct cgroup *cgrp)
+ 	cgrp->kill_seq++;
+ 	spin_unlock_irq(&css_set_lock);
+ 
+-	css_task_iter_start(&cgrp->self, CSS_TASK_ITER_PROCS | CSS_TASK_ITER_THREADED, &it);
++	css_task_iter_start(&cgrp->self, CSS_TASK_ITER_THREADED, &it);
+ 	while ((task = css_task_iter_next(&it))) {
+ 		/* Ignore kernel threads here. */
+ 		if (task->flags & PF_KTHREAD)
+@@ -4250,7 +4250,7 @@ static void __cgroup_kill(struct cgroup *cgrp)
+ 		if (__fatal_signal_pending(task))
+ 			continue;
+ 
+-		send_sig(SIGKILL, task, 0);
++		do_send_sig_info(SIGKILL, SEND_SIG_NOINFO, task, PIDTYPE_TGID);
+ 	}
+ 	css_task_iter_end(&it);
+ }

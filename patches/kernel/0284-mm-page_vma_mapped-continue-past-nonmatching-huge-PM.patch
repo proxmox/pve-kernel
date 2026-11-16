@@ -1,0 +1,118 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kyle Zeng <kylebot@openai.com>
+Date: Thu, 15 Oct 2026 18:15:49 -0700
+Subject: [PATCH] mm/page_vma_mapped: continue past nonmatching huge PMDs
+
+[ Upstream commit 1a2993227e8a27fc4cdea305bbdae82d290bc885 ]
+
+A PTE-mapped large folio can straddle PMD boundaries after an unaligned
+mremap().  If the first part is discarded and replaced with an unrelated
+huge PMD, page_vma_mapped_walk() stops instead of looking for the rest of
+the folio in subsequent PMDs.
+
+This also affects migration entries.  A walk that stops at an unrelated
+huge PMD can leave migration PTEs behind when migration or an anonymous
+folio split restores the mappings.  Those entries do not hold mapping
+references and can outlive the source folio.
+
+This issue can lead to memory corruption and I have a reproducer for
+it.
+
+Skip the current PMD rather than ending the walk on a flag or PFN
+mismatch.  Do the same if the PMD became nonpresent before the locked
+recheck.  Release the PMD lock, clear the per-PMD state and advance with
+step_forward(), so the existing range limit controls termination.  This
+covers present, migration and device-private huge PMDs while preserving
+the matching-PMD and split-to-PTE paths.
+
+Link: https://lore.kernel.org/20261016011549.61146-1-kylebot@openai.com
+Fixes: ace71a19cec5 ("mm: introduce page_vma_mapped_walk()")
+Signed-off-by: Kyle Zeng <kylebot@openai.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Acked-by: David Hildenbrand (Arm) <david@kernel.org>
+Assisted-by: LLM
+Cc: Lorenzo Stoakes <ljs@kernel.org>
+Cc: Rik van Riel <riel@surriel.com>
+Cc: Liam R. Howlett <liam@infradead.org>
+Cc: Vlastimil Babka <vbabka@kernel.org>
+Cc: Harry Yoo <harry@kernel.org>
+Cc: Jann Horn <jannh@google.com>
+Cc: Lance Yang <lance.yang@linux.dev>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit d067e7b3728c0fb28e5b45a48922a00075c5ca1c)
+[TL: adapt context, the base syncs with a racing PMD zap inline instead of
+ calling sync_with_folio_pmd_zap()]
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/page_vma_mapped.c | 28 +++++++++++++++++++---------
+ 1 file changed, 19 insertions(+), 9 deletions(-)
+
+diff --git a/mm/page_vma_mapped.c b/mm/page_vma_mapped.c
+index 4adb41025f8121e65850d09b05e8d91d4d7984c7..0560b03a0593c73982819f6328d44a137b0c3af4 100644
+--- a/mm/page_vma_mapped.c
++++ b/mm/page_vma_mapped.c
+@@ -257,28 +257,28 @@ bool page_vma_mapped_walk(struct page_vma_mapped_walk *pvmw)
+ 				softleaf_t entry;
+ 
+ 				if (!(pvmw->flags & PVMW_MIGRATION))
+-					return not_found(pvmw);
++					goto next_pmd;
+ 				entry = softleaf_from_pmd(pmde);
+ 				if (!check_pmd(softleaf_to_pfn(entry), pvmw))
+-					return not_found(pvmw);
++					goto next_pmd;
+ 				return true;
+ 			} else if (pmd_is_device_private_entry(pmde)) {
+ 				softleaf_t entry;
+ 
+ 				if (pvmw->flags & PVMW_MIGRATION)
+-					return not_found(pvmw);
++					goto next_pmd;
+ 				entry = softleaf_from_pmd(pmde);
+ 				if (!check_pmd(softleaf_to_pfn(entry), pvmw))
+-					return not_found(pvmw);
++					goto next_pmd;
+ 				return true;
+ 			} else if (!pmd_present(pmde)) {
+-				return not_found(pvmw);
++				goto next_pmd;
+ 			}
+ 			if (likely(pmd_trans_huge(pmde))) {
+ 				if (pvmw->flags & PVMW_MIGRATION)
+-					return not_found(pvmw);
++					goto next_pmd;
+ 				if (!check_pmd(pmd_pfn(pmde), pvmw))
+-					return not_found(pvmw);
++					goto next_pmd;
+ 				return true;
+ 			}
+ 			/* THP/device-private pmd was split under us: handle on pte level */
+@@ -293,8 +293,7 @@ bool page_vma_mapped_walk(struct page_vma_mapped_walk *pvmw)
+ 
+ 				spin_unlock(ptl);
+ 			}
+-			step_forward(pvmw, PMD_SIZE);
+-			continue;
++			goto next_pmd;
+ 		}
+ 		if (!map_pte(pvmw, &pmde, &ptl)) {
+ 			if (!pvmw->pte)
+@@ -333,6 +332,17 @@ bool page_vma_mapped_walk(struct page_vma_mapped_walk *pvmw)
+ 			pvmw->ptl = ptl;
+ 		}
+ 		goto this_pte;
++next_pmd:
++		/*
++		 * A large folio can be PTE-mapped across PMDs, so a
++		 * nonmatching PMD does not end the walk.
++		 */
++		if (pvmw->ptl) {
++			spin_unlock(pvmw->ptl);
++			pvmw->ptl = NULL;
++		}
++		pvmw->pmd = NULL;
++		step_forward(pvmw, PMD_SIZE);
+ 	} while (pvmw->address < end);
+ 
+ 	return false;

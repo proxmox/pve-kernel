@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gregory Price <gourry@gourry.net>
+Date: Sat, 12 Sep 2026 07:08:32 -0400
+Subject: [PATCH] mm/madvise: reclaim isolated folios if PTE restart fails
+
+[ Upstream commit 5445a6359d717354dd76d509b8e693f13403ec61 ]
+
+MADV_PAGEOUT collects isolated folios on a local list before reclaiming
+them after the PTE walk.  The reschedule path drops the PTE lock and then
+restarts the mapping with pte_offset_map_lock().
+
+A concurrent operation can remove or replace the PTE table while the lock
+is dropped, causing pte_offset_map_lock() to return NULL.  Returning
+directly in that case bypasses reclaim_pages(), leaving the collected
+folios off the LRU with elevated references.
+
+This results in a permanent memory leak.  nr_isolated_anon increases
+reliably and does not decrease when the process dies.
+
+Route the failure through the existing cleanup path so any isolated folios
+are reclaimed or put back.
+
+Simplest userland pseudo-code reproducer:
+
+p = mmap(PMD_SIZE, ANONYMOUS);
+touch_every_page(p, PMD_SIZE);
+parallel {
+   while (1) madvise(p, PMD_SIZE, MADV_PAGEOUT);
+   while (1) {
+       madvise(p, PMD_SIZE, MADV_DONTNEED);
+       touch_every_page(p, PMD_SIZE);
+   }
+}
+
+Reproduced in qemu trivially with some explicit widening of the race window.
+
+Link: https://lore.kernel.org/20260912110832.3203902-1-gourry@gourry.net
+Fixes: b2f557a21bc8 ("mm/madvise: add cond_resched() in madvise_cold_or_pageout_pte_range()")
+Signed-off-by: Gregory Price (Meta) <gourry@gourry.net>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reported-by: sashiko-bot <sashiko-bot@kernel.org>
+Closes: https://sashiko.dev/#/patchset/20260821150912.183976-1-gourry@gourry.net
+Reviewed-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
+Assisted-by: LLM
+Cc: David Hildenbrand <david@kernel.org>
+Cc: Jann Horn <jannh@google.com>
+Cc: Jiexun Wang <wangjiexun@tinylab.org>
+Cc: Liam R. Howlett <liam@infradead.org>
+Cc: Vlastimil Babka <vbabka@kernel.org>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 380fbb3a43228a3f439d64549a9d854a23d336b8)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/madvise.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/mm/madvise.c b/mm/madvise.c
+index 4b5c3f2b136165224f3f192d163b276fba2d1e38..bd688300981411f7488a89fbecd80cbc6dbae821 100644
+--- a/mm/madvise.c
++++ b/mm/madvise.c
+@@ -456,7 +456,7 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
+ restart:
+ 	start_pte = pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
+ 	if (!start_pte)
+-		return 0;
++		goto out;
+ 	flush_tlb_batched_pending(mm);
+ 	lazy_mmu_mode_enable();
+ 	for (; addr < end; pte += nr, addr += nr * PAGE_SIZE) {
+@@ -560,6 +560,7 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
+ 			folio_deactivate(folio);
+ 	}
+ 
++out:
+ 	if (start_pte) {
+ 		lazy_mmu_mode_disable();
+ 		pte_unmap_unlock(start_pte, ptl);

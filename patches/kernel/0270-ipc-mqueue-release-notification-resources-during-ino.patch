@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daehyeon Ko <4ncienth@gmail.com>
+Date: Mon, 24 Aug 2026 13:23:59 +0900
+Subject: [PATCH] ipc/mqueue: release notification resources during inode
+ eviction
+
+[ Upstream commit eb85469f0dd69ca145d63117450e14c31f67f698 ]
+
+mqueue_flush_file() removes an mq_notify() registration only when the
+closing task belongs to the thread group stored in notify_owner.
+
+A task in a separate thread group created with CLONE_FILES can register
+SIGEV_THREAD notification and exit without closing the shared file table.
+If another thread group then unlinks and last-closes the queue, ->flush()
+skips the registration and inode eviction loses the only pointers to its
+resources.
+
+The orphaned registration permanently retains the notification skb, its
+netlink socket, a pid reference and a user namespace reference. An
+unprivileged process can repeat the sequence with new queues and sockets.
+
+No inode users remain during eviction. Remove any stale registration there
+after dropping info->lock, since netlink_sendskb() may release the final
+socket reference.
+
+Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+Cc: stable@vger.kernel.org
+Signed-off-by: Daehyeon Ko <4ncienth@gmail.com>
+Link: https://patch.msgid.link/20260824042359.925145-1-4ncienth@gmail.com
+Signed-off-by: Christian Brauner (Amutable) <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit abdce0f17b8b6c2adff399fd79929bab584b436e)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ ipc/mqueue.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/ipc/mqueue.c b/ipc/mqueue.c
+index 716915771390c054c43800d5b26c68e70ab07b3e..3a0dfa8314ad87610203c4193d52335ed247fe96 100644
+--- a/ipc/mqueue.c
++++ b/ipc/mqueue.c
+@@ -528,6 +528,13 @@ static void mqueue_evict_inode(struct inode *inode)
+ 		list_add_tail(&msg->m_list, &tmp_msg);
+ 	kfree(info->node_cache);
+ 	spin_unlock(&info->lock);
++	/*
++	 * A shared file table can let the notification owner exit without
++	 * running ->flush(). No users of the inode remain during eviction, so
++	 * tear down any stale notification after dropping info->lock because
++	 * netlink_sendskb() may release the final socket reference.
++	 */
++	remove_notification(info);
+ 
+ 	list_for_each_entry_safe(msg, nmsg, &tmp_msg, m_list) {
+ 		list_del(&msg->m_list);

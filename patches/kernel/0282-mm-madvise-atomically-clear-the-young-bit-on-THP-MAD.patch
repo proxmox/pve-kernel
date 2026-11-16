@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Pedro Falcato <pfalcato@suse.de>
+Date: Tue, 13 Oct 2026 20:17:19 +0100
+Subject: [PATCH] mm/madvise: atomically clear the young bit on THP MADV_COLD
+
+[ Upstream commit 246c8cc33438a71c28f9b86baa492d9a0a130316 ]
+
+As-is, madvise_cold_or_pageout_pte_range() discards the hardware young bit
+by invalidating the PMD, doing pmd_mkold() and subsequently writing to the
+pmd again.  However, it does so in a racy manner, looking at a
+possibly-stale snapshot.  It's entirely possible that a write elsewhere
+set the hardware D bit, which this logic now loses.
+
+Fix it by using pmdp_test_and_clear_young().  This is an atomic
+modification of the PMD entry, and thus safe against any possible racing
+writes.  As a (nice) side-effect, this elides one non-required TLB flush
+in pmdp_invalidate().
+
+This bug can interact with the swapping system in complicated ways,
+leading to data loss.  For instance, if a folio is marked lazyfree, but
+was later read from, and then MADV_COLD'd while racing a write to that
+same THP, dropping the dirty bit may lead to data loss as
+reclaim/MADV_PAGEOUT drops the "clean" anon folio:
+
+T0                                T1
+================================================================
+MADV_FREE(thp)			|
+  folio marked lazyfree		|
+read(thp)			|
+  PMD marked young by hardware	|
+				| MADV_COLD(thp)
+write(thp)			|   if (pmd_young(pmd)) {
+  PMD marked dirty by hardware	|     set(pmdp, pmd_mkold(pmd));
+MADV_PAGEOUT/reclaim		|
+  dirty bit may or may not be   |
+  set				|
+    reclaim/pageout may drop    |
+    the folio			|
+
+Link: https://lore.kernel.org/20261013191719.95502-1-pfalcato@suse.de
+Fixes: 9c276cc65a58 ("mm: introduce MADV_COLD")
+Signed-off-by: Pedro Falcato <pfalcato@suse.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reported-by: Samarth Narang <samarth.colleges@gmail.com>
+Closes: https://lore.kernel.org/linux-mm/20261011132227.413217-1-samarth.colleges@gmail.com/
+Reviewed-by: Gregory Price (Meta) <gourry@gourry.net>
+Acked-by: Zi Yan <ziy@nvidia.com>
+Reviewed-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
+Acked-by: David Hildenbrand (Arm) <david@kernel.org>
+Reviewed-by: SJ Park <sj@kernel.org>
+Cc: Liam R. Howlett <liam@infradead.org>
+Cc: Vlastimil Babka <vbabka@kernel.org>
+Cc: Jann Horn <jannh@google.com>
+Cc: Minchan Kim <minchan@kernel.org>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Johannes Weiner <hannes@cmpxchg.org>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 5a4d557c02049f75c260dd5492c6e1961e49e77e)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/madvise.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/mm/madvise.c b/mm/madvise.c
+index bd688300981411f7488a89fbecd80cbc6dbae821..3f744ceed3722d8ecb1327b9d8fac74eadb9494d 100644
+--- a/mm/madvise.c
++++ b/mm/madvise.c
+@@ -423,10 +423,7 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
+ 		}
+ 
+ 		if (!pageout && pmd_young(orig_pmd)) {
+-			pmdp_invalidate(vma, addr, pmd);
+-			orig_pmd = pmd_mkold(orig_pmd);
+-
+-			set_pmd_at(mm, addr, pmd, orig_pmd);
++			pmdp_test_and_clear_young(vma, addr, pmd);
+ 			tlb_remove_pmd_tlb_entry(tlb, pmd, addr);
+ 		}
+ 

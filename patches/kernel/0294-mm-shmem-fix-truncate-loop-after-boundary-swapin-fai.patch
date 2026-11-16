@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "David Hildenbrand (Arm)" <david@kernel.org>
+Date: Thu, 29 Oct 2026 11:43:34 +0100
+Subject: [PATCH] mm/shmem: fix truncate loop after boundary swapin failure
+
+[ Upstream commit 5f1ec2cf92a7d655a8eb39711987822f9b1f9d67 ]
+
+If swapping in a large entry at the new EOF fails, shmem_undo_range()
+leaves the entry in place. Its final scan skips the entry, then restarts
+from the same start index and finds it again. Truncation can loop forever
+while holding i_rwsem.
+
+Advance start past the skipped entry so that a restarted scan can finish,
+as we already do for folios that cannot be split.
+
+Note that this does not fix the missing zeroing when boundary swapin fails,
+it merely prevents the endless loop.
+
+Fixes: 8a1968bd997f ("mm/shmem, swap: fix race of truncate and swap entry split")
+Cc: stable@vger.kernel.org
+Acked-by: Kiryl Shutsemau (Meta) <kas@kernel.org>
+Tested-by: Gregory Price (Meta) <gourry@gourry.net>
+Reviewed-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Reviewed-by: Nhat Pham <nphamcs@gmail.com>
+Link: https://patch.msgid.link/20261029-fixes_shmem-v4-13-392fc715d8f6@kernel.org
+Signed-off-by: David Hildenbrand (Arm) <david@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 843b97bedcd1bcdf563f8711bb9d83012a20f645)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/shmem.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/mm/shmem.c b/mm/shmem.c
+index 8cbaa2f5f6bfd0a10c065d777a34c713c99cf0fd..d4ac71027a7ff670e2061cab02a7ef9a280181dd 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -1215,14 +1215,16 @@ static void shmem_undo_range(struct inode *inode, loff_t lstart, uoff_t lend,
+ 					order = shmem_confirm_swap(mapping, indices[i],
+ 								   radix_to_swp_entry(folio));
+ 					/*
+-					 * If found a large swap entry cross the end or start
+-					 * border, skip it as the truncate_inode_partial_folio
+-					 * above should have at least zerod its content once.
++					 * Skip boundary entries when restarting
++					 * the scan to avoid endless loops after
++					 * swapin failure.
+ 					 */
+ 					if (order > 0) {
+ 						base = round_down(base, 1 << order);
+-						if (base < start || base + (1 << order) > end)
++						if (base < start || base + (1 << order) > end) {
++							start = max(start, base + (1 << order));
+ 							continue;
++						}
+ 					}
+ 					/* Swap was replaced by page or extended, retry */
+ 					index = base;

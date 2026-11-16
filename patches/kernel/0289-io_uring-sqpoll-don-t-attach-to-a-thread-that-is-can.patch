@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jens Axboe <axboe@kernel.dk>
+Date: Sat, 7 Nov 2026 09:16:49 -0700
+Subject: [PATCH] io_uring/sqpoll: don't attach to a thread that is canceling
+
+Commit 22d9db9fd64a493525d692b32c556875b7254665 upstream.
+
+io_sq_offload_create() refuses to attach a ring to an SQPOLL thread
+that has already gone, by checking sqd->thread under sqd->lock. Since
+the thread drops the lock while io_uring_cancel_generic() waits for its
+requests, that check can run while the thread is on its way out and
+still see it. The new ring is then added to ctx_list, io_uring_setup()
+succeeds, the thread finishes canceling and exits without ever having
+looked at the ring, and io_uring_enter() fails with -EOWNERDEAD.
+
+Only a thread that exits on a fatal signal can be caught like this, as
+the stop bit is set once the last ring has let go of the sqd, when no fd
+is left to attach through. A fatal signal is group wide and attaching
+needs the same thread group, so the attacher is on its way out as well.
+Still, make the check see it: set the stop bit before canceling,
+whatever the reason for the exit, and test it when attaching.
+
+Reported-by: Karl Mehltretter <kmehltretter@gmail.com>
+Fixes: cb0306c52ffa ("io_uring/cancel: drop sqd->lock while SQPOLL waits")
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a4c0f77727a642cf50a8ec94ce264292e2740740)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ io_uring/sqpoll.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/io_uring/sqpoll.c b/io_uring/sqpoll.c
+index 2e6240bcce487be8a9457efda6ffc48041dfadf5..bfd4975876af6a4cc688facb00edd26c6d9ec1c2 100644
+--- a/io_uring/sqpoll.c
++++ b/io_uring/sqpoll.c
+@@ -438,6 +438,12 @@ static int io_sq_thread(void *data)
+ 	if (retry_list)
+ 		io_sq_tw(&retry_list, UINT_MAX);
+ 
++	/*
++	 * Cancelation drops sqd->lock while it waits, and a ring could attach
++	 * to a thread that is on its way out. A fatal signal doesn't set the
++	 * bit, so set it here for io_sq_offload_create() to see.
++	 */
++	set_bit(IO_SQ_THREAD_SHOULD_STOP, &sqd->state);
+ 	io_uring_cancel_generic(true, sqd);
+ 	rcu_assign_pointer(sqd->thread, NULL);
+ 	put_task_struct(current);
+@@ -506,7 +512,10 @@ __cold int io_sq_offload_create(struct io_ring_ctx *ctx,
+ 		list_add(&ctx->sqd_list, &sqd->ctx_list);
+ 		io_sqd_update_thread_idle(sqd);
+ 		/* don't attach to a dying SQPOLL thread, would be racy */
+-		ret = (attached && !sqd->thread) ? -ENXIO : 0;
++		ret = 0;
++		if (attached && (!sqd->thread ||
++		    test_bit(IO_SQ_THREAD_SHOULD_STOP, &sqd->state)))
++			ret = -ENXIO;
+ 		io_sq_thread_unpark(sqd);
+ 
+ 		if (ret < 0)

@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kazuki Hanai <hnkz.64@gmail.com>
+Date: Fri, 2 Oct 2026 17:13:03 +0900
+Subject: [PATCH] tmpfs: fix unicode_map leaks in casefold option handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit f439d79e8cd19f89e04cbb3b532347edacd72c79 ]
+
+shmem_parse_opt_casefold() stores the unicode_map returned by utf8_load()
+in ctx->encoding.  A filesystem context can receive the casefold parameter
+more than once, and a second successful parse overwrites the stored map
+without releasing it.
+
+The map is also leaked when an unmounted filesystem context is freed.
+This includes the temporary context used for remount, because
+shmem_reconfigure() does not take ownership of ctx->encoding.
+
+Reject a second casefold setting, clear ctx->encoding after transferring
+ownership to the superblock, and release any remaining map from
+shmem_free_fc().
+
+An unprivileged user can repeatedly create tmpfs filesystem contexts, set
+the casefold parameter, and close them from a user namespace.  This causes
+unbounded kernel memory consumption and can result in a local denial of
+service.
+
+Link: https://lore.kernel.org/20261002081306.637148-1-hnkz.64@gmail.com
+Fixes: 58e55efd6c72 ("tmpfs: Add casefold lookup support")
+Signed-off-by: Kazuki Hanai <hnkz.64@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Suggested-by: Gabriel Krisman Bertazi <gabriel@krisman.be>
+Cc: Hugh Dickins <hughd@google.com>
+Cc: Baolin Wang <baolin.wang@linux.alibaba.com>
+Cc: André Almeida <andrealmeid@igalia.com>
+Cc: Christian Brauner <brauner@kernel.org>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 543c0f3386e41326f1b1f4a3b52f97bad3663487)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/shmem.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/mm/shmem.c b/mm/shmem.c
+index 5a1639b5ab11f2863e51820b238d2529981db581..829e1ac714e1a218cdb4b0edfd815f2c8702d829 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -4564,6 +4564,9 @@ static int shmem_parse_opt_casefold(struct fs_context *fc, struct fs_parameter *
+ 	struct unicode_map *encoding;
+ 	char *version_str = param->string + 5;
+ 
++	if (ctx->encoding)
++		return invalfc(fc, "casefold parameter cannot be specified twice\n");
++
+ 	if (!latest_version) {
+ 		if (strncmp(param->string, "utf8-", 5))
+ 			return invalfc(fc, "Only UTF-8 encodings are supported "
+@@ -5050,6 +5053,7 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
+ 
+ 	if (ctx->encoding) {
+ 		sb->s_encoding = ctx->encoding;
++		ctx->encoding = NULL;
+ 		set_default_d_op(sb, &shmem_ci_dentry_ops);
+ 		if (ctx->strict_encoding)
+ 			sb->s_encoding_flags = SB_ENC_STRICT_MODE_FL;
+@@ -5147,6 +5151,9 @@ static void shmem_free_fc(struct fs_context *fc)
+ 	struct shmem_options *ctx = fc->fs_private;
+ 
+ 	if (ctx) {
++#if IS_ENABLED(CONFIG_UNICODE)
++		utf8_unload(ctx->encoding);
++#endif
+ 		mpol_put(ctx->mpol);
+ 		kfree(ctx);
+ 	}

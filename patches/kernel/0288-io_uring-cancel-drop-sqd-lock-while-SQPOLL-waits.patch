@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chris Mason <mason@kernel.org>
+Date: Sat, 7 Nov 2026 09:16:48 -0700
+Subject: [PATCH] io_uring/cancel: drop sqd->lock while SQPOLL waits
+
+Commit cb0306c52ffae083a86fb283de67875ae7a9500e upstream.
+
+An exiting SQPOLL thread calls io_uring_cancel_generic() with sqd->lock
+held, and keeps it across cond_resched() and the sleep until nothing is
+in flight anymore. A zero-copy send notification can't be canceled and
+stays pending as long as the peer doesn't read, so the lock is held for
+as long as a user cares to. io_ring_exit_work() needs it to park the
+thread, and so do IORING_REGISTER_IOWQ_AFF and IOWQ_MAX_WORKERS. With
+64 such rings sharing the thread, every iou_exit slot sleeps on the lock
+and no ring gets freed for anyone.
+
+Drop the lock around cond_resched() and the sleep, like the main loop of
+the thread does. Each walk of ctx_list is still under one hold, and
+nothing is kept across the unlock. The thread drops its io-wq, frees its
+tctx and clears sqd->thread under one hold after the loop, so whoever
+holds the lock and finds sqd->thread set can still use them.
+
+Fixes: 63809137ebb5 ("io_uring: flush notifiers after sendzc")
+Signed-off-by: Chris Mason <mason@kernel.org>
+[axboe: adapted to the schedule_timeout() based loop]
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+[axboe: adapted to the schedule() based wait loop]
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 4ce05c003152dd9bd9c7ee3351f08d72d0791f26)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ io_uring/cancel.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/io_uring/cancel.c b/io_uring/cancel.c
+index 0e6c80a5ad0d8cd55fea1ffe07872881fc9cbb63..7a251dbd697a36f03b6448491ce6a9fd89dfddab 100644
+--- a/io_uring/cancel.c
++++ b/io_uring/cancel.c
+@@ -645,7 +645,16 @@ __cold void io_uring_cancel_generic(bool cancel_all, struct io_sq_data *sqd)
+ 		}
+ 
+ 		if (loop) {
++			/*
++			 * A request that runs in io-wq and doesn't end makes
++			 * each round come here. Don't hold sqd->lock for that
++			 * long either.
++			 */
++			if (sqd)
++				mutex_unlock(&sqd->lock);
+ 			cond_resched();
++			if (sqd)
++				mutex_lock(&sqd->lock);
+ 			continue;
+ 		}
+ 
+@@ -673,8 +682,20 @@ __cold void io_uring_cancel_generic(bool cancel_all, struct io_sq_data *sqd)
+ 		 * avoids a race where a completion comes in before we did
+ 		 * prepare_to_wait().
+ 		 */
+-		if (inflight == tctx_inflight(tctx, !cancel_all))
++		if (inflight == tctx_inflight(tctx, !cancel_all)) {
++			/*
++			 * A zero-copy notification can't be canceled, and a
++			 * peer that doesn't read keeps it pending. Don't hold
++			 * sqd->lock while waiting for it, or whoever wants the
++			 * lock sleeps as long. No ring is used across this,
++			 * the next round walks ->ctx_list anew.
++			 */
++			if (sqd)
++				mutex_unlock(&sqd->lock);
+ 			schedule();
++			if (sqd)
++				mutex_lock(&sqd->lock);
++		}
+ end_wait:
+ 		finish_wait(&tctx->wait, &wait);
+ 	} while (1);

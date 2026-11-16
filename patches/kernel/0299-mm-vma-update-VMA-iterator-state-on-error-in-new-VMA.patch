@@ -1,0 +1,120 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Tue, 27 Oct 2026 11:25:20 +0000
+Subject: [PATCH] mm/vma: update VMA iterator state on error in new VMA merge
+
+Commit cacded5e42b9 ("mm: avoid using vma_merge() for new VMAs") shared
+code between vma_merge_new_range() and vma_expand().
+
+However in doing so, it failed to correctly restore the VMA iterator when
+vma_expand() errors out.
+
+This is a problem when the immediately preceding VMA is mergeable and
+vmg->just_expand isn't specified, at which point the VMA iterator is moved
+to the previous VMA.
+
+(Note that vmg->just_expand is a special case for brk(), where the
+iterator will already be positioned at the VMA to be expanded.)
+
+Resolve things by restoring the VMA iterator on error. Use
+vma_iter_next_range() to do this, so it will correctly stop on the gap
+after the previous VMA, rather than skip to the next VMA after it (this is
+a new VMA merge, so is being applied at a gap).
+
+To isolate the error handling, return early when a merge isn't
+possible (what the vmg->target check was doing before), then handle the
+merge success/failure case explicitly.
+
+While here, update vma_expand() to jump to the nomem case when
+dup_anon_vma() fails, so vmg->state is correctly updated.
+
+This doesn't impact anything in practice, but is the correct course and
+since it's part of the error path that this patch addresses, it makes sense
+to update it also.
+
+Users are very unlikely to have observed the issue this patch addresses in
+practice, as it is near-impossible to fail an allocation for an anon_vma,
+but a process under memory pressure that receives a fatal signal could
+trigger it.
+
+This issue was originally reported by Li Jinyue for which I am grateful. He
+indicated this was uncovered by a private syzkaller instance.
+
+Link: https://lore.kernel.org/20261027-fix-new-merge-bug-v1-1-7023a787e6b9@kernel.org
+Fixes: cacded5e42b9 ("mm: avoid using vma_merge() for new VMAs")
+Signed-off-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Reported-by: Li Jinyue <jinyue.li@linux.alibaba.com>
+Closes: https://lore.kernel.org/all/20261025093921.1011927-1-jinyue.li@linux.alibaba.com/
+Cc: Liam R. Howlett <liam@infradead.org>
+Cc: Vlastimil Babka <vbabka@kernel.org>
+Cc: Jann Horn <jannh@google.com>
+Cc: Pedro Falcato <pfalcato@suse.de>
+Cc: <stable@vger.kernel.org>
+(cherry picked from commit 168ed9c5d5ec2fd326715eba5750c2b69e559ff3)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ mm/vma.c | 28 ++++++++++++++++++----------
+ 1 file changed, 18 insertions(+), 10 deletions(-)
+
+diff --git a/mm/vma.c b/mm/vma.c
+index 491a71d48842d2373aa090ee6df93738ca55c959..640f6696dc58eb98f19d47c8de4f79ce2806c125 100644
+--- a/mm/vma.c
++++ b/mm/vma.c
+@@ -1049,6 +1049,7 @@ struct vm_area_struct *vma_merge_new_range(struct vma_merge_struct *vmg)
+ 	struct vm_area_struct *next = vmg->next;
+ 	unsigned long end = vmg->end;
+ 	bool can_merge_left, can_merge_right;
++	bool move_iter_back = false;
+ 
+ 	mmap_assert_write_locked(vmg->mm);
+ 	VM_WARN_ON_VMG(vmg->middle, vmg);
+@@ -1086,23 +1087,30 @@ struct vm_area_struct *vma_merge_new_range(struct vma_merge_struct *vmg)
+ 			vmg->end = end;
+ 
+ 		/* In expand-only case we are already positioned at prev. */
+-		if (!vmg->just_expand) {
+-			/* Equivalent to going to the previous range. */
+-			vma_prev(vmg->vmi);
+-		}
++		if (!vmg->just_expand)
++			move_iter_back = true;
+ 	}
+ 
++	if (!can_merge_left && !can_merge_right)
++		return NULL;
++
++	if (move_iter_back)
++		vma_prev(vmg->vmi);
++
+ 	/*
+ 	 * Now try to expand adjacent VMA(s). This takes care of removing the
+ 	 * following VMA if we have VMAs on both sides.
+ 	 */
+-	if (vmg->target && !vma_expand(vmg)) {
+-		khugepaged_enter_vma(vmg->target, vmg->vm_flags);
+-		vmg->state = VMA_MERGE_SUCCESS;
+-		return vmg->target;
++	if (vma_expand(vmg)) {
++		/* Error occurred, restore iterator. */
++		if (move_iter_back)
++			vma_iter_next_range(vmg->vmi);
++		return NULL;
+ 	}
+ 
+-	return NULL;
++	khugepaged_enter_vma(vmg->target, vmg->vm_flags);
++	vmg->state = VMA_MERGE_SUCCESS;
++	return vmg->target;
+ }
+ 
+ /*
+@@ -1191,7 +1199,7 @@ int vma_expand(struct vma_merge_struct *vmg)
+ 	if (!ret && vmg->copied_from)
+ 		ret = dup_anon_vma(target, vmg->copied_from, &anon_dup);
+ 	if (ret)
+-		return ret;
++		goto nomem;
+ 
+ 	if (remove_next) {
+ 		vma_start_write(next);
