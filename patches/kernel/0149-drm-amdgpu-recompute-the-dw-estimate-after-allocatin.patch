@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: YuBiao Wang <YuBiao.Wang@amd.com>
+Date: Wed, 29 Jul 2026 17:53:57 +0800
+Subject: [PATCH] drm/amdgpu: recompute the dw estimate after allocating a new
+ VM update job
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit a74c7832b11827907de560169c7d4ac94505fd87 ]
+
+amdgpu_vm_sdma_update() keeps the number of free dwords of the current
+job in a local variable. When the job runs out of room it is committed
+and a new one is allocated, but that local variable is not refreshed and
+still describes the job which was just submitted.
+
+The stale value is then used to decide how many PTEs fit into the new
+job. If it happens to be copy_pte_num_dw + 7, or one more than that, the
+result is zero. copy_pte() encodes the transfer size as count * 8 - 1,
+so a count of zero asks the engine for a 1GB copy starting inside the IB
+pool. That runs off the end of the pool, faults on the first unmapped
+GART page above it and hangs the ring.
+
+Re-initialize the estimate from the newly allocated job, which is empty
+and therefore has its full budget available.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: YuBiao Wang <YuBiao.Wang@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit ec67981c87d574d584406ce341ab72067590069d)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c
+index 36805dcfa15988f1a57f508d9d39c6c8fbe4dbac..902d0a538e41990f3020015375cb3a79f605a4f5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c
+@@ -254,6 +254,11 @@ static int amdgpu_vm_sdma_update(struct amdgpu_vm_update_params *p,
+ 						     AMDGPU_KERNEL_JOB_ID_VM_UPDATE);
+ 			if (r)
+ 				return r;
++
++			/* The estimate above describes the job which was just
++			 * submitted, take the budget of the newly allocated one.
++			 */
++			ndw = p->num_dw_left;
+ 		}
+ 
+ 		if (!p->pages_addr) {

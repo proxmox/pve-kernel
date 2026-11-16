@@ -1,0 +1,96 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Zhang <Jesse.Zhang@amd.com>
+Date: Sat, 24 Oct 2026 01:26:49 +0800
+Subject: [PATCH] drm/amdkfd: use the queue's process info for the WPTR BO
+ eviction fence
+
+amdgpu_amdkfd_map_gtt_bo_to_gart() removes the eviction fence of
+bo->vm_bo->vm->process_info from the WPTR BO of a new queue. bo->vm_bo
+is the VM which opened the BO last, not necessarily the KFD process' VM,
+and a render node VM has no process info.
+
+On navi31, an unprivileged process which exports its WPTR BO with
+AMDKFD_IOC_EXPORT_DMABUF and imports it on a second render node fd
+oopses in AMDKFD_IOC_CREATE_QUEUE:
+
+  BUG: kernel NULL pointer dereference, address: 0000000000000060
+  RIP: 0010:amdgpu_amdkfd_map_gtt_bo_to_gart+0x86/0x1a0 [amdgpu]
+   init_user_queue.part.0+0x180/0x250 [amdgpu]
+   pqm_create_queue+0x32d/0x730 [amdgpu]
+   kfd_ioctl_create_queue+0x583/0x9f0 [amdgpu]
+
+Pass the process info of the queue instead. With the fix, the queue is
+created and destroyed normally.
+
+Fixes: 7f347e3f8217 ("drm/amdkfd: Fix NULL pointer error for GC 11.0.1 on mGPU")
+Reviewed-by: Felix Kuehling <felix.kuehling@amd.com>
+Signed-off-by: Jesse Zhang <Jesse.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit 6b4157498a176bd1c6083f6bb5aaf8a257a2027e)
+Cc: stable@vger.kernel.org
+(cherry picked from commit da2897ee8b811945fd40ecc4aaf03291c14ce61c)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h             | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c       | 8 +++++---
+ drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c | 3 ++-
+ 3 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index 9cd629a1d0a4e2418c30d4e1465f3ac64fd65933..f6c5c594b2bab4453abfb07caa9375debfdbfbf5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -328,7 +328,8 @@ int amdgpu_amdkfd_gpuvm_map_gtt_bo_to_kernel(struct kgd_mem *mem,
+ 					     void **kptr, uint64_t *size);
+ void amdgpu_amdkfd_gpuvm_unmap_gtt_bo_from_kernel(struct kgd_mem *mem);
+ 
+-int amdgpu_amdkfd_map_gtt_bo_to_gart(struct amdgpu_bo *bo, struct amdgpu_bo **bo_gart);
++int amdgpu_amdkfd_map_gtt_bo_to_gart(struct amdgpu_bo *bo, struct amdgpu_bo **bo_gart,
++				     struct amdkfd_process_info *process_info);
+ 
+ int amdgpu_amdkfd_gpuvm_restore_process_bos(void *process_info,
+ 					    struct dma_fence __rcu **ef);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 6b46f667d5b272d3eb4692884a58bd981b63b7e2..bb5b4347e5dad3ac1557b9c4e65178d51f6846c0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -2234,11 +2234,13 @@ int amdgpu_amdkfd_gpuvm_sync_memory(
+  * amdgpu_amdkfd_map_gtt_bo_to_gart - Map BO to GART and increment reference count
+  * @bo: Buffer object to be mapped
+  * @bo_gart: Return bo reference
++ * @process_info: KFD process info of the queue the BO is for
+  *
+  * Before return, bo reference count is incremented. To release the reference and unpin/
+  * unmap the BO, call amdgpu_amdkfd_free_kernel_mem.
+  */
+-int amdgpu_amdkfd_map_gtt_bo_to_gart(struct amdgpu_bo *bo, struct amdgpu_bo **bo_gart)
++int amdgpu_amdkfd_map_gtt_bo_to_gart(struct amdgpu_bo *bo, struct amdgpu_bo **bo_gart,
++				     struct amdkfd_process_info *process_info)
+ {
+ 	int ret;
+ 
+@@ -2260,8 +2262,8 @@ int amdgpu_amdkfd_map_gtt_bo_to_gart(struct amdgpu_bo *bo, struct amdgpu_bo **bo
+ 		goto err_map_bo_gart_failed;
+ 	}
+ 
+-	amdgpu_amdkfd_remove_eviction_fence(
+-		bo, bo->vm_bo->vm->process_info->eviction_fence);
++	/* bo->vm_bo can be the VM of any file which opened the BO */
++	amdgpu_amdkfd_remove_eviction_fence(bo, process_info->eviction_fence);
+ 
+ 	amdgpu_bo_unreserve(bo);
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+index 6db2b9ca78b1130940ff3bcf5b19aa988a61ac1c..3274668982362f99cc0d5ab87529f65883e00358 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+@@ -288,7 +288,8 @@ static int init_user_queue(struct process_queue_manager *pqm,
+ 		}
+ 
+ 		retval = amdgpu_amdkfd_map_gtt_bo_to_gart(q_properties->wptr_bo,
+-							  &(*q)->wptr_bo_gart);
++							  &(*q)->wptr_bo_gart,
++							  pqm->process->kgd_process_info);
+ 		if (retval) {
+ 			pr_err("Failed to map wptr bo to GART\n");
+ 			goto free_gang_ctx_bo;

@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Zhang <Jesse.Zhang@amd.com>
+Date: Sun, 1 Nov 2026 01:41:40 +0800
+Subject: [PATCH] drm/amdgpu: unlock the VM and BO when attaching a KFD BO
+ fails
+
+[ Upstream commit e0a1404b34e0002f03f7979cdb791a9b5c3963f5 ]
+
+kfd_mem_attach() locks the page directory and the BO with a drm_exec
+transaction on its stack, but leaves through the unwind label without
+drm_exec_fini() when locking fails, e.g. when MAP_MEMORY_TO_GPU gets a
+signal while the page directory or the BO is busy. Reservations already
+acquired then remain locked with their ww_acquire_ctx pointing into the
+expired stack frame.
+
+With one thread doing GEM_VA map/unmap on the KFD VM and
+another one mapping KFD BOs while getting SIGUSR1 every 20 us:
+
+  BUG: KASAN: stack-out-of-bounds in __ww_mutex_lock.constprop.0+0x34f5/0x3da0
+   ww_mutex_lock_interruptible+0x2f/0x150
+   drm_exec_lock_obj+0x107/0x2d0 [drm_exec]
+   kfd_mem_attach+0x4dd/0x1b60 [amdgpu]
+
+and the process ends up in D state.
+
+Finish the transaction before unwinding.
+
+Fixes: fd1fa48b935f ("drm/amdgpu: lock both VM and BO in amdgpu_gem_object_open")
+Reviewed-by: Felix Kuehling <felix.kuehling@amd.com>
+Signed-off-by: Jesse Zhang <Jesse.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit 7b885fa27e4b9fa5cbdc64e66fc35872aee296f5)
+Cc: stable@vger.kernel.org
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit ea3071be96636f225f2eb53152009379f0c17866)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index bb5b4347e5dad3ac1557b9c4e65178d51f6846c0..06a2a6be80c5104db46d0d66e966cad53dfeaea5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -964,11 +964,11 @@ static int kfd_mem_attach(struct amdgpu_device *adev, struct kgd_mem *mem,
+ 			ret = amdgpu_vm_lock_pd(vm, &exec, 0);
+ 			drm_exec_retry_on_contention(&exec);
+ 			if (unlikely(ret))
+-				goto unwind;
++				goto unlock;
+ 			ret = drm_exec_lock_obj(&exec, &bo[i]->tbo.base);
+ 			drm_exec_retry_on_contention(&exec);
+ 			if (unlikely(ret))
+-				goto unwind;
++				goto unlock;
+ 		}
+ 
+ 		bo_va = amdgpu_vm_bo_find(vm, bo[i]);
+@@ -994,6 +994,8 @@ static int kfd_mem_attach(struct amdgpu_device *adev, struct kgd_mem *mem,
+ 
+ 	return 0;
+ 
++unlock:
++	drm_exec_fini(&exec);
+ unwind:
+ 	for (; i >= 0; i--) {
+ 		if (!attachment[i])

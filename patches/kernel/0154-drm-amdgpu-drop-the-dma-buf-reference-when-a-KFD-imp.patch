@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Zhang <Jesse.Zhang@amd.com>
+Date: Sun, 1 Nov 2026 02:05:22 +0800
+Subject: [PATCH] drm/amdgpu: drop the dma-buf reference when a KFD import
+ fails
+
+[ Upstream commit fb900f8bfd8a16126affd186d21001e4c6533324 ]
+
+import_obj_create() takes a reference on the dma-buf for the new kgd_mem,
+but the error path after validating the BO doesn't drop it. Since the
+validation reserves the BO interruptibly, an import failing with
+-ERESTARTSYS leaks the exported BO with its memory, and keeps the module
+in use.
+
+Importing a 64 MiB VRAM BO in a loop while getting SIGUSR1
+every 20 us and another thread changes the BO's mappings:
+
+  INFO: 171821 imports, VRAM used before 65 MiB, after 129 MiB
+  modprobe: FATAL: Module amdgpu is in use.
+
+Drop the reference, and free the sync object and the mutex of the kgd_mem
+as well. With that VRAM usage returns to 65 MiB after the same test.
+
+Fixes: 0e2e7c5b3d71 ("drm/amdgpu: Attach eviction fence on alloc")
+Reviewed-by: Felix Kuehling <felix.kuehling@amd.com>
+Signed-off-by: Jesse Zhang <Jesse.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit b4d1eca2729840148ff2ea957724ce764ca5a94e)
+Cc: stable@vger.kernel.org
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 07482e4bdfdbd39cc67e9a58669596bba856c5f8)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 06a2a6be80c5104db46d0d66e966cad53dfeaea5..eaf8dd9e63779fd0683f49116e37d2353abca4f2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -2442,6 +2442,9 @@ static int import_obj_create(struct amdgpu_device *adev,
+ 
+ err_remove_mem:
+ 	remove_kgd_mem_from_kfd_bo_list(*mem, avm->process_info);
++	amdgpu_sync_free(&(*mem)->sync);
++	mutex_destroy(&(*mem)->lock);
++	dma_buf_put(dma_buf);
+ 	drm_vma_node_revoke(&obj->vma_node, drm_priv);
+ err_free_mem:
+ 	kfree(*mem);

@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Zhang <Jesse.Zhang@amd.com>
+Date: Sun, 18 Oct 2026 19:17:57 +0800
+Subject: [PATCH] drm/amdgpu: keep the CS user fence BO in GTT
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit 7a56d929dc2304edaa6231e1eb5eb82b7e8b74a9 ]
+
+The CS ioctl hands the GPU the GART address of the user fence BO, but
+since the BO keeps its own preferred and allowed domains, it no longer
+makes sure the BO is in GTT. A user fence in a VRAM BO, which only needs
+to be a page in size, gets its address from amdgpu_bo_gpu_offset(), which
+warns about non-contiguous VRAM. On navi31, a CS with a user fence in a
+4K VRAM BO, or in one created with AMDGPU_GEM_CREATE_VM_ALWAYS_VALID:
+
+  WARNING: amdgpu_object.c:1531 at amdgpu_bo_gpu_offset+0x86/0xb0 [amdgpu], CPU#11: cs_gem_checks/18393
+  RIP: 0010:amdgpu_bo_gpu_offset+0x86/0xb0 [amdgpu]
+  Call Trace:
+   <TASK>
+   amdgpu_cs_parser_bos.isra.0+0x4eb/0x850 [amdgpu]
+   amdgpu_cs_ioctl+0x97e/0x2510 [amdgpu]
+   drm_ioctl_kernel+0xac/0x110 [drm]
+   drm_ioctl+0x2c6/0x5b0 [drm]
+   __x64_sys_ioctl+0xa0/0xf0
+   do_syscall_64+0xa3/0x4d0
+   entry_SYSCALL_64_after_hwframe+0x76/0x7e
+
+and BOs which can't be in GTT at all, like GWS or OA ones of a page in
+size, pass the checks as well.
+
+Only take BOs which can't be anywhere else than in GTT as user fence,
+which the CS then validates there along with its other BOs. While at it,
+detect userptrs with amdgpu_ttm_tt_is_userptr(); amdgpu_ttm_tt_get_usermm()
+returns NULL once the task which created the userptr is gone.
+
+v2: only take BOs which can only be in GTT instead of special casing the
+    user fence BO in the validation, use amdgpu_ttm_tt_is_userptr()
+    (Christian)
+
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Jesse Zhang <Jesse.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit f16989def9561d04d0f2e77216f5319112d29bf1)
+Cc: stable@vger.kernel.org
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit a76930555b58ab02f69897ea8ce8994c07eb66c7)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index bf01877c8878e069fc15ac79e7d1e2186d8b58eb..e3b1ca6dcf3263bd781dc87d7d3da9a98b8756d2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -161,7 +161,12 @@ static int amdgpu_cs_p1_user_fence(struct amdgpu_cs_parser *p,
+ 	if (size != PAGE_SIZE || data->offset > (size - 8))
+ 		return -EINVAL;
+ 
+-	if (amdgpu_ttm_tt_get_usermm(p->uf_bo->tbo.ttm))
++	if (amdgpu_ttm_tt_is_userptr(p->uf_bo->tbo.ttm))
++		return -EINVAL;
++
++	/* The GPU writes the user fence through the GART */
++	if (p->uf_bo->preferred_domains != AMDGPU_GEM_DOMAIN_GTT &&
++	    p->uf_bo->allowed_domains != AMDGPU_GEM_DOMAIN_GTT)
+ 		return -EINVAL;
+ 
+ 	*offset = data->offset;

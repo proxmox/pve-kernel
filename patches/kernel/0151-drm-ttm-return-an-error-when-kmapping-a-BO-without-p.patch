@@ -1,0 +1,83 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Zhang <Jesse.Zhang@amd.com>
+Date: Fri, 9 Oct 2026 18:33:39 +0800
+Subject: [PATCH] drm/ttm: return an error when kmapping a BO without pages
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[ Upstream commit fd485d47437ba1700dd47205a63b9f389a00aa36 ]
+
+ttm_tt objects for imported sg tables (ttm_bo_type_sg, set up by
+ttm_sg_tt_init() with TTM_TT_FLAG_EXTERNAL) only have DMA addresses and
+no pages array. ttm_bo_kmap() and ttm_bo_vmap() still dereference
+ttm->pages for them, so a driver that tries to CPU map such a BO oopses
+instead of getting an error:
+
+  BUG: kernel NULL pointer dereference, address: 0000000000000000
+  RIP: 0010:ttm_bo_kmap+0x26c/0x300 [ttm]
+  Call Trace:
+   amdgpu_bo_kmap+0x89/0xb0 [amdgpu]
+   amdgpu_userq_fence_read_wptr+0x116/0x170 [amdgpu]
+   amdgpu_userq_signal_ioctl+0x3fe/0xbb0 [amdgpu]
+
+Return -EINVAL in that case, like ttm_bo_kmap_try_from_panic() already
+checks for a missing pages array.
+
+Fixes: 75a57669cbc8 ("drm/ttm: add ttm_sg_tt_init")
+Cc: stable@vger.kernel.org
+Suggested-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Jesse Zhang <Jesse.Zhang@amd.com>
+Signed-off-by: Arunpravin Paneer Selvam <Arunpravin.PaneerSelvam@amd.com>
+Link: https://patch.msgid.link/20261009103419.4122940-1-Jesse.Zhang@amd.com
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 5c1cbd955faeffc4809da80bfd2b1c567337baf9)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/ttm/ttm_bo_util.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/ttm/ttm_bo_util.c b/drivers/gpu/drm/ttm/ttm_bo_util.c
+index 3e3c201a0222675b05db46a1fe40c92b6f8d7dab..83142bfa3bc1a23143858fa4dcd9b1cb1cbe3a9a 100644
+--- a/drivers/gpu/drm/ttm/ttm_bo_util.c
++++ b/drivers/gpu/drm/ttm/ttm_bo_util.c
+@@ -356,6 +356,10 @@ static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
+ 	if (ret)
+ 		return ret;
+ 
++	/* Imported sg tables only come with DMA addresses, no pages to map. */
++	if (!ttm->pages)
++		return -EINVAL;
++
+ 	if (num_pages == 1 && ttm->caching == ttm_cached &&
+ 	    !(man->use_tt && (ttm->page_flags & TTM_TT_FLAG_DECRYPTED))) {
+ 		/*
+@@ -419,7 +423,7 @@ EXPORT_SYMBOL(ttm_bo_kmap_try_from_panic);
+  *
+  * Returns
+  * -ENOMEM: Out of memory.
+- * -EINVAL: Invalid range.
++ * -EINVAL: Invalid range or the BO has no pages to map.
+  */
+ int ttm_bo_kmap(struct ttm_buffer_object *bo,
+ 		unsigned long start_page, unsigned long num_pages,
+@@ -493,7 +497,7 @@ EXPORT_SYMBOL(ttm_bo_kunmap);
+  *
+  * Returns
+  * -ENOMEM: Out of memory.
+- * -EINVAL: Invalid range.
++ * -EINVAL: Invalid range or the BO has no pages to map.
+  */
+ int ttm_bo_vmap(struct ttm_buffer_object *bo, struct iosys_map *map)
+ {
+@@ -537,6 +541,9 @@ int ttm_bo_vmap(struct ttm_buffer_object *bo, struct iosys_map *map)
+ 		if (ret)
+ 			return ret;
+ 
++		if (!ttm->pages)
++			return -EINVAL;
++
+ 		/*
+ 		 * We need to use vmap to get the desired page protection
+ 		 * or to make the buffer object look contiguous.

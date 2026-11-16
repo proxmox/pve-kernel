@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rodrigo Vivi <rodrigo.vivi@intel.com>
+Date: Fri, 12 Jun 2026 12:24:15 -0400
+Subject: [PATCH] drm/xe: wedge from the timeout handler only after releasing
+ the queue
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A kernel job that exhausts its recovery attempts called
+xe_device_declare_wedged() directly from guc_exec_queue_timedout_job(),
+while the handler still owned the timed-out job and the queue scheduler
+(sched = &q->guc->sched, stopped at the top of the handler).
+
+In the default wedged mode (XE_WEDGED_MODE_UPON_CRITICAL_ERROR),
+xe_device_declare_wedged() takes the destructive path in
+xe_guc_submit_wedge(): guc_submit_reset_prepare(), xe_guc_submit_stop()
+- which calls guc_exec_queue_stop() on every queue, including this one -
+softreset and pause-abort. That tears submission down, signals the
+in-flight fences and restarts the schedulers. This is the correct
+behaviour when the wedge originates outside the TDR, but not when the
+TDR itself triggers it: every queue should be torn down except the one
+the TDR is currently operating on, which it still owns.
+
+Control then returned to the handler, which kept using the now stale job
+and scheduler:
+
+  xe_sched_job_set_error(job, err);
+  drm_sched_for_each_pending_job(tmp_job, &sched->base, NULL)
+          xe_sched_job_set_error(to_xe_sched_job(tmp_job), -ECANCELED);
+
+drm_sched_for_each_pending_job() warns because the scheduler is no
+longer stopped (WARN_ON(!drm_sched_is_stopped())) and the iteration then
+dereferences a freed job, faulting on the slab poison:
+
+  Oops: general protection fault ... 0x6b6b6b6b6b6b6c3b
+  RIP: guc_exec_queue_timedout_job+...
+
+Defer the wedge until the handler has finished operating on the queue,
+right before returning DRM_GPU_SCHED_STAT_NO_HANG, so the teardown no
+longer races with this handler's use of @q.
+
+Fixes: b1107d085e7e ("drm/xe: fix job timeout recovery for unstarted jobs and kernel queues")
+Suggested-by: Matthew Brost <matthew.brost@intel.com>
+Cc: Matthew Brost <matthew.brost@intel.com>
+Cc: Thomas Hellström <thomas.hellstrom@linux.intel.com>
+Cc: Himal Prasad Ghimiray <himal.prasad.ghimiray@intel.com>
+Cc: Sanjay Yadav <sanjay.kumar.yadav@intel.com>
+Assisted-by: GitHub-Copilot:claude-opus-4.8
+Reviewed-by: Matthew Brost <matthew.brost@intel.com>
+Link: https://patch.msgid.link/20260612162414.287971-2-rodrigo.vivi@intel.com
+Signed-off-by: Rodrigo Vivi <rodrigo.vivi@intel.com>
+(cherry picked from commit a889e9b06bfdb375fc88b3b2a4b143f621f930c6)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/xe/xe_guc_submit.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/xe/xe_guc_submit.c b/drivers/gpu/drm/xe/xe_guc_submit.c
+index 8f803ef59f848aa59e2e4f2cfabf9ff1196045b4..dc385d247e9604843b54d9bf015084ea5002c546 100644
+--- a/drivers/gpu/drm/xe/xe_guc_submit.c
++++ b/drivers/gpu/drm/xe/xe_guc_submit.c
+@@ -1442,7 +1442,7 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
+ 	struct xe_device *xe = guc_to_xe(guc);
+ 	int err = -ETIME;
+ 	pid_t pid = -1;
+-	bool wedged = false, skip_timeout_check;
++	bool wedged = false, wedge_device = false, skip_timeout_check;
+ 
+ 	xe_gt_assert(guc_to_gt(guc), !exec_queue_destroyed(q));
+ 
+@@ -1595,7 +1595,7 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
+ 			}
+ 			if (q->flags & EXEC_QUEUE_FLAG_KERNEL) {
+ 				xe_gt_WARN(q->gt, true, "Kernel-submitted job timed out\n");
+-				xe_device_declare_wedged(gt_to_xe(q->gt));
++				wedge_device = true;
+ 			}
+ 		} else if (q->flags & EXEC_QUEUE_FLAG_VM && !exec_queue_killed(q)) {
+ 			xe_gt_WARN(q->gt, true, "VM job timed out on non-killed execqueue\n");
+@@ -1614,6 +1614,9 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
+ 	else
+ 		xe_guc_exec_queue_trigger_cleanup(q);
+ 
++	if (wedge_device)
++		xe_device_declare_wedged(gt_to_xe(q->gt));
++
+ 	/*
+ 	 * We want the job added back to the pending list so it gets freed; this
+ 	 * is what DRM_GPU_SCHED_STAT_NO_HANG does.

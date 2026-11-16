@@ -1,0 +1,118 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Marek Czernohous <marek@czernohous.de>
+Date: Sun, 16 Aug 2026 14:58:52 +0200
+Subject: [PATCH] drm/nouveau: disable the fence uevent work instead of just
+ cancelling it
+
+[ Upstream commit 827eb9328eaed831d7cc426ac2705038a40835b6 ]
+
+nouveau_fence_context_del() drains the uevent work while the event that
+feeds it is still armed:
+
+	cancel_work_sync(&fctx->uevent_work);
+	nouveau_fence_context_kill(fctx, 0);
+	nvif_event_dtor(&fctx->event);
+
+nouveau_fence_wait_uevent_handler() queues the work unconditionally:
+
+	schedule_work(&fctx->uevent_work);
+	return NVIF_EVENT_KEEP;
+
+so a non-stall interrupt arriving after cancel_work_sync() has returned
+re-arms the work that was just drained.  The window closes in two steps,
+neither of which is the drain.  The kill blocks the event when the last
+fence holding a notify_ref is signalled, which reaches
+atomic_xchg(&ntfy->allowed, 0) (nvkm/core/event.c:104), and
+nvkm_event_ntfy() skips a ntfy that is not allowed (:183).  That stops
+further handlers from starting, but not one that is already inside
+nvkm_event_ntfy(): the event is created with wait = false
+(nouveau_fence.c:201), so nvkm_event_ntfy_block_() leaves it on the list
+and never takes event->list_lock.  Only nvif_event_dtor() waits that one
+out: nvkm_event_ntfy_del() (:141) goes through nvkm_event_ntfy_remove(),
+which takes write_lock_irq() on that same list_lock (:84).
+
+Either way the re-arm happens after the drain, and the caller drops its
+reference immediately afterwards, for example nv84_fence_context_del():
+
+	nouveau_fence_context_del(&fctx->base);
+	chan->fence = NULL;
+	nouveau_fence_context_free(&fctx->base);
+
+That is a kref_put() on fctx->fence_ref, so the context outlives the
+teardown only while emitted fences still hold a reference of their own.
+That is no safety net: whenever none do, the count reaches zero right
+there and nouveau_fence_context_put() kfree()s fctx while the work is
+still queued.  &fctx->uevent_work is embedded in that allocation, so the
+workqueue already dereferences freed memory when it picks the item up,
+and nouveau_fence_uevent_work() can then take fctx->lock on it.  With
+CONFIG_DEBUG_OBJECTS_WORK and CONFIG_DEBUG_OBJECTS_FREE, kfree() of a
+still-queued work item is reported as the free of an active object.
+
+On live memory the re-armed work has nothing left to do:
+nouveau_fence_context_kill() empties fctx->pending and sets fctx->killed
+under fctx->lock, nouveau_fence_emit() then returns -ENODEV rather than
+queueing anything new, and nouveau_fence_update() only reaches
+nvif_event_block() if it signalled something off that list.  The defect
+is the access to freed memory, not what the work would have found.
+
+Only chips from G84 on can reach this at all: nouveau_fence_context_new()
+returns before nvif_event_ctor() when priv->uevent is clear, and
+nv84_fence_create() is the only place that sets it.
+nv84_fence_context_del() is the context_del for all of those, because
+nvc0_fence_create() and gv100_fence_create() build on nv84_fence_create()
+and override only context_new.
+
+Use disable_work_sync() instead.  It drains the work exactly like
+cancel_work_sync() does, and additionally increments the work item's
+disable count, after which "any attempt to queue @work will fail and
+return %false" (kernel/workqueue.c, disable_work()).  The handler's
+schedule_work() then has nothing to re-arm, and the teardown order stays
+as it is.
+
+Draining a second time after nvif_event_dtor() would close the window as
+well, and without the newer API: once nvkm_event_ntfy_remove() has
+returned, no handler can start or still be running, so nothing re-arms
+the work past that point.  disable_work_sync() is preferred here because
+it needs one synchronisation point instead of two, it keeps the work
+from being queued at all rather than cleaning up after it, and it is
+what drm has settled on for this (drm/xe, drm/panthor, drm_pagemap).
+Blocking the event rather than the work is not an option: fctx->event is
+created with wait = false, so a handler already inside nvkm_event_ntfy()
+can still queue the work.
+
+Note for backports: disable_work_sync() arrived in v6.10 with
+commit 86898fa6b8cd ("workqueue: Implement disable/enable for (delayed)
+work items"), while the fix being corrected here reached 6.6.18 and
+6.7.6.  linux-6.6.y therefore carries this bug without the API, and this
+patch would apply there and then fail to build.  A 6.6.y backport wants
+the second drain described above instead, as its own patch.
+
+Reported-by: sashiko-bot <sashiko-bot@kernel.org>
+Closes: https://lore.kernel.org/all/20260812233022.159301F000E9@smtp.kernel.org/
+Fixes: 39126abc5e20 ("nouveau: offload fence uevents work to workqueue")
+Cc: <stable@vger.kernel.org> # 6.10.x
+Assisted-by: Claude:claude-opus-5
+Signed-off-by: Marek Czernohous <marek@czernohous.de>
+Reviewed-by: Lyude Paul <lyude@redhat.com>
+Signed-off-by: Lyude Paul <lyude@redhat.com>
+Link: https://patch.msgid.link/178688513268.513871.3468844663561639695@gmail.com
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit bf09cf3e05011b77d00c7dd4abca760dd8fff4f4)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/nouveau/nouveau_fence.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/nouveau/nouveau_fence.c b/drivers/gpu/drm/nouveau/nouveau_fence.c
+index 903d326927cac24266013452ad53c05f12d11e7d..d3aab4549d0ed14f5ee5a603bf06866989a0b118 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_fence.c
++++ b/drivers/gpu/drm/nouveau/nouveau_fence.c
+@@ -95,7 +95,7 @@ nouveau_fence_context_kill(struct nouveau_fence_chan *fctx, int error)
+ void
+ nouveau_fence_context_del(struct nouveau_fence_chan *fctx)
+ {
+-	cancel_work_sync(&fctx->uevent_work);
++	disable_work_sync(&fctx->uevent_work);
+ 	nouveau_fence_context_kill(fctx, 0);
+ 	nvif_event_dtor(&fctx->event);
+ 	fctx->dead = 1;

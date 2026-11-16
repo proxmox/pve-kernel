@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dariusz Marcinkiewicz <darekm@google.com>
+Date: Mon, 5 Oct 2026 23:28:14 +0200
+Subject: [PATCH] drm/amdgpu: check amdgpu_vm_ready() in dma-buf move notify
+
+[ Upstream commit 920ca822f527e45ce084b36f3c420b625eb7c62a ]
+
+amdgpu_dma_buf_move_notify() touches the page tables without first
+calling amdgpu_vm_ready(). When a process is SIGKILLed, its VM entities
+are stopped. Teardown of an imported dma-buf then tries to clear PTEs by
+submitting to one of those stopped entities. That eventually hangs the
+task.
+
+Commit aa5fc4362fac ("drm/amdgpu: fix task hang from failed job
+submission during process kill") added the stopped entity check in
+amdgpu_vm_ready() and used it in amdgpu_cs_vm_handling(). That did not
+cover a call in amdgpu_dma_buf_move_notify(), what was already mentioned
+in:
+https://lists.freedesktop.org/archives/amd-gfx/2025-October/133076.html
+
+Tested by SIGKILLing a GPU workload holding imported dma-bufs. Without
+the patch "Trying to push to a killed entity" errors are logged, then a
+task hangs. With the patch there are no hung tasks. This was tested on a
+6.18 kernel.
+
+Fixes: aa5fc4362fac ("drm/amdgpu: fix task hang from failed job submission during process kill")
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Dariusz Marcinkiewicz <darekm@google.com>
+Assisted-by: LLM
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit bee5c9d7a34cb1b510ad3b4c18c30f9d38b0ab7d)
+Cc: stable@vger.kernel.org
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit c119ff2a09537601c62b9e879f0c6927575c0d7e)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c
+index 13210f3137ac6eca57aa54cf1bff520fafbc1890..55f3e651b3d12ceb3ac35956f88a7f8c9032635a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c
+@@ -551,6 +551,11 @@ amdgpu_dma_buf_move_notify(struct dma_buf_attachment *attach)
+ 				continue;
+ 		}
+ 
++		if (!amdgpu_vm_ready(vm)) {
++			dma_resv_unlock(resv);
++			continue;
++		}
++
+ 		/* Reserve fences for two SDMA page table updates */
+ 		r = dma_resv_reserve_fences(resv, 2);
+ 		if (!r)
