@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Laurence Oberman <loberman@redhat.com>
+Date: Fri, 13 Nov 2026 09:50:46 -0500
+Subject: [PATCH] scsi: mpt3sas: Fix off-by-one in NVMe PRP list transfer size
+ limit
+
+Commit 04631f55afc5 ("scsi: mpt3sas: Limit NVMe request size to 2 MiB")
+capped max_hw_sectors at 2 MiB on the basis that the 4 KiB PRP list
+buffer holds 512 entries. That does not account for how
+base_make_prp_nvme() fills the buffer:
+
+ - PRP1 is placed in the main message frame and covers the first,
+   possibly partial, page of the transfer.
+ - When the list reaches the last 8-byte slot of the page, that slot
+   is used for a chain pointer, so only 511 data PRPs fit.
+
+A transfer of length L starting at page offset O needs
+DIV_ROUND_UP(L - (4096 - O), 4096) list entries. A page aligned 2 MiB
+transfer needs 511 and fits. A transfer that starts at a non-zero page
+offset, which O_DIRECT permits with 512 byte logical blocks, can need
+512: the chain pointer is written to slot 511 and the next PRP to slot
+512, one entry past the end of the per-command PCIe SGL buffer. This is
+not limited to exactly 2 MiB; under the 2 MiB cap, any transfer of
+2 MiB - 3 KiB or more starting at offset 3584 overruns, and likewise
+for other offsets.
+
+This was hit with the 2 MiB cap applied, on a Grace (arm64, SMMUv3 in
+translated mode) system with a SAS3816 and an NVMe drive, running
+xfs_repair from fstests on a KASAN kernel:
+
+  sd 0:2:0:0: [sda] tag#2682 page boundary curr_buff: 0x00000000e986a684
+  BUG: KASAN: vmalloc-out-of-bounds in _base_build_sg_scmd_ieee+0x115c/0x1508 [mpt3sas]
+  Write of size 8 at addr ffff80008cc8a000 by task xfs_repair/210713
+  ...
+  The buggy address belongs to a 0-page vmalloc region starting at
+  0xffff80008cc89000 allocated at dma_common_pages_remap+0x30/0x88
+  ...
+  Unable to handle kernel paging request at virtual address ffff80008cc8a000
+  Internal error: Oops: 0000000096000047 [#1]  SMP
+  pc : _base_build_sg_scmd_ieee+0x380/0x1508 [mpt3sas]
+  Call trace:
+   _base_build_sg_scmd_ieee+0x380/0x1508 [mpt3sas] (P)
+   scsih_qcmd+0xdc8/0x15c8 [mpt3sas]
+   scsi_dispatch_cmd+0x1f8/0x578
+   scsi_queue_rq+0x528/0x12f0
+   ...
+   __blkdev_direct_IO+0x760/0xd40
+   blkdev_direct_IO+0x338/0x4a0
+   blkdev_read_iter+0x1e4/0x370
+
+With the IOMMU remapping the coherent pool page, the overrun faults
+on the guard page. Without that remap it silently corrupts 8 bytes of
+the adjacent physical page.
+
+Limit the transfer to 511 NVMe pages (2 MiB - 4 KiB), which fits the
+PRP list for any starting offset. With this limit the list never
+reaches the last slot of the page, so the "page boundary curr_buff"
+message, which is only printed on the overrun path, can no longer
+trigger.
+
+Fixes: 04631f55afc5 ("scsi: mpt3sas: Limit NVMe request size to 2 MiB")
+Cc: stable@vger.kernel.org
+Tested-by: Laurence Oberman <loberman@redhat.com>
+Signed-off-by: Laurence Oberman <loberman@redhat.com>
+Link: https://lore.kernel.org/all/20261113145047.623807-1-loberman@redhat.com/
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ drivers/scsi/mpt3sas/mpt3sas_scsih.c | 26 +++++++++++++++++++++-----
+ 1 file changed, 21 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/scsi/mpt3sas/mpt3sas_scsih.c b/drivers/scsi/mpt3sas/mpt3sas_scsih.c
+index 12caffeed3a0d2326cd61d7e9947fce027c7a953..749a43de9456f931e99b0430a9439645aa2aa374 100644
+--- a/drivers/scsi/mpt3sas/mpt3sas_scsih.c
++++ b/drivers/scsi/mpt3sas/mpt3sas_scsih.c
+@@ -57,6 +57,14 @@
+ 
+ #include "mpt3sas_base.h"
+ 
++/*
++ * Largest NVMe transfer whose PRP list fits in one NVME_PRP_PAGE_SIZE
++ * buffer (last entry reserved for the chain pointer) for any buffer
++ * offset: (4096 / 8 - 1) * 4096 = 2 MiB - 4 KiB.
++ */
++#define MPT3SAS_NVME_MAX_XFER \
++	((NVME_PRP_PAGE_SIZE / NVME_PRP_SIZE - 1) * NVME_PRP_PAGE_SIZE)
++
+ #define RAID_CHANNEL 1
+ 
+ #define PCIE_CHANNEL 2
+@@ -2741,14 +2749,22 @@ scsih_sdev_configure(struct scsi_device *sdev, struct queue_limits *lim)
+ 		/*
+ 		 * The HBA firmware passes the NVMe drive's MDTS
+ 		 * (Maximum Data Transfer Size) up to the driver. However,
+-		 * the driver hardcodes a 4K buffer size for the PRP list,
+-		 * accommodating at most 512 entries. This strictly limits
+-		 * the maximum supported NVMe I/O transfer to 2 MiB.
++		 * the driver hardcodes a 4K buffer size for the PRP list.
++		 * base_make_prp_nvme() reserves the last slot of that page
++		 * for a chain pointer, leaving 511 data PRP entries, and
++		 * PRP1 in the main message frame covers the first, possibly
++		 * partial, page.
++		 *
++		 * A transfer that is not page aligned spans one more page
++		 * than its length implies, so a 2 MiB I/O starting at a
++		 * non-zero page offset needs 512 list entries and overruns
++		 * the PRP buffer by one. Limit transfers to 511 pages, which
++		 * fits the PRP list for any starting offset.
+ 		 *
+ 		 * Cap max_hw_sectors to the smaller of the drive's reported
+-		 * MDTS or the 2 MiB driver limit to prevent kernel oopses.
++		 * MDTS or the driver limit to prevent kernel oopses.
+ 		 */
+-		lim->max_hw_sectors = SZ_2M >> SECTOR_SHIFT;
++		lim->max_hw_sectors = MPT3SAS_NVME_MAX_XFER >> SECTOR_SHIFT;
+ 		if (pcie_device->nvme_mdts)
+ 			lim->max_hw_sectors = min(lim->max_hw_sectors,
+ 					pcie_device->nvme_mdts >> SECTOR_SHIFT);
